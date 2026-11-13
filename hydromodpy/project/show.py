@@ -18,18 +18,24 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
+from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 from hydromodpy.core.exceptions import CommandUsageError, NothingThereError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results.run.group import RunSet
-from hydromodpy.results.run.view import REPORT, REPORT_OPTIONS, Run, project_root_of
+from hydromodpy.results.run.view import (
+    REPORT,
+    REPORT_OPTIONS,
+    Run,
+    project_root_of,
+    refuse_lang,
+)
 from hydromodpy.results.session.view import Session
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
-
-    from hydromodpy.display.request import FigureRequest
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,15 +151,104 @@ def _sealed_display(subject: Any) -> Any:
         return None
 
 
-def project_presets(subject: Any) -> dict[str, FigureRequest]:
-    """Return the shipped presets, with the ``[display.presets]`` the run was drawn with.
+def project_toml_files(root: Path) -> list[Path]:
+    """Return the configuration files a project holds: its ``project.toml`` and the ``*.toml`` beside it."""
+    return sorted(Path(root).glob("*.toml"))
 
-    A session or a set of runs holds no sealed ``[display]``, so it has the shipped ones.
+
+logger = get_logger(__name__)
+
+
+class WrittenPresets(dict):
+    """The presets of a project, and the faults of the ones its files write wrongly.
+
+    A name in ``refused`` is found by ``in`` and refused by ``[]`` with the message that
+    names the file and the fault, so only a request for that preset fails.
+    """
+
+    def __init__(self, *args: Any, refused: Mapping[str, str] | None = None) -> None:
+        super().__init__(*args)
+        self.refused = dict(refused or {})
+
+    def __contains__(self, name: object) -> bool:
+        return dict.__contains__(self, name) or name in self.refused
+
+    def __missing__(self, name: str) -> Any:
+        if name in self.refused:
+            raise CommandUsageError(self.refused[name])
+        raise KeyError(name)
+
+
+@cache
+def _log_refused(message: str) -> None:
+    """Log a refused preset once per message."""
+    logger.warning("%s", message)
+
+
+def _written_presets(root: Path) -> WrittenPresets:
+    """Return the ``[display.presets]`` written now in the TOML files of a project.
+
+    A preset a file writes wrongly is left out of the result, logged once, and kept in
+    ``refused`` with its fault.
+    """
+    import tomllib
+
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+    from hydromodpy.display.config import DisplayConfig
+
+    found = WrittenPresets()
+    for path in project_toml_files(root):
+        try:
+            document = load_toml_with_base_config(path, root=None)
+        except (OSError, ValueError, tomllib.TOMLDecodeError):
+            continue  # a file that does not read holds no preset; its own command says why
+        display = document.get("display")
+        written = display.get("presets") if isinstance(display, Mapping) else None
+        if not written or not isinstance(written, Mapping):
+            continue
+        for name, preset in dict(written).items():
+            try:
+                found.update(DisplayConfig.model_validate({"presets": {name: preset}}).presets)
+            except ValueError as error:
+                message = f"[display.presets.{name}] of {path} is refused: {error}"
+                found.refused[name] = message
+                _log_refused(message)
+    return found
+
+
+def preset_places(subject: Any) -> str:
+    """Return the sentence that says where the presets of *subject* are looked up."""
+    places = ["the shipped presets"]
+    if isinstance(subject, Run):
+        places.append("the [display.presets] the run was sealed with")
+        located = project_root_of(subject.dir)
+        if located is not None:
+            files = ", ".join(path.name for path in project_toml_files(located[0])) or "no file"
+            places.append(
+                f"the [display.presets] of the project files now ({files} in {located[0]})"
+            )
+    return "Presets are looked up in " + ", then ".join(places) + "."
+
+
+def project_presets(subject: Any) -> WrittenPresets:
+    """Return the presets *subject* can draw, the last source winning for a name.
+
+    The order is the shipped presets, then the ``[display.presets]`` of the TOML files
+    the project of a run holds now, then the ones the run was sealed with. A preset is a
+    way of looking at a run, so one written after the run exists is found, and a name
+    the run sealed keeps its sealed definition, so an old figure is drawn again the
+    same. A run outside a project, a session or a set of runs has no project files.
     """
     from hydromodpy.display.presets import PRESETS
 
     sealed = _sealed_display(subject)
-    return {**PRESETS, **({} if sealed is None else sealed.presets)}
+    located = project_root_of(subject.dir) if isinstance(subject, Run) else None
+    written = WrittenPresets() if located is None else _written_presets(located[0])
+    sealed_presets = {} if sealed is None else sealed.presets
+    return WrittenPresets(
+        {**PRESETS, **written, **sealed_presets},
+        refused={name: why for name, why in written.refused.items() if name not in sealed_presets},
+    )
 
 
 def project_theme(subject: Any) -> str:
@@ -219,7 +314,7 @@ def render(
         drawn = render_figure(name, subject, save=save, dpi=dpi, run_dir=run_dir, **given)
     except KeyError as error:
         if str(error).strip("'\"").startswith("unknown figure"):
-            raise _unknown_figure(name, project_presets(subject)) from None
+            raise _unknown_figure(name, project_presets(subject), preset_places(subject)) from None
         raise
     if save is None:
         return drawn
@@ -227,7 +322,7 @@ def render(
     return target / f"{name}.png" if target.is_dir() else target
 
 
-def _unknown_figure(name: object, presets: Mapping[str, Any]) -> CommandUsageError:
+def _unknown_figure(name: object, presets: Mapping[str, Any], places: str) -> CommandUsageError:
     """Return the refusal for a name that is no variable, preset or registered figure."""
     import difflib
 
@@ -239,7 +334,8 @@ def _unknown_figure(name: object, presets: Mapping[str, Any]) -> CommandUsageErr
     close = difflib.get_close_matches(str(name), known, n=3)
     hint = f" Did you mean {', '.join(close)}?" if close else ""
     return CommandUsageError(
-        f"Unknown figure {name!r}.{hint} It is not a variable, a preset or a registered figure."
+        f"Unknown figure {name!r}.{hint} It is not a variable, a preset or a registered figure. "
+        f"{places}"
     )
 
 
@@ -282,15 +378,34 @@ def _against_runs(subject: Any, figure: Any) -> dict[str, Run]:
     return resolved
 
 
+def _refuse_save(save: Any, suffix: str, engines: tuple[str, ...]) -> CommandUsageError:
+    """Return the refusal for a ``save`` suffix that none of *engines* writes."""
+    from hydromodpy.display.request import ENGINES
+
+    writes = " ".join(
+        f"The {name} engine writes {', '.join(e.formats)}." for name, e in ENGINES.items()
+    )
+    return CommandUsageError(
+        f"save = {str(save)!r}: {suffix!r} is not written by the {' and '.join(engines)} engine. "
+        f"{writes}"
+    )
+
+
 def _render_request(
     subject: Any, name: str | Mapping[str, Any], given: dict[str, Any]
 ) -> Figure | Path | dict[str, Any]:
-    """Draw a request: expand it once, render it, and write it when ``save`` is given."""
+    """Draw a request: expand it once, render it, and write it when ``save`` is given.
+
+    The ``engine`` given, else the engines of the request, draws the figure. A request that
+    lists both engines is drawn once per engine and writes one file per engine. It gives
+    the static figure, or its path when ``save`` is given. The tables of ``data`` do not
+    depend on the engine.
+    """
     from dataclasses import replace
 
     from hydromodpy.display.output import write
     from hydromodpy.display.render import render as render_figure
-    from hydromodpy.display.request import ENGINES, FORMATS, FigureRequest, expand, request_of
+    from hydromodpy.display.request import ENGINES, STATIC, FigureRequest, expand, request_of
     from hydromodpy.display.theme import get_theme
 
     save = given.pop("save", None)
@@ -314,36 +429,41 @@ def _render_request(
     figure = expand(request, presets)
     if data:
         tables = render_figure(
-            figure,
-            subject,
-            theme=theme,
-            engine=engine,
-            data=True,
-            runs=_against_runs(subject, figure),
+            figure, subject, theme=theme, data=True, runs=_against_runs(subject, figure)
         )
         return tables if data_dir is None else _write_tables(tables, figure.stem, Path(data_dir))
+    engines = (engine,) if engine is not None else figure.engine
     chosen = get_theme(theme) if isinstance(theme, str) else theme
     if dpi is not None:
         chosen = replace(chosen or get_theme("default"), dpi=int(dpi))
-    drawn = render_figure(
-        figure, subject, theme=chosen, engine=engine, runs=_against_runs(subject, figure)
-    )
-    if save is None:
-        return drawn
-    target = Path(save).expanduser()
-    directory = target if target.is_dir() or target.suffix == "" else target.parent
-    if directory is not target:
+    runs = _against_runs(subject, figure)
+    target = None if save is None else Path(save).expanduser()
+    suffix = ""
+    if target is not None and not (target.is_dir() or target.suffix == ""):
         suffix = target.suffix.lstrip(".").lower()
-        if suffix not in FORMATS:
-            raise CommandUsageError(
-                f"save = {str(save)!r}: a figure is written as {', '.join(FORMATS)}, not {suffix!r}."
-            )
-        figure = replace(figure, stem=target.stem, formats=(suffix,))
+        if not any(suffix in ENGINES[name].formats for name in engines):
+            raise _refuse_save(save, suffix, engines)
+    drawn_by = {
+        name: render_figure(figure, subject, theme=chosen, engine=name, runs=runs)
+        for name in engines
+    }
+    first = drawn_by.get(STATIC, drawn_by[engines[0]])
+    if target is None:
+        return first
+    directory = target.parent if suffix else target
     run = subject if isinstance(subject, Run) else None
-    return write(drawn, figure, run, directory, chosen or get_theme("default"))[0]
+    paths = []
+    for name, drawn in drawn_by.items():
+        written = figure
+        if suffix:
+            formats = (suffix,) if suffix in ENGINES[name].formats else ENGINES[name].formats[:1]
+            written = replace(figure, stem=target.stem, formats=formats)
+        paths.append(write(drawn, written, run, directory, chosen or get_theme("default"))[0])
+    return paths[list(drawn_by).index(STATIC)] if STATIC in drawn_by else paths[0]
 
 
 def _report(subject: Any, options: Mapping[str, Any]) -> Path:
+    refuse_lang(options)
     from hydromodpy.project.report import report_run, report_session
 
     if isinstance(subject, Session):
@@ -386,9 +506,9 @@ def project_summary(project_root: Path) -> dict[str, Any]:
         "name": root.name,
         "path": str(root),
         "has_project_toml": (root / PROJECT_MARKER_FILENAME).is_file(),
-        "configs": sorted(
-            path.name for path in root.glob("*.toml") if path.name != PROJECT_MARKER_FILENAME
-        ),
+        "configs": [
+            path.name for path in project_toml_files(root) if path.name != PROJECT_MARKER_FILENAME
+        ],
         "n_runs": sum(runs.values()),
         "runs": dict(sorted(runs.items())),
         "n_sessions": sum(sessions.values()),

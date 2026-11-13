@@ -550,7 +550,8 @@ def registry_counts(repo: Path = ROOT) -> list[dict[str, Any]]:
     """What the registries of the code hold, counted when the page is built."""
     from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
     from hydromodpy.data.source.registry import data_sources
-    from hydromodpy.display.figure_registry import list_figures
+    from hydromodpy.display.presets import PANEL_PRESETS
+    from hydromodpy.display.request import SPECIALS
     from hydromodpy.schema.sources import SOURCES
     from hydromodpy.solver.base.registry import solvers
     from hydromodpy.workflow.steps.sequence import standard_steps
@@ -591,9 +592,14 @@ def registry_counts(repo: Path = ROOT) -> list[dict[str, Any]]:
             ],
         },
         {
-            "what": "Figures",
-            "source": "hydromodpy.display.figure_registry.list_figures",
-            "names": sorted(spec.name for spec in list_figures()),
+            "what": "Figure presets",
+            "source": "hydromodpy.display.presets.PANEL_PRESETS",
+            "names": sorted(PANEL_PRESETS),
+        },
+        {
+            "what": "Special figures",
+            "source": "hydromodpy.display.request.SPECIALS",
+            "names": sorted(SPECIALS),
         },
     ]
 

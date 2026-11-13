@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Final
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.display.figure import new_subplots
+from hydromodpy.display import static
 from hydromodpy.display.overview.location import (
     overview_figures_dir,
     overview_run_dir_of,
@@ -43,6 +43,7 @@ from hydromodpy.display.overview.summary import (
     regional_context_title,
     station_table,
 )
+from hydromodpy.display.theme import Theme, get_theme
 
 logger = get_logger(__name__)
 
@@ -102,13 +103,16 @@ def generate_overview_report(
     date_end = getattr(overview_cfg, "date_end", None)
 
     paths: list[Path] = []
-    station_points = _build_station_points(ld)
+    theme = get_theme("default")
+    station_points = _build_station_points(ld, theme)
 
     if regional_dem_path and watershed_shp:
         paths.append(
             _render_panel(
                 output_dir / REGIONAL_PANEL_FILE,
-                figsize=(8, 6.4),
+                width="medium",
+                aspect=0.8,
+                theme=theme,
                 render_fn=render_regional_context_map,
                 regional_dem_path=str(regional_dem_path),
                 watershed_shp=str(watershed_shp),
@@ -123,14 +127,15 @@ def generate_overview_report(
         paths.append(
             _render_panel(
                 output_dir / PANEL_FILES["map_dem"],
-                figsize=(7, 6),
+                width="medium",
+                aspect=6 / 7,
+                theme=theme,
                 render_fn=render_dem_map,
                 dem_path=str(dem_path),
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 streams_gdf=streams_gdf,
                 station_points=station_points,
                 outlet_xy=outlet_xy(dg),
-                relative_ticks=True,
                 title=f"{title} - DEM",
             )
         )
@@ -140,12 +145,13 @@ def generate_overview_report(
         paths.append(
             _render_panel(
                 output_dir / PANEL_FILES["map_geology"],
-                figsize=(9, 6),
+                width="medium",
+                aspect=0.7,
+                theme=theme,
                 render_fn=render_geology_map,
                 dem_path=str(dem_path),
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 geology_gdf=geology_gdf,
-                relative_ticks=True,
                 title="Catchment geology",
             )
         )
@@ -154,13 +160,14 @@ def generate_overview_report(
         paths.append(
             _render_panel(
                 output_dir / PANEL_FILES["map_hydrography"],
-                figsize=(7, 6),
+                width="medium",
+                aspect=6 / 7,
+                theme=theme,
                 render_fn=render_hydrography_map,
                 dem_path=str(dem_path),
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 streams_gdf=streams_gdf,
                 outlet_xy=outlet_xy(dg),
-                relative_ticks=True,
                 stream_label="BD Topage",
                 title="BD Topage hydrographic network",
             )
@@ -173,7 +180,9 @@ def generate_overview_report(
         paths.append(
             _render_panel(
                 output_dir / PANEL_FILES["timeseries_discharge"],
-                figsize=(10, 4),
+                width="double",
+                aspect=0.4,
+                theme=theme,
                 render_fn=render_timeseries_multi,
                 df=obs_df,
                 ylabel="Discharge",
@@ -187,11 +196,13 @@ def generate_overview_report(
     if panels_cfg.timeseries_piezometry:
         piezo_records = ld.piezometry.points if ld.piezometry else None
         obs_df = _records_to_timeseries_df(piezo_records)
-        piezo_hlines = _piezo_altitude_hlines(piezo_records)
+        piezo_hlines = _piezo_altitude_hlines(piezo_records, theme)
         paths.append(
             _render_panel(
                 output_dir / PANEL_FILES["timeseries_piezometry"],
-                figsize=(10, 4),
+                width="double",
+                aspect=0.4,
+                theme=theme,
                 render_fn=render_timeseries_multi,
                 df=obs_df,
                 ylabel="Piezometric level",
@@ -210,7 +221,9 @@ def generate_overview_report(
         paths.append(
             _render_panel(
                 output_dir / PANEL_FILES["timeseries_intermittency"],
-                figsize=(9, 0.9 + 1.9 * n_rows),
+                width="double",
+                aspect=(0.9 + 1.9 * n_rows) / 9,
+                theme=theme,
                 render_fn=render_intermittency,
                 df=onde_df,
                 title=f"{title} - ONDE flow state",
@@ -226,7 +239,9 @@ def generate_overview_report(
         paths.append(
             _render_panel(
                 output_dir / PANEL_FILES["timeseries_water_quality"],
-                figsize=(10, 0.9 + 2.6 * max(1, len(series_by_param))),
+                width="double",
+                aspect=(0.9 + 2.6 * max(1, len(series_by_param))) / 10,
+                theme=theme,
                 render_fn=render_water_quality,
                 series_by_param=series_by_param,
                 title=f"{title} - Water quality",
@@ -243,7 +258,9 @@ def generate_overview_report(
         paths.append(
             _render_panel(
                 output_dir / PANEL_FILES["climatic_summary"],
-                figsize=(8, 4),
+                width="double",
+                aspect=0.5,
+                theme=theme,
                 render_fn=render_climatic_summary,
                 monthly_precip=monthly_precip,
                 monthly_etp=monthly_etp,
@@ -255,7 +272,9 @@ def generate_overview_report(
         paths.append(
             _render_panel(
                 output_dir / PANEL_FILES["stats_card"],
-                figsize=(6, 5),
+                width="medium",
+                aspect=0.6,
+                theme=theme,
                 render_fn=render_stats_card,
                 summary=summary,
             )
@@ -266,7 +285,9 @@ def generate_overview_report(
         paths.append(
             _render_panel(
                 output_dir / PANEL_FILES["station_inventory"],
-                figsize=(10, max(3, 0.35 * len(stations) + 1)),
+                width="double",
+                aspect=max(3, 0.35 * len(stations) + 1) / 10,
+                theme=theme,
                 render_fn=render_station_inventory,
                 inventory=stations,
             )
@@ -286,15 +307,18 @@ def _resolve_output_dir(state: DataOverviewState) -> Path:
     return overview_figures_dir(overview_run_dir_of(state))
 
 
-def _render_panel(save_path: Path, *, figsize: tuple[float, float], render_fn, **kwargs) -> Path:
+def _render_panel(
+    save_path: Path, *, theme: Theme, width: str, aspect: float, render_fn, **kwargs
+) -> Path:
     """Create a figure on its own Agg canvas, call the render function, save.
 
     The figure never enters the pyplot registry and no backend is switched, so
-    a panel drawn in one thread leaves the others alone.
+    a panel drawn in one thread leaves the others alone. ``aspect`` is height over width.
     """
-    fig, ax = new_subplots(figsize=figsize, dpi=200, layout="constrained")
-    render_fn(ax, **kwargs)
-    fig.savefig(save_path, dpi=200, bbox_inches="tight")
+    fig = static.new_figure(theme, width=width)
+    fig.set_size_inches(fig.get_figwidth(), fig.get_figwidth() * aspect)
+    render_fn(fig.axes[0], theme=theme, **kwargs)
+    static.save(fig, save_path, theme)
     return save_path
 
 
@@ -380,7 +404,7 @@ def _records_to_timeseries_df(records):
     return pd.DataFrame(frames) if frames else None
 
 
-def _piezo_altitude_hlines(records) -> list[dict] | None:
+def _piezo_altitude_hlines(records, theme: Theme) -> list[dict] | None:
     """Build horizontal-line specs for the piezometer surface altitudes.
 
     Hub'Eau exposes ``altitude_station`` (ground level in meters NGF) in the
@@ -390,7 +414,6 @@ def _piezo_altitude_hlines(records) -> list[dict] | None:
     """
     if not records:
         return None
-    palette = ["darkred", "saddlebrown", "darkolivegreen", "indigo"]
     hlines: list[dict] = []
     for idx, rec in enumerate(records):
         loc = rec.location
@@ -407,7 +430,7 @@ def _piezo_altitude_hlines(records) -> list[dict] | None:
             {
                 "y": alt_value,
                 "label": f"{rec.station_id} ground ({alt_value:.1f} m)",
-                "color": palette[idx % len(palette)],
+                "color": theme.class_color(idx),
                 "linestyle": "--",
             }
         )
@@ -526,16 +549,16 @@ def _pick_time_dim(da) -> str | None:
     return None
 
 
-def _build_station_points(ld) -> list[dict] | None:
+def _build_station_points(ld, theme: Theme) -> list[dict] | None:
     """Convert PointRecord station locations to generic dicts for map overlays."""
     points: list[dict] = []
     configs = [
-        ("hydrometry", "o", "white", "Hydrometry"),
-        ("piezometry", "^", "skyblue", "Piezometry"),
-        ("intermittency", "s", "lightgrey", "Intermittency"),
-        ("water_quality", "D", "khaki", "Water quality"),
+        ("hydrometry", "o", "Hydrometry"),
+        ("piezometry", "^", "Piezometry"),
+        ("intermittency", "s", "Intermittency"),
+        ("water_quality", "D", "Water quality"),
     ]
-    for attr, marker, color, group in configs:
+    for (attr, marker, group), color in zip(configs, theme.categorical, strict=False):
         lr = getattr(ld, attr, None)
         if lr is None:
             continue

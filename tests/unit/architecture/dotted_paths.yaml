@@ -77,7 +77,6 @@ not_modules:
     - {text: hydromodpy.display.overview.web, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.display.report_blocks, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.workflow.steps.calibration, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.display.figures.cohort_, why: the start of the cohort figure module names, prefix: true}
 
 # Strings that point at nothing today. Each one stays until the lot named in
 # lifted_by fixes it, and that lot removes the entry.

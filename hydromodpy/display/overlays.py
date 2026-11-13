@@ -167,18 +167,18 @@ def outline(ax: Any, subject: Run, theme: Theme) -> None:
 def network(ax: Any, subject: Run, theme: Theme) -> None:
     """Draw the reference network, intermittent reaches dashed when ``reference_permanent`` exists."""
     reference = reads.read_network(subject, "reference")
+    # The dark blue is lost in the dark valleys of a relief ramp.
+    solid = "network_on_relief" if ax.images else "reference_network"
     try:
         permanent = {g.wkb for g in reads.read_network(subject, "reference_permanent").geometry}
     except FigureNotApplicable:
         permanent = None
     if permanent is None:
-        _add_lines(
-            ax, _all_lines(reference), theme, "reference_network", width=theme.line_width * 2
-        )
+        _add_lines(ax, _all_lines(reference), theme, solid, width=theme.line_width * 2)
         return
     is_permanent = [g.wkb in permanent for g in reference.geometry]
     for flag, role, dashes in (
-        (True, "reference_network", "-"),
+        (True, solid, "-"),
         (False, "intermittent_reach", "--"),
     ):
         part = reference.geometry[[p is flag for p in is_permanent]]

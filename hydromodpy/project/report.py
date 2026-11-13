@@ -23,45 +23,54 @@ from pathlib import Path
 
 from hydromodpy.core.exceptions import ConfigError, DisplayError, ResultsError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.display.figure_registry import get as get_figure
-from hydromodpy.display.figure_registry import names as figure_names
+from hydromodpy.display.output import write
 from hydromodpy.display.overview.location import overview_run_dir
+from hydromodpy.display.presets import PRESETS as FIGURE_PRESETS
+from hydromodpy.display.render import render
 from hydromodpy.display.report.engine import write_pages
 from hydromodpy.display.report.pages import (
-    draw_named_figures,
+    draw_report_figures,
+    report_request,
     run_blocks,
     session_blocks,
     sheet_blocks,
 )
-from hydromodpy.display.report.presets import PRESETS, ReportTexts, preset_figures
-from hydromodpy.display.style import themed
+from hydromodpy.display.report.presets import (
+    PRESETS,
+    REPORT_FIGURES,
+    ReportTexts,
+    preset_figures,
+)
+from hydromodpy.display.request import expand
+from hydromodpy.display.theme import get_theme
 from hydromodpy.results.method import label_text, method_text
 from hydromodpy.results.record.label import label_of
 from hydromodpy.results.record.manifest import is_sealed, read_seal
-from hydromodpy.results.run.view import open_run_dir
+from hydromodpy.results.run.view import Run, open_run_dir
 from hydromodpy.results.session.summary import session_summary, summary_rows
 from hydromodpy.results.session.view import Session
 from hydromodpy.results.storage.contract import (
     RUN_FIGURES_DIRNAME,
     RUN_REPORT_DIRNAME,
 )
-from hydromodpy.schema.phrases import Lang, keys, phrase
+from hydromodpy.schema.phrases import keys, phrase
 
 logger = get_logger(__name__)
 
+LANG = "en"
+"""The language of the report text."""
+
 SESSION_FIGURES: tuple[str, ...] = (
-    "calibration_convergence",
-    "calibration_trace",
+    "calibration_progress",
+    "parameter_trace",
+    "parameter_distribution",
     "calibration_landscape",
-    "calibration_trial_distribution",
-    "calibration_objective_surface",
-    "calibration_pairplot",
 )
 """The figures of the session itself, drawn under ``sessions/<s>/figures/``."""
 
 BEST_RUN_FIGURES: dict[str, tuple[str, ...]] = {
-    "lake_level": ("lake_stage_sim_obs",),
-    "discharge": ("hydrograph_sim_obs", "scatter_one_to_one"),
+    "lake_level": ("lake_stage",),
+    "discharge": ("hydrograph", "scatter_one_to_one"),
 }
 """Figures of the promoted best run, by calibrated variable."""
 
@@ -100,7 +109,6 @@ def report_run(
     run_dir: str | Path,
     *,
     preset: str = "research",
-    lang: Lang = "en",
     overview_dir: str | Path | None = None,
     station: str | None = None,
     strict: bool = False,
@@ -109,8 +117,8 @@ def report_run(
     """Write the report of the sealed run at *run_dir* and return its first page.
 
     ``research`` writes ``report/`` with three levels. ``management`` writes the
-    one-page sheet ``report/sheet-<lang>/index.html``. Figures the preset names
-    and the run lacks are drawn from the ``[display]`` the run sealed. The view of
+    one-page sheet ``report/sheet/index.html``. Figures the preset names
+    and the run lacks are drawn with the theme the run sealed. The view of
     the data is the overview of the same site, looked for next to the run unless
     *overview_dir* names it.
 
@@ -134,18 +142,17 @@ def report_run(
     overview = _overview_of(run, directory, overview_dir)
 
     label = label_of(read_seal(directory), directory)
-    titles = {key: phrase("report", key, lang) for key in keys("report")}
+    titles = {key: phrase("report", key, LANG) for key in keys("report")}
     texts = ReportTexts(
-        method=method_text(directory, lang=lang, today=day),
-        label=label_text(label, lang=lang, today=day),
+        method=method_text(directory, lang=LANG, today=day),
+        label=label_text(label, lang=LANG, today=day),
         titles=titles,
     )
 
-    # The figures are drawn on the Agg backend of the display renderer, which
-    # keeps its own scope; the report itself changes no global matplotlib state.
-    draw_named_figures(run, preset_figures(chosen))
+    skipped: dict[str, str] = {}
+    draw_report_figures(run, preset_figures(chosen), station, skipped)
     if preset == "management":
-        out = directory / RUN_REPORT_DIRNAME / f"sheet-{lang}"
+        out = directory / RUN_REPORT_DIRNAME / "sheet"
         blocks = sheet_blocks(run, texts=texts, station=station)
     else:
         out = directory / RUN_REPORT_DIRNAME
@@ -156,7 +163,7 @@ def report_run(
         subtitle=str(run.site or ""),
         blocks=blocks,
         levels=chosen.levels,
-        lang=lang,
+        lang=LANG,
         label=label.label,
         rendered=day,
         preset=preset,
@@ -165,8 +172,11 @@ def report_run(
             "contents": titles["page_contents"],
             "figure_missing": titles["figure_missing"],
         },
+        reasons=skipped,
     )
-    missing = json.loads((out / "report.json").read_text(encoding="utf-8")).get("missing", [])
+    written = json.loads((out / "report.json").read_text(encoding="utf-8"))
+    held = written.get("figures", {})
+    missing = [name for name in written["missing"] if held.get(name, {}).get("required", True)]
     if strict and missing:
         raise DisplayError(
             f"report of run {directory.name} misses required figure(s): {', '.join(missing)}"
@@ -177,7 +187,7 @@ def report_run(
 def report_session(session_dir: str | Path, *, today: date | None = None) -> Path:
     """Write ``sessions/<s>/report/`` and ``sessions/<s>/figures/``, return the first page.
 
-    The six ``calibration_*`` figures are drawn from the session, and the figures of the
+    The ``SESSION_FIGURES`` are drawn from the session, and the figures of the
     promoted best run of each case. A figure that does not fit this session (too
     few parameters, a degenerate surface, a run with no gauge) is skipped with its reason
     in the log. A best run that does not open is named in the table of the cases, with
@@ -215,7 +225,7 @@ def report_session(session_dir: str | Path, *, today: date | None = None) -> Pat
             best_figures=best_figures,
         ),
         levels=PRESETS["research"].levels,
-        lang="en",
+        lang=LANG,
         rendered=day,
         preset="research",
     )
@@ -268,35 +278,27 @@ def _cases(session: Session) -> tuple[list[dict[str, str]], dict[str, object]]:
 
 
 def _draw(
-    subject: object,
-    names: tuple[str, ...],
+    subject: Session | Run,
+    stems: tuple[str, ...],
     figures_dir: Path,
     skipped: list[str],
     *,
     prefix: str = "",
 ) -> dict[str, Path]:
-    """Draw each registered figure of *names* from *subject*; a figure that fails is skipped.
-
-    A figure is drawn on its own canvas and freed once saved, so none stays in
-    the ``pyplot`` registry.
-    """
-    registered = set(figure_names())
+    """Draw each report figure of *stems* from *subject*; a figure that fails is skipped."""
     drawn: dict[str, Path] = {}
-    with themed():
-        for name in names:
-            target = figures_dir / f"{prefix}{name}.png"
-            if name not in registered:
-                skipped.append(f"{name}: figure is not registered")
-                continue
-            try:
-                get_figure(name).plot(subject, save_path=target)
-            except Exception as exc:  # the figure says why it does not fit; the report goes on
-                skipped.append(f"{name}: {exc}")
-                continue
-            if target.exists():
-                drawn[name] = target
-            else:
-                skipped.append(f"{name}: no output file was written")
+    theme = get_theme("default")
+    for stem in stems:
+        try:
+            request = (
+                report_request(stem, subject) if isinstance(subject, Run) else REPORT_FIGURES[stem]
+            )
+            figure = expand(request.model_copy(update={"name": f"{prefix}{stem}"}), FIGURE_PRESETS)
+            paths = write(render(figure, subject, theme=theme), figure, None, figures_dir, theme)
+        except Exception as exc:  # the figure says why it does not fit; the report goes on
+            skipped.append(f"{stem}: {exc}")
+            continue
+        drawn[stem] = paths[0]
     return drawn
 
 

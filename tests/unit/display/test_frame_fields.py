@@ -43,6 +43,7 @@ BRANCHES = [
     ("groups", {"variable": "seepage_mask", "station": ZONE}, {"layer": 1, "station": DOMAIN}),
     ("series", SERIES, {**EVERY, "station": ZONE, "scores": True, "stack": True,
                         "reference": ["zero"], "against": "observed", "cumulative": True}),
+    ("volume", {"variable": ["head"]}, {"time": 0, "layer": 1}),
     ("map", {"variable": ["head"]},
      {"time": 0, "layer": 1, "bbox": (X0, Y0, X0 + 600, Y0 + 600), "contours": False,
       "scale": "log", "reduce": "mean", "change": (0, 3), "against": "observed"}),

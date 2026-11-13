@@ -1,6 +1,6 @@
 # Figure requests
 
-Every table on this page is read from the code of the figure path when the site is built. To draw one, see {doc}`../contribute/architecture/how-to/add-a-figure`.
+Every table on this page is read from the code of the figure path when the site is built. To draw one, see {doc}`../contribute/architecture/how-to/add-a-figure`. The figures named by the key `[display].figures` are on {doc}`figures`.
 
 ## Fields
 

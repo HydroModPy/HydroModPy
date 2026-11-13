@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError, DisplayError
+from hydromodpy.display.report.presets import SHEET_FIGURES
 from hydromodpy.project import report as module
 from hydromodpy.project.report import regen_run, report_run, report_session
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
@@ -62,7 +63,9 @@ def calls(monkeypatch) -> dict:
         module, "label_text", lambda label, lang, today: f"label {label.label} {lang}"
     )
     monkeypatch.setattr(
-        module, "draw_named_figures", lambda run, names: seen["drawn"].append(tuple(names)) or ()
+        module,
+        "draw_report_figures",
+        lambda run, stems, station, skipped: seen["drawn"].append((tuple(stems), station)) or (),
     )
     monkeypatch.setattr(module, "run_blocks", fake_blocks)
     monkeypatch.setattr(module, "sheet_blocks", fake_blocks)
@@ -71,17 +74,17 @@ def calls(monkeypatch) -> dict:
     return seen
 
 
-def test_the_management_sheet_is_one_page_in_its_language(calls, tmp_path: Path) -> None:
+def test_the_management_sheet_is_one_page(calls, tmp_path: Path) -> None:
     run_dir = _sealed(make_project(tmp_path / "p"), "base")
 
-    page = report_run(run_dir, preset="management", lang="fr", today=DAY)
+    page = report_run(run_dir, preset="management", today=DAY)
 
     texts = calls["blocks"][0]["texts"]
-    assert texts.titles["method"] == "Méthode"
-    assert texts.method == "method fr 2026-11-11"
-    assert page == run_dir / "report" / "sheet-fr" / "index.html"
+    assert texts.titles["method"] == "Method"
+    assert texts.method == "method en 2026-11-11"
+    assert page == run_dir / "report" / "sheet" / "index.html"
     assert calls["write"]["levels"] is False
-    assert calls["write"]["lang"] == "fr"
+    assert calls["drawn"][0][0] == SHEET_FIGURES
 
 
 def test_the_station_reaches_the_page(calls, tmp_path: Path) -> None:
@@ -90,6 +93,7 @@ def test_the_station_reaches_the_page(calls, tmp_path: Path) -> None:
     report_run(run_dir, station="J0014010", today=DAY)
 
     assert calls["blocks"][0]["station"] == "J0014010"
+    assert calls["drawn"][0][1] == "J0014010"
 
 
 @pytest.mark.parametrize(
@@ -129,9 +133,9 @@ def test_a_report_refuses_what_it_cannot_read(
 
 def test_strict_fails_on_a_missing_required_figure_after_writing(calls, tmp_path: Path) -> None:
     run_dir = _sealed(make_project(tmp_path / "p"), "base")
-    calls["missing"] = ["seepage_map"]
+    calls["missing"] = ["seepage_mask"]
 
-    with pytest.raises(DisplayError, match="seepage_map"):
+    with pytest.raises(DisplayError, match="seepage_mask"):
         report_run(run_dir, strict=True, today=DAY)
 
     assert (run_dir / "report" / "report.json").is_file()
@@ -143,7 +147,7 @@ def test_a_session_report_never_writes_the_journal(monkeypatch, tmp_path: Path) 
     write_session_dir(project, "calage", trials=2)
     directory = project / "sessions" / "calage"
     written: dict = {}
-    monkeypatch.setattr(module, "SESSION_FIGURES", ("calibration_convergence", "nope"))
+    monkeypatch.setattr(module, "SESSION_FIGURES", ("calibration_progress", "nope"))
 
     def fake_write_pages(out: Path, **options) -> Path:
         written.update(out=out, **options)
@@ -151,14 +155,13 @@ def test_a_session_report_never_writes_the_journal(monkeypatch, tmp_path: Path) 
 
     monkeypatch.setattr(module, "write_pages", fake_write_pages)
     monkeypatch.setattr(module, "session_blocks", lambda *a, **k: [])
-    monkeypatch.setattr(module, "get_figure", lambda name: SimpleNamespace(plot=_fake_plot))
-    monkeypatch.setattr(module, "figure_names", lambda: ["calibration_convergence"])
+    _fake_drawing(monkeypatch)
     before = {path.name: path.stat().st_mtime_ns for path in directory.iterdir()}
 
     page = report_session(directory, today=DAY)
 
     assert page == directory / "report" / "index.html"
-    assert (directory / "figures" / "calibration_convergence.png").is_file()
+    assert (directory / "figures" / "calibration_progress.png").is_file()
     assert not (directory / "figures" / "nope.png").exists()
     for name, stamp in before.items():
         assert (directory / name).stat().st_mtime_ns == stamp, f"{name} was written"
@@ -166,8 +169,16 @@ def test_a_session_report_never_writes_the_journal(monkeypatch, tmp_path: Path) 
     assert written["preset"] == "research"
 
 
-def _fake_plot(subject, *, save_path: Path, **_options) -> None:
-    Path(save_path).write_bytes(b"png")
+def _fake_drawing(monkeypatch) -> None:
+    """Draw nothing and write a stub PNG where ``output.write`` would."""
+
+    def write(fig, figure, run, directory: Path, theme) -> list[Path]:
+        path = directory / f"{figure.stem}.png"
+        path.write_bytes(b"png")
+        return [path]
+
+    monkeypatch.setattr(module, "render", lambda *args, **kwargs: None)
+    monkeypatch.setattr(module, "write", write)
 
 
 def test_a_best_run_that_does_not_open_leaves_the_page_without_its_figures(
@@ -221,15 +232,16 @@ def test_a_session_of_several_cases_draws_the_best_run_of_each(monkeypatch, tmp_
     )
     monkeypatch.setattr(module, "summary_rows", lambda summary: [])
     monkeypatch.setattr(module, "session_blocks", spy_blocks)
-    monkeypatch.setattr(module, "get_figure", lambda name: SimpleNamespace(plot=_fake_plot))
-    monkeypatch.setattr(module, "figure_names", lambda: ["hydrograph_sim_obs"])
+    _fake_drawing(monkeypatch)
 
     report_session(directory, today=DAY)
 
     assert [row["best_run"] for row in seen["cases"]] == ["a.v1", "b.v1"]
     assert sorted(p.name for p in seen["best_figures"]) == [
-        "a_hydrograph_sim_obs.png",
-        "b_hydrograph_sim_obs.png",
+        "a_hydrograph.png",
+        "a_scatter_one_to_one.png",
+        "b_hydrograph.png",
+        "b_scatter_one_to_one.png",
     ]
 
 

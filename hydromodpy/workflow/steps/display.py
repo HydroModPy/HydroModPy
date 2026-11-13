@@ -124,50 +124,33 @@ def _render_requests(
             "[display] save = false: the %d figure(s) are not drawn.", len(display_cfg.figure)
         )
         return []
-    from dataclasses import replace
-
-    from hydromodpy.display.output import write
     from hydromodpy.display.presets import PRESETS
-    from hydromodpy.display.render import render
-    from hydromodpy.display.request import END, expand, file_stem
-    from hydromodpy.display.subject import FigureNotApplicable
-    from hydromodpy.display.theme import get_theme
+    from hydromodpy.display.request import file_stem
+    from hydromodpy.display.runs import display_theme, draw_requests
 
     presets = {**PRESETS, **display_cfg.presets}
-    theme = get_theme(display_cfg.theme_name)
-    if "dpi" in display_cfg.model_fields_set:
-        theme = replace(theme, dpi=display_cfg.dpi)
+    theme = display_theme(display_cfg)
     written: list[Path] = []
     for request in progress.track(display_cfg.figure, "Rendering figures"):
-        stem = file_stem(request)
         try:
-            figure = expand(request, presets)
-            if figure.when != END:
-                logger.info(
-                    "Figure %s is not drawn at the end of the run: when = %r is not drawn yet.",
-                    stem,
-                    figure.when,
-                )
-                continue
-            with measured("figure", stem) as measure:
-                try:
-                    drawn = render(figure, run, theme=theme)
-                    written.extend(write(drawn, figure, run, output_dir, theme))
-                finally:
-                    if on_measure is not None:
-                        on_measure(measure)
-        except FigureNotApplicable as exc:
-            logger.info("Figure %s skipped: %s", stem, exc)
+            report = draw_requests(
+                run,
+                [request],
+                presets=presets,
+                theme=theme,
+                output_dir=output_dir,
+                on_error=display_cfg.on_error,
+                on_measure=on_measure,
+            )
         except Exception as exc:
-            if display_cfg.on_error != "raise":
-                logger.warning("Figure %s failed: %s", stem, exc)
-            elif run_name is None:
+            if run_name is None:
                 raise
-            else:
-                raise DisplayError(
-                    f"run {run_name} is sealed; draw the figure again with "
-                    f"hmp show {run_name} --figure {stem}: {exc}"
-                ) from exc
+            stem = file_stem(request)
+            raise DisplayError(
+                f"run {run_name} is sealed; draw the figure again with "
+                f"hmp show {run_name} --figure {stem}: {exc}"
+            ) from exc
+        written.extend(report.written)
     return written
 
 

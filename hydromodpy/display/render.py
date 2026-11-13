@@ -20,15 +20,17 @@ import pandas as pd
 from matplotlib.figure import Figure
 
 from hydromodpy.core.exceptions import DisplayError
-from hydromodpy.display import frames, special, static
+from hydromodpy.display import frames, interactive, special, static
 from hydromodpy.display.overlays import OVERLAYS
 from hydromodpy.display.presets import PRESETS
 from hydromodpy.display.request import (
     AFTER,
     ENGINES,
     FRAMES,
+    INTERACTIVE,
     PARAMETER_TOKEN,
     SPECIALS,
+    STATIC,
     TRIAL_FRAMES,
     TRIALS,
     WHEN,
@@ -75,7 +77,8 @@ def render(
 
     A ``FigureRequest`` is first expanded with ``presets``, by default ``PRESETS``.
     ``theme`` is a ``Theme``, a name of ``THEMES`` or None for ``default``.
-    ``engine`` overrides the first engine of the request.
+    ``engine`` overrides the first engine of the request. A request that lists two engines
+    is drawn once per engine, by one call each.
 
     Static engine: returns a ``matplotlib.figure.Figure`` built by ``static.new_figure``
     at the request width, one axes per panel or small multiple, in one row up to three
@@ -84,6 +87,13 @@ def render(
     ``data`` then ``draw``, then each overlay of ``OVERLAYS`` the panel names. A
     shared norm (``share``) sets ``limits`` on every ``MapData`` before drawing.
     Panel labels (a), (b) go on a figure of more than one axes.
+
+    Interactive engine: returns a plotly figure built by ``interactive.assemble``, one
+    subplot per panel or small multiple in the same order and with the same titles. Each
+    frame module gives its traces through ``draw_interactive(data, theme)``. The overlays a
+    map takes by default are not asked for and are not drawn. Overlays or contours asked
+    explicitly, the shading of a time window and the reaches of a table are refused, with
+    the field named and the static engine given.
 
     Small multiples: ``facet = "time"`` repeats the panel per instant of its
     ``time`` list, ``"variable"`` per name, ``"layer"`` per layer of ``read_mesh``,
@@ -120,7 +130,8 @@ def render(
     if isinstance(request, FigureRequest):
         figure = expand(request, PRESETS if presets is None else presets)
     look = theme if isinstance(theme, Theme) else get_theme(theme or "default")
-    _check_ready(figure, engine or figure.engine[0])
+    engine = engine or figure.engine[0]
+    _check_ready(figure, engine, tables=data)
     if figure.draw is not None or figure.special is not None:
         if data:
             what = "a special figure" if figure.special else "a figure drawn by a function"
@@ -140,6 +151,15 @@ def render(
     loaded = _share_limits(loaded)
     columns = min(len(loaded), MAX_COLUMNS)
     width = "double" if len(loaded) > 1 and figure.width == "single" else figure.width
+    if engine == INTERACTIVE:
+        for key, panel, _, _, _ in loaded:
+            with _panel(key):
+                _refuse_static_only(panel)
+        panels = []
+        for key, _, _, module, found in loaded:
+            with _panel(key):
+                panels.append((_title(key, found), *module.draw_interactive(found, look)))
+        return interactive.assemble(panels, look, columns, figure.title)
     fig = static.new_figure(look, width=width, nrows=-(-len(loaded) // columns), ncols=columns)
     axes = list(fig.axes)
     for spare in axes[len(loaded) :]:
@@ -150,16 +170,38 @@ def render(
             module.draw(ax, found, look)
             for name in (panel.overlays or ()) if panel.type == "map" else ():
                 OVERLAYS[name](ax, sub.run if isinstance(sub, Compared) else sub, look)
-        title = [key.split(":", 1)[1]] if ":" in key else []
-        if getattr(found, "trials", None):
-            title.append("{} of {} trials".format(*found.trials))
-        if title:
-            ax.set_title(", ".join(title), **static.text_style(look))
+        if title := _title(key, found):
+            ax.set_title(title, **static.text_style(look))
     if len(loaded) > 1:
         static.panel_labels(axes, look)
     if figure.title:
         fig.suptitle(figure.title, **static.text_style(look, small=False))
     return fig
+
+
+def _refuse_static_only(panel: PanelRequest) -> None:
+    """Refuse what the interactive engine cannot draw and the static engine draws."""
+    asked = []
+    if panel.type == "map":
+        if panel.overlays and list(panel.overlays) != list(FRAMES["map"].overlays):
+            asked.append(f"overlays = {list(panel.overlays)}")
+        if panel.contours:
+            asked.append("contours = true")
+    if panel.type == "series" and panel.window is not None:
+        asked.append("the shading of the time window")
+    if asked:
+        raise FigureNotApplicable(
+            f"The interactive engine does not draw {', '.join(asked)}. "
+            "The static engine draws it: use engine = 'static'."
+        )
+
+
+def _title(key: str, found: Any) -> str:
+    """Return the title of a small multiple or of a panel of trials, else an empty string."""
+    title = [key.split(":", 1)[1]] if ":" in key else []
+    if getattr(found, "trials", None):
+        title.append("{} of {} trials".format(*found.trials))
+    return ", ".join(title)
 
 
 @contextmanager
@@ -175,12 +217,19 @@ def _not_drawn(what: str, name: str, instead: str) -> DisplayError:
     return DisplayError(f"The {what} {name!r} is not available. {instead}")
 
 
-def _check_ready(figure: ResolvedFigure, engine: str) -> None:
+def _check_ready(figure: ResolvedFigure, engine: str, *, tables: bool = False) -> None:
     if engine not in ENGINES:
         raise DisplayError(f"Unknown engine {engine!r}. Known engines: {', '.join(ENGINES)}.")
     if not ENGINES[engine].ready:
         ready = [name for name, known in ENGINES.items() if known.ready]
         raise _not_drawn("engine", engine, f"Use engine = {ready[0]!r}.")
+    drawn_by = [name for name, known in FRAMES.items() if engine in known.engines]
+    if figure.draw is not None or figure.special is not None:
+        if engine != STATIC:
+            raise DisplayError(
+                f"{figure.stem!r} is drawn by a function, so it has the static engine only. "
+                f"The {engine} engine draws the frames {', '.join(drawn_by)}."
+            )
     when = AFTER if figure.when.startswith(AFTER) else figure.when
     if not WHEN[when]:
         ready = [name for name, drawn in WHEN.items() if drawn]
@@ -190,6 +239,12 @@ def _check_ready(figure: ResolvedFigure, engine: str) -> None:
         if not frame.ready:
             ready = [name for name, known in FRAMES.items() if known.ready]
             raise _not_drawn("frame", panel.type, f"Use type = one of {', '.join(ready)}.")
+        if engine not in frame.engines and not tables:
+            raise DisplayError(
+                f"The frame {panel.type!r} has no {engine} drawing. Use engine = "
+                f"{frame.engines[0]!r}, since the {engine} engine draws the frames "
+                f"{', '.join(drawn_by)}."
+            )
         stations = [panel.station] if isinstance(panel.station, str) else panel.station or []
         zone = any(str(station).startswith(ZONE_PREFIX) for station in stations)
         for name in panel.variable or ():

@@ -104,7 +104,7 @@ def class_colors(name: str, theme: Theme) -> list[str]:
 
 def _class_palette(values: list[int], theme: Theme) -> list[str]:
     """Paint the class of value 0, the absence, with the no-data role and the rest in order."""
-    palette = iter(theme.categorical[i % len(theme.categorical)] for i in range(len(values)))
+    palette = iter(theme.class_colors(sum(value != 0 for value in values)))
     return [theme.roles["no_data"] if value == 0 else next(palette) for value in values]
 
 
@@ -152,7 +152,7 @@ def member_colors(names: list[str], theme: Theme) -> dict[str, str]:
     The stacked budget of a series and the budget bars of a groups panel both use it,
     so a term has one colour in every frame.
     """
-    return {n: theme.categorical[i % len(theme.categorical)] for i, n in enumerate(names)}
+    return dict(zip(names, theme.class_colors(len(names)), strict=True))
 
 
 def join_unit(head: str, unit: str) -> str:

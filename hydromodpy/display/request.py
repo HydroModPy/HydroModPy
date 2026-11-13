@@ -100,18 +100,24 @@ PARAMETER_TOKEN = "parameter"
 """``trials.parameter`` stands for each searched parameter, which ``facet = "parameter"`` fills."""
 
 
+STATIC, INTERACTIVE = "static", "interactive"
+
+
 @dataclass(frozen=True, slots=True)
 class Frame:
     """One frame, drawn by the module ``hydromodpy.display.frames.<name>``.
 
     ``shapes`` are the registry shapes whose natural frame this is, the first frame
     in table order winning. ``overlays`` are drawn when a panel names none. ``ready``
-    is false until the module of the frame exists.
+    is true when the module of the frame exists. ``engines`` are the engines whose
+    function the module holds, ``draw`` for the static one and ``draw_interactive`` for
+    the interactive one.
     """
 
     shapes: tuple[str, ...] = ()
     overlays: tuple[str, ...] = ()
     ready: bool = False
+    engines: tuple[str, ...] = (STATIC,)
 
 
 _XY_SHAPES = (
@@ -127,8 +133,9 @@ FRAMES: dict[str, Frame] = {
         (SHAPE_TIME_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_LAYER_FACE, SHAPE_FACE),
         ("outline", "outlet", "scale_bar"),
         ready=True,
+        engines=(STATIC, INTERACTIVE),
     ),
-    "series": Frame((SHAPE_TIME,), ready=True),
+    "series": Frame((SHAPE_TIME,), ready=True, engines=(STATIC, INTERACTIVE)),
     "section": Frame(
         (SHAPE_TIME_LAYER_FACE, SHAPE_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_FACE), ready=True
     ),
@@ -136,7 +143,7 @@ FRAMES: dict[str, Frame] = {
     "distribution": Frame(_XY_SHAPES, ready=True),
     "groups": Frame(_XY_SHAPES, ready=True),
     "table": Frame(ready=True),
-    "volume": Frame(),
+    "volume": Frame(ready=True, engines=(INTERACTIVE,)),
 }
 TABLE = "table"
 MAP, SERIES, GROUPS = "map", "series", "groups"
@@ -156,10 +163,9 @@ class Engine:
     ready: bool = False
 
 
-STATIC, INTERACTIVE = "static", "interactive"
 ENGINES: dict[str, Engine] = {
     STATIC: Engine(FORMATS, ready=True),
-    INTERACTIVE: Engine(("html",)),
+    INTERACTIVE: Engine(("html",), ready=True),
 }
 
 END, SESSION, TRIAL, AFTER = "end", "session", "trial", "after:"
@@ -635,6 +641,8 @@ class FigureRequest(PanelFields):
         if self.every is not None and self.when != TRIAL:
             raise ValueError("every counts trials; write it with when = 'trial'.")
         allowed = [fmt for name in self.engine for fmt in ENGINES[name].formats]
+        if "formats" not in self.model_fields_set:
+            self.formats = [ENGINES[name].formats[0] for name in self.engine]
         for fmt in self.formats:
             if fmt not in allowed:
                 raise ValueError(
@@ -927,13 +935,22 @@ def check_stems(requests: Iterable[FigureRequest]) -> None:
         )
 
 
+def budget_terms() -> tuple[str, ...]:
+    """Return the per-cell budget terms of an aquifer, the ones ``budget`` draws."""
+    return tuple(
+        name
+        for name, field in FIELD_REGISTRY.items()
+        if field.zarr_path.startswith(BUDGET_GROUP) and name not in NOT_AQUIFER_TERMS
+    )
+
+
 def required_variables(
-    request: FigureRequest, presets: Mapping[str, FigureRequest]
+    request: FigureRequest, presets: Mapping[str, FigureRequest], *, terms: bool = True
 ) -> tuple[str, ...]:
     """Return the registered variables a request reads, overlay fields included, sorted.
 
     The run planner keeps these. ``budget`` adds every per-cell budget term of an
-    aquifer. A special figure declares what its row of ``SPECIALS`` lists, and a figure
+    aquifer, or with ``terms=False`` the name ``budget`` alone. A special figure declares what its row of ``SPECIALS`` lists, and a figure
     drawn by a Python function declares nothing.
     """
     names: set[str] = set()
@@ -943,11 +960,7 @@ def required_variables(
     for panel in figure.panels:
         names.update(name for name in panel.variable or () if is_registered(name))
         if BUDGET in (panel.variable or ()):
-            names.update(
-                name
-                for name, field in FIELD_REGISTRY.items()
-                if field.zarr_path.startswith(BUDGET_GROUP) and name not in NOT_AQUIFER_TERMS
-            )
+            names.update(budget_terms() if terms else (BUDGET,))
         for overlay in panel.overlays or ():
             names.update(OVERLAY_FIELDS[overlay])
     return tuple(sorted(names))

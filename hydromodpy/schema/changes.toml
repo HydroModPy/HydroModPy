@@ -823,7 +823,21 @@ id = "catchment_report_reads_a_sealed_run"
 since = "2.0.0"
 effect = "refusal"
 quantities = []
-text = "hmp report catchment reads a sealed run, and an overview run of the same site for the context panels, with the options --preset research or management, --lang, --station and --strict. The report is written by one engine that replaces the two block renderers, in two presets. The research preset writes a Method block first, then the page at three levels with the figures the preset names, all registered figures, and report.json, which replaces block_report_manifest.json and block_report_postflight.json and lists each figure with its file or null and the required figures that are missing. The figures the run did not draw are drawn from the [display] it sealed. The management preset writes one page, report/sheet-en or report/sheet-fr, with the label and its reasons, the method text, three figures, the headline score of each station and the inputs with a warning for each one whose licence is undetermined. A report TOML, with its [report] and [layout] tables, and the flags --run-overview, --run-simulation, --context-only, --report-only, --stream-run-logs and --strict-figure-postflight are refused with a sentence that names hmp run and hmp report catchment RUN. The preset generic is gone. The variable HMP_OVERVIEW_HTML_REVIEW_LEVELS is gone and the pages of the levels are always written. No value of a result changes."
+text = "hmp report catchment reads a sealed run, and an overview run of the same site for the context panels, with the options --preset research or management, --station and --strict. The report is written by one engine that replaces the two block renderers, in two presets. The research preset writes a Method block first, then the page at three levels with the figures the preset names, all registered figures, and report.json, which replaces block_report_manifest.json and block_report_postflight.json and lists each figure with its file or null and the required figures that are missing. The figures the run did not draw are drawn from the [display] it sealed. The management preset writes one page, report/sheet/index.html, in English, with the label and its reasons, the method text, three figures, the headline score of each station and the inputs with a warning for each one whose licence is undetermined. A report TOML, with its [report] and [layout] tables, and the flags --run-overview, --run-simulation, --context-only, --report-only, --stream-run-logs and --strict-figure-postflight are refused with a sentence that names hmp run and hmp report catchment RUN. The preset generic is gone. The variable HMP_OVERVIEW_HTML_REVIEW_LEVELS is gone and the pages of the levels are always written. No value of a result changes."
+
+[[recipe]]
+id = "report_draws_named_requests"
+since = "2.0.0"
+effect = "layout"
+quantities = []
+text = "The report of a run draws 15 figures and the report of a session 4, each one from a figure request, with new file stems under runs/<run>/figures/ and sessions/<session>/figures/. Three pairs of former figures are merged, and report.json lists the stems of the required figures that are missing. The ledger figures/index.json records the producer display:figure with the request, instead of display:<name>. A figure the run cannot feed, such as generated_network on a run with no generated network, is not drawn and the log gives the reason. hmp show --report no longer takes --lang and refuses it with the call that replaces it. The sheet of the management preset is written to report/sheet/. The images of the overview, of a cohort and of a comparison take the theme look. No value of a result changes."
+
+[[recipe]]
+id = "config_figures_lists_what_can_be_drawn"
+since = "2.0.0"
+effect = "layout"
+quantities = []
+text = "hmp config figures prints one row per name that can be drawn (kind, frame, label, unit, detail and status), with the schema hmp.config.figures.v3 in JSON. --kind keeps one of frame, preset, special or variable, and --run marks what a given run can draw. The rows of the former schema (name, description) are gone. No value of a result changes."
 
 [[recipe]]
 id = "overview_keeps_its_inventory"

@@ -14,9 +14,9 @@ from typing import Any
 from matplotlib.figure import Figure
 
 from hydromodpy.core.exceptions import DisplayError
-from hydromodpy.display import static
+from hydromodpy.display import interactive, static
 from hydromodpy.display.png_metadata import stamp_png_identity
-from hydromodpy.display.request import FigureRequest, ResolvedFigure, replay_request
+from hydromodpy.display.request import FORMATS, FigureRequest, ResolvedFigure, replay_request
 from hydromodpy.display.theme import Theme
 from hydromodpy.results.derive.time_alignment import run_period
 from hydromodpy.results.ledger import record_derived_file
@@ -73,6 +73,8 @@ def write(
     run: Run | None,
     directory: Path,
     theme: Theme,
+    *,
+    embed: bool = False,
 ) -> list[Path]:
     """Write ``fig`` as ``directory/<figure.stem>.<format>`` for each format and return the paths.
 
@@ -85,8 +87,16 @@ def write(
     options=ledger_options(figure), identity=...)``. Without a run (a session or a
     set of runs, or a folder that is not a run directory), files are written and not
     recorded, since a ledger entry needs an identity.
+
+    A plotly figure of the interactive engine is written as ``<stem>.html``, which loads
+    plotly.js from the CDN, or holds it with ``embed``. A static figure writes the formats
+    of the static engine and leaves ``html`` to the interactive one.
     """
-    paths = static.save(fig, directory / figure.stem, theme, formats=figure.formats)
+    if isinstance(fig, Figure):
+        formats = tuple(fmt for fmt in figure.formats if fmt in FORMATS)
+        paths = static.save(fig, directory / figure.stem, theme, formats=formats)
+    else:
+        paths = [interactive.write(fig, directory / figure.stem, embed=embed)]
     identity = identity_of_run_dir(directory.parent) if run is not None else None
     if identity is None:
         return paths

@@ -2,8 +2,7 @@
 
 On the transient island with two piezometry stations, ``hmp run`` draws three figures.
 They are drawn after the seal, so each footer carries the label, its rule and its day.
-``hmp show <run> --report`` then writes the three-level report, and the one-page
-sheet in French. ``hmp calibrate`` of three trials writes the report of its session
+``hmp show <run> --report`` then writes the three-level report. ``hmp calibrate`` of three trials writes the report of its session
 by itself, and ``hmp show <session>`` prints the rows of the summary.
 
 The commands run one after the other in one child process, which keeps the solver
@@ -25,14 +24,16 @@ SESSION = "calage_sy.v2"
 """The run of ``hmp run`` took the name, so the session of the calibration is its second version."""
 FIGURES = ("watershed_id_card", "seepage_map", "flux_timeseries")
 NEEDS_A_GAUGE_OR_A_NETWORK = {
-    "downslope_distance_map",
-    "flow_intermittence_map",
-    "flow_persistence_map",
-    "hydrograph_sim_obs",
-    "hydrographic_network_permanence",
-    "network_extent_bounds_map",
-    "seepage_network_confusion_map",
-    "simulated_active_network_reference_overlay",
+    "cross_section",
+    "downslope_distance",
+    "flowing_cells",
+    "flowing_frequency",
+    "generated_network",
+    "hydrograph",
+    "hydrograph_log",
+    "network_agreement",
+    "network_comparison",
+    "reference_network",
 }
 SECOND_STATION_LOC = "id,x,y\nW1,305.0,305.0\nW2,295.0,295.0\n"
 SECOND_STATION_RECORD = "datetime,value\n2003-02-28,2.1\n2003-03-31,2.1\n"
@@ -40,7 +41,6 @@ SECOND_STATION_RECORD = "datetime,value\n2003-02-28,2.1\n2003-03-31,2.1\n"
 COMMANDS = (
     ("run", "run", "project.toml"),
     ("research", "show", "calage_sy", "--report"),
-    ("sheet", "show", "calage_sy", "--report", "--preset", "management", "--lang", "fr"),
     ("calibrate", "calibrate", "calib.toml"),
     ("show", "show", "calage_sy.v2", "--format", "json"),
 )
@@ -111,22 +111,13 @@ def test_the_research_report_lists_what_it_misses_and_names_the_figures_of_the_r
 
     assert (out / "index.html").is_file()
     assert (out / "review" / "audit" / "index.html").is_file()
-    # The island has no discharge gauge and no reference network, so the figures
-    # that read them stay empty frames. Nothing else is missing.
-    assert document["missing"] == sorted(document["missing"])
+    # The island has no discharge gauge, no reference network and no outlet for a
+    # section, so the figures that need them are listed. Nothing else is missing.
+    assert list(document["missing"]) == sorted(document["missing"])
+    assert all(document["missing"].values()), document["missing"]
     assert set(document["missing"]) <= NEEDS_A_GAUGE_OR_A_NETWORK, document["missing"]
-    for name in FIGURES:
+    for name in ("watershed_id_card", "seepage_mask", "water_budget"):
         assert document["figures"][name]["file"] == f"{name}.png"
-
-
-def test_the_french_sheet_carries_the_label_sentence_in_french(played) -> None:
-    root, _ = played
-    sheet = root / "runs" / "calage_sy" / "report" / "sheet-fr"
-    text = (sheet / "index.html").read_text(encoding="utf-8")
-
-    assert (sheet / "report.json").is_file()
-    assert "Étiquette" in text
-    assert "Méthode" in text
 
 
 def test_the_calibration_writes_its_session_report_and_show_reads_it(played) -> None:

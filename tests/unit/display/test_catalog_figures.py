@@ -1,78 +1,92 @@
-"""Redraw the figure of a run found through its project index.
-
-A redraw applies the ``[display]`` block sealed with the run. The command line
-(``hmp show REF --figure NAME --opt NAME=VALUE``) gives a figure typed options.
-"""
+"""The listing of what can be drawn, and the ``--opt NAME=VALUE`` items of a figure."""
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from hydromodpy.display import catalog_figures
-from tests._helpers.one_run_catalog import Figure, OneRunCatalog, one_run_workspace
+from hydromodpy.display.presets import PRESETS
+from hydromodpy.display.request import FRAMES, SPECIALS
 
 
-class SealedRunCatalog(OneRunCatalog):
-    """One run whose sealed ``[display]`` names October and a south-north cut."""
+class HeldRun:
+    """A run that holds the water table and the discharge of one gauge, nothing else."""
 
-    def __getitem__(self, sid: str) -> SimpleNamespace:
-        from hydromodpy.display.config import DisplayConfig
+    def has_field(self, name: str) -> bool:
+        return name == "watertable_elevation"
 
-        display = DisplayConfig().model_dump(mode="json")
-        display.update(time="2002-10-15", overrides={"cross_section": {"orientation": "sn"}})
-        return SimpleNamespace(
-            name="sim-a",
-            config_snapshot={"display": display},
-            periods=SimpleNamespace(step_at=lambda time: {"2002-10-15": 33, "first": 0}[time]),
-        )
+    def stations(self, name: str) -> list[str]:
+        return ["gauge"] if name == "discharge" else []
 
 
-class InstantFigure:
-    """A map that draws one instant and records what it was asked for."""
+class OneRunCatalog:
+    def __init__(self, root) -> None:
+        self.root = root
 
-    def __init__(self) -> None:
-        self.drawn: list[dict] = []
+    def __enter__(self):
+        return self
 
-    def unavailable_reason(self, sim: SimpleNamespace) -> None:
+    def __exit__(self, *exc_info: object) -> None:
         return None
 
-    def plot(self, sim, *, save_path: Path, timestep=None, orientation="we", **_) -> str:
-        self.drawn.append({"timestep": timestep, "orientation": orientation})
-        save_path.write_bytes(b"png")
-        return "figure"
+    def resolve(self, sim_ref: str) -> str:
+        return "sim-001"
+
+    def __getitem__(self, sid: str) -> HeldRun:
+        return HeldRun()
 
 
-@pytest.mark.parametrize(
-    ("time", "step"),
-    [
-        pytest.param(None, 33, id="sealed instant"),
-        pytest.param("first", 0, id="time replaces the sealed instant"),
-    ],
-)
-def test_redraw_applies_the_sealed_display(monkeypatch, tmp_path, time, step) -> None:
-    figure = InstantFigure()
-    one_run_workspace(monkeypatch, tmp_path, figure)
-    monkeypatch.setattr("hydromodpy.results.catalog.facade.Catalog", SealedRunCatalog)
-
-    catalog_figures.render_figure("abc123", "cross_section", workspace=tmp_path, time=time)
-
-    assert figure.drawn == [{"timestep": step, "orientation": "sn"}]
+def _by_name(rows: list[dict[str, str]]) -> dict[str, dict[str, str]]:
+    return {row["name"]: row for row in rows}
 
 
-def test_output_without_a_suffix_is_named_png(monkeypatch, tmp_path) -> None:
-    figure = Figure()
-    one_run_workspace(monkeypatch, tmp_path, figure)
+def test_listing_comes_from_the_tables() -> None:
+    rows = catalog_figures.figure_listing()
+    named = _by_name(rows)
 
-    output = catalog_figures.render_figure(
-        "abc123", "head_map", workspace=tmp_path, output=tmp_path / "maps" / "head"
+    assert {row["name"] for row in rows if row["kind"] == "preset"} == set(PRESETS) - set(SPECIALS)
+    assert {row["name"] for row in rows if row["kind"] == "special"} == set(SPECIALS)
+    assert {row["name"] for row in rows if row["kind"] == "frame"} == {
+        name for name, frame in FRAMES.items() if frame.ready
+    }
+    assert {row["status"] for row in rows} == {""}
+    assert named["watertable_depth"]["frame"] == "map"
+    assert (named["discharge"]["frame"], named["discharge"]["unit"]) == ("series", "m3 s-1")
+    assert named["simulation.solver"]["frame"] == "table"
+    assert named["hydrograph"]["detail"] == "holes: time, variable, station, scale"
+    assert named["network_comparison"]["frame"] == "run"
+    assert "variable" in named["map"]["detail"].split(", ")
+
+
+def test_listing_marks_what_a_run_holds(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("hydromodpy.results.catalog.facade.Catalog", OneRunCatalog)
+    monkeypatch.setattr(
+        "hydromodpy.core.state.result_dirs.resolve_project_root", lambda start: tmp_path
     )
 
-    assert output == tmp_path / "maps" / "head.png"
-    assert figure.saved == [output]
-    assert output.is_file()
+    named = _by_name(catalog_figures.figure_listing("abc", workspace=tmp_path))
+
+    assert named["watertable_elevation"]["status"] == "held"
+    assert named["discharge"]["status"] == "held"
+    assert named["head"]["status"] == "not in this run"
+    assert named["simulation.solver"]["status"] == "checked when drawn"
+    assert named["particle_tracks"]["status"] == "checked when drawn"
+    assert named["hydrograph"]["status"].startswith("missing: ")
+    assert "discharge" not in named["hydrograph"]["status"]
+
+
+def test_listing_reads_the_presets_of_the_run(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("hydromodpy.results.catalog.facade.Catalog", OneRunCatalog)
+    monkeypatch.setattr(
+        "hydromodpy.core.state.result_dirs.resolve_project_root", lambda start: tmp_path
+    )
+    own = {"mine": PRESETS["hydrograph"]}
+
+    rows = catalog_figures.figure_listing("abc", workspace=tmp_path, presets_of=lambda run: own)
+
+    assert [row["name"] for row in rows if row["kind"] == "preset"] == ["mine"]
 
 
 OPTIONS = [
@@ -104,16 +118,3 @@ REFUSALS = [
 def test_refusals(figure, item, message) -> None:
     with pytest.raises(ValueError, match=message):
         catalog_figures.parse_figure_options(figure, [item])
-
-
-def test_options_reach_the_figure(monkeypatch, tmp_path) -> None:
-    drawn: dict = {}
-    one_run_workspace(monkeypatch, tmp_path, Figure())
-    monkeypatch.setattr(
-        "hydromodpy.display.runs.render_figure",
-        lambda name, sim, save=None, run_dir=None, **opts: drawn.update(opts),
-    )
-
-    catalog_figures.render_figure("abc", "head_map", options={"show_run_name": False})
-
-    assert drawn == {"show_run_name": False}

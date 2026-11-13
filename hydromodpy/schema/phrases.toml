@@ -421,11 +421,11 @@ fr = "Figure attendue absente"
 en = "Catchment identity card"
 fr = "Carte d'identité du bassin"
 
-[report.figure_hydrograph_sim_obs]
+[report.figure_hydrograph]
 en = "Simulated and observed hydrograph"
 fr = "Hydrogramme simulé et observé"
 
-[report.figure_seepage_map]
+[report.figure_seepage_mask]
 en = "Seepage map"
 fr = "Carte des zones de suintement"
 

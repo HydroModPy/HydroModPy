@@ -47,6 +47,18 @@ def test_a_regeneration_replays_new_and_old_entries_and_skips_the_one_that_fails
     assert (folder / "recharge.png").stat().st_mtime_ns > before
 
 
+def test_a_regeneration_redraws_the_html_of_a_request_with_two_engines(stored_run):
+    folder = figures_dir_of(stored_run.dir)
+    both = {"name": "head", "variable": "head", "time": "last", "engine": ["static", "interactive"]}
+    stored_run.figure(both, save=folder)
+    before = (folder / "head.html").stat().st_mtime_ns
+    written = {
+        p.name for p in regen_figures(stored_run.name, workspace=stored_run.dir.parent.parent)
+    }
+    assert {"head.png", "head.html"} <= written
+    assert (folder / "head.html").stat().st_mtime_ns > before
+
+
 def test_the_ledger_replays_the_same_panels_and_a_bare_draw_does_not():
     figure = expand(FigureRequest(variable=["head"], name="h"), {})
     request = output.request_from_ledger(output.ledger_options(figure))

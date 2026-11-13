@@ -32,8 +32,8 @@ def test_figure_table_file_matches_generator() -> None:
 
 
 def test_figure_table_contents() -> None:
-    """The generated table holds 72 figures and valid mappings."""
-    assert len(FIGURES) == 72
+    """The generated table holds 70 figures and valid mappings."""
+    assert len(FIGURES) == 70
     assert "hydrograph" in FIGURES
     assert "abherve_two_stage_card" in FORMER_NAMES
     assert FORMER_NAMES["abherve_two_stage_card"] == "matching_hydrographic_network_card"

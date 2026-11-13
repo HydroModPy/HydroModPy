@@ -213,10 +213,10 @@ def test_report(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at) -> None
     monkeypatch.setattr(Session, "dir", property(lambda self: tmp_path / "sessions" / "c"))
     run = run_at(tmp_path / "runs" / "base")
 
-    options = {"preset": "management", "lang": "fr", "save": tmp_path / "ignored", "name": None}
+    options = {"preset": "management", "save": tmp_path / "ignored", "name": None}
     assert show.shown(run, "report", options) == tmp_path / "r.html"
     assert show.shown(_bare(Session), "report", {}) == tmp_path / "s.html"
-    assert runs[0] == ((tmp_path / "runs" / "base",), {"preset": "management", "lang": "fr"})
+    assert runs[0] == ((tmp_path / "runs" / "base",), {"preset": "management"})
     assert sessions[0][0] == (tmp_path / "sessions" / "c",)
     with pytest.raises(CommandUsageError, match="run or a session"):
         show.render(_bare(RunSet), REPORT, {})
@@ -262,3 +262,102 @@ def test_show_target(tmp_path: Path) -> None:
         show.show_target("absent", demo, str(workspace))
     with pytest.raises(SimulationNotFoundError):
         show.show_target("absent/with/slash", demo, str(workspace))
+
+
+def _sealed(monkeypatch: pytest.MonkeyPatch, **presets: str) -> None:
+    from hydromodpy.display.config import DisplayConfig
+
+    display = DisplayConfig(presets={k: {"variable": v} for k, v in presets.items()})
+    snapshot = {"display": display.model_dump(mode="json")}
+    monkeypatch.setattr(Run, "config_snapshot", property(lambda self: snapshot))
+
+
+def _written(project: Path, **presets: str) -> None:
+    tables = "".join(f'[display.presets.{k}]\nvariable = "{v}"\n' for k, v in presets.items())
+    (project / "project.toml").write_text(tables, encoding="utf-8")
+
+
+def test_a_preset_written_after_the_run_is_found(tmp_path: Path, run_at) -> None:
+    _written(tmp_path, later="discharge")
+    run = run_at(tmp_path / "runs" / "base")
+
+    found = show.project_presets(run)
+
+    assert found["later"].variable == ["discharge"]
+    assert "hydrograph" in found
+
+
+def test_a_preset_written_wrongly_blocks_only_its_own_name(tmp_path: Path, run_at) -> None:
+    (tmp_path / "project.toml").write_text('[display.presets.bad]\nvariable = "nope"\n')
+    found = show.project_presets(run_at(tmp_path / "runs" / "base"))
+    assert "hydrograph" in found and "bad" in found
+    with pytest.raises(CommandUsageError, match=r"display.presets.bad.*project.toml"):
+        found["bad"]
+
+
+@pytest.mark.parametrize("ask", [lambda r: r.show("report", lang="fr"), lambda r: api.show(r, what="report", lang="fr")])  # fmt: skip
+def test_the_report_has_no_lang(tmp_path: Path, run_at, ask) -> None:
+    with pytest.raises(CommandUsageError, match="hmp show --lang is gone. Write: hmp show RUN"):
+        ask(run_at(tmp_path / "runs" / "base"))
+
+
+def test_a_sealed_preset_wins_over_the_written_one(monkeypatch, tmp_path: Path, run_at) -> None:
+    _sealed(monkeypatch, mine="head", only_sealed="recharge")
+    _written(tmp_path, mine="discharge", only_written="discharge")
+    run = run_at(tmp_path / "runs" / "base")
+
+    found = show.project_presets(run)
+
+    assert found["mine"].variable == ["head"]
+    assert {"only_sealed", "only_written"} <= set(found)
+
+
+def test_a_run_outside_a_project_has_shipped_and_sealed_presets(
+    monkeypatch, tmp_path: Path, run_at
+) -> None:
+    _sealed(monkeypatch, mine="head")
+    _written(tmp_path, later="discharge")
+    run = run_at(tmp_path / "copy")
+
+    assert {"mine", "hydrograph"} <= set(show.project_presets(run))
+    assert "later" not in show.project_presets(run)
+
+
+def test_an_unknown_figure_says_where_presets_are_looked_up(tmp_path: Path, run_at) -> None:
+    _written(tmp_path, later="discharge")
+    run = run_at(tmp_path / "runs" / "base")
+
+    with pytest.raises(
+        CommandUsageError, match=r"Unknown figure 'nope'.*looked up in the shipped"
+    ) as error:
+        show.render(run, "nope", {})
+
+    assert "project.toml" in str(error.value)
+
+
+@pytest.mark.parametrize(
+    ("engine", "save", "message"),
+    [
+        ("static", "x.html", "'html' is not written by the static engine. The static"),
+        ("interactive", "x.png", "'png' is not written by the interactive engine. The static"),
+        ("interactive", "x.html", None),
+        (["static", "interactive"], "x.html", None),
+    ],
+)
+def test_save_suffix_follows_the_engine(
+    monkeypatch, tmp_path, run_at, engine, save, message
+) -> None:
+    seen: list[str] = []
+    monkeypatch.setattr("hydromodpy.display.render.render", lambda f, s, *, engine, **k: engine)
+    monkeypatch.setattr(
+        "hydromodpy.display.output.write",
+        lambda drawn, f, run, directory, theme: seen.append(drawn) or [directory / "x"],
+    )
+    name = {"variable": "head", "engine": engine}
+    run = run_at(tmp_path / "runs" / "base")
+    if message:
+        with pytest.raises(CommandUsageError, match=message):
+            show._render_request(run, name, {"save": tmp_path / save})
+    else:
+        show._render_request(run, name, {"save": tmp_path / save})
+        assert seen == ([engine] if isinstance(engine, str) else engine)

@@ -14,12 +14,16 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from hydromodpy.display import runs as display_runs
-from hydromodpy.display.figure_table import FIGURES
 from hydromodpy.display.overview.report import PANEL_FILES, REGIONAL_PANEL_FILE
 from hydromodpy.display.report import pages
 from hydromodpy.display.report.engine import Block, Metric, Picture, Prose, Table
-from hydromodpy.display.report.presets import PRESETS, SHEET_FIGURES, ReportTexts
+from hydromodpy.display.report.presets import (
+    PRESETS,
+    REPORT_FIGURES,
+    SHEET_FIGURES,
+    ReportTexts,
+)
+from hydromodpy.display.runs import FigureRenderReport
 from hydromodpy.results.errors import SeveralCasesError
 from hydromodpy.results.metric_rule import MetricScore
 from hydromodpy.schema.phrases import keys, phrase
@@ -192,7 +196,7 @@ def _metric(blocks: list[Block], label: str) -> Metric:
 def test_preset_names_are_registered():
     research = PRESETS["research"]
     named = [n for names in research.figures.values() for n in names]
-    assert [n for n in (*named, *SHEET_FIGURES) if n not in FIGURES] == []
+    assert [n for n in (*named, *SHEET_FIGURES) if n not in REPORT_FIGURES] == []
     panels = {*PANEL_FILES.values(), REGIONAL_PANEL_FILE}
     assert [p for p in research.panels if f"{p}.png" not in panels] == []
 
@@ -328,7 +332,7 @@ def test_several_cases_session(tmp_path):
         {"case": "a", "site": "A", "best_run": "a.v1", "note": ""},
         {"case": "b", "site": "B", "best_run": "", "note": "best run not opened: broken"},
     ]
-    figure = tmp_path / "a_hydrograph_sim_obs.png"
+    figure = tmp_path / "a_hydrograph.png"
     figure.write_bytes(b"x")
     blocks = pages.session_blocks(
         _SeveralCases(), summary_rows=[], figures=[], cases=cases, best_figures=[figure]
@@ -336,53 +340,64 @@ def test_several_cases_session(tmp_path):
     table = next(t for t in _items(blocks, Table) if t.id == "cases")
     assert [r["case"] for r in table.rows] == ["a", "b"]
     assert table.rows[1]["note"] == "best run not opened: broken"
-    assert [p.id for p in _figures_of(blocks)] == ["best_a_hydrograph_sim_obs"]
+    assert [p.id for p in _figures_of(blocks)] == ["best_a_hydrograph"]
 
 
 @pytest.fixture
 def draw_spy(monkeypatch):
     calls = []
 
-    def render(run, display, *, output_dir, figure_names):
-        calls.append((display, output_dir, figure_names))
-        return SimpleNamespace(rendered=tuple(figure_names))
+    def draw(run, requests, **options):
+        calls.append((requests, options))
+        return FigureRenderReport(rendered=tuple(r.name for r in requests))
 
-    monkeypatch.setattr(display_runs, "render_figures_for_run", render)
-    monkeypatch.setattr(display_runs, "log_render_summary", lambda report, destination: None)
+    monkeypatch.setattr(pages, "draw_requests", draw)
+    monkeypatch.setattr(pages, "log_render_summary", lambda report, destination: None)
     return calls
 
 
-def test_draw_only_missing(tmp_path, draw_spy):
-    run = SimpleNamespace(dir=tmp_path, config_snapshot=None)
+def _drawing_run(tmp_path: Path, snapshot=None) -> SimpleNamespace:
     (tmp_path / "figures").mkdir()
-    (tmp_path / "figures" / "seepage_map.png").write_bytes(b"x")
-    drawn = pages.draw_named_figures(run, ["seepage_map", "water_budget", "water_budget"])
-    assert drawn == ("water_budget",)
-    display, output_dir, names = draw_spy[0]
-    assert names == ["water_budget"]
-    assert output_dir == tmp_path / "figures"
-    assert display.enabled
-    assert display.save
-    assert display.on_error == "warn"
+    site = SimpleNamespace(gauge="S1")
+    return SimpleNamespace(
+        dir=tmp_path, config_snapshot=snapshot, record=SimpleNamespace(site=site)
+    )
+
+
+def test_draw_only_missing_and_fill_the_gauge(tmp_path, draw_spy):
+    run = _drawing_run(tmp_path)
+    (tmp_path / "figures" / "seepage_mask.png").write_bytes(b"x")
+    stems = ["seepage_mask", "water_budget", "hydrograph", "water_budget"]
+    drawn = pages.draw_report_figures(run, stems, None)
+    assert drawn == ("water_budget", "hydrograph")
+    requests, options = draw_spy[0]
+    assert [r.name for r in requests] == ["water_budget", "hydrograph"]
+    assert requests[1].station == "S1"
+    assert options["output_dir"] == tmp_path / "figures"
+    assert pages.report_request("hydrograph", run, "S2").station == "S2"
 
 
 def test_draw_nothing_when_all_exist(tmp_path, draw_spy):
-    (tmp_path / "figures").mkdir()
-    (tmp_path / "figures" / "seepage_map.png").write_bytes(b"x")
-    run = SimpleNamespace(dir=tmp_path, config_snapshot=None)
-    assert pages.draw_named_figures(run, ["seepage_map"]) == ()
+    run = _drawing_run(tmp_path)
+    (tmp_path / "figures" / "seepage_mask.png").write_bytes(b"x")
+    assert pages.draw_report_figures(run, ["seepage_mask"], None) == ()
     assert draw_spy == []
 
 
-def test_sealed_display_keeps_chosen():
-    run = SimpleNamespace(config_snapshot={"display": {"dpi": 220}})
-    display = pages._sealed_display(run, ["seepage_map"])
-    assert display.dpi == 220
-    assert list(display.figures) == ["seepage_map"]
-    assert display.on_error == "warn"
+@pytest.mark.parametrize(("dpi", "expected"), [(220, 220), ("not a number", 150)])
+def test_sealed_display_keeps_chosen_or_falls_back(dpi, expected):
+    run = SimpleNamespace(config_snapshot={"display": {"dpi": dpi}})
+    assert pages._sealed_display(run).dpi == expected
 
 
-def test_sealed_display_falls_back():
-    run = SimpleNamespace(config_snapshot={"display": {"dpi": "not a number"}})
-    display = pages._sealed_display(run, ["seepage_map"])
-    assert list(display.figures) == ["seepage_map"]
+def test_a_figure_the_run_cannot_feed_is_not_drawn(tmp_path, draw_spy):
+    run = _drawing_run(tmp_path)
+    run.available_hydrographic_network_roles = lambda: ["reference"]
+    run.stations = lambda name, source: []
+    assert "no generated network" in pages.unfed_reason(run, "generated_network")
+    assert "no single lake" in pages.unfed_reason(run, "lake_stage")
+    assert pages.unfed_reason(run, "hydrograph") is None
+    assert pages.draw_report_figures(run, ["generated_network"], None) == ()
+    assert draw_spy == []
+    run.stations = lambda name, source: ["L1"]
+    assert pages.report_request("lake_stage", run).station == "L1"

@@ -333,11 +333,6 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
     ),
     "depression_map": ("hydromodpy.display.figures.depression_map.DepressionMap", "spatial", ()),
     "difference_map": ("hydromodpy.display.figures.difference_map.DifferenceMap", "comparison", ()),
-    "distribution": (
-        "hydromodpy.display.figures.cohort_distribution.CohortDistribution",
-        "table",
-        (),
-    ),
     "downslope_distance_crossing": (
         "hydromodpy.display.figures.downslope_distance_crossing.DownslopeDistanceCrossingFigure",
         "timeseries",
@@ -428,11 +423,6 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "lake_volume_sim_obs": (
         "hydromodpy.display.figures.lake_level_sim_obs.LakeVolumeSimObs",
         "comparison",
-        (),
-    ),
-    "map": (
-        "hydromodpy.display.figures.cohort_map.CohortMap",
-        "table",
         (),
     ),
     "mass_balance_error": (

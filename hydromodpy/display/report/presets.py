@@ -6,8 +6,86 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from hydromodpy.display.report.engine import Level
+from hydromodpy.display.request import FigureRequest
 
-SHEET_FIGURES: tuple[str, ...] = ("watershed_id_card", "hydrograph_sim_obs", "seepage_map")
+SHEET_FIGURES: tuple[str, ...] = ("watershed_id_card", "hydrograph", "seepage_mask")
+
+GAUGE = "gauge"
+"""Station of a report request that the caller fills with the gauge of the site."""
+
+LAKE = "lake"
+"""Station of a report request that the caller fills with the lake of the run."""
+
+_MAP_OVERLAYS = ["relief", "outline"]
+
+
+def _request(name: str, **fields: object) -> FigureRequest:
+    return FigureRequest.model_validate({"name": name, **fields})
+
+
+REPORT_FIGURES: dict[str, FigureRequest] = {
+    request.name: request
+    for request in (
+        _request("watershed_id_card", preset="watershed_id_card"),
+        _request("seepage_mask", variable="seepage_mask", time="last"),
+        _request("hydrograph", preset="hydrograph", station=GAUGE),
+        _request(
+            "network_agreement",
+            variable="network_agreement",
+            time="last",
+            overlays=_MAP_OVERLAYS,
+        ),
+        _request(
+            "generated_network",
+            variable="topography",
+            overlays=[*_MAP_OVERLAYS, "generated_network"],
+        ),
+        _request(
+            "flowing_frequency",
+            variable="simulated_active_network",
+            reduce="frequency",
+            overlays=["outline", "network"],
+        ),
+        _request("water_budget", preset="water_budget"),
+        _request("hydrograph_log", preset="hydrograph", scale="log", station=GAUGE),
+        _request(
+            "watertable_elevation",
+            variable="watertable_elevation",
+            overlays=[*_MAP_OVERLAYS, "stations"],
+        ),
+        _request("reference_network", variable="topography", overlays=[*_MAP_OVERLAYS, "network"]),
+        _request("downslope_distance", variable="downslope_distance", scale="log"),
+        _request("watertable_depth", variable="watertable_depth", time="last"),
+        _request("cross_section", variable="watertable_elevation", type="section"),
+        _request(
+            "flowing_cells",
+            variable="simulated_active_network",
+            time="last",
+            overlays=[*_MAP_OVERLAYS, "network"],
+        ),
+        _request("network_comparison", preset="network_comparison"),
+        _request("calibration_progress", preset="calibration_progress"),
+        _request("parameter_trace", variable="trials.parameter", type="series", facet="parameter"),
+        _request(
+            "parameter_distribution",
+            variable="trials.parameter",
+            type="distribution",
+            facet="parameter",
+        ),
+        _request("calibration_landscape", preset="calibration_landscape"),
+        _request(
+            "scatter_one_to_one",
+            variable="discharge",
+            type="xy",
+            observed=True,
+            reference=["one_to_one"],
+            scores=True,
+            station=GAUGE,
+        ),
+        _request("lake_stage", variable="stage", observed=True, station=LAKE),
+    )
+}
+"""One request per report figure, keyed by the file stem the report reads."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,27 +112,22 @@ PRESETS: dict[str, Preset] = {
         name="research",
         levels=True,
         figures={
-            "compact": ("watershed_id_card", "seepage_map", "hydrograph_sim_obs"),
+            "compact": ("watershed_id_card", "seepage_mask", "hydrograph"),
             "standard": (
-                "network_extent_bounds_map",
-                "hydrographic_network_generated",
-                "flow_persistence_map",
-                "flow_intermittence_map",
-                "seepage_network_confusion_map",
-                "flux_timeseries",
-                "hydrograph_log_nse",
-                "piezometric_map",
+                "network_agreement",
+                "generated_network",
+                "flowing_frequency",
                 "water_budget",
+                "hydrograph_log",
+                "watertable_elevation",
             ),
             "audit": (
-                "hydrographic_network_permanence",
-                "downslope_distance_map",
-                "watertable_depth_map",
+                "reference_network",
+                "downslope_distance",
+                "watertable_depth",
                 "cross_section",
-                "simulated_active_network_reference_overlay",
-                "hydrographic_network_comparison",
-                "hydrographic_network_reference_missing_only",
-                "hydrographic_network_generated_extra_only",
+                "flowing_cells",
+                "network_comparison",
             ),
         },
         panels=(

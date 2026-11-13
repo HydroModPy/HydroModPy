@@ -300,7 +300,7 @@ def data(subject: Run | Session, panel: PanelRequest) -> SeriesData:
 
 def _color(index: int, many: bool, theme: Theme) -> str:
     """Return the simulated colour of one line, or a distinct colour of the palette among several."""
-    return theme.categorical[index % len(theme.categorical)] if many else theme.roles["simulated"]
+    return theme.class_color(index) if many else theme.roles["simulated"]
 
 
 KEY_SCORES = ("nse", "kge", "pbias", "rmse")
@@ -370,6 +370,30 @@ def draw_observed(ax: Any, x: Any, y: Any, theme: Theme) -> None:
         ax.plot(x, y, label="observed", zorder=4, linestyle="none", marker="o", markersize=2.5, markerfacecolor=style["color"], markeredgewidth=0, color=style["color"])  # fmt: skip
 
 
+def _layout(data: SeriesData) -> tuple[list[Any], bool, bool, bool]:
+    """Return the groups of the table, whether there are several, and whether it is dated or trials."""
+    table = data.table
+    groups = [
+        (n, s, rows)
+        for (n, s), rows in table.groupby(["variable", "station"], sort=False, dropna=False)
+    ]
+    dates = pd.api.types.is_datetime64_any_dtype(table[data.axis])
+    return groups, len(groups) > 1, dates, data.axis != "time"
+
+
+def _line_label(
+    data: SeriesData, name: str, station: Any, many: bool, stations: bool, trials: bool
+) -> str | None:
+    label = "simulated" if not many else data.labels.get(name) or label_of(name)
+    if trials and not many:
+        label = None
+    if data.residual:
+        label = "simulated minus observed"
+    if stations:
+        label += f" ({station})"
+    return label
+
+
 def draw(ax: Any, data: SeriesData, theme: Theme) -> None:
     """Draw lines, or stacked areas, with the observed record as points of the observed role.
 
@@ -377,13 +401,7 @@ def draw(ax: Any, data: SeriesData, theme: Theme) -> None:
     the scores as the right title.
     """
     table = data.table
-    dates = pd.api.types.is_datetime64_any_dtype(table[data.axis])
-    trials = data.axis != "time"
-    groups = [
-        (n, s, rows)
-        for (n, s), rows in table.groupby(["variable", "station"], sort=False, dropna=False)
-    ]
-    many = len(groups) > 1
+    groups, many, dates, trials = _layout(data)
     if data.log:
         ax.set_yscale("log")
     if data.stack:
@@ -392,13 +410,7 @@ def draw(ax: Any, data: SeriesData, theme: Theme) -> None:
     else:
         stations = {s for _, s, _ in groups}
         for i, (name, station, rows) in enumerate(groups):
-            label = "simulated" if not many else data.labels.get(name) or label_of(name)
-            if trials and not many:
-                label = None
-            if data.residual:
-                label = "simulated minus observed"
-            if len(stations) > 1:
-                label += f" ({station})"
+            label = _line_label(data, name, station, many, len(stations) > 1, trials)
             ax.plot(
                 rows[data.axis],
                 rows["simulated"],
@@ -431,3 +443,87 @@ def draw(ax: Any, data: SeriesData, theme: Theme) -> None:
             ax.set_xlabel(window.capitalize(), **static.text_style(theme))
     if ax.get_legend_handles_labels()[0]:
         static.legend(ax, theme)
+
+
+# ---------------------------------------------------------------- interactive
+def _flat(x: Any, y: float, **style: Any) -> Any:
+    import plotly.graph_objects as go
+
+    return go.Scatter(x=[x.iloc[0], x.iloc[-1]], y=[y, y], mode="lines", hoverinfo="skip", **style)
+
+
+def draw_interactive(data: SeriesData, theme: Theme) -> tuple[list, dict]:
+    """Return the plotly traces of ``draw``: lines or stacked bars, the observed record, references.
+
+    Every trace carries its value in the hover. Bars of a stacked budget start at their
+    period start and run to the next one, positive terms up and negative ones down.
+    """
+    import plotly.graph_objects as go
+
+    from hydromodpy.display import interactive
+
+    table = data.table
+    groups, many, dates, trials = _layout(data)
+    stations = {s for _, s, _ in groups}
+    px = interactive.PX_PER_POINT
+    traces = []
+    colors = variables.member_colors(list(dict.fromkeys(n for n, _, _ in groups)), theme)
+    for i, (name, station, rows) in enumerate(groups):
+        x = rows[data.axis]
+        label = _line_label(data, name, station, many, len(stations) > 1, trials)
+        if data.stack:
+            step = np.diff(x.to_numpy())
+            step = step / np.timedelta64(1, "ms") if dates else step.astype(float)
+            width = np.append(step, step[-1] if len(step) else 1.0)
+            traces.append(
+                go.Bar(
+                    x=x,
+                    y=rows["simulated"],
+                    width=width,
+                    offset=0,
+                    name=label_of(name),
+                    marker={"color": colors[name], "line": {"width": 0}},
+                )  # fmt: skip
+            )
+            continue
+        traces.append(
+            go.Scatter(
+                x=x,
+                y=rows["simulated"],
+                name=label,
+                showlegend=label is not None,
+                mode="lines+markers" if trials else "lines",
+                line={"color": _color(i, many, theme), "width": theme.data_line_width * px},
+                marker={"size": 2.5 * px},
+            )  # fmt: skip
+        )
+    if "observed" in table:
+        seen = table.dropna(subset=["observed"])
+        color = theme.roles["observed"]
+        long = len(seen) > OBSERVED_LINE_FROM
+        traces.append(
+            go.Scatter(
+                x=seen["time"],
+                y=seen["observed"],
+                name="observed",
+                mode="lines" if long else "markers",
+                line={"color": color, "width": theme.line_width * px},
+                marker={"color": color, "size": 2.5 * px},
+            )  # fmt: skip
+        )
+    first = table[data.axis]
+    if data.residual:
+        traces.append(_flat(first, 0.0, line={"color": theme.ink, "width": theme.line_width * px}, showlegend=False))  # fmt: skip
+    for value, text in data.references:
+        style = {"color": theme.roles["bounds"], "width": theme.line_width * px, "dash": "dash"}
+        traces.append(_flat(first, value, line=style, name=text, showlegend=text != "zero"))
+    axes = {
+        "xaxis": {} if dates else {"title": {"text": data.x_label}},
+        "yaxis": {
+            "title": {"text": interactive.plain(data.label)},
+            **({"type": "log"} if data.log else {}),
+        },  # fmt: skip
+    }
+    if data.scores is not None and len(data.scores):
+        axes["title"] = score_text(data.scores, many, window=not dates)
+    return traces, axes

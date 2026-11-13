@@ -32,7 +32,8 @@ def _merge(monkeypatch, table, rows):
         monkeypatch.setitem(table, key, row)
 
 
-def test_case_1_a_variable_by_its_name(stored_run):
+def test_case_1_a_variable_by_its_name(stored_run, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     # example: variable
     figure = stored_run.figure("head", time="last", layer=0, title="Head at the end")
     figure.savefig("head.png")

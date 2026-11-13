@@ -22,7 +22,6 @@ FIGURES: dict[str, str] = {
     "cross_section": "hydromodpy.display.figures.cross_section:CrossSection",
     "depression_map": "hydromodpy.display.figures.depression_map:DepressionMap",
     "difference_map": "hydromodpy.display.figures.difference_map:DifferenceMap",
-    "distribution": "hydromodpy.display.figures.cohort_distribution:CohortDistribution",
     "downslope_distance_crossing": "hydromodpy.display.figures.downslope_distance_crossing:DownslopeDistanceCrossingFigure",
     "downslope_distance_map": "hydromodpy.display.figures.downslope_distance_map:DownslopeDistanceMap",
     "duration_curve": "hydromodpy.display.figures.duration_curve:DurationCurveFigure",
@@ -43,7 +42,6 @@ FIGURES: dict[str, str] = {
     "lake_abacus_comparison": "hydromodpy.display.figures.lake_abacus_comparison:LakeAbacusComparison",
     "lake_stage_sim_obs": "hydromodpy.display.figures.lake_level_sim_obs:LakeStageSimObs",
     "lake_volume_sim_obs": "hydromodpy.display.figures.lake_level_sim_obs:LakeVolumeSimObs",
-    "map": "hydromodpy.display.figures.cohort_map:CohortMap",
     "mass_balance_error": "hydromodpy.display.figures.mass_balance_error:MassBalanceError",
     "matching_hydrographic_network_card": "hydromodpy.display.figures.matching_hydrographic_network_card:MatchingHydrographicNetworkCard",
     "mesh_map": "hydromodpy.display.figures.mesh_map:MeshMap",
@@ -177,7 +175,6 @@ OPTIONS: dict[str, tuple[str, ...]] = {
         "title",
     ),
     "difference_map": ("cmap", "field", "figsize", "reference", "show_run_name", "time", "title"),
-    "distribution": ("figsize", "log", "show_run_name", "title", "variable"),
     "downslope_distance_crossing": (
         "band_m",
         "figsize",
@@ -278,7 +275,6 @@ OPTIONS: dict[str, tuple[str, ...]] = {
     "lake_abacus_comparison": ("figsize", "lake_id", "show_run_name", "title"),
     "lake_stage_sim_obs": ("figsize", "lake_id", "show_run_name", "title"),
     "lake_volume_sim_obs": ("figsize", "lake_id", "show_run_name", "title"),
-    "map": ("cmap", "figsize", "log", "show_run_name", "title", "variable"),
     "mass_balance_error": ("figsize", "quantity", "show_run_name", "title", "tolerance"),
     "matching_hydrographic_network_card": (
         "figsize",

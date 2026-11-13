@@ -46,6 +46,7 @@ from typing import Any, NoReturn
 from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_USAGE, refuse
 from hydromodpy.core.exceptions import CommandUsageError
 from hydromodpy.core.logging import VERBOSITY_LEVELS
+from hydromodpy.results.run.view import LANG_REFUSED
 
 FORMAT_CHOICES: tuple[str, ...] = ("table", "json", "csv")
 
@@ -159,6 +160,7 @@ _FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
     ("hmp report catchment --no-run-simulation", "hmp show RUN --report"),
     ("hmp report catchment --no-stream-run-logs", "hmp show RUN --report"),
     ("hmp report catchment --no-strict-figure-postflight", "hmp show RUN --report"),
+    LANG_REFUSED,
     # Reading is five commands: ls, show, diff, export and publish. The maintenance
     # of the index stays under catalog, and the check of a file is one command.
     ("hmp catalog ls", "hmp ls"),

@@ -18,6 +18,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import WORKSPACE_DATA_DIRNAME
 from hydromodpy.core.units.quantities import SECONDS_PER_DAY
 from hydromodpy.display.config import DisplayConfig
+from hydromodpy.display.presets import PRESETS as FIGURE_PRESETS
 from hydromodpy.display.report.engine import (
     Block,
     Level,
@@ -28,7 +29,23 @@ from hydromodpy.display.report.engine import (
     Table,
     pairs_table,
 )
-from hydromodpy.display.report.presets import PRESETS, SHEET_FIGURES, Preset, ReportTexts
+from hydromodpy.display.report.presets import (
+    GAUGE,
+    LAKE,
+    PRESETS,
+    REPORT_FIGURES,
+    SHEET_FIGURES,
+    Preset,
+    ReportTexts,
+)
+from hydromodpy.display.request import FigureRequest
+from hydromodpy.display.runs import (
+    display_theme,
+    draw_requests,
+    figures_dir_of,
+    log_render_summary,
+    sealed_display_values,
+)
 from hydromodpy.results.run.tables import read_run_table
 
 if TYPE_CHECKING:
@@ -100,7 +117,7 @@ def run_blocks(
     """
     record = run.record
     site = record.site
-    gauge = station or (None if site is None else site.gauge)
+    gauge = station or _gauge(run)
     at = {name: level for level, names in preset.figures.items() for name in names}
     figures = run.dir / "figures"
     panels = None if overview is None else overview.dir / "figures"
@@ -185,26 +202,11 @@ def run_blocks(
                 ),
                 ("audit", Metric("Source figures folder", str(figures))),
                 panel("map_hydrography", "Reference hydrographic network"),
-                drawn("hydrographic_network_generated", "DEM-generated network", False),
-                drawn(
-                    "hydrographic_network_comparison", "Reference and DEM network comparison", False
-                ),
-                drawn(
-                    "hydrographic_network_reference_missing_only",
-                    "Reference segments the DEM network misses",
-                    False,
-                ),
-                drawn(
-                    "hydrographic_network_generated_extra_only",
-                    "Generated segments outside the reference",
-                    False,
-                ),
-                drawn("network_extent_bounds_map", "Yearly extent bounds against the map"),
-                drawn("hydrographic_network_permanence", "Network permanence"),
-                drawn(
-                    "simulated_active_network_reference_overlay",
-                    "Simulated network over the reference",
-                ),
+                drawn("generated_network", "DEM-generated network", False),
+                drawn("network_comparison", "Reference and DEM network comparison", False),
+                drawn("network_agreement", "Yearly extent bounds against the map"),
+                drawn("reference_network", "Network permanence"),
+                drawn("flowing_cells", "Simulated network over the reference"),
             ),
         ),
         Block(
@@ -212,11 +214,9 @@ def run_blocks(
             "Simulated active network and seepage",
             "Seepage, persistence and intermittence of the network.",
             items=(
-                drawn("seepage_map", "Seepage map"),
-                drawn("flow_persistence_map", "Flow persistence"),
-                drawn("flow_intermittence_map", "Flow intermittence"),
-                drawn("seepage_network_confusion_map", "Seepage against the mapped network"),
-                drawn("downslope_distance_map", "Downslope distance"),
+                drawn("seepage_mask", "Seepage map"),
+                drawn("flowing_frequency", "Flow persistence"),
+                drawn("downslope_distance", "Downslope distance"),
             ),
         ),
         Block(
@@ -229,7 +229,7 @@ def run_blocks(
                 ("compact", Metric("Mean observed discharge", _mean(obs), "m3/s")),
                 ("audit", Metric("Observed discharge points", 0 if obs is None else len(obs))),
                 panel("timeseries_discharge", "Observed discharge", "compact"),
-                drawn("flux_timeseries", "Fluxes in and out"),
+                drawn("water_budget", "Fluxes in and out"),
                 panel("climatic_summary", "Monthly climatology", "audit"),
                 ("audit", _series_table(sim, obs)),
             ),
@@ -239,12 +239,11 @@ def run_blocks(
             "Simulated fluxes",
             "Hydrograph, scores, head map and water budget.",
             items=(
-                drawn("hydrograph_sim_obs", "Simulated hydrograph"),
-                drawn("hydrograph_log_nse", "Hydrograph on a log axis"),
-                drawn("piezometric_map", "Piezometric map"),
-                drawn("water_budget", "Water budget"),
+                drawn("hydrograph", "Simulated hydrograph"),
+                drawn("hydrograph_log", "Hydrograph on a log axis"),
+                drawn("watertable_elevation", "Piezometric map"),
                 ("standard", scores),
-                drawn("watertable_depth_map", "Water table depth"),
+                drawn("watertable_depth", "Water table depth"),
                 drawn("cross_section", "Cross-section"),
                 ("audit", Metric("Simulation", run.name)),
                 ("audit", Metric("Timesteps", run.n_timesteps)),
@@ -580,52 +579,101 @@ def session_blocks(
     ]
 
 
-def draw_named_figures(run: Run, names: Sequence[str]) -> tuple[str, ...]:
-    """Draw the figures of ``names`` the run has not drawn; return the names drawn.
+def draw_report_figures(
+    run: Run,
+    stems: Sequence[str],
+    station: str | None,
+    skipped: dict[str, str] | None = None,
+) -> tuple[str, ...]:
+    """Draw the report figures of ``stems`` the run has not drawn; return the stems drawn.
 
-    Each missing figure goes into ``figures/`` of the run with the ``[display]``
-    the run sealed. That folder is outside the seal. A figure the run cannot
-    feed is skipped with its reason in the log, and its frame stays empty.
+    Each missing figure goes into ``figures/`` of the run, with the theme the run sealed.
+    That folder is outside the seal. A figure the run cannot feed is skipped with its
+    reason in the log and in ``skipped``, when given, and its frame stays empty. ``station`` or the gauge of the site
+    fills the station of the requests that read one.
     """
-    from hydromodpy.display.runs import figures_dir_of, log_render_summary, render_figures_for_run
-
     target = figures_dir_of(run.dir)
-    missing = [name for name in dict.fromkeys(names) if not (target / f"{name}.png").is_file()]
+    missing = [stem for stem in dict.fromkeys(stems) if not (target / f"{stem}.png").is_file()]
     if not missing:
         return ()
-    report = render_figures_for_run(
-        run, _sealed_display(run, missing), output_dir=target, figure_names=missing
+    for stem in list(missing):
+        reason = unfed_reason(run, stem)
+        if reason:
+            logger.warning("Report: figure %s not drawn, %s", stem, reason)
+            if skipped is not None:
+                skipped[stem] = reason
+            missing.remove(stem)
+    requests = [report_request(stem, run, station) for stem in missing]
+    if not requests:
+        return ()
+    report = draw_requests(
+        run,
+        requests,
+        presets=FIGURE_PRESETS,
+        theme=display_theme(_sealed_display(run)),
+        output_dir=target,
     )
     log_render_summary(report, destination=target)
-    return tuple(report.rendered)
+    if skipped is not None:
+        skipped.update({item.name: item.reason for item in report.skipped})
+    return report.rendered
 
 
-def _sealed_display(run: Run, figures: list[str]) -> DisplayConfig:
-    """Return the ``[display]`` the run sealed, set to draw ``figures`` and save them.
+def report_request(stem: str, run: Run, station: str | None = None) -> FigureRequest:
+    """Return the request of a report figure, its station filled for ``run``.
 
-    Only a value away from its default counts as set, as ``hmp show --figure`` reads
-    it. The report always draws, headless, and a figure that fails is logged and
-    skipped. A sealed ``[display]`` that no longer loads gives the defaults.
+    A request that reads a station takes ``station``, else the gauge of the site of the
+    run. A run with neither leaves the station unset, which the renderer accepts when
+    the run holds one series of that variable.
     """
-    from hydromodpy.display.runs import sealed_display_values
+    request = REPORT_FIGURES[stem]
+    if request.station == GAUGE:
+        return request.model_copy(update={"station": station or _gauge(run)})
+    if request.station == LAKE:
+        return request.model_copy(update={"station": _lake(run)})
+    return request
 
+
+def unfed_reason(run: Run, stem: str) -> str | None:
+    """Return why the run cannot feed a report figure, ``None`` when it can.
+
+    An overlay never refuses a figure, so a figure whose whole content is a layer or
+    a lake is checked here, before it is drawn as a bare relief or an empty frame.
+    """
+    if stem == "generated_network":
+        held = run.available_hydrographic_network_roles()
+        if "generated" not in held:
+            return f"the run holds no generated network (it holds {', '.join(held) or 'none'})"
+    if stem == "lake_stage" and _lake(run) is None:
+        return "the run holds no single lake to draw, so the station is not known"
+    return None
+
+
+def _lake(run: Run) -> str | None:
+    """Return the lake of the run: the one with a stage record, else the only one."""
+    for source in ("observed", "simulated"):
+        lakes = run.stations("stage", source=source)
+        if len(lakes) == 1:
+            return lakes[0]
+    return None
+
+
+def _gauge(run: Run) -> str | None:
+    site = run.record.site
+    return None if site is None else site.gauge
+
+
+def _sealed_display(run: Run) -> DisplayConfig:
+    """Return the ``[display]`` the run sealed, or the defaults when it no longer loads."""
     sealed = sealed_display_values(run.config_snapshot) or {}
-    drawing = {
-        "enabled": True,
-        "save": True,
-        "show": False,
-        "backend": "agg",
-        "on_error": "warn",
-        "figures": figures,
-    }
     try:
-        return DisplayConfig.model_validate({**sealed, **drawing})
+        return DisplayConfig.model_validate(sealed)
     except ValueError as exc:
         logger.warning(
             "Report: the [display] of this run no longer loads (%s); its figures use the defaults.",
             exc,
         )
-        return DisplayConfig.model_validate(drawing)
+        return DisplayConfig()
 
 
 def _method_block(texts: ReportTexts) -> Block:

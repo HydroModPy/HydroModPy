@@ -33,13 +33,14 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.stopwatch import Measure, measured
 from hydromodpy.core.state.portable import display_path
 from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.display.figure import (
@@ -52,10 +53,20 @@ from hydromodpy.display.figure import (
 from hydromodpy.display.figure_registry import get as _get_figure
 from hydromodpy.display.figure_registry import list_figures as _list_figures
 from hydromodpy.display.figure_table import FORMER_NAMES
-from hydromodpy.display.output import PRODUCER, PRODUCER_PREFIX
+from hydromodpy.display.output import (
+    PRODUCER,
+    PRODUCER_PREFIX,
+    THEME_KEY,
+    request_from_ledger,
+    write,
+)
 from hydromodpy.display.png_metadata import stamp_png_identity
+from hydromodpy.display.presets import PRESETS
+from hydromodpy.display.render import render
+from hydromodpy.display.request import END, FORMATS, INTERACTIVE, STATIC, expand, file_stem
 from hydromodpy.display.style import Theme, themed
 from hydromodpy.display.subject import FigureNotApplicable
+from hydromodpy.display.theme import get_theme
 from hydromodpy.results.derive.config_flags import (
     missing_field_explanation,
     no_surface_exit_reason,
@@ -73,6 +84,8 @@ if TYPE_CHECKING:
 
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.figure import BaseFigure, FigureSpec
+    from hydromodpy.display.request import FigureRequest
+    from hydromodpy.display.theme import Theme as RequestTheme
     from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
@@ -586,14 +599,6 @@ def figures_dir_of(run_dir: Path) -> Path:
 
 def _regen_request(entry: Any, sim: Run, figures_dir: Path, dpi: int) -> None:
     """Draw again the figure of a ``display:figure`` entry, from the request and theme it recorded."""
-    from dataclasses import replace
-
-    from hydromodpy.display.output import THEME_KEY, request_from_ledger, write
-    from hydromodpy.display.presets import PRESETS
-    from hydromodpy.display.render import render
-    from hydromodpy.display.request import FORMATS, expand
-    from hydromodpy.display.theme import get_theme
-
     theme = replace(get_theme(entry.options.get(THEME_KEY, "default")), dpi=dpi)
     figure = expand(request_from_ledger(entry.options), PRESETS)
     suffix = Path(entry.file).suffix.lstrip(".")
@@ -602,7 +607,75 @@ def _regen_request(entry: Any, sim: Run, figures_dir: Path, dpi: int) -> None:
         stem=Path(entry.file).stem,
         formats=(suffix,) if suffix in FORMATS else figure.formats,
     )
-    write(render(figure, sim, theme=theme), figure, sim, figures_dir, theme)
+    engine = INTERACTIVE if suffix == "html" else STATIC
+    write(render(figure, sim, theme=theme, engine=engine), figure, sim, figures_dir, theme)
+
+
+def display_theme(display_cfg: DisplayConfig) -> RequestTheme:
+    """Return the theme of a ``[display]``, with its ``dpi`` when the section sets one."""
+    theme = get_theme(display_cfg.theme_name)
+    return replace(theme, dpi=display_cfg.dpi) if "dpi" in display_cfg.model_fields_set else theme
+
+
+def draw_requests(
+    run: Run,
+    requests: Sequence[FigureRequest],
+    *,
+    presets: Mapping[str, FigureRequest],
+    theme: RequestTheme,
+    output_dir: Path,
+    on_error: str = "warn",
+    on_measure: Callable[[Measure], None] | None = None,
+) -> FigureRenderReport:
+    """Draw each request of ``when = "end"``: one expand, one render and one write each.
+
+    A figure that does not apply to the run is skipped with its reason. Any other
+    failure is logged and skipped, or raised when ``on_error`` is ``raise``. A request
+    drawn at another time is left out of the report.
+    """
+    rendered: list[str] = []
+    written: list[Path] = []
+    skipped: list[SkippedFigure] = []
+    requested: list[str] = []
+    for request in requests:
+        stem = file_stem(request)
+        try:
+            figure = expand(request, presets)
+            if figure.when != END:
+                logger.info(
+                    "Figure %s is not drawn at the end of the run: when = %r is drawn at that time.",
+                    stem,
+                    figure.when,
+                )
+                continue
+            requested.append(stem)
+            with measured("figure", stem) as measure:
+                try:
+                    paths = write(render(figure, run, theme=theme), figure, run, output_dir, theme)
+                finally:
+                    if on_measure is not None:
+                        on_measure(measure)
+        except FigureNotApplicable as exc:
+            logger.info("Figure %s skipped: %s", stem, exc)
+            skipped.append(SkippedFigure(name=stem, reason=str(exc)))
+        except Exception as exc:
+            if on_error == "raise":
+                raise
+            logger.warning("Figure %s failed: %s", stem, exc)
+            if stem not in requested:
+                requested.append(stem)
+            skipped.append(
+                SkippedFigure(name=stem, reason=f"render failed: {exc}", actionable=True)
+            )
+        else:
+            rendered.append(stem)
+            written.extend(paths)
+    return FigureRenderReport(
+        requested=tuple(requested),
+        rendered=tuple(rendered),
+        written=tuple(written),
+        skipped=tuple(skipped),
+    )
 
 
 def regen_figures(sim: Run, run_dir: Path, *, dpi: int = 150) -> FigureRenderReport:

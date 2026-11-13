@@ -77,7 +77,7 @@ its checks and imports no plotting library. ``subject.py`` is the only module th
 a table and a ``draw`` that puts it on one axes. ``render.py`` draws the overlays of ``overlays.py``
 after the frame, and ``output.py`` writes the files and the ledger entry that
 ``hmp export --regen figures`` replays. The frames are ``map``, ``series``, ``section``, ``xy``,
-``distribution``, ``groups`` and ``table``. A table column is a name of ``COLUMN_REGISTRY``, and a
+``distribution``, ``groups``, ``table`` and ``volume``. The interactive engine of ``interactive.py`` draws ``map``, ``series`` and ``volume`` as plotly figures of up to 100 000 cells, and ``output.py`` writes them as HTML. Plotly is imported only when such a figure is drawn. A table column is a name of ``COLUMN_REGISTRY``, and a
 session is drawn by ``series``, ``xy`` and ``distribution`` from its ``trials.<column>`` names. A
 map panel that gives a run name to ``against`` subtracts that run, which ``render`` receives
 resolved. A frame lists the panel fields it reads in ``FIELDS`` and refuses the others by

@@ -107,6 +107,13 @@ def _show_array(
 ) -> MplFigure:
     import matplotlib.pyplot as plt
 
+    if "cell" in da.dims:
+        name = da.name or "<variable>"
+        raise TypeError(
+            "show draws a regular grid, but this field has one value per mesh cell. "
+            f'Draw it with run.figure("{name}") instead.'
+        )
+
     from hydromodpy.display.quicklook.scalable import (
         DEFAULT_CELL_THRESHOLD,
         is_datashader_available,

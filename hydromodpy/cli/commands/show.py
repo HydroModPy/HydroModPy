@@ -34,7 +34,6 @@ from hydromodpy.cli.conventions import (
 from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_USAGE, exit_code_for, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.cli.refs import project_root_of
-from hydromodpy.schema.phrases import LANGS
 
 if TYPE_CHECKING:
     from hydromodpy.project.show import Target
@@ -62,7 +61,7 @@ Examples:
   hmp show base.v2 --figure watertable_depth_map --time 2002-10-15 --to map.png
   hmp show run_a run_b --point --var head --cell 5000 --to point.csv
   hmp show . --rank nse -n 5
-  hmp show base.v2 --report --preset management --lang fr
+  hmp show base.v2 --report --preset management
 """
 
 
@@ -200,9 +199,6 @@ def register(subparsers) -> argparse.ArgumentParser:
         choices=REPORT_PRESETS,
         default=None,
         help="research writes report/ with three levels, management a one-page sheet",
-    )
-    report.add_argument(
-        "--lang", choices=LANGS, default=None, help="Language of the method text and of the sheet"
     )
     report.add_argument(
         "--station",
@@ -800,7 +796,6 @@ def _report(args: argparse.Namespace, root: Path, refs: list[str]) -> None:
                 what="report",
                 workspace=root,
                 preset=args.preset,
-                lang=args.lang,
                 station=args.station,
                 strict=args.strict,
                 options=options,
@@ -823,7 +818,9 @@ def _report(args: argparse.Namespace, root: Path, refs: list[str]) -> None:
             webbrowser.open(Path(page).as_uri())
         return
     report_json = page.parent / "report.json"
-    missing = json.loads(report_json.read_text(encoding="utf-8")).get("missing", [])
+    stored = json.loads(report_json.read_text(encoding="utf-8"))
+    held = stored.get("figures", {})
+    missing = [name for name in stored["missing"] if held.get(name, {}).get("required", True)]
     written = {"html_report": page, "report_json": report_json, "missing": missing}
 
     def table() -> None:

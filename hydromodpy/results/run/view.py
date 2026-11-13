@@ -142,7 +142,10 @@ if TYPE_CHECKING:
 REPORT: Final[str] = "report"
 """The name a renderer reads as the report of its subject, never as a figure."""
 
-REPORT_OPTIONS: Final[tuple[str, ...]] = ("preset", "lang", "station", "strict", "overview_dir")
+LANG_REFUSED: Final[tuple[str, str]] = ("hmp show --lang", "hmp show RUN --report")
+"""The old form of the report language and the form that replaced it, as the CLI words them."""
+
+REPORT_OPTIONS: Final[tuple[str, ...]] = ("preset", "station", "strict", "overview_dir")
 """The options a report of a run takes, beside ``save``."""
 
 _WORKSPACE_OUTPUT_KEYS: tuple[str, ...] = ("catalog_path", "runs_dir")
@@ -288,6 +291,12 @@ def figure_of(
     return draw(subject, target, {**options, "data": True} if data else options)
 
 
+def refuse_lang(options: Mapping[str, Any]) -> None:
+    """Refuse ``lang`` for a report, with the sentence the command line uses."""
+    if options.get("lang") is not None:
+        raise CommandUsageError("{} is gone. Write: {}".format(*LANG_REFUSED))
+
+
 def show_of(subject: Any, what: str, options: Mapping[str, Any], takes: tuple[str, ...]) -> Any:
     """Read what *what* names of *subject*, one of *takes*, with the method that reads it.
 
@@ -309,6 +318,7 @@ def show_of(subject: Any, what: str, options: Mapping[str, Any], takes: tuple[st
 
         return profile_of_run(subject.dir)
     if what == REPORT:
+        refuse_lang(options)
         keys = (*REPORT_OPTIONS, "save")
         return draw(subject, REPORT, {key: options.get(key) for key in keys})
     name = options.get("name")
@@ -786,7 +796,7 @@ class Run(
 
         It is the method of what ``hydromodpy.show`` reads for a run: ``name`` is
         the table, variable or figure, ``time``, ``layer``, ``sel`` and ``bbox``
-        steer a field, and ``preset``, ``lang``, ``station`` and ``strict`` steer
+        steer a field, and ``preset``, ``station`` and ``strict`` steer
         a report.
         """
         return show_of(self, what, options, RUN_SHOWS)

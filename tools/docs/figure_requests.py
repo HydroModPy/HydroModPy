@@ -276,7 +276,7 @@ def _trial_columns() -> list[dict[str, Any]]:
 
     forms = {
         "cost": "Cost of each completed trial.",
-        rq.PARAMETER_TOKEN: "Each searched parameter in turn, with facet = 'parameter'.",
+        rq.PARAMETER_TOKEN: "Each searched parameter in turn.",
         "<parameter name>": "Value of one searched parameter.",
     }
     return [

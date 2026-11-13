@@ -107,7 +107,7 @@ def test_the_batch_follows_on_error(stored_run, tmp_path, caplog, monkeypatch):
     def broken(*_args, **_keywords):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("hydromodpy.display.render.render", broken)
+    monkeypatch.setattr("hydromodpy.display.runs.render", broken)
     figure = [{"variable": "head", "name": "a"}]
     batch._render_requests(stored_run, DisplayConfig(figure=figure), output_dir=tmp_path)
     assert "Figure a failed: boom" in caplog.text
