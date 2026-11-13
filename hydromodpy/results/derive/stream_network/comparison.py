@@ -51,6 +51,7 @@ from hydromodpy.results.derive.stream_network.criterion_inputs import (
     mapped_cells,
     snapped_outlet,
 )
+from hydromodpy.results.field_registry import REBUILT_FIELDS
 from hydromodpy.results.run.geographic import geographic_metadata
 
 if TYPE_CHECKING:
@@ -74,17 +75,10 @@ __all__ = (
 #: Class of one cell in the three-way agreement map. One integer field rather
 #: than three boolean ones, because a cell belongs to exactly one class and a
 #: figure that has to combine three masks can combine them wrongly.
-AGREEMENT_NEITHER = 0
-AGREEMENT_VALID = 1
-AGREEMENT_EXCESS = 2
-AGREEMENT_MISSING = 3
-
-AGREEMENT_LABELS: dict[int, str] = {
-    AGREEMENT_NEITHER: "no stream",
-    AGREEMENT_VALID: "simulated and mapped",
-    AGREEMENT_EXCESS: "simulated only",
-    AGREEMENT_MISSING: "mapped only",
-}
+AGREEMENT_LABELS: dict[int, str] = dict(REBUILT_FIELDS["network_agreement"].classes)
+"""The class codes and their names are written once, in the descriptor of the field."""
+# Keys in the order of the descriptor: no stream, valid, simulated only, mapped only.
+(AGREEMENT_NEITHER, AGREEMENT_VALID, AGREEMENT_EXCESS, AGREEMENT_MISSING) = AGREEMENT_LABELS
 
 _REFERENCE_ROLE = "reference"
 """The default role: what the project declares under ``[data.hydrography]``

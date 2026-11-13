@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from hydromodpy.core.budget.terms import ACTING_PACKAGES
 from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.core.units.kinds import QUANTITY_KINDS, SIGNS, QuantityKind
 
@@ -1135,6 +1136,130 @@ TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
 }
 
 
+def _rebuilt(
+    name: str,
+    label: str,
+    quantity: str,
+    units: str,
+    shape: str,
+    long_name: str,
+    *,
+    cell_methods: str = "time: mean area: point",
+    classes: tuple[tuple[int, str], ...] = (),
+    sign: str | None = None,
+    valid_range: tuple[float, float] | None = None,
+) -> FieldDescriptor:
+    return FieldDescriptor(
+        public_name=name,
+        zarr_path=f"derived/{name}",
+        standard_name="",
+        quantity=quantity,
+        label=label,
+        classes=classes,
+        long_name=long_name,
+        units=units,
+        shape=shape,
+        cell_methods=cell_methods,
+        derived_by="core",
+        sign=sign,
+        valid_min=None if valid_range is None else valid_range[0],
+        valid_max=None if valid_range is None else valid_range[1],
+    )
+
+
+REBUILT_FIELDS: dict[str, FieldDescriptor] = {
+    "simulated_active_network": _rebuilt(
+        "simulated_active_network",
+        "Simulated network",
+        "category",
+        "1",
+        SHAPE_TIME_FACE,
+        "Simulated stream network: 1 where the network criterion counts the cell as flowing",
+        cell_methods="time: point area: maximum",
+        classes=((0, "dry"), (1, "flowing")),
+        valid_range=(0.0, 1.0),
+    ),
+    "network_agreement": _rebuilt(
+        "network_agreement",
+        "Network agreement",
+        "category",
+        "1",
+        SHAPE_TIME_FACE,
+        "Agreement of the simulated and the mapped stream network on the cells the run scores, "
+        "the simulated network following the closure with no visible flow, unlike "
+        "simulated_active_network",
+        classes=(
+            (0, "no stream"),
+            (1, "simulated and mapped"),
+            (2, "simulated only"),
+            (3, "mapped only"),
+        ),
+    ),
+    "downslope_distance": _rebuilt(
+        "downslope_distance",
+        "Downslope distance",
+        "distance",
+        "m",
+        SHAPE_TIME_FACE,
+        "Descent length to the mapped network or to the simulated network where the two differ, "
+        "the simulated network following the closure with no visible flow, unlike "
+        "simulated_active_network",
+    ),
+    "package_cells": _rebuilt(
+        "package_cells",
+        "Boundary package",
+        "category",
+        "1",
+        SHAPE_TIME_FACE,
+        "Boundary package whose budget term is non-zero in the cell at the step, "
+        "the higher code when two act",
+        cell_methods="time: point area: point",
+        classes=(
+            (0, "no exchange"),
+            *((code, name) for code, (name, _) in enumerate(ACTING_PACKAGES, start=1)),
+            (len(ACTING_PACKAGES) + 1, "several"),
+        ),
+    ),
+    "depression_fill_depth": _rebuilt(
+        "depression_fill_depth",
+        "Depression fill depth",
+        "depth",
+        "m",
+        SHAPE_FACE,
+        "Depth the closed depression flood adds to the mesh top",
+        cell_methods="time: point area: point",
+    ),
+}
+"""Fields rebuilt from a run at read time and never stored.
+
+They are not in ``FIELD_REGISTRY``, which lists what a store can hold."""
+
+
+@dataclass(frozen=True, slots=True)
+class ColumnDescriptor:
+    """Quantity kind and short label of one column of a Parquet table.
+
+    The unit is not held here. It is read from the schema of the table.
+    """
+
+    quantity: str
+    label: str
+
+
+COLUMN_REGISTRY: dict[str, ColumnDescriptor] = {
+    "mass_balance.percent_error": ColumnDescriptor("percent", "Mass-balance error"),
+    "sfr_reaches.strahler": ColumnDescriptor("category", "Strahler order"),
+    "simulation.solver": ColumnDescriptor("category", "Solver"),
+    "simulation.flow_regime": ColumnDescriptor("category", "Regime"),
+    "simulation.period_start": ColumnDescriptor("category", "Start"),
+    "simulation.period_end": ColumnDescriptor("category", "End (exclusive)"),
+    "simulation.n_timesteps": ColumnDescriptor("index", "Time steps"),
+    "simulation.n_cells": ColumnDescriptor("index", "Model cells"),
+    "simulation.n_layers": ColumnDescriptor("index", "Layers"),
+}
+"""One row per table column a figure may draw, keyed ``table.column``."""
+
+
 def get(name: str) -> FieldDescriptor:
     """Return the :class:`FieldDescriptor` registered under ``name``.
 
@@ -1148,20 +1273,24 @@ def get(name: str) -> FieldDescriptor:
         raise UnknownFieldError(name, FIELD_REGISTRY.keys()) from None
 
 
-def _descriptor_of(name: str) -> FieldDescriptor | TimeSeriesDescriptor:
-    """Return the field or series descriptor of ``name``."""
+def _descriptor_of(name: str) -> FieldDescriptor | TimeSeriesDescriptor | ColumnDescriptor:
+    """Return the series, field, rebuilt field or column descriptor of ``name``."""
     if name in TIME_SERIES_REGISTRY:
         return TIME_SERIES_REGISTRY[name]
+    if name in REBUILT_FIELDS and name not in FIELD_REGISTRY:
+        return REBUILT_FIELDS[name]
+    if name in COLUMN_REGISTRY:
+        return COLUMN_REGISTRY[name]
     return get(name)
 
 
 def kind_of(name: str) -> QuantityKind:
-    """Return the quantity kind of a field or a series."""
+    """Return the quantity kind of a field, a series or a column."""
     return QUANTITY_KINDS[_descriptor_of(name).quantity]
 
 
 def label_of(name: str) -> str:
-    """Return the short axis label of a field or a series."""
+    """Return the short axis label of a field, a series or a column."""
     return _descriptor_of(name).label
 
 
@@ -1306,6 +1435,9 @@ __all__ = [
     "TIME_SERIES_REGISTRY",
     "TimeSeriesDescriptor",
     "FIELD_REGISTRY",
+    "COLUMN_REGISTRY",
+    "REBUILT_FIELDS",
+    "ColumnDescriptor",
     "get",
     "kind_of",
     "label_of",

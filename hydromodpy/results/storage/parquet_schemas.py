@@ -1401,6 +1401,21 @@ VIEW_SCHEMAS: Final[dict[str, pa.Schema]] = {
     "mesh_cell_families": MESH_CELL_FAMILIES_SCHEMA,
     "mesh_face_families": MESH_FACE_FAMILIES_SCHEMA,
 }
+
+TABLE_SCHEMAS: Final[dict[str, pa.Schema]] = {
+    **VIEW_SCHEMAS,
+    "parameters": PARAMETERS_SCHEMA,
+    "simulation": SIMULATION_SCHEMA,
+}
+"""Every table a run directory can hold, by table name."""
+
+
+def column_unit(table: str, column: str) -> str:
+    """Return the unit of *column* of *table* from the schema metadata, ``""`` when absent."""
+    metadata = TABLE_SCHEMAS[table].field(column).metadata or {}
+    return metadata.get(b"unit", b"").decode("utf-8")
+
+
 """Map of per-simulation view name to declared :class:`pa.Schema`."""
 
 
@@ -1438,6 +1453,7 @@ def check_schema_version(metadata: dict[bytes, bytes] | None, *, document: objec
 
 
 __all__ = [
+    "column_unit",
     "BUDGETS_SCHEMA",
     "DATA_INVENTORY_SCHEMA",
     "PARQUET_CONVENTIONS",
@@ -1456,6 +1472,7 @@ __all__ = [
     "TIMESERIES_SCHEMA",
     "SFR_REACHES_SCHEMA",
     "SIMULATION_SCHEMA",
+    "TABLE_SCHEMAS",
     "SOIL_BUDGET_SCHEMA",
     "VIEW_SCHEMAS",
     "check_schema_version",

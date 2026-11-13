@@ -18,12 +18,18 @@ import pandas as pd
 from hydromodpy.display import static, variables
 from hydromodpy.display.frames.map import stored_field
 from hydromodpy.display.frames.series import observed_on, zone_area, zone_cells
-from hydromodpy.display.request import AGAINST_OBSERVED, ZONE_PREFIX, PanelRequest
+from hydromodpy.display.request import (
+    AGAINST_OBSERVED,
+    ZONE_PREFIX,
+    PanelRequest,
+    is_trial_column,
+)
 from hydromodpy.display.subject import (
     FigureNotApplicable,
     read_mesh,
     read_period_seconds,
     read_series,
+    read_trial_column,
     refuse_fields,
     refuse_set,
 )
@@ -68,6 +74,7 @@ class DistributionData:
     exceedance: bool
     dropped: float = 0.0
     residual: bool = False
+    trials: tuple[int, int] | None = None
 
 
 def _check(subject: Run | Session, panel: PanelRequest) -> str:
@@ -75,11 +82,15 @@ def _check(subject: Run | Session, panel: PanelRequest) -> str:
     refuse_fields("distribution", panel, FIELDS)
     if panel.against not in (None, AGAINST_OBSERVED):
         raise FigureNotApplicable(f"A distribution can only be drawn against {AGAINST_OBSERVED!r}.")
-    if not isinstance(subject, Run):
-        raise FigureNotApplicable("The distribution of a session comes with its columns later.")
     if not panel.variable or len(panel.variable) != 1 or isinstance(panel.station, list):
         raise FigureNotApplicable("A distribution takes one variable and one station.")
     name = panel.variable[0]
+    if isinstance(subject, Session):
+        if not is_trial_column(name):
+            raise FigureNotApplicable("A distribution of a session takes a trials.<column>.")
+        for field in ("time", "layer", "station", "observed", "reduce", "against"):
+            refuse_set("distribution", panel, field, "the trials of a session have no such axis")
+        return name
     if variables.scale(name) == "categorical" and panel.reduce != "frequency":
         raise FigureNotApplicable(
             f"{name!r} is categorical. Use type = 'groups' for its class shares, or "
@@ -173,9 +184,8 @@ def data(subject: Run | Session, panel: PanelRequest) -> DistributionData:
     ``read_observed`` as a second source, and both sources then keep only the
     periods where both are finite, so they describe the same sample. ``against =
     "observed"`` replaces the sample by simulated minus observed on those periods.
-    A ``Session`` subject reads one column of ``read_table(session, "trials")``
-    with one weight per trial, and comes with the session columns of a later lot;
-    it is refused in this version.
+    A ``Session`` subject reads one column ``trials.<column>`` with one weight per trial,
+    on log bins when the parameter was searched in log space.
 
     ``cumulative`` gives the exceedance curve. Otherwise the bin edges come from
     ``numpy.histogram_bin_edges(values, bins="auto")`` with at most ``MAX_BINS``
@@ -186,7 +196,13 @@ def data(subject: Run | Session, panel: PanelRequest) -> DistributionData:
     variables are refused. One variable and one station only.
     """
     name = _check(subject, panel)
-    frame, weight = _sample(subject, name, panel)
+    if isinstance(subject, Session):
+        column = read_trial_column(subject, name, panel.scale)
+        frame = pd.DataFrame({"weight": 1.0, "simulated": column.values.to_numpy()})
+        weight, label, log, ran = "trials", column.label, column.log, column.ran
+    else:
+        frame, weight = _sample(subject, name, panel)
+        label, log, ran = None, None, None
     against = panel.against == AGAINST_OBSERVED
     if against:
         frame["simulated"] = frame["simulated"] - frame["observed"]
@@ -196,7 +212,8 @@ def data(subject: Run | Session, panel: PanelRequest) -> DistributionData:
     frame = frame[np.isfinite(frame["simulated"]) & (frame["weight"] > 0)]
     if frame.empty:
         raise FigureNotApplicable(f"{name!r} has no finite value to draw in this panel.")
-    log = panel.scale == "log" if against else variables.is_log(name, panel.scale)
+    if log is None:
+        log = panel.scale == "log" if against else variables.is_log(name, panel.scale)
     total = float(frame["weight"].sum())
     sources, dropped = {}, 0.0
     for source in (c for c in ("simulated", "observed") if c in frame):
@@ -213,7 +230,14 @@ def data(subject: Run | Session, panel: PanelRequest) -> DistributionData:
         table = _histogram(sources, log, total)
     columns = EXCEEDANCE_COLUMNS if panel.cumulative else HISTOGRAM_COLUMNS
     return DistributionData(
-        table[list(columns)], _label(name, panel), weight, log, panel.cumulative, dropped, against
+        table[list(columns)],
+        label or _label(name, panel),
+        weight,
+        log,
+        panel.cumulative,
+        dropped,
+        against,
+        trials=None if ran is None else (len(frame), ran),
     )
 
 

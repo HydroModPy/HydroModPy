@@ -57,7 +57,7 @@ def test_data_tables_are_keyed_by_panel_and_by_facet_value(stored_run):
 @pytest.mark.parametrize(
     ("fields", "word"),
     [
-        ({"panels": [PanelRequest(type="table", variable="run.name")]}, "table"),
+        ({"panels": [PanelRequest(type="volume", variable="head")]}, "volume"),
         ({"variable": "head", "engine": "interactive", "formats": "html"}, "interactive"),
         ({"variable": "head", "when": "session"}, "session"),
         ({"panels": [PanelRequest(type="series", variable="head", layer=0)]}, "shape"),

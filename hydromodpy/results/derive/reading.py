@@ -67,6 +67,9 @@ def read_variable(
     if variable in MESH_QUALITY_DESCRIPTORS:
         return _read_mesh_quality(run, variable, layer=layer, bbox=bbox)
 
+    if variable in field_registry.REBUILT_FIELDS:
+        return _read_rebuilt(run, variable, time=_period_index(run, time), bbox=bbox)
+
     if field_registry.has(variable):
         return _read_field(run, variable, time=_period_index(run, time), layer=layer, bbox=bbox)
 
@@ -145,6 +148,35 @@ def _read_field(
     if layer is not None and "layer" in da.dims:
         da = da.isel(layer=layer)
     return da
+
+
+def _read_rebuilt(
+    run: Any,
+    variable: str,
+    *,
+    time: int | slice | None,
+    bbox: tuple[float, float, float, float] | None,
+) -> Any:
+    """Read a field rebuilt from the run as a ``DataArray``, on the caller's run.
+
+    One period gives ``(cell,)``, several give ``(time, cell)``. A field with no time
+    axis gives ``(cell,)`` whatever ``time`` says.
+    """
+    import numpy as np
+    import xarray as xr
+
+    from hydromodpy.results import field_registry
+    from hydromodpy.results.run.geographic import field_range
+
+    if field_registry.REBUILT_FIELDS[variable].shape == field_registry.SHAPE_FACE:
+        values, dims = np.asarray(run.field(variable, time=0)), ("cell",)
+    elif isinstance(time, int):
+        values, dims = np.asarray(run.field(variable, time=time)), ("cell",)
+    else:
+        first, last, _ = (time or slice(None)).indices(int(run.n_timesteps))
+        values, dims = field_range(run, variable, first, last), ("time", "cell")
+    da = xr.DataArray(values, dims=dims, name=variable)
+    return da if bbox is None else da.isel(cell=np.flatnonzero(run.mesh.cells_in_bbox(bbox)))
 
 
 def _read_mesh_quality(

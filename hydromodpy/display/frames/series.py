@@ -7,12 +7,13 @@ numbers on the axis come with the session columns of a later lot.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
+from matplotlib.ticker import MaxNLocator
 
 from hydromodpy.core.units.kinds import QUANTITY_KINDS
 from hydromodpy.core.units.parse import convert_between_units
@@ -23,19 +24,25 @@ from hydromodpy.display.request import (
     ZONE_PREFIX,
     PanelRequest,
     ReferenceValue,
+    is_column,
+    is_trial_column,
 )
 from hydromodpy.display.subject import (
     FigureNotApplicable,
     read_budget,
+    read_column_series,
     read_mesh,
     read_observed,
     read_period_seconds,
     read_series,
+    read_trial_column,
     refuse_fields,
+    refuse_set,
 )
 from hydromodpy.display.theme import Theme, unit_text
 from hydromodpy.results.field_registry import kind_of, label_of
 from hydromodpy.results.run.view import Run
+from hydromodpy.results.session.view import Session
 
 FIELDS = (
     "variable", "time", "station", "observed", "scores", "scale", "stack", "reference",
@@ -60,6 +67,11 @@ class SeriesData:
     variable and station, None when the panel did not ask. ``window`` holds the first and
     last period of the requested time window in the units of the ``time`` column, None
     without one, and ``draw`` shades it. ``residual`` is true for ``against = "observed"``.
+
+    The trials of a session have no time. Their table holds the trial number in a column
+    named ``trial`` in place of ``time``, ``axis`` says which, and ``x_label`` names it.
+    ``labels`` gives the label of each variable that has no registry row. ``trials`` is the
+    number of trials drawn and the number the session ran.
     """
 
     table: pd.DataFrame
@@ -70,6 +82,10 @@ class SeriesData:
     scores: pd.DataFrame | None = None
     window: tuple[Any, Any] | None = None
     residual: bool = False
+    axis: str = "time"
+    x_label: str = "Period"
+    labels: dict[str, str] = field(default_factory=dict)
+    trials: tuple[int, int] | None = None
 
 
 def _stations(panel: PanelRequest) -> list[str | None]:
@@ -125,6 +141,11 @@ def _label(panel: PanelRequest, names: list[str]) -> str:
         head = f"Cumulative {head[:1].lower() + head[1:]}"
     elif len(names) > 1:
         head = "Budget terms" if BUDGET in (panel.variable or ()) else "Value"
+    elif variables.scale(first) == "categorical" and any(
+        str(station).startswith(ZONE_PREFIX) for station in _stations(panel)
+    ):
+        # A zone series of a class field is the share of the zone area where the class is 1.
+        head = f"Share of area, {head[:1].lower() + head[1:]}"
     if panel.against == AGAINST_OBSERVED:
         head = "Residual, simulated minus observed"
     return variables.join_unit(head, unit)
@@ -158,7 +179,44 @@ def _references(panel: PanelRequest) -> tuple[tuple[float, str], ...]:
     return tuple(found)
 
 
-def data(subject: Run, panel: PanelRequest) -> SeriesData:
+TRIAL_AXIS = "trial"
+TRIAL_FIELDS = ("time", "station", "observed", "scores", "stack", "against", "cumulative")
+
+
+def _trial_data(session: Session, panel: PanelRequest) -> SeriesData:
+    """Return each trial column against the trial number, one line per variable."""
+    for name in TRIAL_FIELDS:
+        refuse_set("series", panel, name, "the trials of a session have no such axis")
+    names = [name for name in panel.variable or () if is_trial_column(name)]
+    if len(names) != len(panel.variable or ()) or not names:
+        raise FigureNotApplicable("A series of a session takes trials.<column> names only.")
+    found = {name: read_trial_column(session, name, panel.scale) for name in names}
+    frames = [
+        pd.DataFrame(
+            {
+                TRIAL_AXIS: column.values.index.to_numpy(),
+                "variable": name,
+                "station": None,
+                "simulated": column.values.to_numpy(),
+            }
+        )
+        for name, column in found.items()
+    ]
+    first = found[names[0]]
+    return SeriesData(
+        table=pd.concat(frames, ignore_index=True),
+        label=first.label if len(names) == 1 else "Value",
+        log=any(column.log for column in found.values()),
+        stack=False,
+        references=_references(panel),
+        axis=TRIAL_AXIS,
+        x_label="Trial",
+        labels={name: column.label for name, column in found.items()},
+        trials=(len(first.values), first.ran),
+    )
+
+
+def data(subject: Run | Session, panel: PanelRequest) -> SeriesData:
     """Read every variable of the panel at every station, in display unit, on period starts.
 
     ``budget`` expands through ``read_budget``. Each name goes through
@@ -169,6 +227,8 @@ def data(subject: Run, panel: PanelRequest) -> SeriesData:
     kind to its ``cumulates_to``.
     """
     refuse_fields("series", panel, FIELDS)
+    if isinstance(subject, Session):
+        return _trial_data(subject, panel)
     if panel.cumulative:
         for name in panel.variable or ():
             if name != BUDGET and kind_of(name).cumulates_to is None:
@@ -191,7 +251,11 @@ def data(subject: Run, panel: PanelRequest) -> SeriesData:
             names += read_budget(subject, station=station) if name == BUDGET else [name]
         area = zone_area(subject, station)
         for name in dict.fromkeys(names):
-            sim = read_series(subject, name, station=station, window=window)
+            sim = (
+                read_column_series(subject, name, window=window)
+                if is_column(name)
+                else read_series(subject, name, station=station, window=window)
+            )
             seconds = read_period_seconds(subject, sim.index) if panel.cumulative else None
             frame = pd.DataFrame(
                 {
@@ -296,7 +360,8 @@ def draw(ax: Any, data: SeriesData, theme: Theme) -> None:
     the scores as the right title.
     """
     table = data.table
-    dates = pd.api.types.is_datetime64_any_dtype(table["time"])
+    dates = pd.api.types.is_datetime64_any_dtype(table[data.axis])
+    trials = data.axis != "time"
     groups = [
         (n, s, rows)
         for (n, s), rows in table.groupby(["variable", "station"], sort=False, dropna=False)
@@ -310,17 +375,20 @@ def draw(ax: Any, data: SeriesData, theme: Theme) -> None:
     else:
         stations = {s for _, s, _ in groups}
         for i, (name, station, rows) in enumerate(groups):
-            label = "simulated" if not many else label_of(name)
+            label = "simulated" if not many else data.labels.get(name) or label_of(name)
+            if trials and not many:
+                label = None
             if data.residual:
                 label = "simulated minus observed"
             if len(stations) > 1:
                 label += f" ({station})"
             ax.plot(
-                rows["time"],
+                rows[data.axis],
                 rows["simulated"],
                 label=label,
                 color=_color(i, many, theme),
                 linewidth=theme.data_line_width,
+                **({"marker": "o", "markersize": 2.5} if trials else {}),
             )
     if data.window is not None:
         ax.axvspan(*data.window, color=theme.roles["bounds"], alpha=0.12, linewidth=0, zorder=0)
@@ -343,8 +411,10 @@ def draw(ax: Any, data: SeriesData, theme: Theme) -> None:
         ax.axhline(value, color=theme.roles["bounds"], linewidth=theme.line_width, linestyle="--", label=None if text == "zero" else text, zorder=3)  # fmt: skip
     ax.set_ylabel(data.label)
     if not dates:
-        ax.set_xlabel("Period")
+        ax.set_xlabel(data.x_label)
     static.style_axes(ax, theme, dates=dates)
+    if trials:
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     if data.scores is not None and len(data.scores):
         text = score_text(data.scores, many)
         if text:

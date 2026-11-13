@@ -156,10 +156,26 @@ def kept_budget(root: Any) -> KeptBudget | None:
 
 _SEEPAGE_MASK_TERMS = (SURFACE_EXCESS_TERM,)
 
+#: The boundary packages a cell can exchange water with, in the order of their
+#: code in ``package_cells``: the code of a package is its place here plus one,
+#: and a cell touched by two packages at one step takes the code after the last.
+ACTING_PACKAGES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("well", ("well",)),
+    ("drain", (*DRAIN_BUDGET_KEYS, *DRN_TO_MVR_KEYS)),
+    ("general head", ("general_head",)),
+    ("river", ("river",)),
+    ("stream", ("stream",)),
+    ("lake", ("lake",)),
+    ("constant head", ("constant_head", STREAM_CONSTANT_HEAD_BUDGET)),
+)
+
 _FIELD_TERMS: dict[str, tuple[str, ...]] = {
     "release_flux": (*RELEASE_BUDGET_KEYS, "recharge"),
     "release_accumulation_flux": (*RELEASE_BUDGET_KEYS, "recharge"),
     "simulated_active_network": (*RELEASE_BUDGET_KEYS, "recharge"),
+    "network_agreement": (*RELEASE_BUDGET_KEYS, "recharge"),
+    "downslope_distance": (*RELEASE_BUDGET_KEYS, "recharge"),
+    "package_cells": tuple(term for _, terms in ACTING_PACKAGES for term in terms),
     "drain_accumulation_flux": (*DRAIN_BUDGET_KEYS, *DRN_TO_MVR_KEYS),
     "outflow_drain": (*DRAIN_BUDGET_KEYS, *DRN_TO_MVR_KEYS),
     "budget_flux_per_area": ("drain", "recharge"),
@@ -185,6 +201,7 @@ def budget_terms_for_fields(fields: Iterable[str]) -> tuple[str, ...]:
 
 
 __all__ = [
+    "ACTING_PACKAGES",
     "BUDGET_KEPT_TERMS_ATTR",
     "BUDGET_POLICY_ATTR",
     "PER_CELL_BUDGET_TERMS",

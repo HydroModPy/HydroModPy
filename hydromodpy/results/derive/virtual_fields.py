@@ -33,7 +33,12 @@ from hydromodpy.core.budget.flux import (
     seepage_mask,
     warn_on_geometric_seepage_fallback,
 )
-from hydromodpy.core.budget.terms import POLICY_CONSUMERS, budget_terms_for, kept_budget
+from hydromodpy.core.budget.terms import (
+    ACTING_PACKAGES,
+    POLICY_CONSUMERS,
+    budget_terms_for,
+    kept_budget,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.derive.accumulation import (
@@ -47,7 +52,7 @@ from hydromodpy.results.derive.mesh_quality import (
     mesh_quality_unavailable_reason,
     mesh_quality_values,
 )
-from hydromodpy.results.field_registry import SHAPE_TIME_FACE, FieldDescriptor
+from hydromodpy.results.field_registry import FieldDescriptor
 from hydromodpy.results.zarr_store.zarr_reader import (
     concentration_array,
     has_concentration,
@@ -295,6 +300,53 @@ def outflow_drain_rows(root: Any, start: int, stop: int) -> np.ndarray:
     return _in_passes(rows, start, stop, n_cells)
 
 
+def package_cells_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return the boundary package acting on each cell over steps ``[start, stop)``.
+
+    Served by :mod:`hydromodpy.results.derive.stream_network.cell_fields` as a
+    rebuilt field, not as a stored one.
+
+    A package acts on a cell at a step when one of its budget terms is finite and
+    non-zero in any layer of the cell. The value is its code in
+    :data:`~hydromodpy.core.budget.terms.ACTING_PACKAGES`, 0 when none acts, the
+    code after the last when several do, and NaN where no term the run kept is
+    finite in the cell. Codes rise with priority, so the maximum over steps reads
+    the highest package that ever acted.
+    """
+    budget = root.get("budget")
+    if budget is None:
+        raise KeyError("the run kept no per-cell budget")
+    kept = [
+        (code, [term for term in terms if term in budget])
+        for code, (_, terms) in enumerate(ACTING_PACKAGES, start=1)
+    ]
+    kept = [(code, terms) for code, terms in kept if terms]
+    if not kept:
+        raise KeyError("No boundary package budget term in store")
+    n_cells = _cell_count(root, budget[kept[0][1][0]])
+    several = len(ACTING_PACKAGES) + 1
+
+    def rows(first: int, last: int) -> np.ndarray:
+        shape = (last - first, n_cells)
+        finite = np.zeros(shape, dtype=bool)
+        acting = np.zeros(shape, dtype=int)
+        code_of = np.zeros(shape, dtype="float64")
+        for code, terms in kept:
+            package = np.zeros(shape, dtype=bool)
+            for term in terms:
+                values = np.asarray(budget[term][first:last], dtype="float64")
+                values = values.reshape(last - first, -1, n_cells)
+                finite |= np.isfinite(values).any(axis=1)
+                package |= (np.isfinite(values) & (np.abs(values) > 0.0)).any(axis=1)
+            acting += package
+            code_of[package] = code
+        code_of[acting > 1] = several
+        code_of[~finite] = np.nan
+        return code_of
+
+    return _in_passes(rows, start, stop, n_cells)
+
+
 def _concentration_seepage_plan(root: Any) -> RowsOf:
     """Rows of the concentration at seepage cells, the stored array first.
 
@@ -479,37 +531,19 @@ def budget_flux_per_area_rows(root: Any, start: int, stop: int) -> np.ndarray:
 
 
 SIMULATED_ACTIVE_NETWORK = "simulated_active_network"
-"""The cells the network criterion counts as flowing: 1 where a stream flows, else 0."""
+"""The cells the network criterion counts as flowing: 1 where a stream flows, else 0.
 
-SIMULATED_ACTIVE_NETWORK_DESCRIPTOR = FieldDescriptor(
-    public_name=SIMULATED_ACTIVE_NETWORK,
-    zarr_path=f"derived/{SIMULATED_ACTIVE_NETWORK}",
-    standard_name="",
-    quantity="category",
-    label="Simulated network",
-    classes=((0, "dry"), (1, "flowing")),
-    long_name="Simulated stream network: 1 where the network criterion counts the cell as flowing",
-    units="1",
-    shape=SHAPE_TIME_FACE,
-    cell_methods="time: point area: maximum",
-    derived_by="core",
-    valid_min=0.0,
-    valid_max=1.0,
-)
-"""The descriptor of the simulated network, a field rebuilt on read and never stored.
-
-It is not in the field registry: the registry lists what a store can hold,
-and this field is only ever computed, from the run and its catalog."""
+Its descriptor is in ``REBUILT_FIELDS`` and its rows in ``REBUILT_FIELD_ROWS``."""
 
 
 def field_descriptor(name: str) -> FieldDescriptor:
     """Return the descriptor of a field, the rebuilt-only fields included.
 
-    The rebuilt-only fields are the simulated network and the four mesh quality
-    fields, none of which the registry lists.
+    The rebuilt-only fields are the ones of ``REBUILT_FIELDS`` and the four mesh
+    quality fields, none of which the registry lists.
     """
-    if name == SIMULATED_ACTIVE_NETWORK:
-        return SIMULATED_ACTIVE_NETWORK_DESCRIPTOR
+    if name in field_registry.REBUILT_FIELDS:
+        return field_registry.REBUILT_FIELDS[name]
     if name in MESH_QUALITY_DESCRIPTORS:
         return MESH_QUALITY_DESCRIPTORS[name]
     return field_registry.get(name)
@@ -524,7 +558,7 @@ def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.nda
     (:func:`hydromodpy.catchment.stream_network.extent.flowing_cells`), cut with the
     settings of the run's sealed network output: its seepage threshold, its
     graph and its visible flow. A run that sealed none takes the criterion's
-    defaults. The graph is built once for every step.
+    defaults. The graph is built once for every step, and held on ``run``.
 
     Raises
     ------
@@ -532,49 +566,9 @@ def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.nda
         The run cannot say which cells flow: no ``release_flux``, no network
         to build the graph on, or no recharge for a positive threshold.
     """
-    from hydromodpy.catchment.stream_network.extent import CHUNK_ELEMENTS, flowing_cells
-    from hydromodpy.core.scoring.stream_defaults import parse_visible_flow
-    from hydromodpy.results.derive.stream_network.criterion_settings import (
-        network_criterion_settings,
-    )
-    from hydromodpy.results.derive.stream_network.run_extent import (
-        FLOW_FIELD,
-        flow_geometry_from_run,
-        unavailable_reason_for_flow,
-    )
-    from hydromodpy.results.run.geographic import field_steps
+    from hydromodpy.results.derive.stream_network.cell_fields import rebuilt_rows
 
-    settings = network_criterion_settings(run)
-    reason = unavailable_reason_for_flow(run, tau_specific_ratio=settings.tau_specific_ratio)
-    if reason is not None:
-        raise ValueError(f"{SIMULATED_ACTIVE_NETWORK} is not available for this run: {reason}.")
-    geometry = flow_geometry_from_run(
-        run,
-        tau_specific_ratio=settings.tau_specific_ratio,
-        diagonal_neighbors=settings.diagonal_neighbors,
-        observed_rasterization=settings.observed_rasterization,
-        observed_position_accuracy_m=settings.observed_position_accuracy_m,
-        heads_snap_radius_m=settings.heads_snap_radius_m,
-        heads_min_drained_area_km2=settings.heads_min_drained_area_km2,
-    )
-    visible = parse_visible_flow(settings.extent_rules.visible_flow)
-    n_cells = int(geometry.metric.graph.active.size)
-    steps = [int(step) for step in timesteps]
-    stack = np.zeros((len(steps), n_cells), dtype="float64")
-    per_pass = max(1, CHUNK_ELEMENTS // max(1, n_cells))
-    for first in range(0, len(steps), per_pass):
-        chunk = steps[first : first + per_pass]
-        releases = np.asarray(field_steps(run, FLOW_FIELD, chunk), dtype=float)
-        for offset, release in enumerate(releases.reshape(len(chunk), -1)):
-            state = flowing_cells(
-                release,
-                threshold_m3_s=geometry.threshold_m3_s,
-                metric=geometry.metric,
-                visible_flow=visible,
-                outlet=geometry.outlet,
-            )
-            stack[first + offset] = np.asarray(state.flowing, dtype=bool).reshape(-1)
-    return stack
+    return rebuilt_rows(run, SIMULATED_ACTIVE_NETWORK, timesteps)
 
 
 def _simulated_active_network(store: Any, sim_id: str, timestep: int) -> np.ndarray:

@@ -12,7 +12,9 @@ from hydromodpy.display.subject import FigureNotApplicable, read_table
 from hydromodpy.display.theme import THEMES
 
 THEME = THEMES["default"]
-NAMES = ["simulation.n_cells", "simulation.period_start", "simulation.solver", "simulation.nse"]
+NAMES = [
+    "simulation.n_cells", "simulation.period_start", "simulation.solver", "simulation.n_layers",
+]  # fmt: skip
 
 
 def data(run, *names, **panel):
@@ -22,23 +24,22 @@ def data(run, *names, **panel):
 def test_a_row_holds_the_stored_value_and_its_printed_text(stored_run):
     stored = read_table(stored_run, "simulation").iloc[0]
     out = data(stored_run, *NAMES).table
-    assert list(out["variable"]) == NAMES and list(out["label"])[:1] == ["N cells"]
+    assert list(out["variable"]) == NAMES and list(out["label"])[:1] == ["Model cells"]
     assert out["value"].iloc[0] == stored["n_cells"] and isinstance(
         out["value"].iloc[0], np.float64
     )
-    nse = stored["nse"]
     assert list(out["text"]) == [
         str(int(stored["n_cells"])), stored["period_start"].date().isoformat(), stored["solver"],
-        "n/a" if np.isnan(nse) else f"{nse:.3g}",
+        str(int(stored["n_layers"])),
     ]  # fmt: skip
 
 
 @pytest.mark.parametrize(
     ("names", "panel", "word"),
     [
-        (["simulation.nothing"], {}, "n_cells"),  # names the columns the table holds
-        (["nothing.solver"], {}, ""),
-        (["budgets.flux_in", "simulation.solver"], {}, "rows"),
+        (["simulation.nothing"], {}, "Add a row"),  # says where the row goes
+        (["simulation.nse"], {}, "COLUMN_REGISTRY"),
+        (["budgets.flux_in", "simulation.solver"], {}, "COLUMN_REGISTRY"),
         (["simulation.solver"], {"station": "x"}, "does not take"),
     ],
 )

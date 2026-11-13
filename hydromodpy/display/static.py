@@ -127,7 +127,13 @@ def style_axes(ax: Any, theme: Theme, *, grid: bool = True, dates: bool = False)
         **common,
     )
     ax.tick_params(
-        which="minor", length=theme.minor_tick_size, width=theme.minor_tick_width, **common
+        which="minor",
+        length=theme.minor_tick_size,
+        width=theme.minor_tick_width,
+        labelsize=theme.size,
+        labelcolor=theme.ink,
+        labelfontfamily=theme.family,
+        **common,
     )
     for axis in (ax.xaxis, ax.yaxis):
         if dates and axis is ax.xaxis:

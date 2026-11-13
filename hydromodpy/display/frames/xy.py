@@ -22,12 +22,14 @@ from hydromodpy.display.frames.series import (
     zone_area,
     zone_cells,
 )
-from hydromodpy.display.request import PanelRequest, ReferenceValue
+from hydromodpy.display.request import PanelRequest, ReferenceValue, is_trial_column
 from hydromodpy.display.subject import (
     FigureNotApplicable,
+    is_trial_cost,
     read_field,
     read_mesh,
     read_series,
+    read_trial_column,
     refuse_fields,
     refuse_set,
 )
@@ -61,7 +63,8 @@ class XYData:
     ``run.metrics`` for the variable and station, None when the panel did not ask.
     ``dropped`` is the share of the matched rows a log axis leaves out. ``window`` is the
     scoring window of ``scores`` as two timestamps when the metrics carry it, and ``draw``
-    lightens the points outside it.
+    lightens the points outside it. ``trials`` is the number of trials drawn and the number
+    the session ran.
     """
 
     table: pd.DataFrame
@@ -74,6 +77,7 @@ class XYData:
     scores: pd.DataFrame | None = None
     dropped: float = 0.0
     window: tuple[pd.Timestamp, pd.Timestamp] | None = None
+    trials: tuple[int, int] | None = None
 
 
 def data(subject: Run | Session, panel: PanelRequest) -> XYData:
@@ -90,10 +94,10 @@ def data(subject: Run | Session, panel: PanelRequest) -> XYData:
     as on a series.
 
     A ``Session`` subject reads ``read_table(session, "trials")``, and the two names
-    are its columns, ``cost`` or a searched parameter. ``facet = "parameter"``
-    reaches this frame with the token already replaced by ``render``. The session
-    columns and their kinds come with a later lot, so this branch is refused in
-    this version.
+    are its columns written ``trials.<column>``, ``cost`` or a searched parameter, joined
+    on the trial number. ``facet = "parameter"`` reaches this frame with the token already
+    replaced by ``render``. Each axis is logarithmic when its parameter was searched in
+    log space, and ``scale`` sets both. A trial with a missing or failed value is left out.
 
     The display unit comes from ``variables.to_display``. ``scale`` sets both axes
     when given, else each axis follows ``variables.is_log`` of its variable, and
@@ -101,12 +105,9 @@ def data(subject: Run | Session, panel: PanelRequest) -> XYData:
     ``zero`` and values. ``scores`` asks ``run.metrics`` for the one variable and
     station, as the series frame does. Any other panel field is refused.
     """
-    if isinstance(subject, Session):
-        raise FigureNotApplicable(
-            "An xy panel cannot read the trials of a session yet: the session columns come "
-            "with a later version."
-        )
     refuse_fields("xy", panel, FIELDS)
+    if isinstance(subject, Session):
+        return _trial_pair(subject, panel)
     names = list(panel.variable or ())
     if len(names) == 1 and panel.observed:
         names = [names[0], names[0]]
@@ -157,6 +158,45 @@ def data(subject: Run | Session, panel: PanelRequest) -> XYData:
         scores=found,
         dropped=1.0 - len(table) / matched,
         window=_window(found),
+    )
+
+
+def _trial_pair(session: Session, panel: PanelRequest) -> XYData:
+    """Pair two trial columns on the trial number."""
+    for name in ("time", "layer", "station", "observed", "scores"):
+        refuse_set("xy", panel, name, "the trials of a session have no such axis")
+    names = list(panel.variable or ())
+    if len(names) != 2 or not all(is_trial_column(name) for name in names):
+        raise FigureNotApplicable("An xy panel of a session needs two trials.<column> names.")
+    first = [
+        None if is_trial_cost(name) else read_trial_column(session, name, panel.scale)
+        for name in names
+    ]
+    only = next((one.values.index for one in first if one is not None), None)
+    columns = [
+        one or read_trial_column(session, name, panel.scale, only=only)
+        for one, name in zip(first, names, strict=True)
+    ]
+    both = pd.concat([columns[0].values, columns[1].values], axis=1, keys=["x", "y"]).dropna()
+    for column, one in zip(("x", "y"), columns, strict=True):
+        both = both[both[column] > 0] if one.log else both
+    if both.empty:
+        raise FigureNotApplicable(f"No trial has both {names[0]!r} and {names[1]!r} finite.")
+    table = both.rename_axis("key").reset_index().assign(station=None)
+    refs = panel.reference or ()
+    return XYData(
+        table=table[list(XY_COLUMNS)].astype({"key": "int64"}),
+        x_label=columns[0].label,
+        y_label=columns[1].label,
+        log_x=columns[0].log,
+        log_y=columns[1].log,
+        one_to_one="one_to_one" in refs,
+        references=tuple(
+            (r.value, r.label) if isinstance(r, ReferenceValue) else (0.0, "zero")
+            for r in refs
+            if r != "one_to_one"
+        ),
+        trials=(len(table), columns[0].ran),
     )
 
 

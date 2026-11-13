@@ -169,15 +169,17 @@ def project_theme(subject: Any) -> str:
 def takes_request(name: object, presets: Mapping[str, Any], options: Mapping[str, Any]) -> bool:
     """Return whether the figure goes to the request path, else to the old registry.
 
-    A request given as a mapping, a ``draw`` function, a variable name or a preset
-    name go to the request path, and so does a name both paths know. Any other name
+    A request given as a mapping, a ``draw`` function, a variable name, a table column
+    or a preset name go to the request path, and so does a name both paths know. Any other name
     is a figure of the old registry.
     """
-    from hydromodpy.display.request import BUDGET, is_registered
+    from hydromodpy.display.request import BUDGET, is_column, is_registered
 
     if isinstance(name, Mapping) or options.get("draw") is not None:
         return True
-    return isinstance(name, str) and (name in presets or name == BUDGET or is_registered(name))
+    return isinstance(name, str) and (
+        name in presets or name == BUDGET or is_column(name) or is_registered(name)
+    )
 
 
 def render(
@@ -251,6 +253,34 @@ def _write_tables(tables: Mapping[str, Any], stem: str, folder: Path) -> list[Pa
     return paths
 
 
+def _against_runs(subject: Any, figure: Any) -> dict[str, Run]:
+    """Return the runs of the project of *subject* that the panels of *figure* subtract.
+
+    A name given to ``against`` is a run of the same project, found by its name or by its
+    directory. ``observed`` is no run, and a set of runs holds its reference itself.
+    """
+    names = {p.against for p in figure.panels if p.against not in (None, "observed")}
+    if not names or not isinstance(subject, Run):
+        return {}
+    from hydromodpy.project.facade import open_project
+
+    found = project_root_of(subject.dir)
+    if found is None:
+        raise CommandUsageError(
+            f"against = {sorted(names)} names a run of the project, and the run in "
+            f"{subject.dir} sits in no project."
+        )
+    held = list(open_project(found[0]).runs())
+    resolved: dict[str, Run] = {}
+    for name in sorted(names):
+        hit = [run for run in held if name in (run.name, run.dir.name)]
+        if not hit:
+            known = ", ".join(sorted(run.name for run in held))
+            raise CommandUsageError(f"against = {name!r} is no run of the project. Runs: {known}.")
+        resolved[name] = hit[0]
+    return resolved
+
+
 def _render_request(
     subject: Any, name: str | Mapping[str, Any], given: dict[str, Any]
 ) -> Figure | Path | dict[str, Any]:
@@ -282,12 +312,21 @@ def _render_request(
         raise CommandUsageError(f"engine={engine!r} is not one of {', '.join(ENGINES)}.")
     figure = expand(request, presets)
     if data:
-        tables = render_figure(figure, subject, theme=theme, engine=engine, data=True)
+        tables = render_figure(
+            figure,
+            subject,
+            theme=theme,
+            engine=engine,
+            data=True,
+            runs=_against_runs(subject, figure),
+        )
         return tables if data_dir is None else _write_tables(tables, figure.stem, Path(data_dir))
     chosen = get_theme(theme) if isinstance(theme, str) else theme
     if dpi is not None:
         chosen = replace(chosen or get_theme("default"), dpi=int(dpi))
-    drawn = render_figure(figure, subject, theme=chosen, engine=engine)
+    drawn = render_figure(
+        figure, subject, theme=chosen, engine=engine, runs=_against_runs(subject, figure)
+    )
     if save is None:
         return drawn
     target = Path(save).expanduser()

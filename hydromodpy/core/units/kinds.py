@@ -68,6 +68,7 @@ QUANTITY_KINDS: dict[str, QuantityKind] = {
     "conductivity": QuantityKind("m s-1", "m s-1", log=True),
     "fraction": QuantityKind("1", "1"),
     "ratio": QuantityKind("1", "1"),
+    "percent": QuantityKind("%", "%", sign="both", layers=None),
     "specific_storage": QuantityKind("m-1", "m-1", log=True),
     "angle": QuantityKind("degree", "degree"),
     "azimuth": QuantityKind("degree", "degree", sign="both", cyclic=True),

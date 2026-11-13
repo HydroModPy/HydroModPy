@@ -10,7 +10,7 @@ from __future__ import annotations
 import dataclasses
 import importlib
 import inspect
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from types import ModuleType
 from typing import Any
@@ -27,6 +27,9 @@ from hydromodpy.display.request import (
     AFTER,
     ENGINES,
     FRAMES,
+    PARAMETER_TOKEN,
+    TRIAL_FRAMES,
+    TRIALS,
     WHEN,
     ZONE_PREFIX,
     FigureRequest,
@@ -34,9 +37,20 @@ from hydromodpy.display.request import (
     ResolvedFigure,
     expand,
     is_registered,
+    is_trial_column,
     shape_of,
 )
-from hydromodpy.display.subject import FigureNotApplicable, read_mesh
+from hydromodpy.display.subject import (
+    AGAINST_RUN_FRAMES,
+    PHASE_SEPARATOR,
+    Compared,
+    FigureNotApplicable,
+    compare,
+    is_trial_cost,
+    read_mesh,
+    read_table,
+    trial_phases,
+)
 from hydromodpy.display.theme import Theme, get_theme
 from hydromodpy.results.run.group import RunSet
 from hydromodpy.results.run.view import Run
@@ -54,6 +68,7 @@ def render(
     engine: str | None = None,
     presets: dict[str, FigureRequest] | None = None,
     data: bool = False,
+    runs: Mapping[str, Run] | None = None,
 ) -> Figure | dict[str, pd.DataFrame]:
     """Draw ``request`` from ``subject`` and return the figure, or its tables with ``data``.
 
@@ -73,6 +88,15 @@ def render(
     ``time`` list, ``"variable"`` per name, ``"layer"`` per layer of ``read_mesh``,
     ``"run"`` per run of a ``RunSet``. A ``RunSet`` subject requires
     ``facet = "run"`` in this version.
+
+    ``against = "<run name>"`` on a map subtracts a reference run. A ``RunSet`` holds it, the
+    member called so by ``name`` or by directory, and draws one map per other member. A
+    ``Run`` takes it from ``runs``, a mapping of names to runs its caller resolved. Runs on
+    two meshes are refused.
+
+    A ``Session`` is drawn by ``series``, ``xy`` and ``distribution`` panels of
+    ``trials.<column>`` names. ``facet = "parameter"`` replaces ``trials.parameter`` by each
+    searched parameter in turn.
 
     ``data = True``: returns ``dict[str, pandas.DataFrame]``, the ``table`` of each
     panel's data, keyed ``"a"``, ``"b"``... and ``"a:<facet value>"`` per small
@@ -101,7 +125,7 @@ def render(
                 "Ask for the figure, not its data."
             )
         return _draw_function(figure, subject, look)
-    cells = _cells(figure, subject)
+    cells = _cells(figure, subject, runs or {})
     loaded = []
     for key, panel, sub in cells:
         module = _frame_module(panel)
@@ -111,9 +135,8 @@ def render(
         return {key: found.table for key, _, _, _, found in loaded}
     loaded = _share_limits(loaded)
     columns = min(len(loaded), MAX_COLUMNS)
-    fig = static.new_figure(
-        look, width=figure.width, nrows=-(-len(loaded) // columns), ncols=columns
-    )
+    width = "double" if len(loaded) > 1 and figure.width == "single" else figure.width
+    fig = static.new_figure(look, width=width, nrows=-(-len(loaded) // columns), ncols=columns)
     axes = list(fig.axes)
     for spare in axes[len(loaded) :]:
         spare.remove()
@@ -122,9 +145,12 @@ def render(
         with _panel(key):
             module.draw(ax, found, look)
             for name in (panel.overlays or ()) if panel.type == "map" else ():
-                OVERLAYS[name](ax, sub, look)
-        if figure.facet:
-            ax.set_title(key.split(":", 1)[1], **static.text_style(look))
+                OVERLAYS[name](ax, sub.run if isinstance(sub, Compared) else sub, look)
+        title = [key.split(":", 1)[1]] if ":" in key else []
+        if getattr(found, "trials", None):
+            title.append("{} of {} trials".format(*found.trials))
+        if title:
+            ax.set_title(", ".join(title), **static.text_style(look))
     if len(loaded) > 1:
         static.panel_labels(axes, look)
     if figure.title:
@@ -189,10 +215,88 @@ def _facet_values(figure: ResolvedFigure, panel: PanelRequest, subject: Any) -> 
         return list(range(read_mesh(subject).n_layers))
     if figure.facet == "run":
         return list(subject)
+    if figure.facet == "parameter":
+        if not isinstance(subject, Session):
+            raise DisplayError("facet = 'parameter' draws the searched parameters of a session.")
+        names = list(read_table(subject, "bounds").index)
+        if not names:
+            raise FigureNotApplicable("The session holds no searched parameter.")
+        return names
     raise _not_ready("facet", figure.facet, "the frames of the later lots")
 
 
-def _cells(figure: ResolvedFigure, subject: Any) -> list[tuple[str, PanelRequest, Any]]:
+def _check_subject(figure: ResolvedFigure, subject: Any) -> None:
+    """Refuse trial columns on a run and any other panel on a session."""
+    for panel in figure.panels:
+        trials = [name for name in panel.variable or () if is_trial_column(name)]
+        if isinstance(subject, Session):
+            if panel.type not in TRIAL_FRAMES or len(trials) != len(panel.variable or ()):
+                raise DisplayError(
+                    f"A session is drawn by {', '.join(TRIAL_FRAMES)} panels of "
+                    f"{TRIALS}.<column> names, not by a {panel.type} panel of {panel.variable}."
+                )
+            if panel.against is not None or figure.facet not in (None, "parameter", "variable"):
+                raise DisplayError("A session has no run to subtract and no instant to repeat.")
+        elif trials:
+            raise DisplayError(f"{', '.join(trials)} are columns of the trials of a session.")
+
+
+def _reference(members: list[Run], name: str, key: str) -> Run:
+    """Return the member of a run set called ``name``, by its name else by its directory."""
+    for held in (
+        [run for run in members if run.name == name],
+        [run for run in members if run.dir.name == name],
+    ):
+        if len(held) == 1:
+            return held[0]
+        if held:
+            break
+    names = ", ".join(sorted(run.name for run in members))
+    raise FigureNotApplicable(
+        f"Panel {key}: against = {name!r} names {'several runs' if held else 'no run'} of the "
+        f"set. Runs held: {names}."
+    )
+
+
+def _compared(panel: PanelRequest, subject: Any, runs: Mapping[str, Run], key: str) -> Any:
+    """Return the subject of a map panel that gives a run name to ``against``, else ``subject``."""
+    if panel.type not in AGAINST_RUN_FRAMES or panel.against in (None, "observed"):
+        return subject
+    if panel.against not in runs:
+        held = ", ".join(runs) or "none"
+        raise FigureNotApplicable(
+            f"Panel {key}: against = {panel.against!r} needs that run, and none was given "
+            f"under this name. Runs given: {held}. Draw the figure with run.figure."
+        )
+    with _panel(key):
+        return compare(subject, runs[panel.against])
+
+
+def _by_phase(figure: ResolvedFigure, subject: Any) -> list[tuple[str, PanelRequest, Any]]:
+    """Split a lone ``trials.cost`` panel of a session of several phases into one per phase.
+
+    Each phase was scored on its own output, so one axis never carries two costs.
+    """
+    if not isinstance(subject, Session) or figure.facet or len(figure.panels) != 1:
+        return []
+    (panel,) = figure.panels
+    names = list(panel.variable or ())
+    phases = trial_phases(subject) if names and is_trial_cost(names[0]) else []
+    if len(phases) < 2 or names != [f"{TRIALS}.cost"]:
+        return []
+    return [
+        (
+            f"a:{phase}",
+            panel.model_copy(update={"variable": [f"{TRIALS}.cost{PHASE_SEPARATOR}{phase}"]}),
+            subject,
+        )
+        for phase in phases
+    ]
+
+
+def _cells(
+    figure: ResolvedFigure, subject: Any, runs: Mapping[str, Run]
+) -> list[tuple[str, PanelRequest, Any]]:
     """Return one ``(key, panel, subject)`` per drawn panel, small multiples split."""
     by_run = all(panel.type == "groups" and panel.by == "run" for panel in figure.panels)
     if isinstance(subject, RunSet) != (figure.facet == "run" or by_run):
@@ -200,16 +304,38 @@ def _cells(figure: ResolvedFigure, subject: Any) -> list[tuple[str, PanelRequest
             "A set of runs is drawn with facet = 'run' or with groups by = 'run', "
             "and facet = 'run' needs a set of runs."
         )
-    if isinstance(subject, Session):
-        raise DisplayError("A session panel comes with the trial columns of a later lot.")
+    _check_subject(figure, subject)
     letters = [chr(97 + i) for i in range(len(figure.panels))]
+    phased = _by_phase(figure, subject)
+    if phased:
+        return phased
     if not figure.facet:
-        return [(key, panel, subject) for key, panel in zip(letters, figure.panels, strict=True)]
+        return [
+            (key, panel, _compared(panel, subject, runs, key))
+            for key, panel in zip(letters, figure.panels, strict=True)
+        ]
     (panel,) = figure.panels
     cells = []
-    for value in _facet_values(figure, panel, subject):
+    values = _facet_values(figure, panel, subject)
+    reference = None
+    if figure.facet == "run" and panel.type in AGAINST_RUN_FRAMES:
+        if panel.against not in (None, "observed"):
+            reference = _reference(values, panel.against, "a")
+    for value in values:
         if figure.facet == "run":
+            if reference is not None:
+                if value.sim_id != reference.sim_id:
+                    with _panel(f"a:{value.dir.name}"):
+                        cells.append((f"a:{value.dir.name}", panel, compare(value, reference)))
+                continue
             cells.append((f"a:{value.dir.name}", panel, value))
+            continue
+        if figure.facet == "parameter":
+            token = f"{TRIALS}.{PARAMETER_TOKEN}"
+            update = {"variable": [n.replace(token, f"{TRIALS}.{value}") for n in panel.variable]}
+            if token not in panel.variable:
+                raise DisplayError(f"facet = 'parameter' needs {token!r} in variable.")
+            cells.append((f"a:{value}", panel.model_copy(update=update), subject))
             continue
         field = {"time": "time", "variable": "variable", "layer": "layer"}[figure.facet]
         update = [value] if field == "variable" else value

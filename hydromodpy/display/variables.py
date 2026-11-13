@@ -68,7 +68,7 @@ def to_display(
 
 def scale(name: str) -> str:
     """Return the colour scale family, ``scale_of(kind, descriptor.sign)``."""
-    return scale_of(kind(name), descriptor(name).sign)
+    return scale_of(kind(name), getattr(descriptor(name), "sign", None))
 
 
 def is_log(name: str, panel_scale: str | None = None) -> bool:
@@ -78,7 +78,7 @@ def is_log(name: str, panel_scale: str | None = None) -> bool:
     """
     if panel_scale is not None:
         return panel_scale == "log"
-    own = descriptor(name).log
+    own = getattr(descriptor(name), "log", None)
     return kind(name).log if own is None else own
 
 
@@ -99,8 +99,13 @@ def ramp(name: str, theme: Theme) -> str:
 
 def class_colors(name: str, theme: Theme) -> list[str]:
     """Return one colour per class of a categorical variable, in the order of its classes."""
-    palette = theme.categorical
-    return [palette[i % len(palette)] for i, _ in enumerate(descriptor(name).classes)]
+    return _class_palette([value for value, _ in descriptor(name).classes], theme)
+
+
+def _class_palette(values: list[int], theme: Theme) -> list[str]:
+    """Paint the class of value 0, the absence, with the no-data role and the rest in order."""
+    palette = iter(theme.categorical[i % len(theme.categorical)] for i in range(len(values)))
+    return [theme.roles["no_data"] if value == 0 else next(palette) for value in values]
 
 
 def color_norm(
@@ -134,10 +139,9 @@ def class_scale(
     """Return the class positions of ``values``, the class colormap and its boundary norm."""
     known = np.array([value for value, _ in classes])
     position = np.where(np.isin(values, known), np.searchsorted(known, values), np.nan)
-    palette = [theme.categorical[i % len(theme.categorical)] for i in range(len(known))]
     return (
         position,
-        ListedColormap(palette),
+        ListedColormap(_class_palette([int(value) for value in known], theme)),
         BoundaryNorm(np.arange(len(known) + 1) - 0.5, len(known)),
     )
 

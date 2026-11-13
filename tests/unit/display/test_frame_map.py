@@ -95,16 +95,17 @@ def test_the_box_keeps_the_cells_inside(stored_run):
 
 
 def test_a_reach_column_is_drawn_as_lines_to_the_downstream_cell(stored_run):
-    out = data(stored_run, type="map", variable="sfr_reaches.rgrd")
+    out = data(stored_run, type="map", variable="sfr_reaches.strahler")
     assert list(out.table.columns) == list(frame.REACH_COLUMNS)
-    np.testing.assert_allclose(out.table["value"], [0.01, 0.02, 0.03])
+    assert out.label == "Strahler order" and out.classes == ((1, "1"),)
+    np.testing.assert_allclose(out.table["value"], [1, 1, 1])
     assert np.isnan(out.table["x_down"].iloc[-1]) and out.table["x_down"].iloc[0] == 385750.0
     _, ax = drawn(out)
     assert any(isinstance(c, LineCollection) for c in ax.collections)
 
 
 def test_another_run_and_a_missing_column_are_refused(stored_run):
-    with pytest.raises(FigureNotApplicable, match="panel operations of a later"):
+    with pytest.raises(FigureNotApplicable, match="resolved"):
         data(stored_run, variable="head", against="other")
-    with pytest.raises(FigureNotApplicable, match="no column 'slope'"):
+    with pytest.raises(FigureNotApplicable, match="no row in COLUMN_REGISTRY"):
         data(stored_run, type="map", variable="sfr_reaches.slope")

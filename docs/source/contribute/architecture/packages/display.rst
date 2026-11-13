@@ -77,8 +77,10 @@ its checks and imports no plotting library. ``subject.py`` is the only module th
 a table and a ``draw`` that puts it on one axes. ``render.py`` draws the overlays of ``overlays.py``
 after the frame, and ``output.py`` writes the files and the ledger entry that
 ``hmp export --regen figures`` replays. The frames are ``map``, ``series``, ``section``, ``xy``,
-``distribution``, ``groups`` and ``table``, and ``table`` stays flagged not ready until the column
-registry exists. A frame lists the panel fields it reads in ``FIELDS`` and refuses the others by
+``distribution``, ``groups`` and ``table``. A table column is a name of ``COLUMN_REGISTRY``, and a
+session is drawn by ``series``, ``xy`` and ``distribution`` from its ``trials.<column>`` names. A
+map panel that gives a run name to ``against`` subtracts that run, which ``render`` receives
+resolved. A frame lists the panel fields it reads in ``FIELDS`` and refuses the others by
 name through ``subject.refuse_fields``, so a new panel field cannot be ignored without a test
 failing. The colour norm and the colours of a budget term are written once in ``variables.py``,
 the scores of a run and the area of a zone once in ``frames/series.py``. A new frame is a module of

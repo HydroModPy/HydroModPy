@@ -88,13 +88,3 @@ def test_budget_terms_and_mesh_view(stored_run):
     assert mesh.faces.shape == (N_CELLS, 4) and mesh.n_layers == 2
     np.testing.assert_allclose(mesh.areas, AREAS)
     assert mesh.zones["catchment"].sum() == 8 and mesh.zones["domain"].all()
-
-
-def test_a_session_gets_one_column_per_searched_parameter():
-    trials = pd.DataFrame({"trial": [1], "parameters": [{"K": 2.0}]})
-
-    class Trials(Session):
-        def table(self, name):
-            return trials
-
-    assert list(reads.read_table(object.__new__(Trials), "trials").columns) == ["trial", "K"]

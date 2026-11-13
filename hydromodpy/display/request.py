@@ -37,14 +37,17 @@ from hydromodpy.core.time.instant import instant
 from hydromodpy.core.units.kinds import LAYER_REDUCTIONS
 from hydromodpy.results.field_registry import (
     BUDGET_GROUP,
+    COLUMN_REGISTRY,
     FIELD_REGISTRY,
     NOT_AQUIFER_TERMS,
+    REBUILT_FIELDS,
     SHAPE_FACE,
     SHAPE_LAYER_FACE,
     SHAPE_TIME,
     SHAPE_TIME_FACE,
     SHAPE_TIME_LAYER_FACE,
     TIME_SERIES_REGISTRY,
+    ColumnDescriptor,
     FieldDescriptor,
     TimeSeriesDescriptor,
     kind_of,
@@ -85,6 +88,11 @@ BUDGET = "budget"
 COLUMN_SEPARATOR = "."
 """A table column is written ``table.column``."""
 
+TRIALS = "trials"
+"""The pseudo table of a session: ``trials.cost``, ``trials.<parameter>`` and ``trials.parameter``."""
+PARAMETER_TOKEN = "parameter"
+"""``trials.parameter`` stands for each searched parameter, which ``facet = "parameter"`` fills."""
+
 
 @dataclass(frozen=True, slots=True)
 class Frame:
@@ -121,11 +129,13 @@ FRAMES: dict[str, Frame] = {
     "xy": Frame(_XY_SHAPES, ready=True),
     "distribution": Frame(_XY_SHAPES, ready=True),
     "groups": Frame(_XY_SHAPES, ready=True),
-    "table": Frame(),
+    "table": Frame(ready=True),
     "volume": Frame(),
 }
 TABLE = "table"
 MAP, SERIES, GROUPS = "map", "series", "groups"
+TRIAL_FRAMES = (SERIES, "xy", "distribution")
+"""The frames that draw the trial columns of a session."""
 GROUP_KEYS = ("month", "time", "run")
 """The keys a groups panel splits its values by."""
 MAP_TABLE = "sfr_reaches"
@@ -171,13 +181,29 @@ def is_column(name: str) -> bool:
 
 
 def is_registered(name: str) -> bool:
-    """Return True when ``name`` is a registered field or station series."""
-    return name in FIELD_REGISTRY or name in TIME_SERIES_REGISTRY
+    """Return True when ``name`` is a registered or rebuilt field, or a station series."""
+    return name in FIELD_REGISTRY or name in REBUILT_FIELDS or name in TIME_SERIES_REGISTRY
+
+
+def is_trial_column(name: str) -> bool:
+    """Return True when ``name`` is written ``trials.<column>``, a column of a session."""
+    return name.split(COLUMN_SEPARATOR, 1)[0] == TRIALS and is_column(name)
+
+
+def unknown_column(name: str) -> str:
+    """Return the refusal sentence for a table column without a row in the column registry."""
+    table, _, column = name.partition(COLUMN_SEPARATOR)
+    held = [key for key in COLUMN_REGISTRY if key.startswith(f"{table}.")]
+    where = f" Known columns of {table!r}: {', '.join(held)}." if held else ""
+    return (
+        f"{name!r} has no row in COLUMN_REGISTRY (results/field_registry.py).{where} Add a "
+        f"row {name!r} there, with its quantity kind and its label, to draw {column!r}."
+    )
 
 
 def unknown_variable(name: str) -> str:
     """Return the refusal sentence for a variable no registry knows, with the closest names."""
-    known = [*FIELD_REGISTRY, *TIME_SERIES_REGISTRY, BUDGET]
+    known = [*FIELD_REGISTRY, *REBUILT_FIELDS, *TIME_SERIES_REGISTRY, BUDGET]
     close = difflib.get_close_matches(name, known, n=3)
     hint = f" Did you mean {', '.join(close)}?" if close else ""
     return (
@@ -186,20 +212,24 @@ def unknown_variable(name: str) -> str:
     )
 
 
-def descriptor(name: str) -> FieldDescriptor | TimeSeriesDescriptor:
-    """Return the descriptor of a field or a series, the series first as the registry does."""
+def descriptor(name: str) -> FieldDescriptor | TimeSeriesDescriptor | ColumnDescriptor:
+    """Return the descriptor of a field, a rebuilt field, a table column or a series, series first."""
     if name in TIME_SERIES_REGISTRY:
         return TIME_SERIES_REGISTRY[name]
     if name in FIELD_REGISTRY:
         return FIELD_REGISTRY[name]
+    if name in REBUILT_FIELDS:
+        return REBUILT_FIELDS[name]
+    if name in COLUMN_REGISTRY:
+        return COLUMN_REGISTRY[name]
     raise ValueError(unknown_variable(name))
 
 
 def shape_of(name: str) -> str:
     """Return the registry shape of ``name``, which decides its natural frame.
 
-    ``budget`` takes the shape of its terms. A table column has no shape until its
-    row in the column registry exists, so it is refused here and needs a ``type``.
+    ``budget`` takes the shape of its terms. A table column has no shape, so it is
+    refused here and needs a ``type``.
     An ``index`` kind is never drawn and is refused too.
     """
     if name == BUDGET:
@@ -553,16 +583,27 @@ def natural_frame(names: list[str]) -> str:
     return frames[0]
 
 
+def _check_column(panel: PanelRequest, name: str, where: str) -> None:
+    table = name.split(COLUMN_SEPARATOR, 1)[0]
+    if is_trial_column(name):
+        if panel.type not in TRIAL_FRAMES:
+            raise ValueError(
+                f"{where}: {name!r} is a column of the trials of a session, drawn by "
+                f"{', '.join(TRIAL_FRAMES)}, not by type = {panel.type!r}."
+            )
+        return
+    if panel.type == MAP and table != MAP_TABLE:
+        raise ValueError(f"{where}: a map draws a column of the table {MAP_TABLE!r}, not {name!r}.")
+    if panel.type not in (TABLE, MAP, SERIES):
+        raise ValueError(f"{where}: {name!r} is a table column. Write type = 'table'.")
+    if name not in COLUMN_REGISTRY:
+        raise ValueError(f"{where}: {unknown_column(name)}")
+
+
 def _check_variables(panel: PanelRequest, where: str) -> None:
     for name in panel.variable or ():
         if is_column(name):
-            table = name.split(COLUMN_SEPARATOR, 1)[0]
-            if panel.type == MAP and table != MAP_TABLE:
-                raise ValueError(
-                    f"{where}: a map draws a column of the table {MAP_TABLE!r}, not {name!r}."
-                )
-            if panel.type not in (TABLE, MAP):
-                raise ValueError(f"{where}: {name!r} is a table column. Write type = 'table'.")
+            _check_column(panel, name, where)
         elif panel.type == TABLE:
             raise ValueError(f"{where}: a table panel takes 'table.column' names, not {name!r}.")
         elif name != BUDGET:

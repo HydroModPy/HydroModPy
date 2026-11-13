@@ -19,7 +19,7 @@ allowed:
   quicklook:        []
   figure_options:   []
   presets:          [request]
-  subject:          [request]
+  subject:          [request, theme]
   variables:        [request, theme]
   overlays:         ["<init>", request, subject, static, theme]
   output:           ["<init>", request, static, theme, png_metadata]

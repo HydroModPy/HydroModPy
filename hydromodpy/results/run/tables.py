@@ -14,18 +14,14 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-import pyarrow as pa
 
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.results.record.manifest import PARAMETERS_TABLE_NAME
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 from hydromodpy.results.storage.parquet_io import read_checked_table
-from hydromodpy.results.storage.parquet_schemas import PARAMETERS_SCHEMA, VIEW_SCHEMAS
+from hydromodpy.results.storage.parquet_schemas import TABLE_SCHEMAS
 
 if TYPE_CHECKING:
     from hydromodpy.results.run.view import Run
-
-_SCHEMAS: dict[str, pa.Schema] = {**VIEW_SCHEMAS, PARAMETERS_TABLE_NAME: PARAMETERS_SCHEMA}
 
 
 def read_run_table(
@@ -44,7 +40,7 @@ def read_run_table(
     path = tables / f"{name}{PARQUET_FILE_SUFFIX}"
     filters = [(key, "==", value) for key, value in (where or {}).items()] or None
     if not path.is_file():
-        schema = _SCHEMAS.get(name)
+        schema = TABLE_SCHEMAS.get(name)
         names = list(columns) if columns is not None else ([] if schema is None else schema.names)
         return pd.DataFrame(columns=names)
     return read_checked_table(path, columns=columns, filters=filters).to_pandas()

@@ -27,8 +27,10 @@ from hydromodpy.display.request import (
     PanelRequest,
     descriptor,
     is_column,
+    unknown_column,
 )
 from hydromodpy.display.subject import (
+    Compared,
     FigureNotApplicable,
     MeshView,
     read_field,
@@ -37,7 +39,12 @@ from hydromodpy.display.subject import (
     refuse_fields,
 )
 from hydromodpy.display.theme import Theme
-from hydromodpy.results.field_registry import BUDGET_GROUP, BUDGET_SIGN_RULE
+from hydromodpy.results.field_registry import (
+    BUDGET_GROUP,
+    BUDGET_SIGN_RULE,
+    COLUMN_REGISTRY,
+    REBUILT_FIELDS,
+)
 from hydromodpy.results.run.view import Run
 
 MAP_COLUMNS = ("cell", "x", "y", "value")
@@ -46,6 +53,9 @@ FIELDS = (
     "variable", "time", "layer", "overlays", "bbox", "contours", "scale", "share", "reduce",
     "change", "against",
 )  # fmt: skip
+LABEL_WIDTH = 34
+"""A colour bar label is wrapped at this many characters, so a long difference label fits."""
+FREQUENCY_HEAD = "share of steps with a non-zero value"
 LONG_EDGE = 2.2
 """A contour triangle with an edge longer than this many cell sizes is dropped."""
 
@@ -80,7 +90,10 @@ class MapData:
 
 
 # ----------------------------------------------------------------------- data
-def _instants(subject: Run, panel: PanelRequest) -> list[int]:
+def _instants(subject: Run, name: str) -> list[int]:
+    """Return every period, or the first alone for a field that does not change in time."""
+    if name in REBUILT_FIELDS and "time" not in REBUILT_FIELDS[name].shape:
+        return [0]
     return list(range(int(subject.n_timesteps or 1)))
 
 
@@ -98,7 +111,7 @@ def stored_field(subject: Run, name: str, panel: PanelRequest) -> np.ndarray:
     if panel.reduce is None:
         return read_field(subject, name, time=time, layer=layer)
     stack = np.stack(
-        [read_field(subject, name, time=t, layer=layer) for t in _instants(subject, panel)]
+        [read_field(subject, name, time=t, layer=layer) for t in _instants(subject, name)]
     )
     seen = np.isfinite(stack)
     if panel.reduce == "frequency":
@@ -114,6 +127,8 @@ def stored_field(subject: Run, name: str, panel: PanelRequest) -> np.ndarray:
 def _reaches(subject: Run, panel: PanelRequest, mesh: MeshView) -> pd.DataFrame:
     """One row per reach: its cell centre, the centre of its downstream cell, and a column."""
     column = panel.variable[0].split(COLUMN_SEPARATOR, 1)[1]
+    if panel.variable[0] not in COLUMN_REGISTRY:
+        raise FigureNotApplicable(unknown_column(panel.variable[0]))
     reaches = read_table(subject, MAP_TABLE)
     if column not in reaches.columns:
         raise FigureNotApplicable(
@@ -133,7 +148,29 @@ def _reaches(subject: Run, panel: PanelRequest, mesh: MeshView) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=list(REACH_COLUMNS)).astype({"cell": "int64"})
 
 
-def data(subject: Run, panel: PanelRequest) -> MapData:
+def _reach_map(subject: Run, panel: PanelRequest, mesh: MeshView) -> MapData:
+    """Draw one column of the reaches, the label and the classes coming from its registry row."""
+    name = panel.variable[0]
+    table = _reaches(subject, panel, mesh)
+    label = variables.label(name)
+    log = panel.scale == "log"
+    if variables.scale(name) == "categorical":
+        classes = tuple((int(v), str(int(v))) for v in sorted(table["value"].dropna().unique()))
+        return MapData(table, mesh, name, label, "categorical", "", log, False, classes)
+    scale = "diverging" if (table["value"] < 0).any() else "sequential"
+    return MapData(table, mesh, name, label, scale, Theme().ramps[scale], log, False)
+
+
+def _difference(subject: Compared, name: str, panel: PanelRequest) -> np.ndarray:
+    """Return the run minus its reference in the stored unit, each after its own time operation."""
+    if variables.scale(name) == "categorical" and panel.reduce != "frequency":
+        raise FigureNotApplicable(
+            f"{name!r} is categorical, so two runs are subtracted through reduce = 'frequency'."
+        )
+    return stored_field(subject.run, name, panel) - stored_field(subject.reference, name, panel)
+
+
+def data(subject: Run | Compared, panel: PanelRequest) -> MapData:
     """Read one variable at one instant on every cell, reduced over layers, in display unit.
 
     Reads ``read_mesh`` and ``read_field(variable, time=panel.time, layer=panel.layer)``,
@@ -151,22 +188,23 @@ def data(subject: Run, panel: PanelRequest) -> MapData:
     """
     refuse_fields("map", panel, FIELDS)
     name = panel.variable[0]
-    mesh = read_mesh(subject)
+    if panel.against == "observed":
+        raise FigureNotApplicable(f"{name!r} has no observed field to subtract on a map.")
+    compared = isinstance(subject, Compared)
+    if panel.against is not None and not compared:
+        raise FigureNotApplicable(
+            f"against = {panel.against!r} compares with another run, which render hands over "
+            "resolved. Draw the figure through run.figure or render."
+        )
+    run = subject.run if compared else subject
+    mesh = read_mesh(run)
     difference = panel.change is not None or panel.against is not None
     log = panel.scale == "log"
     if is_column(name):
-        table = _reaches(subject, panel, mesh)
-        label = name.split(COLUMN_SEPARATOR, 1)[1]
-        scale = "diverging" if (table["value"] < 0).any() else "sequential"
-        return MapData(table, mesh, name, label, scale, Theme().ramps[scale], log, False)
-    values = stored_field(subject, name, panel)
-    if panel.against == "observed":
-        raise FigureNotApplicable(f"{name!r} has no observed field to subtract on a map.")
-    if panel.against is not None:
-        raise FigureNotApplicable(
-            f"against = {panel.against!r} compares with another run. This comes with the "
-            "panel operations of a later version. Subtract two runs with the readers for now."
-        )
+        if compared:
+            raise FigureNotApplicable("A column of the reaches cannot be subtracted between runs.")
+        return _reach_map(subject, panel, mesh)
+    values = _difference(subject, name, panel) if compared else stored_field(subject, name, panel)
     frequency = panel.reduce == "frequency"
     if not frequency:
         values = variables.to_display(name, values, area=mesh.areas)
@@ -181,10 +219,17 @@ def data(subject: Run, panel: PanelRequest) -> MapData:
         scale = "sequential"
     label = variables.label(name)
     if frequency:
-        label, scale = variables.FREQUENCY_LABEL, "sequential"
+        label, scale = variables.FREQUENCY_LABEL, "diverging" if difference else "sequential"
     elif difference:
         label = f"{label[0].lower()}{label[1:]}" if label[1:2].islower() else label
         label = f"Change in {label}" if panel.change is not None else f"Difference in {label}"
+    if compared:
+        head, unit = variables.label_parts(name)
+        head = FREQUENCY_HEAD if frequency else f"{head[:1].lower()}{head[1:]}"
+        label = variables.join_unit(
+            f"Difference in {head}, {subject.run.name} - {subject.reference.name}",
+            "" if frequency else unit,
+        )
     contours = panel.contours
     if contours is None:
         contours = variables.kind(name).isolines and not (difference or frequency)
@@ -212,6 +257,8 @@ def data(subject: Run, panel: PanelRequest) -> MapData:
 
 # ----------------------------------------------------------------------- draw
 def _ramp(data: MapData, theme: Theme) -> str:
+    if data.scale == "categorical":
+        return ""
     registered = not is_column(data.variable) and data.scale == variables.scale(data.variable)
     return variables.ramp(data.variable, theme) if registered else theme.ramps[data.scale]
 
@@ -264,12 +311,15 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
     cmap = _ramp(data, theme)
     norm = variables.color_norm(data.scale, data.log, values, data.limits)
     if "x_down" in table:
+        shown = values
+        if data.scale == "categorical":
+            shown, cmap, norm = variables.class_scale(values, data.classes, theme)
         segments = [
             [(r.x, r.y), (r.x_down, r.y_down)] for r in table.itertuples() if np.isfinite(r.x_down)
         ]
         drawn = np.array([np.isfinite(r.x_down) for r in table.itertuples()])
         artist = LineCollection(
-            segments, array=values[drawn], cmap=cmap, norm=norm,
+            segments, array=shown[drawn], cmap=cmap, norm=norm,
             linewidths=theme.data_line_width * 1.5, capstyle="round",
         )  # fmt: skip
         box = (table["x"].min(), table["y"].min(), table["x"].max(), table["y"].max())
@@ -296,7 +346,7 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
             ax.fill([], [], color=cmap(i), label=name)
         static.legend(ax, theme)
     else:
-        static.colorbar(ax.figure, artist, ax, theme, label=data.label)
+        static.colorbar(ax.figure, artist, ax, theme, label=textwrap.fill(data.label, LABEL_WIDTH))
     if not is_column(data.variable) and descriptor(data.variable).zarr_path.startswith(
         BUDGET_GROUP
     ):

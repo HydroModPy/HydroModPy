@@ -8,14 +8,14 @@ from hydromodpy.core.units.kinds import QUANTITY_KINDS, SCALES, SIGNS, QuantityK
 from hydromodpy.core.units.parse import convert_between_units
 from hydromodpy.results import field_registry as registry
 from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS
-from hydromodpy.results.derive.virtual_fields import SIMULATED_ACTIVE_NETWORK_DESCRIPTOR
 from hydromodpy.results.exporters.vocabulary import OBSERVED_VARIABLES
+from hydromodpy.results.storage.parquet_schemas import TABLE_SCHEMAS, column_unit
 
 DESCRIPTORS = {
     **registry.FIELD_REGISTRY,
     **registry.TIME_SERIES_REGISTRY,
     **MESH_QUALITY_DESCRIPTORS,
-    SIMULATED_ACTIVE_NETWORK_DESCRIPTOR.public_name: SIMULATED_ACTIVE_NETWORK_DESCRIPTOR,
+    **registry.REBUILT_FIELDS,
 }
 CF_ATTRIBUTE_KEYS = {
     "long_name",
@@ -38,7 +38,7 @@ def test_kind_names():
         "head", "elevation", "depth", "thickness", "cell_flow", "flux_per_area", "flow",
         "conductivity", "fraction", "ratio", "specific_storage", "angle", "azimuth",
         "concentration", "mass_flux", "volume", "area", "category", "index",
-        "distance", "score",
+        "distance", "score", "percent",
     }  # fmt: skip
     cumulated = {kind.cumulates_to for kind in QUANTITY_KINDS.values()} - {None}
     assert cumulated <= set(QUANTITY_KINDS)
@@ -53,6 +53,8 @@ def test_descriptor_matches_its_kind(name):
     assert descriptor.sign is None or descriptor.sign in SIGNS
     assert descriptor.observed is None or descriptor.observed in OBSERVED_VARIABLES
     assert bool(descriptor.classes) == kind.categorical
+    if name in registry.REBUILT_FIELDS:
+        assert name not in registry.FIELD_REGISTRY
     if name in registry.FIELD_REGISTRY or name in registry.TIME_SERIES_REGISTRY:
         assert registry.kind_of(name) is kind
         assert registry.label_of(name) == descriptor.label
@@ -105,3 +107,28 @@ def test_cf_attrs_stay_unchanged(name):
 def test_descriptor_refuses_an_unknown_sign():
     with pytest.raises(ValueError, match="sign"):
         registry.TimeSeriesDescriptor("x", "X", "m", quantity="flow", label="X", sign="up")
+
+
+@pytest.mark.parametrize("key", sorted(registry.COLUMN_REGISTRY))
+def test_column_row_names_a_schema_column(key):
+    table, column = key.split(".")
+    row = registry.COLUMN_REGISTRY[key]
+    assert column in TABLE_SCHEMAS[table].names
+    assert row.quantity in QUANTITY_KINDS
+    assert 0 < len(row.label) <= 40
+    assert registry.kind_of(key) is QUANTITY_KINDS[row.quantity]
+    assert registry.label_of(key) == row.label
+    kind = QUANTITY_KINDS[row.quantity]
+    source = column_unit(table, column) or kind.stored_unit
+    assert convert_between_units(1.0, from_unit=source, to_unit=kind.display_unit) > 0
+
+
+def test_rebuilt_fields_stay_out_of_the_stored_registry():
+    assert set(registry.REBUILT_FIELDS) == {
+        "simulated_active_network", "network_agreement", "downslope_distance",
+        "depression_fill_depth", "package_cells",
+    }  # fmt: skip
+    assert not set(registry.REBUILT_FIELDS) & set(registry.FIELD_REGISTRY)
+    assert registry.kind_of("network_agreement").categorical
+    assert registry.label_of("downslope_distance") == "Downslope distance"
+    assert column_unit("mass_balance", "percent_error") == "percent"

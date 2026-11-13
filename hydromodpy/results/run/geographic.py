@@ -266,6 +266,8 @@ class RunGeographicMixin:
         n_ts = self._load_row().get("n_timesteps")
         if n_ts is not None and timestep < 0:
             timestep = n_ts + timestep
+        if variable in field_registry.REBUILT_FIELDS:
+            return _rebuilt_field(self, variable, [timestep], bbox)[0]
         try:
             arr = self._catalog.query_field(self._sim_id, variable, timestep, layer=layer)
         except KeyError as exc:
@@ -299,6 +301,7 @@ class RunGeographicMixin:
         budget), so figures find them although no array of their own is
         written.
         """
+        from hydromodpy.results.derive.stream_network.cell_fields import rebuilt_unavailable
         from hydromodpy.results.derive.virtual_fields import available_virtual_fields
 
         sz = self._catalog.open_zarr(self._sim_id)
@@ -306,6 +309,8 @@ class RunGeographicMixin:
             if subgroup is not None:
                 group = sz.root.get(subgroup)
                 return group is not None and variable in group
+            if variable in field_registry.REBUILT_FIELDS:
+                return rebuilt_unavailable(self, variable) is None
             if field_registry.has(variable):
                 if stored_field_array(sz.root, field_registry.get(variable).zarr_path) is not None:
                     return True
@@ -424,6 +429,10 @@ def field_range(
     if n_ts is not None:
         start = n_ts + start if start < 0 else start
         stop = n_ts + stop if stop < 0 else stop
+    if variable in field_registry.REBUILT_FIELDS:
+        if n_ts is not None and not 0 <= start <= stop <= n_ts:
+            raise IndexError(f"steps [{start}, {stop}) leave the {n_ts} steps of the run.")
+        return _rebuilt_field(run, variable, range(start, stop))
     try:
         return read_field_range_or_virtual(
             run._catalog, run.sim_id, variable, start, stop, layer=layer
@@ -498,6 +507,19 @@ def _mesh_quality_reason(run: Run, variable: str) -> str:
     finally:
         sz.close()
     return "" if reason is None else f"{variable} is not available for this run: {reason}."
+
+
+def _rebuilt_field(
+    run: Run,
+    variable: str,
+    steps: Sequence[int],
+    bbox: tuple[float, float, float, float] | None = None,
+) -> np.ndarray:
+    """Rebuild a field of ``REBUILT_FIELDS`` at ``steps`` on this very run, so its memo holds."""
+    from hydromodpy.results.derive.stream_network.cell_fields import rebuilt_rows
+
+    rows = rebuilt_rows(run, variable, steps)
+    return rows if bbox is None else _apply_bbox_mask(run, rows, bbox)
 
 
 def _apply_bbox_mask(

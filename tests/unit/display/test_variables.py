@@ -56,7 +56,10 @@ def test_a_diverging_quantity_on_a_sequential_scale_takes_the_scale_ramp(monkeyp
 
 def test_class_colors_and_log():
     classes = len(FIELD_REGISTRY["seepage_mask"].classes)
-    assert variables.class_colors("seepage_mask", THEME) == list(THEME.categorical[:classes])
+    assert variables.class_colors("seepage_mask", THEME) == [
+        THEME.roles["no_data"],
+        *THEME.categorical[: classes - 1],
+    ]
     assert variables.is_log("hydraulic_conductivity") and not variables.is_log("head")
     assert variables.is_log("head", "log") and not variables.is_log(
         "hydraulic_conductivity", "linear"
@@ -81,3 +84,17 @@ def test_the_colour_norm_covers_the_values_and_never_collapses(
 ):
     found = variables.color_norm(scale, log, np.array(values))
     assert (type(found).__name__, found.vmin, found.vmax) == (norm, vmin, vmax)
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["seepage_mask", "simulated_active_network", "network_agreement", "package_cells", "idomain"],
+)
+def test_the_class_of_absence_is_neutral_and_the_others_take_the_palette(name):
+    classes = variables.descriptor(name).classes
+    colors = variables.class_colors(name, THEME)
+    zero = [value for value, _ in classes].index(0)
+    assert colors[zero] == THEME.roles["no_data"]
+    assert [c for i, c in enumerate(colors) if i != zero] == list(
+        THEME.categorical[: len(colors) - 1]
+    )

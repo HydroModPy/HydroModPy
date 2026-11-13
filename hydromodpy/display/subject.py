@@ -23,7 +23,17 @@ import pandas as pd
 
 from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.core.time.instant import TIME_WORDS
-from hydromodpy.display.request import PANEL_FIELDS, ZONE_PREFIX, ZONES, Instant, PanelRequest
+from hydromodpy.display.request import (
+    COLUMN_SEPARATOR,
+    PANEL_FIELDS,
+    PARAMETER_TOKEN,
+    TRIALS,
+    ZONE_PREFIX,
+    ZONES,
+    Instant,
+    PanelRequest,
+)
+from hydromodpy.display.theme import unit_text
 from hydromodpy.results.derive.time_alignment import (
     read_pair,
     run_period_edges,
@@ -33,6 +43,7 @@ from hydromodpy.results.field_registry import (
     BUDGET_GROUP,
     FIELD_REGISTRY,
     NOT_AQUIFER_TERMS,
+    REBUILT_FIELDS,
     kind_of,
 )
 from hydromodpy.results.run.group import RunSet
@@ -126,7 +137,8 @@ def _cube(values: np.ndarray, dims: tuple[str, ...]) -> np.ndarray:
 
 def _layer_rule(variable: str, layer: int | str | None, run: Run, n_layers: int) -> int | str:
     """Return a layer index or the name of a reduction, after checking it against the run."""
-    shape = FIELD_REGISTRY[variable].shape if variable in FIELD_REGISTRY else ""
+    held = FIELD_REGISTRY.get(variable) or REBUILT_FIELDS.get(variable)
+    shape = "" if held is None else held.shape
     if isinstance(layer, bool) or not isinstance(layer, int | str | None):
         raise _refuse(run, f"layer {layer!r} is not an index, 'sum' or 'top'.")
     if isinstance(layer, str) and layer not in ("sum", "top"):
@@ -258,7 +270,7 @@ def _zone_of(run: Run, station: str) -> str:
 
 def _zone_series(run: Run, variable: str, zone: str) -> tuple[pd.Series, np.ndarray, int]:
     """Return the zone series of a cell field at every period, with its period numbers."""
-    descriptor = FIELD_REGISTRY.get(variable)
+    descriptor = FIELD_REGISTRY.get(variable) or REBUILT_FIELDS.get(variable)
     if descriptor is None or not descriptor.timed or not run.has_field(variable):
         raise _refuse(run, f"it holds no time-resolved field {variable!r} to sum over a zone.")
     array = run.read(variable)
@@ -329,6 +341,32 @@ def read_series(
     else:
         series, numbers, n_periods = _station_series(run, variable, station)
     return _clip_window(run, series, numbers, n_periods, window)
+
+
+def read_column_series(
+    run: Run, name: str, *, window: tuple[Instant, Instant] | None = None
+) -> pd.Series:
+    """Return a column of a run table that holds one row per ``timestep`` as a series.
+
+    The index is that of ``read_series`` for a flux, the period STARTS, and the values are
+    as stored. Only the water rows are kept when the table also holds other quantities.
+
+    Raises ``FigureNotApplicable`` when the table has no ``timestep`` or no such column.
+    """
+    table_name, _, column = name.partition(COLUMN_SEPARATOR)
+    table = read_table(run, table_name)
+    if column not in table.columns or "timestep" not in table.columns:
+        raise _refuse(run, f"table {table_name!r} has no column {column!r} per timestep.")
+    if "quantity" in table.columns:
+        table = table[table["quantity"] == "water"]
+    table = table.sort_values("timestep")
+    numbers = table["timestep"].to_numpy(dtype=int)
+    edges = run_period_edges(run)
+    index = pd.RangeIndex(len(numbers), name="period") if edges is None else edges[numbers]
+    if edges is not None:
+        index = pd.DatetimeIndex(index, name="time")
+    series = pd.Series(table[column].to_numpy(dtype=float), index=index, name=name)
+    return _clip_window(run, series, numbers, int(run.n_timesteps), window)
 
 
 def read_period_seconds(run: Run, index: pd.Index) -> np.ndarray:
@@ -409,29 +447,182 @@ def read_budget(run: Run, *, station: str | None = None) -> tuple[str, ...]:
     return terms
 
 
+BOUNDS_COLUMNS = ("lower", "upper", "search_space", "units")
+NO_UNIT = ("", "-", "1")
+
+
+def _session_table(session: Session, name: str) -> pd.DataFrame:
+    """Return ``trials`` as one row per trial with numbers, or ``bounds`` indexed by parameter."""
+    descriptor = session.descriptor
+    if name == "bounds":
+        rows = {
+            key: [bound.lower, bound.upper, bound.search_space, bound.units or ""]
+            for key, bound in descriptor.bounds.items()
+        }
+        frame = pd.DataFrame.from_dict(rows, orient="index", columns=list(BOUNDS_COLUMNS))
+        return frame.rename_axis("parameter")
+    table = session.table(name)
+    if name != TRIALS:
+        return table
+    table = table.drop_duplicates("trial").reset_index(drop=True)
+    labels = _cost_labels(session, table)
+    entries = [row if isinstance(row, dict) else {} for row in table["parameters"]]
+    names = list(descriptor.bounds)
+    names += [key for key in dict.fromkeys(k for row in entries for k in row) if key not in names]
+    values = {
+        key: [float(row[key]["value"]) if key in row else np.nan for row in entries]
+        for key in names
+    }
+    head = table[["trial", "phase", "status", "cost"]].astype({"cost": float})
+    joined = pd.concat([head, pd.DataFrame(values, index=table.index)], axis=1)
+    joined.attrs["cost_labels"] = labels
+    return joined
+
+
+def _cost_labels(session: Session, table: pd.DataFrame) -> dict[str, str]:
+    """Return what the cost of each phase reads as.
+
+    The session names the cost of its last phase. An earlier phase was scored on
+    another output, so it takes the output named by the keys of its ``components``.
+    """
+    descriptor = session.descriptor
+    last = table.loc[table["trial"].idxmax(), "phase"] if len(table) else None
+    labels = {}
+    for phase, rows in table.groupby("phase", sort=False):
+        outputs = [
+            key.rsplit(".", 1)[0]
+            for key in (rows["components"].iloc[0] or {})
+            if key.endswith(".raw_cost")
+        ]
+        own = f"{outputs[0]} cost" if outputs else str(phase)
+        labels[phase] = (descriptor.cost_label or descriptor.cost_name) if phase == last else own
+    return labels
+
+
 def read_table(subject: Run | RunSet | Session, name: str) -> pd.DataFrame:
     """Return the table ``name`` of a run, a run set or a session, as stored.
 
-    A run reads ``run.table(name)``, a run set ``runset.table(name)``. A session
-    reads ``trials`` with one column per searched parameter in place of the
-    ``parameters`` dict column. Column units are those of ``parquet_schemas.py``.
+    A run reads ``run.table(name)``, a run set ``runset.table(name)``. A session reads
+    ``trials``, one row per trial with ``trial``, ``phase``, ``status``, ``cost`` and one
+    float column per searched parameter holding its value, or ``bounds``, indexed by
+    parameter with ``lower``, ``upper``, ``search_space`` and ``units``. Column units are
+    those of ``parquet_schemas.py``.
 
     Raises ``FigureNotApplicable`` when the subject holds no such table, naming the
     tables it holds.
     """
     try:
-        table = subject.table(name)
+        if isinstance(subject, Session):
+            return _session_table(subject, name)
+        return subject.table(name)
     except (FileNotFoundError, KeyError, ValueError) as error:
         label = type(subject).__name__
         if isinstance(getattr(subject, "name", None), str):
             label = f"{label} {subject.name!r}"
         raise FigureNotApplicable(f"{label} holds no table {name!r}: {error}") from error
-    if isinstance(subject, Session) and name == "trials" and "parameters" in table.columns:
-        rows = [row if isinstance(row, dict) else {} for row in table["parameters"]]
-        table = pd.concat(
-            [table.drop(columns="parameters"), pd.DataFrame(rows, index=table.index)], axis=1
+
+
+PHASE_SEPARATOR = "@"
+"""``trials.cost@<phase>`` is the cost of the trials of one phase, written by ``render``."""
+COMPLETED = "completed"
+
+
+@dataclass(frozen=True, slots=True)
+class TrialColumn:
+    """One column of the trials of a session, indexed by trial number.
+
+    ``values`` holds the completed trials with a finite value. ``ran`` is the number of
+    trials the session ran, all phases included.
+    """
+
+    values: pd.Series
+    label: str
+    log: bool
+    ran: int
+
+
+def trial_phases(session: Session) -> list[str]:
+    """Return the phases of a session in the order they ran."""
+    return list(dict.fromkeys(read_table(session, TRIALS)["phase"]))
+
+
+def is_trial_cost(name: str) -> bool:
+    """Return True when ``name`` is ``trials.cost``, whatever its phase."""
+    return name.split(COLUMN_SEPARATOR, 1)[1].partition(PHASE_SEPARATOR)[0] == "cost"
+
+
+def read_trial_column(
+    session: Session, name: str, scale: str | None = None, only: pd.Index | None = None
+) -> TrialColumn:
+    """Return the trial column ``trials.<column>``: its values, its label and its axis.
+
+    A trial counts when its status is completed and its value is finite. The cost is
+    labelled by the cost of the phase of its trials and is linear. Two phases are scored on
+    two outputs, so a cost that spans them is refused: write ``trials.cost@<phase>``, or
+    keep the trials of ``only``. A searched parameter takes its name and its stored unit,
+    and a log axis when its search space is log. A panel ``scale`` wins. Nothing is
+    converted, since the search ran in that unit.
+    """
+    column, _, phase = name.split(COLUMN_SEPARATOR, 1)[1].partition(PHASE_SEPARATOR)
+    table = read_table(session, TRIALS)
+    trials = table.set_index("trial")
+    held = [key for key in trials.columns if key not in ("phase", "status")]
+    if column not in held:
+        hint = " Write facet = 'parameter' to draw each one." if column == PARAMETER_TOKEN else ""
+        raise FigureNotApplicable(
+            f"The trials hold no column {column!r}. They hold: {', '.join(held)}.{hint}"
         )
-    return table
+    descriptor = session.descriptor
+    values = trials[column].astype(float)
+    keep = np.isfinite(values) & (trials["status"] == COMPLETED)
+    if phase:
+        keep &= trials["phase"] == phase
+    if only is not None:
+        keep &= trials.index.isin(only)
+    values = values[keep]
+    if column == "cost":
+        phases = list(dict.fromkeys(trials.loc[values.index, "phase"]))
+        if len(phases) > 1:
+            raise FigureNotApplicable(
+                f"The cost of the phases {', '.join(phases)} is scored on one output each. "
+                f"Write {TRIALS}.cost{PHASE_SEPARATOR}<phase>, or draw each parameter with "
+                "facet = 'parameter'."
+            )
+        labels = table.attrs["cost_labels"]
+        label = labels[phases[0]] if phases else descriptor.cost_label or descriptor.cost_name
+        log = False
+    else:
+        bound = descriptor.bounds.get(column)
+        unit = "" if bound is None else (bound.units or "")
+        label = column if unit in NO_UNIT else f"{column} ({unit_text(unit)})"
+        log = bound is not None and bound.search_space == "log"
+    return TrialColumn(values, label, log if scale is None else scale == "log", len(table))
+
+
+AGAINST_RUN_FRAMES = ("map",)
+"""The frames that subtract a reference run when ``against`` names one."""
+
+
+@dataclass(frozen=True, slots=True)
+class Compared:
+    """A run and the reference run it is subtracted from, on one mesh."""
+
+    run: Run
+    reference: Run
+
+
+def compare(run: Run, reference: Run) -> Compared:
+    """Return ``run`` against ``reference``, refusing runs that are not on one mesh."""
+    if run.sim_id == reference.sim_id:
+        raise _refuse(run, "it is its own reference, so the difference is zero.")
+    hashes = [read_table(item, "simulation")["mesh_hash"].iloc[0] for item in (run, reference)]
+    if hashes[0] != hashes[1]:
+        raise _refuse(
+            run,
+            f"its mesh differs from the mesh of {reference.name!r}, so the two cannot be "
+            "subtracted cell by cell.",
+        )
+    return Compared(run, reference)
 
 
 def read_network(run: Run, role: str) -> gpd.GeoDataFrame:

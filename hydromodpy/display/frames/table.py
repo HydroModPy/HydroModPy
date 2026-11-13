@@ -1,10 +1,9 @@
 """Table frame: rows of text, a label and a value for each column a panel names.
 
-It prints the value of each ``table.column`` of the panel for the subject. The
-label comes from the column name, with no unit and no conversion. The registry of
-table columns of the next lot brings the labels and the units. It draws no axes, no
-colour scale and no plot. A column that holds several rows is not a table cell
-and is refused.
+It prints the value of each ``table.column`` of the panel for the subject. The label
+comes from ``COLUMN_REGISTRY``, and the unit from the schema of the table when it gives
+one. It draws no axes, no colour scale and no plot. A column without a registry row is
+refused, and so is a column that holds several rows, which is not a table cell.
 """
 
 from __future__ import annotations
@@ -15,11 +14,19 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.units.kinds import QUANTITY_KINDS
+from hydromodpy.core.units.parse import convert_between_units
 from hydromodpy.display import static
-from hydromodpy.display.request import COLUMN_SEPARATOR, PanelRequest
+from hydromodpy.display.request import (
+    COLUMN_SEPARATOR,
+    PanelRequest,
+    unknown_column,
+)
 from hydromodpy.display.subject import FigureNotApplicable, read_table, refuse_fields
-from hydromodpy.display.theme import Theme
+from hydromodpy.display.theme import Theme, unit_text
+from hydromodpy.results.field_registry import COLUMN_REGISTRY
 from hydromodpy.results.run.view import Run
+from hydromodpy.results.storage.parquet_schemas import column_unit
 
 FIELDS = ("variable",)
 TABLE_COLUMNS = ("variable", "label", "value", "text")
@@ -33,10 +40,11 @@ class TableData:
 
     ``table`` has the columns of ``TABLE_COLUMNS``, one row per name of the panel,
     in the order of ``variable``. ``variable`` is the ``table.column`` name.
-    ``label`` is the column name with spaces and a capital. ``value`` is the stored
-    value, a float64 for a number so a test compares it, else the stored object
-    (text, date). ``text`` is what is printed: a number with ``DIGITS`` significant
-    digits and no unit, a whole number as is, a date as ISO, any other value as stored.
+    ``label`` is the registry label, followed by the unit in brackets when the schema
+    gives one. ``value`` is a float64 for a number so a test compares it, in the display
+    unit when the schema gives a unit, else the stored object (text, date). ``text`` is
+    what is printed: a number with ``DIGITS`` significant digits, a whole number as is, a
+    date as ISO, any other value as stored.
     """
 
     table: pd.DataFrame
@@ -56,8 +64,9 @@ def _text(value: Any) -> str:
 def data(subject: Run, panel: PanelRequest) -> TableData:
     """Read each named column through ``read_table`` and keep its one value.
 
-    Each name of ``variable`` is ``table.column``. The table is read once per
-    table name. A column the table lacks is refused with the columns it holds. A
+    Each name of ``variable`` is ``table.column`` and has a row in ``COLUMN_REGISTRY``, else
+    it is refused with the place to add one. The table is read once per table name. A
+    column the table lacks is refused with the columns it holds. A
     table with more than one row is refused, pointing at a series or a groups
     panel. Any other panel field than ``variable`` is refused.
     """
@@ -67,6 +76,8 @@ def data(subject: Run, panel: PanelRequest) -> TableData:
     tables: dict[str, pd.DataFrame] = {}
     rows = []
     for name in panel.variable:
+        if name not in COLUMN_REGISTRY:
+            raise FigureNotApplicable(unknown_column(name))
         table_name, _, column = name.partition(COLUMN_SEPARATOR)
         if table_name not in tables:
             tables[table_name] = read_table(subject, table_name)
@@ -84,7 +95,16 @@ def data(subject: Run, panel: PanelRequest) -> TableData:
         value = held[column].iloc[0]
         if isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool):
             value = np.float64(value)
-        rows.append((name, column.replace("_", " ").capitalize(), value, _text(value)))
+        label = COLUMN_REGISTRY[name].label
+        stored = column_unit(table_name, column)
+        if stored and isinstance(value, np.float64):
+            kind = QUANTITY_KINDS[COLUMN_REGISTRY[name].quantity]
+            value = np.float64(
+                convert_between_units(float(value), from_unit=stored, to_unit=kind.display_unit)
+            )
+            unit = unit_text(kind.display_unit)
+            label = f"{label} ({unit})" if unit else label
+        rows.append((name, label, value, _text(value)))
     return TableData(table=pd.DataFrame(rows, columns=list(TABLE_COLUMNS)))
 
 

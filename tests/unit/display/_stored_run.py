@@ -42,8 +42,11 @@ RECHARGE_M3S = 2.0e-3
 """Recharge of each cell at period 0, m3/s. It grows by one tenth each period."""
 
 
-def write_run(project: Path, name: str = "stored") -> str:
-    """Write, seal and index one run under ``project`` and return its run id."""
+def write_run(project: Path, name: str = "stored", head_shift: float = 0.0) -> str:
+    """Write, seal and index one run under ``project`` and return its run id.
+
+    ``head_shift`` raises every head by that many metres, to give a second run on one mesh.
+    """
     store = open_run_store(
         project,
         name,
@@ -73,7 +76,7 @@ def write_run(project: Path, name: str = "stored") -> str:
     store.write_time(sid, STAMPS.values.astype("datetime64[s]").astype("int64"))
     store.write_crs(sid, crs_wkt="EPSG:2154", epsg_code=2154)
     for step in range(N_PERIODS):
-        head = np.stack([HEAD_TOP - 1.0 + step, HEAD_TOP - 6.0 + step])
+        head = np.stack([HEAD_TOP - 1.0 + step, HEAD_TOP - 6.0 + step]) + head_shift
         recharge = np.zeros((N_LAYERS, N_CELLS))
         recharge[0] = RECHARGE_M3S * (1.0 + 0.1 * step)
         count = N_PERIODS if step == 0 else None
