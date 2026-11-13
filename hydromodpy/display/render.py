@@ -119,7 +119,7 @@ def render(
     refuse ``data = True`` because a drawn function gives no tables.
 
     Refuses with ``DisplayError`` naming what is missing: a frame whose
-    ``Frame.ready`` is false, an engine whose ``Engine.ready`` is false, a subject the frame does not read. Any read that
+    an engine or a frame that cannot draw the figure, a subject the frame does not read. Any read that
     fails raises ``FigureNotApplicable`` with the panel letter in its message, and
     the whole figure is refused.
     """
@@ -217,9 +217,6 @@ def _not_drawn(what: str, name: str, instead: str) -> DisplayError:
 def _check_ready(figure: ResolvedFigure, engine: str, *, tables: bool = False) -> None:
     if engine not in ENGINES:
         raise DisplayError(f"Unknown engine {engine!r}. Known engines: {', '.join(ENGINES)}.")
-    if not ENGINES[engine].ready:
-        ready = [name for name, known in ENGINES.items() if known.ready]
-        raise _not_drawn("engine", engine, f"Use engine = {ready[0]!r}.")
     drawn_by = [name for name, known in FRAMES.items() if engine in known.engines]
     if figure.draw is not None or figure.special is not None:
         if engine != STATIC:
@@ -229,9 +226,6 @@ def _check_ready(figure: ResolvedFigure, engine: str, *, tables: bool = False) -
             )
     for panel in figure.panels:
         frame = FRAMES[panel.type]
-        if not frame.ready:
-            ready = [name for name, known in FRAMES.items() if known.ready]
-            raise _not_drawn("frame", panel.type, f"Use type = one of {', '.join(ready)}.")
         if engine not in frame.engines and not tables:
             raise DisplayError(
                 f"The frame {panel.type!r} has no {engine} drawing. Use engine = "

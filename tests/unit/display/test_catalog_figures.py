@@ -48,9 +48,7 @@ def test_listing_comes_from_the_tables() -> None:
 
     assert {row["name"] for row in rows if row["kind"] == "preset"} == set(PRESETS) - set(SPECIALS)
     assert {row["name"] for row in rows if row["kind"] == "special"} == set(SPECIALS)
-    assert {row["name"] for row in rows if row["kind"] == "frame"} == {
-        name for name, frame in FRAMES.items() if frame.ready
-    }
+    assert {row["name"] for row in rows if row["kind"] == "frame"} == set(FRAMES)
     assert {row["status"] for row in rows} == {""}
     assert named["watertable_depth"]["frame"] == "map"
     assert (named["discharge"]["frame"], named["discharge"]["unit"]) == ("series", "m3 s-1")

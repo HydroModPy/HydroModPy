@@ -20,7 +20,7 @@ SAMPLES = {
     "reference": ["zero"], "share": True, "reduce": "mean", "change": (0, 1),
     "against": "observed", "cumulative": True,
 }  # fmt: skip
-IMPLEMENTED = [*(name for name, found in FRAMES.items() if found.ready), "table"]
+IMPLEMENTED = list(FRAMES)
 ZONE, DOMAIN, WINDOW = "zone:catchment", "zone:domain", ["2001-02-01", "2001-03-01"]
 LINE = [(X0 + 100.0, Y0 + 750.0), (X0 + 1700.0, Y0 + 750.0)]
 SERIES = {"variable": ["discharge"], "station": GAUGE}

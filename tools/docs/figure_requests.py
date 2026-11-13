@@ -132,13 +132,11 @@ def frames() -> list[dict[str, Any]]:
 
     rows = []
     for name, frame in FRAMES.items():
-        doc = ""
-        if frame.ready:
-            doc = _first_line(importlib.import_module(f"hydromodpy.display.frames.{name}").__doc__)
+        doc = _first_line(importlib.import_module(f"hydromodpy.display.frames.{name}").__doc__)
         rows.append(
             {
                 "name": name,
-                "ready": frame.ready,
+                "ready": True,
                 "shapes": list(frame.shapes),
                 "overlays": list(frame.overlays),
                 "summary": doc,
@@ -157,8 +155,8 @@ def vocabularies() -> list[dict[str, Any]]:
         {
             "name": "engine",
             "values": [
-                {"value": k, "note": ", ".join(e.formats), "ready": e.ready}
-                for k, e in rq.ENGINES.items()
+                {"value": k, "note": ", ".join(formats), "ready": True}
+                for k, formats in rq.ENGINES.items()
             ],
         },
         {

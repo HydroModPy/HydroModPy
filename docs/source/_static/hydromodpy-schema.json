@@ -6703,7 +6703,7 @@
     },
     "FigureRequest": {
       "additionalProperties": false,
-      "description": "One figure: a variable, a preset, a list of panels or a Python function.\n\nWith ``variable`` or ``preset`` the panel fields describe the one panel or fill\nthe holes of the preset. ``draw`` takes a Python callable\n``draw(subject, ax, theme)``. A TOML value is never callable, and a mapping that\ncarries ``draw`` is refused, so no file can name code. ``draw`` stays out of the\nJSON schema and of every dump, so a ledger never records it. ``special`` names a row\nof ``SPECIALS``, which only a shipped preset carries.",
+      "description": "One figure: a variable, a preset, a list of panels or a Python function.\n\n``draw`` and ``special`` stay out of the schema and of every dump, so no file names code.",
       "properties": {
         "type": {
           "anyOf": [

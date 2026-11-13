@@ -99,6 +99,7 @@ def make_run(
             cell_areas=lambda: np.array(areas),
             vertices=corners,
             face_node_connectivity=np.arange(len(x) * 4).reshape(-1, 4),
+            z_interfaces=np.zeros((2, len(x))),
             crs="EPSG:2154",
         ),
         catchment_mask=np.ones(len(x), dtype=bool),

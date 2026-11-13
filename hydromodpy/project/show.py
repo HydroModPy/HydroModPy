@@ -311,7 +311,7 @@ def _refuse_save(save: Any, suffix: str, engines: tuple[str, ...]) -> CommandUsa
     from hydromodpy.display.request import ENGINES
 
     writes = " ".join(
-        f"The {name} engine writes {', '.join(e.formats)}." for name, e in ENGINES.items()
+        f"The {name} engine writes {', '.join(formats)}." for name, formats in ENGINES.items()
     )
     return CommandUsageError(
         f"save = {str(save)!r}: {suffix!r} is not written by the {' and '.join(engines)} engine. "
@@ -381,7 +381,7 @@ def _render_request(
     suffix = ""
     if target is not None and not (target.is_dir() or target.suffix == ""):
         suffix = target.suffix.lstrip(".").lower()
-        if not any(suffix in ENGINES[name].formats for name in engines):
+        if not any(suffix in ENGINES[name] for name in engines):
             raise _refuse_save(save, suffix, engines)
     drawn_by = {
         name: render_figure(figure, subject, theme=chosen, engine=name, runs=runs)
@@ -396,7 +396,7 @@ def _render_request(
     for name, drawn in drawn_by.items():
         written = figure
         if suffix:
-            formats = (suffix,) if suffix in ENGINES[name].formats else ENGINES[name].formats[:1]
+            formats = (suffix,) if suffix in ENGINES[name] else ENGINES[name][:1]
             written = replace(figure, stem=target.stem, formats=formats)
         paths.append(write(drawn, written, run, directory, chosen or get_theme("default"))[0])
     return paths[list(drawn_by).index(STATIC)] if STATIC in drawn_by else paths[0]

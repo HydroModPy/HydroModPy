@@ -248,7 +248,7 @@ def data(subject: Run | Session, panel: PanelRequest) -> SeriesData:
     for station in _stations(panel):
         names = []
         for name in panel.variable:
-            names += read_budget(subject, station=station) if name == BUDGET else [name]
+            names += read_budget(subject) if name == BUDGET else [name]
         area = zone_area(subject, station)
         for name in dict.fromkeys(names):
             sim = (

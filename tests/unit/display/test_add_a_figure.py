@@ -164,5 +164,5 @@ def test_case_5_a_plain_matplotlib_function(stored_run):
     assert len(figure.axes[0].lines) == 1 and figure.axes[0].collections
     with pytest.raises(ValueError, match="draw takes a Python function and is never written"):
         FigureRequest.model_validate({"draw": "discharge_against_recharge"})
-    with pytest.raises(ValueError, match=r"takes no keyword beyond subject.*time cannot be given"):
+    with pytest.raises(ValueError, match="takes no option time"):
         expand(FigureRequest(draw=discharge_against_recharge, time="last"), PRESETS)

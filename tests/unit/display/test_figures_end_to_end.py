@@ -55,11 +55,10 @@ NOT_DRAWN = {
 
 
 def _cases() -> list[tuple[str, str]]:
-    ready = [frame for frame, found in FRAMES.items() if found.ready]
     return [
         (name, frame)
         for name in HELD
-        for frame in ready
+        for frame in FRAMES
         if shape_of(name) in FRAMES[frame].shapes
         or (frame == "series" and FIELD_REGISTRY.get(name) and FIELD_REGISTRY[name].timed)
     ]

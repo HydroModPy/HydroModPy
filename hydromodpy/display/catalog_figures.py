@@ -106,7 +106,7 @@ def figure_listing(
 def _rows(run: Any, presets: Mapping[str, FigureRequest]) -> list[dict[str, str]]:
     rows = [_preset_row(run, name, presets) for name in sorted(presets) if name not in SPECIALS]
     rows += [_special_row(run, name) for name in sorted(SPECIALS)]
-    rows += [_frame_row(name) for name, frame in FRAMES.items() if frame.ready]
+    rows += [_frame_row(name) for name in FRAMES]
     rows += [_variable_row(run, name) for name in _variables()]
     rows += [_column_row(run, name) for name in COLUMN_REGISTRY]
     return rows
