@@ -259,8 +259,8 @@ MASS_BALANCE_SCHEMA: Final[pa.Schema] = pa.schema(
             pa.float64(),
             nullable=True,
             metadata=_field_meta(
-                description="Storage gain; per-row unit in the 'unit' column. "
-                "Left 0.0 for solute (GWT STORAGE-AQUEOUS not split out)"
+                description="Rate the storage releases into the system (STORAGE "
+                "terms under IN); per-row unit in the 'unit' column"
             ),
         ),
         pa.field(
@@ -268,8 +268,8 @@ MASS_BALANCE_SCHEMA: Final[pa.Schema] = pa.schema(
             pa.float64(),
             nullable=True,
             metadata=_field_meta(
-                description="Storage loss; per-row unit in the 'unit' column. "
-                "Left 0.0 for solute (GWT STORAGE-AQUEOUS not split out)"
+                description="Rate the storage takes from the system (STORAGE "
+                "terms under OUT); per-row unit in the 'unit' column"
             ),
         ),
         pa.field(

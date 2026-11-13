@@ -22,7 +22,9 @@ from hydromodpy.results.derive.virtual_fields import read_field_or_virtual
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.results.zarr_store.zarr_reader import (
     concentration_array,
+    field_array_view,
     has_concentration,
+    stored_field_array,
 )
 
 
@@ -80,3 +82,16 @@ def test_the_solute_written_under_its_name_answers_that_array(tmp_path: Path) ->
     assert np.allclose(np.asarray(array), [[1.0, 2.0]])
     assert has_concentration(sz.root)
     sz.close()
+
+
+def test_the_path_resolver_reads_the_solute_and_not_its_group(
+    subgroup_store: SimulationZarr, flat_store: SimulationZarr, tmp_path: Path
+) -> None:
+    """``run.read`` and the exporters resolve ``concentration`` to the array of the solute."""
+    expected = np.arange(3 * 4, dtype="float64").reshape(3, 4)
+    for sz in (subgroup_store, flat_store):
+        array = stored_field_array(sz.root, "concentration")
+        assert np.array_equal(np.asarray(field_array_view(array, None)), expected)
+    empty = SimulationZarr.create(tmp_path / "empty.zarr", n_cells=4, n_layers=1)
+    assert stored_field_array(empty.root, "concentration") is None
+    assert stored_field_array(empty.root, "budget/recharge") is None

@@ -120,8 +120,14 @@ class RecessionPowerLaw(BaseFigure):
         **_,
     ) -> Axes:
         if component is None:
-            series = sim.timeseries(variable, station=station) * SECONDS_PER_DAY
             source = f"'{variable}' @ '{station}'"
+            try:
+                series = sim.timeseries(variable, station=station) * SECONDS_PER_DAY
+            except KeyError as exc:
+                raise FigureNotApplicable(
+                    f"recession_power_law: the run stores no series {source} "
+                    f"(a steady run has none): {exc}"
+                ) from exc
         else:
             series = budget_outflow_per_day(sim, component)
             source = f"budget component '{component}'"

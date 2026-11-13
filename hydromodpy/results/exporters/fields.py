@@ -16,6 +16,7 @@ import numpy as np
 
 from hydromodpy.results.derive.virtual_fields import derive_field_slice, field_descriptor
 from hydromodpy.results.field_registry import FieldDescriptor
+from hydromodpy.results.zarr_store.zarr_reader import stored_field_array
 
 TWO_DIMENSIONAL_FIELDS = ("watertable_elevation", "watertable_depth", "seepage_mask")
 """Fields of one value per cell, whatever the number of layers."""
@@ -24,21 +25,6 @@ TWO_DIMENSIONAL_FIELDS = ("watertable_elevation", "watertable_depth", "seepage_m
 def is_timed(descriptor: FieldDescriptor) -> bool:
     """Return whether a field carries a time axis."""
     return descriptor.timed
-
-
-def resolve_zarr_path(grp: Any, zarr_path: str) -> Any:
-    """Resolve a registry zarr_path inside the simulation group, or None if absent."""
-    parts = zarr_path.split("/")
-    cursor = grp
-    for part in parts[:-1]:
-        sub = cursor.get(part)
-        if sub is None:
-            return None
-        cursor = sub
-    leaf = parts[-1]
-    if leaf in cursor:
-        return cursor[leaf]
-    return None
 
 
 def read_field_step(handle: Any, sim_id: str, variable: str, timestep: int) -> np.ndarray:
@@ -50,7 +36,7 @@ def read_field_step(handle: Any, sim_id: str, variable: str, timestep: int) -> n
         The field is neither stored nor rebuildable from what the store holds.
     """
     descriptor = field_descriptor(variable)
-    arr = resolve_zarr_path(handle.root, descriptor.zarr_path)
+    arr = stored_field_array(handle.root, descriptor.zarr_path)
     if arr is not None:
         return np.asarray(arr[int(timestep)] if is_timed(descriptor) else arr[:])
     data = derive_field_slice(handle, str(sim_id), variable, int(timestep))

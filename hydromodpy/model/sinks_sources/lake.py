@@ -480,7 +480,9 @@ class FlowLakeConfig(HydroModelBase):
     initial_stage: Annotated[Length, Profile.USER] = Field(
         ...,
         description=(
-            "Lake stage at the start of the run: the elevation of the water surface, in metres."
+            "Lake stage at the start of the run: the elevation of the water surface, in "
+            "metres. When the first period is steady, the steady solve sets the stage and "
+            "this value is only its first guess, unless steady_stage_hold holds it."
         ),
         examples=[45.0],
         json_schema_extra=field_metadata(renamed_from=["flow.sinks_sources.lakes.stageinit"]),

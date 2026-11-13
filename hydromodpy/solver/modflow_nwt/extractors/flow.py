@@ -766,7 +766,6 @@ class ModflowNwtOutputAdapter:
                 "storage_in": _budget_field(row, names, "STORAGE_IN") * scale,
                 "storage_out": _budget_field(row, names, "STORAGE_OUT") * scale,
                 "in_minus_out": _budget_field(row, names, "IN-OUT") * scale,
-                "percent_error": _budget_field(row, names, "PERCENT_DISCREPANCY"),
             }
             for row in incremental
         ]

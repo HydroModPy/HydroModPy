@@ -413,13 +413,17 @@ def test_density_without_catchment(tmp_path, monkeypatch, caplog):
     assert "stores no catchment" in caplog.text
 
 
-def test_recharge_forcing_mean(tmp_path):
+def test_recharge_forcing_is_a_rate_over_the_domain(tmp_path):
     run = view_run(tmp_path)
 
     series = views.recharge_forcing(run)
 
-    np.testing.assert_allclose(series.to_numpy(), RECHARGE_FORCING[:, ACTIVE].mean(axis=1))
-    assert not np.allclose(series.to_numpy(), RECHARGE_FORCING[:, BASIN].mean(axis=1))
+    # m3/s summed over the active cells, divided by their area: a depth per second.
+    expected = RECHARGE_FORCING[:, ACTIVE].sum(axis=1) / CELL_AREAS[ACTIVE].sum()
+    np.testing.assert_allclose(series.to_numpy(), expected)
+    assert series.attrs["unit"] == "m s-1"
+    # A mean of the per-cell volumes weighs the 300 m2 cell like a 100 m2 one.
+    assert not np.allclose(series.to_numpy(), RECHARGE_FORCING[:, ACTIVE].mean(axis=1))
 
 
 def test_view_support_documented():

@@ -451,9 +451,9 @@ def inventory_rows(state: DataOverviewState) -> list[dict[str, Any]]:
         if family not in requested and not loaded:
             continue
         section = getattr(data_cfg, family, None)
-        first, last = _section_window(section) if section is not None else (None, None)
-        if first is None and last is None:
-            first, last = _records_window(loaded)
+        first, last = _records_window(loaded)
+        if first is None and last is None and section is not None:
+            first, last = _section_window(section)
         mean_value, unit = _family_mean(family, loaded)
         rows.append(
             _row(
@@ -517,15 +517,38 @@ def _section_window(section: Any) -> tuple[datetime | None, datetime | None]:
 
 
 def _records_window(load_result: Any) -> tuple[datetime | None, datetime | None]:
-    """Return the union of the periods of the records of a load result."""
+    """Return the union of the periods the records of a load result cover."""
     starts, ends = [], []
     for record in getattr(load_result, "all_records", ()) or ():
-        start, end = getattr(record, "date_start", None), getattr(record, "date_end", None)
+        start, end = _record_span(record)
         if start is not None:
-            starts.append(_instant(start))
+            starts.append(start)
         if end is not None:
-            ends.append(_instant(end))
+            ends.append(end)
     return (min(starts) if starts else None, max(ends) if ends else None)
+
+
+def _record_span(record: Any) -> tuple[datetime | None, datetime | None]:
+    """Return the first and last instant a record holds a value at.
+
+    The ``date_start`` and ``date_end`` of a point record are the window it
+    was asked for, so a station measured from 2021 in a 2019 request would
+    read 2019. The dated values say where the measure starts and stops. A
+    record without dated values, a field for instance, keeps its own window.
+    """
+    import pandas as pd
+
+    data = getattr(record, "data", None)
+    if isinstance(data, pd.DataFrame) and {"datetime", "value"} <= set(data.columns):
+        stamps = pd.to_datetime(data.loc[data["value"].notna(), "datetime"], errors="coerce")
+        stamps = stamps.dropna()
+        if stamps.empty:
+            return None, None
+        return _instant(stamps.min()), _instant(stamps.max())
+    return (
+        _instant(getattr(record, "date_start", None)),
+        _instant(getattr(record, "date_end", None)),
+    )
 
 
 def _object_count(load_result: Any) -> int:
@@ -590,8 +613,7 @@ def _station_rows(family: str, load_result: Any) -> list[dict[str, Any]]:
     for record in getattr(load_result, "points", ()) or ():
         station = str(getattr(record, "station_id", ""))
         location = getattr(record, "location", None)
-        start, end = getattr(record, "date_start", None), getattr(record, "date_end", None)
-        start, end = (_instant(start), _instant(end))
+        start, end = _record_span(record)
         row = stations.get(station)
         if row is None:
             metadata = getattr(location, "metadata", None)

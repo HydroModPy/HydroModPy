@@ -391,6 +391,26 @@ def test_station_rows_merge_records() -> None:
     assert station["crs_epsg"] == 2154
 
 
+def test_inventory_dates_are_the_measured_span_not_the_request() -> None:
+    # Requested 2019-2025, measured from 2021-03-02 to 2021-03-04 with a gap at the end.
+    station = _points("Q1", "2019-01-01", "2025-12-31")
+    station.data = pd.DataFrame(
+        {
+            "datetime": pd.date_range("2021-03-02", periods=4),
+            "value": [1.0, 2.0, 3.0, float("nan")],
+        }
+    )
+    loaded = {"hydrometry": SimpleNamespace(points=[station], fields=[], all_records=[station])}
+    window = SimpleNamespace(date_start="2019-01-01", date_end="2025-12-31", sources=[])
+    rows = overview_module.inventory_rows(
+        _state(loaded, types=["hydrometry"], sections={"hydrometry": window})
+    )
+
+    for row in rows:
+        assert row["first"] == datetime(2021, 3, 2, tzinfo=UTC), row["row_kind"]
+        assert row["last"] == datetime(2021, 3, 4, tzinfo=UTC), row["row_kind"]
+
+
 @pytest.mark.parametrize(
     ("unit", "values", "expected", "expected_unit"),
     [

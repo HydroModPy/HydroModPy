@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import (
     OneParameter,
     Opt,
@@ -108,11 +108,17 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
         d_so = table.diagnostic("D_so", output=output)
         d_os = table.diagnostic("D_os", output=output)
 
+        # A session in phases samples each parameter in its own phase, and the
+        # trials of the other phases do not carry it: they are left out.
+        sampled = np.isfinite(values)
+        if not np.any(sampled):
+            raise FigureNotApplicable(f"no trial of the session sampled the parameter {name!r}.")
+        values, d_so, d_os = values[sampled], d_so[sampled], d_os[sampled]
         order = np.argsort(values, kind="stable")
         values, d_so, d_os = values[order], d_so[order], d_os[order]
-        if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
+        if np.any(values <= 0.0):
             raise ValueError(
-                f"the parameter {name!r} carries a non-positive or missing value, and the "
+                f"the parameter {name!r} carries a non-positive value, and the "
                 "crossing is read on a log axis. A root search over a ratio walks the "
                 "decades, so its samples are strictly positive."
             )

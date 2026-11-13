@@ -136,6 +136,29 @@ def test_non_positive_parameter_is_refused(mpl, tmp_path) -> None:
         DownslopeDistanceCrossingFigure().render(run, ax)
 
 
+def test_trials_of_another_phase_are_left_out(mpl, tmp_path) -> None:
+    # Phase 1 samples K, phase 2 samples Sy and its trials do not carry K.
+    rows = []
+    sampled = [("K", 1e-4, RISING), ("K", 1e-3, FALLING), ("Sy", 0.05, RISING), ("Sy", 0.1, RISING)]
+    for index, (name, value, diagnostic) in enumerate(sampled):
+        payload = {f"streams.{key}": number for key, number in diagnostic.items()}
+        rows.append(
+            {
+                "trial": index + 1,
+                "parameters": {name: {"value": value}},
+                "components": payload,
+                "status": "completed",
+            }
+        )
+    session = journal_session(tmp_path / "phases", rows, name="nancon-k-then-sy")
+    _, ax = mpl.subplots()
+
+    DownslopeDistanceCrossingFigure().render(session, ax, parameter="K")
+
+    assert list(line(ax, "D_so").get_xdata()) == [1e-4, 1e-3]
+    assert line(ax, "crossing").get_xdata()[0] == pytest.approx(10.0**-3.5)
+
+
 def test_stage_without_the_diagnostic_is_unavailable(tmp_path) -> None:
     # The second stage of a staged calibration publishes a cost per trial and
     # no network diagnostic. Raising instead cost a converged stage its run.

@@ -15,7 +15,7 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.errors import FieldNotFoundError
-from hydromodpy.results.zarr_store.zarr_reader import field_array_view
+from hydromodpy.results.zarr_store.zarr_reader import field_array_view, stored_field_array
 
 if TYPE_CHECKING:
     import xarray as xr
@@ -50,17 +50,6 @@ def _optional_dask_array():
     return da
 
 
-def lookup_zarr_path(root, zarr_path: str):
-    """Resolve a registry zarr_path against a Zarr root, returning ``None`` if absent."""
-    if "/" in zarr_path:
-        grp_name, var_name = zarr_path.split("/", 1)
-        grp = root.get(grp_name)
-        if grp is None or var_name not in grp:
-            return None
-        return grp[var_name]
-    return root.get(zarr_path)
-
-
 _DEFAULT_SLAB_STEPS = 64
 """Steps read at once from a store that does not declare a time chunk."""
 
@@ -79,7 +68,7 @@ def acting_faces_over_run(run: Run, names: list[str], n_faces: int) -> dict[str,
     try:
         return {
             name: _acting_over_stack(
-                lookup_zarr_path(store.root, field_registry.get(name).zarr_path), name, n_faces
+                stored_field_array(store.root, field_registry.get(name).zarr_path), name, n_faces
             )
             for name in names
         }
@@ -184,7 +173,8 @@ class RunArrayProvider:
                 names = [
                     n
                     for n, d in field_registry.FIELD_REGISTRY.items()
-                    if d.shape in face_shapes and lookup_zarr_path(sz.root, d.zarr_path) is not None
+                    if d.shape in face_shapes
+                    and stored_field_array(sz.root, d.zarr_path) is not None
                 ]
             else:
                 desc = field_registry.get(variable)
@@ -192,7 +182,7 @@ class RunArrayProvider:
                     raise ValueError(
                         f"Field '{variable}' has shape '{desc.shape}', not face-aligned"
                     )
-                if lookup_zarr_path(sz.root, desc.zarr_path) is None:
+                if stored_field_array(sz.root, desc.zarr_path) is None:
                     raise FieldNotFoundError(
                         f"Field '{variable}' not found in simulation '{run._sim_id}'",
                         sim_id=run._sim_id,
@@ -203,7 +193,7 @@ class RunArrayProvider:
             data_vars: dict[str, xr.DataArray] = {}
             for name in names:
                 desc = field_registry.get(name)
-                arr = lookup_zarr_path(sz.root, desc.zarr_path)
+                arr = stored_field_array(sz.root, desc.zarr_path)
                 dims = face_shapes[desc.shape]
                 if len(dims) != arr.ndim:
                     continue
@@ -279,7 +269,7 @@ class RunArrayProvider:
             data_vars: dict[str, xr.DataArray] = {}
             for name in variables:
                 desc = field_registry.get(name)
-                arr = lookup_zarr_path(sz.root, desc.zarr_path)
+                arr = stored_field_array(sz.root, desc.zarr_path)
                 derived = _virtual_field_stack(run, sz, name, time_slice) if arr is None else None
                 if arr is None and derived is None:
                     raise FieldNotFoundError(

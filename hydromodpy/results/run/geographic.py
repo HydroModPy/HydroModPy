@@ -24,9 +24,9 @@ from hydromodpy.results.derive.mesh_quality import (
     mesh_quality_unavailable_reason,
 )
 from hydromodpy.results.errors import FieldNotFoundError
-from hydromodpy.results.run.array import lookup_zarr_path
 from hydromodpy.results.run.contracts import Mesh, MeshStoreIdentity, RasterField
 from hydromodpy.results.run.descent import read_basin
+from hydromodpy.results.zarr_store.zarr_reader import stored_field_array
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -307,7 +307,7 @@ class RunGeographicMixin:
                 group = sz.root.get(subgroup)
                 return group is not None and variable in group
             if field_registry.has(variable):
-                if lookup_zarr_path(sz.root, field_registry.get(variable).zarr_path) is not None:
+                if stored_field_array(sz.root, field_registry.get(variable).zarr_path) is not None:
                     return True
             elif any(
                 variable in group

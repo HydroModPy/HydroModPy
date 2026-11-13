@@ -1028,13 +1028,14 @@ def _polygon_weights(sim: Run, polygon: BaseGeometry, crs: CrsLike | None) -> np
 
 
 def recharge_forcing(sim: Run) -> pd.Series:
-    """Input recharge per stress period (from ``budget/recharge``).
+    """Input recharge rate per stress period, in m/s (from ``budget/recharge``).
 
-    Reads the first substep of each stress period from the MODFLOW budget,
-    constant within a period by the forcing contract, and returns the mean of
-    the stored per-cell term (m3/s) over the active cells of the model domain.
-    The support is the active domain, not the catchment: for a catchment total
-    of the recharge use :func:`budget_over`.
+    The stored term is a volume per second on each cell. Each period sums it
+    over the active cells of the model domain and divides by their area, so
+    the rate is the depth of water per second the domain receives, whatever
+    the cell sizes. A mean of the per-cell volumes would weigh a large cell
+    like a small one. The support is the active domain, not the catchment: for
+    a catchment total of the recharge use :func:`budget_over`.
     """
     sz = sim._catalog.open_zarr(sim._sim_id)
     try:
@@ -1047,15 +1048,23 @@ def recharge_forcing(sim: Run) -> pd.Series:
 
         arr = budget[rch_key]
         n_t = arr.shape[0]
+        areas = np.asarray(sim.mesh.cell_areas(), dtype="float64").ravel()
         mask = _active_mask(sim)
-        means = []
+        support = np.isfinite(areas) & (areas > 0.0)
+        if mask is not None and mask.size == areas.size:
+            support &= mask
+        rates = []
         with progress.status("Reading recharge forcing"):
             for t in range(n_t):
-                field = np.asarray(arr[t], dtype="float64").ravel()
-                if mask is not None and mask.size == field.size:
-                    field = np.where(mask, field, np.nan)
-                means.append(float(np.nanmean(field)))
+                # A layered term sums its layers: the recharge of a column.
+                layers = np.asarray(arr[t], dtype="float64").reshape(-1, areas.size)
+                field = np.where(np.isfinite(layers).any(axis=0), np.nansum(layers, axis=0), np.nan)
+                cells = support & np.isfinite(field)
+                total_area = float(areas[cells].sum())
+                rates.append(float(field[cells].sum()) / total_area if total_area else np.nan)
     finally:
         sz.close()
 
-    return pd.Series(means, index=_time_index(sim, n_t), name="recharge_forcing")
+    series = pd.Series(rates, index=_time_index(sim, n_t), name="recharge_forcing")
+    series.attrs["unit"] = "m s-1"
+    return series

@@ -8860,7 +8860,7 @@
               "type": "string"
             }
           ],
-          "description": "Lake stage at the start of the run: the elevation of the water surface, in metres.",
+          "description": "Lake stage at the start of the run: the elevation of the water surface, in metres. When the first period is steady, the steady solve sets the stage and this value is only its first guess, unless steady_stage_hold holds it.",
           "examples": [
             45.0
           ],
@@ -16503,7 +16503,7 @@
       "properties": {
         "release_zone": {
           "default": "domain",
-          "description": "Cells particles are released from: 'domain' (every active cell), 'domain_nonriver' (the same without river cells), 'upstream' (the highest cells), 'upstream_nonriver', 'river', 'outlet' (the lowest cells), or 'custom' (the cells particle_cell_ids lists).",
+          "description": "Columns particles are released from, one particle per column, in its top active layer at local_z where the recharge enters: 'domain' (every active column), 'domain_nonriver' (the same without river cells), 'upstream' (the highest cells), 'upstream_nonriver', 'river', 'outlet' (the lowest cells), or 'custom' (the cells particle_cell_ids lists).",
           "examples": [
             "domain"
           ],

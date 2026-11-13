@@ -503,6 +503,41 @@ versions = ">=2.0.0a1,<=2.0.0rc1"
 quantities = ["start@spinup_cyclic_lake"]
 text = "The cyclic spin-up carried the heads from one cycle to the next and restarted every lake from its initial_stage, so the lake never settled. Each cycle now starts from the final stage of the previous one."
 
+[[bug]]
+id = "mass_balance_percent_error_rounded"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
+quantities = ["fluxes@modflow6", "fluxes@modflow_nwt"]
+text = "The percent_error of the water mass_balance of a stamp that closes one time step was copied from the PERCENT DISCREPANCY column of the listing, which MODFLOW prints to 0.01 %. It is now recomputed from IN - OUT and the totals, as for a stamp of several steps. On example 05 (Gouville, 366 daily steps) 365 steps read 0.00, they now read a median of 3.2e-4 %, and the largest stays 0.13 %."
+
+[[bug]]
+id = "gwt_concentration_saved_every_step"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
+quantities = ["heads@modflow6"]
+text = "MODFLOW 6 GWT saved the concentration at every time step, so a run with sub-steps stored more slices than periods and slice k of the concentration was not period k. It now saves the last step of each period, as the head. On example 09 (Naizin, 12 monthly periods of 5 steps) the store goes from 60 to 12 slices, each equal to the old slice 5k + 4, and time = -1 read slice 12 of 60, in March, instead of the end of December."
+
+[[bug]]
+id = "gwt_solute_balance_without_storage"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
+quantities = ["fluxes@modflow6"]
+text = "The solute mass_balance of a MODFLOW 6 GWT run left storage_in and storage_out at 0 and copied the discrepancy rounded to 0.01 %. They now hold the STORAGE terms of the listing, and the discrepancy is recomputed from IN - OUT. On example 09 (Naizin) the January row reads storage_in 0.0390 kg/s and percent_error -1.3e-6 % instead of 0 and -0.00."
+
+[[recipe]]
+id = "recharge_forcing_is_a_rate"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["fluxes@modflow6", "fluxes@modflow_nwt", "fluxes@boussinesq"]
+text = "Run.recharge_forcing() returned the mean over the active cells of the recharge volume of each cell, in m3/s. It now returns the rate over the domain, the volumes summed and divided by the area of the active cells, in m/s. On a mesh of equal cells this divides the old value by the cell area: on example 04 (cells of 5 625 m2) February 2000 goes from 5.10e-5 m3/s to 0.78 mm/day. On a mesh of unequal cells a large cell no longer weighs like a small one."
+
+[[recipe]]
+id = "data_inventory_dates_are_measured"
+since = "2.0.0"
+effect = "layout"
+quantities = []
+text = "first and last of data_inventory.parquet held the window a section asked for, and on a station row the window of the request. They now hold the first and the last date that carries a value. The asked window is kept only for a record without dated values, a field for instance."
+
 [[recipe]]
 id = "restart_reach_stage_under_sfr_storage"
 since = "2.0.0"

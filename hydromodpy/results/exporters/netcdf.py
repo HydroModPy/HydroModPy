@@ -32,8 +32,9 @@ import xarray as xr
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.derive.virtual_fields import field_descriptor
-from hydromodpy.results.exporters.fields import is_timed, resolve_zarr_path
+from hydromodpy.results.exporters.fields import is_timed
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
+from hydromodpy.results.zarr_store.zarr_reader import stored_field_array
 
 logger = get_logger(__name__)
 
@@ -210,7 +211,7 @@ def export_netcdf(
             if var_name in computed:
                 data = np.asarray(computed[var_name])
             else:
-                arr = resolve_zarr_path(grp, descriptor.zarr_path)
+                arr = stored_field_array(grp, descriptor.zarr_path)
                 if arr is None:
                     data = _derive_stack(sz, sim_id, var_name, ts_idx, zarr_time)
                     if data is None:

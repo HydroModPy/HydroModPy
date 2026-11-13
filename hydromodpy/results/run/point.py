@@ -40,8 +40,8 @@ from hydromodpy.core.fields.vertical_column import top_active_layer
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.errors import FieldNotFoundError
-from hydromodpy.results.run.array import lookup_zarr_path
 from hydromodpy.results.run.tables import read_run_table
+from hydromodpy.results.zarr_store.zarr_reader import stored_field_array
 
 if TYPE_CHECKING:
     from hydromodpy.results.run.view import Run
@@ -456,7 +456,7 @@ def _cell_values(run: Run, variable: str, point: ResolvedPoint) -> tuple[np.ndar
 def _locate_array(root: Any, variable: str) -> Any | None:
     """Find the stored array of *variable*, or ``None`` when not persisted."""
     if field_registry.has(variable):
-        array = lookup_zarr_path(root, field_registry.get(variable).zarr_path)
+        array = stored_field_array(root, field_registry.get(variable).zarr_path)
         if array is not None:
             return array
     for group_name in _SEARCH_GROUPS:

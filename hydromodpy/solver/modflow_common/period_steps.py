@@ -224,20 +224,20 @@ def period_mean_balance(
 ) -> dict[str, float]:
     """Mean of the listing budget rows a stamp closes, weighted by step length.
 
-    Each row holds the :data:`BALANCE_TOTALS`, ``in_minus_out`` and
-    ``percent_error``. One row keeps its totals and discrepancy unchanged.
-    Over several, the totals are averaged and the discrepancy is recomputed
-    the way MODFLOW computes it, ``100 (in - out) / ((in + out) / 2)``, with
-    ``in - out`` from its own listing column: it is printed at its own
-    magnitude, where the difference of the rounded totals is noise.
+    Each row holds the :data:`BALANCE_TOTALS` and ``in_minus_out``. The
+    totals are averaged, one row keeping its own, and the discrepancy is
+    recomputed the way MODFLOW computes it, ``100 (in - out) / ((in + out) /
+    2)``, with ``in - out`` from its own listing column: it is printed at its
+    own magnitude, where the difference of the rounded totals is noise. The
+    ``PERCENT DISCREPANCY`` column itself is never read, because the listing
+    prints it with two decimals: a 0.004 % error reads 0.00 there.
     """
+    keys = (*BALANCE_TOTALS, "in_minus_out")
     if len(rows) == 1 and float(weights[0]) == 1.0:
-        row = rows[0]
-        return {key: row[key] for key in (*BALANCE_TOTALS, "percent_error")}
-    mean = {
-        key: weighted_period_scalar([row[key] for row in rows], weights) for key in BALANCE_TOTALS
-    }
-    in_minus_out = weighted_period_scalar([row["in_minus_out"] for row in rows], weights)
+        mean = {key: float(rows[0][key]) for key in keys}
+    else:
+        mean = {key: weighted_period_scalar([row[key] for row in rows], weights) for key in keys}
+    in_minus_out = mean.pop("in_minus_out")
     half_sum = 0.5 * (mean["total_in"] + mean["total_out"])
     mean["percent_error"] = 100.0 * in_minus_out / half_sum if half_sum != 0.0 else 0.0
     return mean

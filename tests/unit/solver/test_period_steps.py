@@ -65,15 +65,19 @@ def test_one_step_stamp_is_exact() -> None:
     value = np.array([0.1, -0.0, 3.0e-17])
     mean = weighted_period_mean([value], (1.0,))
     assert mean.tobytes() == value.tobytes()
+    # The listing prints PERCENT DISCREPANCY = 0.00 for this step, rounded to 0.01 %.
     row = {
-        "total_in": 0.3,
-        "total_out": 0.1,
+        "total_in": 1.00004,
+        "total_out": 1.0,
         "storage_in": 0.0,
         "storage_out": 0.05,
-        "in_minus_out": 0.2,
-        "percent_error": 1.234,
+        "in_minus_out": 4.0e-5,
+        "percent_error": 0.0,
     }
-    assert period_mean_balance([row], (1.0,))["percent_error"] == 1.234
+    balance = period_mean_balance([row], (1.0,))
+    assert balance["total_in"] == 1.00004
+    assert balance["storage_out"] == 0.05
+    assert balance["percent_error"] == pytest.approx(100.0 * 4.0e-5 / 1.00002)
 
 
 def test_unknown_step_length_is_refused() -> None:

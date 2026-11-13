@@ -15,7 +15,7 @@ import zarr
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
-from hydromodpy.results.exporters.fields import resolve_zarr_path
+from hydromodpy.results.zarr_store.zarr_reader import stored_field_array
 from hydromodpy.results.zarr_store.zarr_schema import open_root_strict
 
 logger = get_logger(__name__)
@@ -58,7 +58,7 @@ def import_zarr_field(
 
     try:
         root = open_root_strict(store, read_only=True)
-        arr = resolve_zarr_path(root, descriptor.zarr_path)
+        arr = stored_field_array(root, descriptor.zarr_path)
         if arr is None:
             raise KeyError(
                 f"Field '{variable}' (zarr_path={descriptor.zarr_path!r}) "
