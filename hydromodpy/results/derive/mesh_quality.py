@@ -41,11 +41,15 @@ __all__ = [
 ]
 
 
-def _descriptor(name: str, long_name: str, units: str, cell_methods: str) -> FieldDescriptor:
+def _descriptor(
+    name: str, label: str, quantity: str, long_name: str, units: str, cell_methods: str
+) -> FieldDescriptor:
     return FieldDescriptor(
         public_name=name,
         zarr_path=f"mesh/{name}",
         standard_name="",
+        quantity=quantity,
+        label=label,
         long_name=long_name,
         units=units,
         shape=SHAPE_FACE,
@@ -57,21 +61,34 @@ def _descriptor(name: str, long_name: str, units: str, cell_methods: str) -> Fie
 MESH_QUALITY_DESCRIPTORS: dict[str, FieldDescriptor] = {
     descriptor.public_name: descriptor
     for descriptor in (
-        _descriptor("mesh_cell_area", "Plan area of the mesh cell", "m2", "area: sum"),
+        _descriptor(
+            "mesh_cell_area",
+            "Mesh cell area",
+            "area",
+            "Plan area of the mesh cell",
+            "m2",
+            "area: sum",
+        ),
         _descriptor(
             "mesh_neighbour_ratio",
+            "Neighbour size ratio",
+            "ratio",
             "Largest ratio of the side of the cell to the side of a neighbour, or the inverse",
             "1",
             "area: maximum",
         ),
         _descriptor(
             "mesh_center_offset",
+            "Centre offset",
+            "fraction",
             "Distance of the cell centre to the area centroid, over the side of the cell",
             "1",
             "area: point",
         ),
         _descriptor(
             "mesh_nonorthogonality",
+            "Non-orthogonality",
+            "angle",
             "Largest angle between the line joining two cell centres and the normal of "
             "the face they share",
             "degree",
@@ -79,6 +96,8 @@ MESH_QUALITY_DESCRIPTORS: dict[str, FieldDescriptor] = {
         ),
         _descriptor(
             "mesh_bisection_offset",
+            "Bisection offset",
+            "fraction",
             "Largest distance from the middle of a face of the cell to where the line "
             "joining the two cell centres crosses it, over the face length",
             "1",
@@ -86,18 +105,24 @@ MESH_QUALITY_DESCRIPTORS: dict[str, FieldDescriptor] = {
         ),
         _descriptor(
             "mesh_min_angle",
+            "Minimum cell angle",
+            "angle",
             "Smallest interior angle at a corner of the cell",
             "degree",
             "area: minimum",
         ),
         _descriptor(
             "mesh_max_angle",
+            "Maximum cell angle",
+            "angle",
             "Largest interior angle at a corner of the cell",
             "degree",
             "area: maximum",
         ),
         _descriptor(
             "mesh_concavity",
+            "Cell concavity",
+            "angle",
             "Largest excess over 180 degrees of an interior angle of the cell, 0 for a convex cell",
             "degree",
             "area: maximum",
