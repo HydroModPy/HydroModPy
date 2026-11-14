@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -17,12 +18,22 @@ class InputFile:
 
     Attach as an ``Annotated`` metadata entry on any ``Path`` or ``str``
     field that points to an on-disk file or directory. The walker discovers these
-    markers at runtime and produces tracked-file entries.
+    markers at runtime and produces tracked-file entries. ``role`` is also the
+    folder of the file under the workspace data folder, so ``workspace:<name>``
+    reads ``data/<role>/<name>``.
     """
 
     role: str
     category: str
     portable: bool = True
+
+
+def input_file_role(field_info: Any) -> str | None:
+    """Return the role of the ``InputFile`` marker of a Pydantic field, or None."""
+    for meta in getattr(field_info, "metadata", None) or ():
+        if isinstance(meta, InputFile):
+            return meta.role
+    return None
 
 
 @dataclass(frozen=True)

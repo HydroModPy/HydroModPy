@@ -15,7 +15,6 @@ import rasterio
 from rasterio.transform import from_origin
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.toml_io.paths import former_bare_name_location
 from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
 from hydromodpy.data.loading.config_schema import DataConfig
@@ -71,11 +70,27 @@ def test_a_bare_filename_is_refused_and_names_where_the_file_used_to_live(tmp_pa
         "substratum": {"sources": [{"source": "file", "path": src.name}]},
     }
 
-    with pytest.raises(ConfigError, match="is a bare name"):
+    with pytest.raises(ConfigError, match=f"is a bare name.*Write 'workspace:{src.name}'"):
         DataConfig.from_toml_section(
             section, base_dir=tmp_path, workspace_data_dir=workspace_data_dir
         )
-    assert former_bare_name_location(src.name, workspace_data_dir, role="substratum") is not None
+
+
+def test_a_workspace_name_reads_the_folder_of_the_variable(tmp_path):
+    workspace_data_dir = tmp_path / "data"
+    substratum_dir = workspace_data_dir / "substratum"
+    substratum_dir.mkdir(parents=True)
+    src = write_geotiff(substratum_dir / "bottom.tif")
+    section = {
+        "types": ["substratum"],
+        "substratum": {"sources": [{"source": "file", "path": "workspace:bottom.tif"}]},
+    }
+
+    data = DataConfig.from_toml_section(
+        section, base_dir=tmp_path / "project", workspace_data_dir=workspace_data_dir
+    )
+
+    assert data.substratum.sources[0].path == src
 
 
 def test_the_soil_capacity_path_carries_its_role():

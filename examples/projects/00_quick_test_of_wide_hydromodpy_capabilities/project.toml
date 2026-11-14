@@ -1,9 +1,11 @@
-# HydroModPy - example 00: quick test of wide HydroModPy capabilities
+# Example 00: a quick tour of HydroModPy on the Aber catchment (Finistere).
 #
-# Aber catchment (Brittany), monthly transient 2017 on a 50 m aquifer, two
-# pumping wells, hillslope drainage and forward particle tracking, MODFLOW 6.
+# One year 2017 in monthly stress periods, a 50 m aquifer under a 75 m DEM,
+# seepage at the ground surface, two pumping wells, and particles that show
+# where the seepage water comes from. MODFLOW 6 solves the flow and its PRT
+# tracks the particles.
 #
-#   hmp run examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/project.toml
+#   hmp run project.toml
 
 [site]
 name = "aber"
@@ -12,15 +14,14 @@ name = "aber"
 mode = "simulation"
 
 [simulation]
-name = "aber_transient_mf6"
-description = "Aber catchment, monthly transient 2017, MODFLOW 6, two pumping wells and particle tracking."
+name = "aber_example_00"
+description = "Aber catchment, monthly transient 2017, two pumping wells, particle tracking."
 
+# Twelve monthly stress periods, one time step each.
 [simulation.time]
 start_datetime = "2017-01-01"
 end_datetime = "2017-12-31"
 step_value = "1 month"
-# Daily solver steps inside each monthly stress period; output stays monthly.
-substeps_per_period = 30
 
 [[simulation.process]]
 id = "flow_main"
@@ -32,46 +33,44 @@ id = "particles"
 kind = "transport"
 solvers = ["modflow6_prt"]
 
-
+# The catchment is cut out of a regional 75 m DEM, upstream of the outlet,
+# after the depressions of the DEM are breached. The domain is the box around
+# the catchment widened by 10 % of the square root of its area: 28 x 35 cells.
 [geographic]
 crs_project = "EPSG:2154"
+dem_correc_type = "breach"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
 x_outlet = 150727.164
 y_outlet = 6858066.520
 snap_dist = "100 m"
-buff_area = "10%"
+buff_area = "10% of sqrt(area)"
 
-
+# One layer, 50 m thick under the ground surface.
 [domain.depth_model]
 kind = "constant_thickness"
-thickness = "50.0 m"
-
+thickness = "50 m"
 
 [data]
-types = ["dem", "hydrography", "recharge"]
+types = ["dem", "hydrography"]
 
 [[data.dem.sources]]
 source = "file"
 path = "../../data/dem/regional_dem_aber.tif"
 
+# The mapped streams, drawn on the figures and exported. The model does not
+# read them.
 [[data.hydrography.sources]]
 source = "file"
 path = "../../data/hydrography/regional_stream_network.shp"
-rasterize_field = "FID"
-
-[[data.recharge.sources]]
-source = "file"
-path = "../../data/recharge"
-station_ids = ["00"]
-
 
 [flow]
 flow_regime = "transient"
-param_list = ["K", "Sy", "Ss"]
-# Warm the heads up on the mean recharge before the transient year starts.
+# January is solved in steady state, so the year starts from a water table in
+# balance with the mean recharge.
 first_period_steady = true
+param_list = ["K", "Sy", "Ss"]
 
 [flow.param.K.field]
 kind = "homogeneous"
@@ -88,87 +87,79 @@ kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
 
+# Every cell drains at the ground surface. The conductance follows K,
+# C = K * cell area / 1 m.
 [flow.bc.drainage]
-kind = "drain"
 
-# Two wells addressed by cell index [layer, row, column], monthly rates in
-# m3/day. Both sit on column 28, the column the cross-section follows.
+# 10, 60, 40, 20, 10, 5, 4, 20, 10, 1, 0 and 0 mm per month, divided by 30
+# days. The steady January takes 0.5 mm/day, the plain mean of the twelve
+# months. The default "mean" weights each month by its length and gives
+# 0.49 mm/day.
+[flow.sinks_sources.recharge]
+units = "mm/day"
+values = [
+  0.3333333333, 2.0, 1.3333333333, 0.6666666667, 0.3333333333, 0.1666666667,
+  0.1333333333, 0.6666666667, 0.3333333333, 0.0333333333, 0.0, 0.0,
+]
+first_clim = 0.5
+
+# Two wells 600 m apart on the same north-south line, one rate per month.
 [flow.sinks_sources.wells.W1]
 units = "m3/day"
-
-[flow.sinks_sources.wells.W1.location]
-kind = "cell"
-cell = [0, 8, 28]
-
-[flow.sinks_sources.wells.W1.forcing]
-kind = "csv"
-path_file = "wells_custom_00_20170101_20171231_M.csv"
-value_column = "W1_m3_day"
+location = { kind = "absolute_xy", x = 152700.0, y = 6858225.0, layer = 0 }
+flux = [-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 [flow.sinks_sources.wells.W2]
 units = "m3/day"
+location = { kind = "absolute_xy", x = 152700.0, y = 6857625.0, layer = 0 }
+flux = [-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, 0, 0]
 
-[flow.sinks_sources.wells.W2.location]
-kind = "cell"
-cell = [0, 16, 28]
-
-[flow.sinks_sources.wells.W2.forcing]
-kind = "csv"
-path_file = "wells_custom_00_20170101_20171231_M.csv"
-value_column = "W2_m3_day"
-
-
-# Particles released over the domain, off the river cells, so the tracks show
-# which recharge feeds the seepage areas.
-
-[flow.sinks_sources.recharge]
-[transport.modflow6prt.parameters]
-release_zone = "domain_nonriver"
+# One particle in each cell of the box at the start of January, carried by the
+# flow until it leaves the aquifer, most of them in a seepage cell. The
+# porosity is Sy. After December the flow of December goes on carrying the
+# particles.
+[transport.modflow6_prt]
+release_zone = "domain"
 porosity = 0.01
-max_particles = 300
-track_time_step = 30.0
-# Long enough for the slowest particle to reach a seepage cell: stopping the
-# clock earlier piles the survivors on the last bin and tilts the
-# residence-time distribution.
-stop_time = 36500.0
 release_times = [0.0]
+stop_time = "100 years"
 
-
-[modflow6.runtime]
-mf6_ims_complexity = "MODERATE"
-
-
+# The figures land in runs/aber_example_00/figures/. Each one that applies and
+# fails stops the run, so a broken figure cannot go unseen.
 [display]
-# An example must not silently degrade: a figure that applies but fails is an
-# error here, where the default only warns.
 on_error = "raise"
+
 [[display.figure]]
 preset = "watershed_id_card"
 
 [[display.figure]]
 variable = "topography"
-overlays = ["mesh", "outline", "outlet"]
+overlays = ["mesh", "outline", "network", "outlet"]
 
-[[display.figure]]
-variable = "recharge"
-layer = "sum"
-
-[[display.figure]]
-variable = "watertable_elevation"
-
-# The first period, January, is the one the two wells pump hardest in.
+# January, the month the two wells pump the most.
 [[display.figure]]
 variable = "watertable_depth"
-time = 0
-overlays = ["outline", "wells", "outlet"]
-# The seepage cells and the particles are drawn by their own figures.
+time = "2017-01-15"
+overlays = ["outline", "network"]
 
 [[display.figure]]
 variable = "seepage_mask"
+time = "2017-01-15"
+overlays = ["outline", "network"]
 
-[[display.figure]]  # replaces flow_persistence_map, flow_intermittence_map
+# North to south through the two wells.
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "section_through_wells"
+time = "2017-01-15"
+line = [[152700.0, 6858862.5], [152700.0, 6856762.5]]
+
+# The share of the year each cell seeps.
+[[display.figure]]
 variable = "simulated_active_network"
 reduce = "frequency"
+overlays = ["outline", "network"]
 
 [[display.figure]]
 preset = "particle_tracks"
@@ -176,15 +167,35 @@ preset = "particle_tracks"
 [[display.figure]]
 preset = "residence_time_distribution"
 
-# South-to-north section through the two pumping wells, same period.
+# What enters and leaves the catchment each month.
 [[display.figure]]
-variable = "watertable_elevation"
-type = "section"
-name = "cross_section"
-time = 0
-# orientation = "sn" has no equivalent: the line runs from the outlet
-# through = [152687.5, 6857800.0] has no equivalent: the new request has no such field
-
-[[display.figure]]  # replaces flux_timeseries, water_budget
 preset = "water_budget"
-# units = "mm/period" has no equivalent: the new request has no such field
+
+# What lands in runs/aber_example_00/exports/, ready for QGIS or a spreadsheet.
+# A block says what and when, and the format follows the data.
+
+# The catchment, its box and the mapped streams: GeoPackage.
+[[export]]
+variables = ["watershed", "watershed_box_buff", "hydrographic_network_reference"]
+
+# The DEM of the model: GeoTIFF.
+[[export]]
+variables = "watershed_dem"
+
+# The water table and the seepage cells in January: one GeoTIFF each.
+[[export]]
+variables = ["head", "watertable_depth", "seepage_mask"]
+time = "2017-01-15"
+
+# The twelve months of the water table in one NetCDF file.
+[[export]]
+variables = ["head", "watertable_depth", "seepage_mask"]
+file = "watertable_2017.nc"
+
+# The discharge at the outlet, month by month: CSV.
+[[export]]
+variables = "discharge"
+
+# The water budget of every month, for the catchment and for the whole box: CSV.
+[[export]]
+variables = "budget"

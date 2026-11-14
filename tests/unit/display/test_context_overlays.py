@@ -52,6 +52,8 @@ def reads(monkeypatch):
             [10.0, 12, 15, 20] if name == "topography" else [0, 1, np.nan, 2]
         ),
     )
+    path = np.array([[0.0, 0.0], [100.0, 50.0]])
+    monkeypatch.setattr(subject, "read_pathlines", lambda _run: ([path], np.array([2.0])))
 
 
 def axes():
@@ -80,31 +82,58 @@ def test_each_overlay_draws_an_artist(reads, name):
 def test_what_each_one_draws(reads):
     ax = axes()
     overlays.network(ax, None, THEME)
-    assert len(ax.collections) == 2
+    assert len(ax.collections) == 3  # a white line under the network, then its two kinds
     ax = axes()
     overlays.outline(ax, None, THEME)
-    assert len(ax.collections[0].get_segments()) == 8
+    (ring,) = ax.collections[0].get_segments()  # the eight border edges, merged in one stroke
+    assert len(ring) == 9 and (ring[0] == ring[-1]).all()
     ax = axes()
-    for name in ("mesh", "lake", "wells"):
+    for name in ("mesh", "lake", "wells", "seepage"):
         overlays.OVERLAYS[name](ax, None, THEME)
     assert all(c.get_rasterized() for c in ax.collections)
+    assert [c.get_facecolor().size > 0 for c in ax.collections] == [False, False, False, True]
+    assert [c.get_label() for c in ax.collections[1:]] == ["Lake", "Well", "Seepage"]
     ax = axes()
     overlays.relief(ax, None, THEME)
     assert ax.get_aspect() == 1.0
+
+
+def test_the_instant_of_the_panel_reaches_the_overlays_that_read_cells(reads, monkeypatch):
+    asked = []
+
+    def field(_run, name, time="last"):
+        asked.append((name, time))
+        return np.array([0, 1, np.nan, 2])
+
+    monkeypatch.setattr(subject, "read_field", field)
+    for name in ("lake", "wells", "seepage"):
+        overlays.OVERLAYS[name](axes(), None, THEME, "2017-01-15")
+    overlays.OVERLAYS["seepage"](axes(), None, THEME)
+    overlays.OVERLAYS["outline"](axes(), None, THEME, "2017-01-15")
+    assert asked == [
+        ("lake", "2017-01-15"), ("well", "2017-01-15"), ("seepage_mask", "2017-01-15"),
+        ("seepage_mask", "last"),
+    ]  # fmt: skip
+
+
+SILENT = (
+    "relief", "network", "generated_network", "stations", "barrier", "lake", "wells",
+    "seepage", "pathlines",
+)  # fmt: skip
 
 
 def test_absent_data_logs_one_line_and_draws_nothing(monkeypatch, caplog):
     def missing(*_args, **_kwargs):
         raise subject.FigureNotApplicable("not held")
 
-    for read in ("read_mesh", "read_field", "read_network", "read_table"):
+    for read in ("read_mesh", "read_field", "read_network", "read_table", "read_pathlines"):
         monkeypatch.setattr(subject, read, missing)
-    for name in ("relief", "network", "generated_network", "stations", "barrier", "lake", "wells"):
+    for name in SILENT:
         ax = axes()
         with caplog.at_level(logging.INFO):
             overlays.OVERLAYS[name](ax, None, THEME)
         assert artists(ax) == 0
-    assert sum("not held" in r.getMessage() for r in caplog.records) == 7
+    assert sum("not held" in r.getMessage() for r in caplog.records) == len(SILENT)
 
 
 def test_an_outlet_without_a_point_is_silent(monkeypatch):
@@ -134,7 +163,7 @@ def test_every_kind_of_geometry_and_the_degenerate_cases(reads, monkeypatch):
     assert len(ax.collections[0].get_segments()) == 3
     ax = axes()
     overlays.network(ax, None, THEME)
-    assert len(ax.collections) == 1
+    assert len(ax.collections) == 2
     monkeypatch.setattr(
         subject, "read_network", lambda _run, role: gpd.GeoDataFrame({"geometry": []})
     )

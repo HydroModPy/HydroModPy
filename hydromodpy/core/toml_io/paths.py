@@ -1,7 +1,10 @@
 """Config-declared file paths, and the one parser of dotted key paths.
 
 Two kinds of path live here. File paths a config declares are resolved by
-:func:`resolve_declared_path` and :func:`resolve_path`. Dotted key paths,
+:func:`resolve_declared_path` and :func:`resolve_path`. An input file is
+written from the project root (``inputs/zones.gpkg``), as an absolute path, or
+as a workspace name (``workspace:regional_dem.tif``), read in the folder of its
+variable under the workspace data folder. Dotted key paths,
 ``geographic.catchment.x_outlet`` or ``sites.recipes."k2e-5".file``, name a key
 of a TOML document: ``hmp run --set``, the ``HMP_SET_*`` variables, the
 ``[sites.bind]`` keys, the ``set`` table of an inline recipe and the docs all
@@ -40,16 +43,59 @@ if TYPE_CHECKING:
 
 _SCHEME_PATTERN = re.compile(r"^(?P<scheme>[A-Za-z][A-Za-z0-9+.\-]*):")
 
+WORKSPACE_PREFIX = "workspace:"
+"""Starts an input path read in the workspace data folder, as in ``workspace:dem.tif``."""
+
 
 def has_url_scheme(value: str) -> bool:
     """Return True when value starts with a URL scheme of two letters or more.
 
     A single-letter prefix before a colon is a Windows drive letter, not a scheme.
+    The ``workspace:`` prefix of an input path is not a scheme either.
     """
+    if is_workspace_name(value):
+        return False
     match = _SCHEME_PATTERN.match(str(value))
     if match is None:
         return False
     return len(match.group("scheme")) > 1
+
+
+def is_workspace_name(value: str | Path) -> bool:
+    """Return True when a config path is a workspace name, ``workspace:<name>``."""
+    return str(value).startswith(WORKSPACE_PREFIX)
+
+
+def workspace_file(value: str, *, role: str | None, data_dir: Path | None) -> Path:
+    """Return the file a workspace name points to: ``<data_dir>/<role>/<name>``.
+
+    *role* is the role of the input file, which is also the name of its folder
+    under the data folder (``dem``, ``hydrography``, ``hydrometry``). The name
+    may hold sub-folders, and ``workspace:.`` is the folder itself. The file is
+    not required to exist here, so a sealed configuration still reads on a
+    machine without the data; the source that opens it says when it is missing.
+    """
+    name = value[len(WORKSPACE_PREFIX) :]
+    if role is None:
+        raise ConfigError(
+            f"'{value}': a workspace name points to an input file of a variable, and this "
+            "key is not one. Write a path from the project root."
+        )
+    if data_dir is None:
+        raise ConfigError(
+            f"'{value}': no workspace data folder is known for this configuration. "
+            "Set [workspace] root or [workspace] data_dir."
+        )
+    if not name:
+        raise ConfigError(f"'{value}' names no file. Write 'workspace:.' for the folder itself.")
+    folder = Path(os.path.normpath(Path(data_dir).expanduser() / role))
+    target = Path(os.path.normpath(folder / name))
+    if not target.is_relative_to(folder):
+        raise ConfigError(
+            f"'{value}' leaves the folder {folder}. A workspace name stays in the folder "
+            f"of its variable, data/{role}/."
+        )
+    return target
 
 
 def is_declared_absolute_path(path: Path) -> bool:
@@ -60,31 +106,18 @@ def is_declared_absolute_path(path: Path) -> bool:
 
 
 def is_bare_filename(path: Path | str) -> bool:
-    """True when ``path`` has no separator and no ``..`` traversal."""
+    """True when ``path`` has no separator and no ``..`` traversal.
+
+    A workspace name is not a bare name: it says where the file is.
+    """
+    if is_workspace_name(path):
+        return False
     parts = Path(path).parts
     if len(parts) != 1:
         return False
     if parts[0] in ("", ".", ".."):
         return False
     return True
-
-
-def former_bare_name_location(
-    raw: str | Path,
-    workspace_data_dir: Path | None,
-    role: str | None = None,
-) -> Path | None:
-    """Return where the former bare-name fallback would have found the file."""
-    if workspace_data_dir is None:
-        return None
-    data_dir = Path(workspace_data_dir).resolve()
-    candidates = [data_dir / role, data_dir] if role else [data_dir]
-    path = Path(raw)
-    for candidate_dir in candidates:
-        candidate = (candidate_dir / path).resolve()
-        if candidate.exists():
-            return candidate
-    return None
 
 
 class BareInputNameError(ConfigError):
@@ -95,19 +128,21 @@ class BareInputNameError(ConfigError):
     """
 
 
-def bare_name_refusal(name: str, *, former: Path | None) -> str:
+def bare_name_refusal(name: str, *, role: str | None, data_dir: Path | None) -> str:
     """The refusal a config path that is a bare file name carries.
 
-    Same text at the refusal the loader raises and in the doctor, so a user
-    reads one message whatever read the name. *former*, when the file exists
-    where the former workspace fallback would have found it, names the path
-    to write from the project root.
+    When the file is in the folder of its variable, ``data/<role>/``, the
+    refusal gives the workspace name to write. Otherwise it gives a path from
+    the project root.
     """
-    exists = f"for example '{former}'" if former is not None else f"for example 'inputs/{name}'"
+    in_workspace = role is not None and data_dir is not None
+    if in_workspace and (Path(data_dir) / role / name).exists():
+        write = f"'{WORKSPACE_PREFIX}{name}'"
+    else:
+        write = f"a path from the project root, for example 'inputs/{name}'"
     return (
         f"inputs '{name}' is a bare name. HydroModPy no longer looks it up in the "
-        f"workspace data folder. Write the path from the project root, {exists}, "
-        "or move the file under inputs/."
+        f"workspace data folder. Write {write}."
     )
 
 
@@ -115,12 +150,18 @@ def resolve_declared_path(
     raw_value: str | Path,
     *,
     base_dir: Path,
+    role: str | None = None,
+    data_dir: Path | None = None,
 ) -> Path:
     """Resolve one config path against ``base_dir``.
 
     Absolute paths (including ``~``) are returned as-is. Relative paths are
-    resolved against ``base_dir`` and nowhere else.
+    resolved against ``base_dir`` and nowhere else. A workspace name is read
+    under ``<data_dir>/<role>/`` by :func:`workspace_file`, and is refused
+    for a key that gives no *role*.
     """
+    if is_workspace_name(raw_value):
+        return workspace_file(str(raw_value), role=role, data_dir=data_dir)
     path = Path(raw_value).expanduser()
     if is_declared_absolute_path(path):
         return path
@@ -159,16 +200,23 @@ def portable_declared_path(
     The inverse of :func:`resolve_declared_path` for a configuration read
     from the project root, in this order:
 
-    1. a path under the project root, relative to it (``inputs/zones.shp``);
-    2. a path under the workspace that holds *data_dir*, relative to the
+    1. a path in the folder of its variable, ``<data_dir>/<role>/``, as a
+       workspace name (``workspace:regional_dem.tif``), whatever form the
+       user wrote;
+    2. a path under the project root, relative to it (``inputs/zones.shp``);
+    3. a path under the workspace that holds *data_dir*, relative to the
        project root (``../../data/geology/map.gpkg``);
-    3. any other path, absolute as it is: it names a place outside the
+    4. any other path, absolute as it is: it names a place outside the
        workspace, which no copy of the workspace carries.
     """
     target = Path(path).expanduser()
     if not is_declared_absolute_path(target):
         return str(path)
     target = target.resolve()
+    if role is not None and data_dir is not None:
+        folder = (Path(data_dir).expanduser() / role).resolve()
+        if target.is_relative_to(folder):
+            return WORKSPACE_PREFIX + target.relative_to(folder).as_posix()
     root = Path(project_root).resolve()
     if target.is_relative_to(root):
         return target.relative_to(root).as_posix()

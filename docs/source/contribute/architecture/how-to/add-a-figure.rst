@@ -181,8 +181,8 @@ The imports are ``from hydromodpy.display import static`` and
 ``from hydromodpy.display.subject import read_series``. ``static`` is the matplotlib
 engine of ``hydromodpy/display/static.py``. Its helpers (``line_style``, ``text_style``,
 ``style_axes``, ``note``, ``colorbar``, ``legend``, ``map_axes``) give the look of the
-other figures. The keywords ``station`` and ``time`` are filled when the signature
-declares them. A file never names the function, so a TOML file reaches it only through a
+other figures. The keywords ``station``, ``time`` and ``variable`` are filled when the
+signature declares them. A file never names the function, so a TOML file reaches it only through a
 preset that carries it, a module of ``hydromodpy/display/special/``. A TOML ``draw`` ends
 with ``draw takes a Python function and is never written in a file. To draw a figure from a
 function in a TOML file, name the preset that carries it.``

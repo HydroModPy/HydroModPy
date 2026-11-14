@@ -53,6 +53,7 @@ from hydromodpy.core.toml_io.paths import (
     is_bare_filename,
     resolve_declared_path,
 )
+from hydromodpy.core.tracking.input_file import input_file_role
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.display.config import DisplayConfig
@@ -84,23 +85,6 @@ def _is_path_field(field_info: FieldInfo) -> bool:
     return Path in getattr(annotation, "__args__", ())
 
 
-def _input_file_role(field_info: FieldInfo) -> str | None:
-    """Return the ``InputFile.role`` annotation attached to a field, if any."""
-    from hydromodpy.core.tracking.input_file import InputFile
-
-    for meta in field_info.metadata or ():
-        if isinstance(meta, InputFile):
-            return meta.role
-    return None
-
-
-def _is_an_input_file(field_info: FieldInfo) -> bool:
-    """Return True when the field names a file of the user, as ``InputFile`` marks it."""
-    from hydromodpy.core.tracking.input_file import InputFile
-
-    return any(isinstance(meta, InputFile) for meta in field_info.metadata or ())
-
-
 def _resolve_section_paths(
     data: dict[str, Any],
     model_cls: type[BaseModel],
@@ -111,8 +95,10 @@ def _resolve_section_paths(
     """Resolve relative paths and ``~`` in a config section dict (in-place).
 
     Paths are resolved against ``base`` (the project root / TOML directory)
-    without fallback directories. A path starting with a URL scheme is refused
-    with ``use source = "url"``.
+    without fallback directories. A workspace name, ``workspace:<name>``, is
+    read under ``<workspace_data_dir>/<role>/`` for a field marked
+    ``InputFile``. A path starting with a URL scheme is refused with
+    ``use source = "url"``.
     """
     for name, table_cls in named_tables_of(model_cls, shipped_only=False).items():
         table = data.get(name)
@@ -128,25 +114,18 @@ def _resolve_section_paths(
         if isinstance(value, str) and value:
             if has_url_scheme(value):
                 raise ConfigError(f"{field_name} '{value}': use source = \"url\"")
-            resolved = resolve_declared_path(value, base_dir=base)
-            if is_bare_filename(value) and not resolved.exists() and _is_an_input_file(field_info):
+            role = input_file_role(field_info)
+            resolved = resolve_declared_path(
+                value, base_dir=base, role=role, data_dir=workspace_data_dir
+            )
+            if is_bare_filename(value) and not resolved.exists() and role is not None:
                 # A bare name used to be looked up in the workspace data
-                # folder, under the role of the field then under ``data``.
-                # The refusal names where the old fallback had the file, so
-                # the user writes one path and runs again.
-                from hydromodpy.core.toml_io.paths import (
-                    BareInputNameError,
-                    bare_name_refusal,
-                    former_bare_name_location,
-                )
+                # folder. The refusal gives the workspace name to write when
+                # the file is in the folder of its variable.
+                from hydromodpy.core.toml_io.paths import BareInputNameError, bare_name_refusal
 
                 raise BareInputNameError(
-                    bare_name_refusal(
-                        value,
-                        former=former_bare_name_location(
-                            value, workspace_data_dir, role=_input_file_role(field_info)
-                        ),
-                    )
+                    bare_name_refusal(value, role=role, data_dir=workspace_data_dir)
                 )
             data[field_name] = str(resolved)
 

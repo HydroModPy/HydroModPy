@@ -15,10 +15,41 @@ For example, a digital elevation model in `inputs/elevation.tif` is declared
 with `path = "inputs/elevation.tif"`.
 
 HydroModPy resolves relative paths against the project root only. A bare file
-name such as `path = "elevation.tif"` is no longer looked up in the data
-folders of the workspace. When a bare name is not found directly at the project
-root, the run stops with an error message that points to the former search path
-and suggests moving the file to `inputs/`.
+name such as `path = "elevation.tif"` is not looked up in the data folders of
+the workspace. When a bare name is not found at the project root, the run
+stops, and the message gives the form to write.
+
+## Files shared by several projects
+
+A file that several projects of the workspace read, such as a regional
+elevation model or a regional stream network, sits in the data folder of the
+workspace, in the folder of its variable. I name it with `workspace:`, and
+HydroModPy reads it in that folder.
+
+```toml
+[[data.dem.sources]]
+source = "file"
+path = "workspace:regional_dem_aber.tif"        # data/dem/regional_dem_aber.tif
+
+[[data.hydrography.sources]]
+source = "file"
+path = "workspace:regional_stream_network.shp"  # data/hydrography/regional_stream_network.shp
+```
+
+A station folder is the folder of the variable itself, `path = "workspace:."`.
+It holds `hydrometry_file_LOC.csv`, with the id, x, y, CRS and unit of each
+station, and one chronicle per station,
+`hydrometry_file_<id>_<start>_<end>_<step>.csv`. For hydrometry, recharge and
+runoff, a source without `station_ids` reads the gauge of `[site]`. The files a
+provider cached in the same folder carry the name of the provider, such as
+`hydrometry_hubeau_...`, and this source does not read them.
+
+The name does not depend on where the project sits in the workspace, and it
+follows `[workspace] data_dir` when the data folder lives elsewhere, on a shared
+disk for example. A run writes the same form in its frozen configuration and in
+its manifest, so the index of the project lists the file under this name with
+its digest. The parameter reference gives the folder on the card of each key
+that accepts a workspace name.
 
 A path cannot start with a URL scheme such as `https://`. When data reside on
 a remote server, I declare them with `source = "url"` instead.

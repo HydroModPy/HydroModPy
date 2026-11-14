@@ -6852,7 +6852,7 @@
             }
           ],
           "default": null,
-          "description": "Map window (xmin, ymin, xmax, ymax), in m in the mesh CRS.",
+          "description": "Window drawn (xmin, ymin, xmax, ymax). On a map, in m in the mesh CRS. On a section, distances along the line then elevations, in m.",
           "title": "Bbox",
           "x-hmp-profile": "user"
         },
@@ -19342,7 +19342,7 @@
             }
           ],
           "default": null,
-          "description": "Map window (xmin, ymin, xmax, ymax), in m in the mesh CRS.",
+          "description": "Window drawn (xmin, ymin, xmax, ymax). On a map, in m in the mesh CRS. On a section, distances along the line then elevations, in m.",
           "title": "Bbox",
           "x-hmp-profile": "user"
         },

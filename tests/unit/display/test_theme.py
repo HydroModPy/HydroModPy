@@ -15,9 +15,13 @@ def test_every_theme_holds_the_same_roles_and_ramps() -> None:
     base = th.THEMES["default"]
     for theme in th.THEMES.values():
         assert set(theme.roles) == set(base.roles)
-        assert set(theme.ramps) == {"sequential", "diverging", "cyclic"}
+        assert set(theme.ramps) == {"sequential", "diverging", "cyclic", "share"}
+        for name in (*theme.ramps.values(), *theme.quantity_ramps.values()):
+            assert th.colormap(name)(0.5) is not None
         assert set(theme.quantity_ramps) == set(base.quantity_ramps)
         assert len(theme.categorical) == len(th.CATEGORICAL_ROLES)
+    low, high = th.colormap("hypsometric")(0.0), th.colormap("hypsometric")(1.0)
+    assert low[2] < low[1] and high[:3] == pytest.approx((1.0, 1.0, 1.0))  # green, no sea blue
 
 
 @pytest.mark.parametrize("count", [12, 30])

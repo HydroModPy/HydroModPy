@@ -91,15 +91,65 @@ def test_what_a_section_cannot_show_is_refused(stored_run, panel, word):
 def test_draw_adds_the_cells_the_lines_and_a_colorbar(stored_run):
     fig = static.new_figure(THEME)
     ax = fig.axes[0]
-    section.draw(ax, data(stored_run, variable="head"), THEME)
+    out = data(stored_run, variable="head")
+    section.draw(ax, out, THEME)
     cells = [c for c in ax.collections if isinstance(c, PolyCollection)]
     assert len(cells) == 1 and len(cells[0].get_paths()) == 8 and cells[0].get_rasterized()
-    assert {"Land surface", "Model base", "Layer interface"} <= set(
-        ax.get_legend_handles_labels()[1]
-    )
-    assert len(fig.axes) == 2
+    assert ax.get_legend_handles_labels()[1] == [
+        "Layer interface", "Model base", "Land surface", "Water table",
+    ]  # fmt: skip
+    assert len(fig.axes) == 2 and fig.axes[1].get_ylabel() == ""
     assert ax.get_xlabel() == "Distance along the section (m)"
-    assert any("exaggeration about x" in t.get_text() for t in ax.texts)
+    assert ax.get_title(loc="left") == out.label
+    when = ax.get_title(loc="right")
+    assert when.startswith("April 2001, west to east, 1.6 km, vertical exaggeration x")
+    assert ax.get_ylim() == pytest.approx((-4.8, 124.8))  # the whole model, coloured
+
+
+def test_a_water_table_alone_fills_the_saturated_and_the_unsaturated_zone(stored_run):
+    out = data(stored_run, variable="watertable_elevation", time="first")
+    assert out.water and (out.period, out.caption) == ("January 2001", "west to east, 1.6 km")
+    assert not data(stored_run, variable="topography").water
+    ax = static.new_figure(THEME).axes[0]
+    section.draw(ax, out, THEME)
+    assert ax.get_legend_handles_labels()[1][:2] == ["Saturated zone", "Unsaturated zone"]
+    drawn = {c.get_label(): c.get_paths()[0].vertices[:, 1] for c in ax.collections}
+    saturated, unsaturated = drawn["Saturated zone"], drawn["Unsaturated zone"]
+    water = float(out.line["value"].iloc[0])
+    assert (saturated.min(), saturated.max()) == pytest.approx((0.0, out.line["value"].max()))
+    assert (unsaturated.min(), unsaturated.max()) == pytest.approx((water, 120.0))
+    assert out.line["value"].is_monotonic_increasing
+    assert len(ax.figure.axes) == 1  # no cell is coloured, so no colour bar
+    # The lines run through the middle of each cell, from one end of the line to the other.
+    table = ax.lines[-1]
+    np.testing.assert_allclose(table.get_xdata(), [0, 200, 650, 1150, 1500, 1600])
+    np.testing.assert_allclose(table.get_ydata()[1:-1], out.line["value"])
+    # 100 m of aquifer lie under a water table 18 m under the ground, so the view is cut.
+    above = 120.0 - water
+    assert ax.get_ylim()[0] == pytest.approx(water - above - 0.04 * 2 * above)
+    assert any("Model base at 0 to 0 m, under the frame" in t.get_text() for t in ax.texts)
+    whole = data(stored_run, variable="watertable_elevation", bbox=(0.0, 0.0, 800.0, 130.0))
+    ax = static.new_figure(THEME).axes[0]
+    section.draw(ax, whole, THEME)
+    assert (*ax.get_xlim(), *ax.get_ylim()) == (0.0, 800.0, 0.0, 130.0)
+
+
+def test_seepage_marks_one_point_per_cell_on_the_land_surface(stored_run, monkeypatch):
+    stored = section.read_field
+
+    def field(run, name, **kwargs):
+        if name == "seepage_mask":
+            return (np.arange(12) == 5).astype(float)
+        return stored(run, name, **kwargs)
+
+    monkeypatch.setattr(section, "read_field", field)
+    out = data(stored_run, variable="watertable_elevation", overlays=["seepage"])
+    assert out.marks == (("seepage", STEP - 100, 2 * STEP - 100),)
+    assert data(stored_run, variable="topography", overlays=["seepage"]).marks == ()
+    ax = static.new_figure(THEME).axes[0]
+    section.draw(ax, out, THEME)
+    points = [c for c in ax.collections if c.get_label() == "Seepage"]
+    np.testing.assert_allclose(points[0].get_offsets(), [[1.5 * STEP - 100, 120.0]])
 
 
 def test_a_log_scale_and_a_class_scale_set_the_colour_norm(stored_run):

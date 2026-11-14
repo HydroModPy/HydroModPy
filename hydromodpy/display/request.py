@@ -74,6 +74,8 @@ OVERLAY_FIELDS: dict[str, tuple[str, ...]] = {
     "lake": ("lake",),
     "barrier": (),
     "wells": ("well",),
+    "seepage": ("seepage_mask",),
+    "pathlines": (),
     "scale_bar": (),
     "mesh": (),
 }
@@ -102,12 +104,14 @@ class Frame:
     """One frame, drawn by ``hydromodpy.display.frames.<name>``.
 
     ``shapes`` are the registry shapes it is the natural frame of, the first frame in
-    table order winning. ``overlays`` are drawn when a panel names none.
+    table order winning. ``overlays`` are drawn when a panel names none. ``height`` is the
+    height of one panel as a share of its width.
     """
 
     shapes: tuple[str, ...] = ()
     overlays: tuple[str, ...] = ()
     engines: tuple[str, ...] = (STATIC,)
+    height: float = 0.75
 
 
 _XY_SHAPES = (
@@ -121,11 +125,15 @@ _XY_SHAPES = (
 FRAMES: dict[str, Frame] = {
     "map": Frame(
         (SHAPE_TIME_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_LAYER_FACE, SHAPE_FACE),
-        ("outline", "outlet", "scale_bar"),
+        ("relief", "outline", "network", "outlet", "scale_bar"),
         engines=(STATIC, INTERACTIVE),
     ),
     "series": Frame((SHAPE_TIME,), engines=(STATIC, INTERACTIVE)),
-    "section": Frame((SHAPE_TIME_LAYER_FACE, SHAPE_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_FACE)),
+    "section": Frame(
+        (SHAPE_TIME_LAYER_FACE, SHAPE_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_FACE),
+        ("seepage",),
+        height=0.45,
+    ),
     "xy": Frame(_XY_SHAPES),
     "distribution": Frame(_XY_SHAPES),
     "groups": Frame(_XY_SHAPES),
@@ -150,7 +158,7 @@ WHEN = (END, SESSION, AFTER)
 """When a figure is drawn. ``after:`` takes a step of ``FIGURE_STEPS``."""
 
 AGAINST_OBSERVED = "observed"
-DRAW_KEYWORDS = ("station", "time")
+DRAW_KEYWORDS = ("station", "time", "variable")
 """The panel fields a figure drawn by a function receives, when its signature declares them."""
 
 
@@ -173,7 +181,7 @@ SPECIALS: dict[str, Special] = {
     "lake_abacus_comparison": Special("run", None, ("station",)),
     "network_comparison": Special("run", "double"),
     "observed_network_heads": Special("run", "double"),
-    "particle_tracks": Special("run", "double"),
+    "particle_tracks": Special("run", "double", ("time", "variable")),
     "recession": Special(
         "run", "medium", ("station",), ("discharge", "hydraulic_conductivity", "specific_yield")
     ),
@@ -341,7 +349,9 @@ class PanelFields(HydroModelBase):
         default=None, description="Context layers drawn over a map or a section."
     )
     bbox: tuple[float, float, float, float] | None = Field(
-        default=None, description="Map window (xmin, ymin, xmax, ymax), in m in the mesh CRS."
+        default=None,
+        description="Window drawn (xmin, ymin, xmax, ymax). On a map, in m in the mesh CRS. "
+        "On a section, distances along the line then elevations, in m.",
     )
     line: list[tuple[float, float]] | None = Field(
         default=None, description="Trace of a section, points (x, y) in m in the mesh CRS."
@@ -867,7 +877,9 @@ def required_variables(
     names: set[str] = set()
     figure = expand(request, presets)
     if figure.special is not None:
-        names.update(name for name in SPECIALS[figure.special].variables if is_registered(name))
+        asked = _listed(figure.draw_keywords.get("variable")) or ()
+        reads = (*SPECIALS[figure.special].variables, *asked)
+        names.update(name for name in reads if is_registered(name))
     for panel in figure.panels:
         names.update(name for name in panel.variable or () if is_registered(name))
         if BUDGET in (panel.variable or ()):

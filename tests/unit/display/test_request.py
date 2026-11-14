@@ -56,7 +56,7 @@ def test_a_preset_fills_only_its_holes() -> None:
     assert [panel.station for panel in figure.panels] == ["zone:catchment", "x"]
     assert (figure.stem, figure.width, figure.preset) == ("hydrograph", "double", "hydrograph")
     overlays = rq.expand(ask('variable = "head"'), PRESETS).panels[0].overlays
-    assert overlays == ["outline", "outlet", "scale_bar"]
+    assert overlays == ["relief", "outline", "network", "outlet", "scale_bar"]
 
 
 @pytest.mark.parametrize(
@@ -131,7 +131,7 @@ def test_file_stems_are_unique_or_named() -> None:
 @pytest.mark.parametrize(
     ("text", "names"),
     [
-        ('variable = "watertable_depth"', ("watertable_depth",)),
+        ('variable = "watertable_depth"', ("topography", "watertable_depth")),
         ('variable = "topography", overlays = ["relief", "wells"]', ("topography", "well")),
         ('preset = "hydrograph", variable = "stage"', ("recharge", "stage")),
     ],

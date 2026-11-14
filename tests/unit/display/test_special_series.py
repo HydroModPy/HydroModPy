@@ -8,6 +8,8 @@ import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.collections import LineCollection, PolyCollection
+from matplotlib.colors import Normalize
 
 import hydromodpy as hmp
 from hydromodpy.display import static
@@ -157,12 +159,32 @@ def test_the_survival_step_holds_every_travel_time_and_ends_at_the_longest(store
         )
 
 
-def test_the_particle_tracks_draw_one_line_per_particle_that_moved(stored_run, monkeypatch):
-    ax = drawn(
-        particle_tracks, with_particles(monkeypatch, stored_run, [0.0, *np.arange(1.0, 11.0)])
-    )
-    assert len(ax.collections[0].get_segments()) == 10
-    assert len(ax.collections) == 2  # the lines and the catchment outline, the run has no outlet
+def test_the_particle_tracks_colour_each_line_by_the_age_of_the_water(stored_run, monkeypatch):
+    years = [0.0, *np.arange(1.0, 11.0)]
+    ax = drawn(particle_tracks, with_particles(monkeypatch, stored_run, years))
+    coloured = next(c for c in ax.collections if c.get_array() is not None)
+    grey = [c for c in ax.collections if isinstance(c, LineCollection) and c is not coloured]
+    ages = np.sort(np.asarray(coloured.get_array()))
+    # One piece per two-step path: its colour is the age at its end, the travel time.
+    assert set(ages) <= set(years[1:]) and isinstance(coloured.norm, Normalize)
+    assert (coloured.norm.vmin, coloured.norm.vmax) == pytest.approx((0.0, np.percentile(ages, 99)))
+    outside = sum(len(c.get_segments()) for c in grey if c.get_label() == "Outside the catchment")
+    assert len(ages) + outside == 10  # the particle that never moved has no line
+    assert ax.get_title(loc="right").startswith("10 pathlines")
+    assert ax.get_title(loc="left").startswith("Age of the water along the pathlines")
+
+
+def test_the_particle_tracks_draw_thin_lines_over_the_map_of_a_variable(stored_run, monkeypatch):
+    run = with_particles(monkeypatch, stored_run, np.arange(1.0, 11.0))
+    ax = drawn(particle_tracks, run, variable=["head"], time=0)
+    cells = next(c for c in ax.collections if isinstance(c, PolyCollection))
+    assert len(cells.get_paths()) == 12 and len(ax.figure.axes) == 2  # the map and its bar
+    assert ax.get_title(loc="left").startswith("Hydraulic head")
+    assert ax.get_title(loc="right") == "January 2001, 10 pathlines"
+    lines = [c for c in ax.collections if isinstance(c, LineCollection)]
+    assert any(len(c.get_segments()) == 10 and c.get_array() is None for c in lines)
+    with pytest.raises(FigureNotApplicable, match="over one variable"):
+        drawn(particle_tracks, run, variable=["head", "topography"])
 
 
 @pytest.mark.parametrize(

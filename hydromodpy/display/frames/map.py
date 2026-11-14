@@ -25,6 +25,7 @@ from hydromodpy.display import interactive, static, variables
 from hydromodpy.display.request import (
     COLUMN_SEPARATOR,
     MAP_TABLE,
+    Instant,
     PanelRequest,
     descriptor,
     is_column,
@@ -34,12 +35,13 @@ from hydromodpy.display.subject import (
     Compared,
     FigureNotApplicable,
     MeshView,
+    period_text,
     read_field,
     read_mesh,
     read_table,
     refuse_fields,
 )
-from hydromodpy.display.theme import Theme
+from hydromodpy.display.theme import Theme, colormap
 from hydromodpy.results.field_registry import (
     BUDGET_GROUP,
     BUDGET_SIGN_RULE,
@@ -55,6 +57,10 @@ FIELDS = (
     "change", "against",
 )  # fmt: skip
 LABEL_WIDTH = 34
+SHARE_OF_PERIODS = "share of the periods"
+"""What a frequency map of one run shows, after the name of its variable."""
+TITLE_WIDTH = 64
+"""Characters of a title line, the markup of a unit included."""
 """A colour bar label is wrapped at this many characters, so a long difference label fits."""
 FREQUENCY_HEAD = "share of steps with a non-zero value"
 LONG_EDGE = 2.2
@@ -75,7 +81,8 @@ class MapData:
     reach instead, with the columns of ``REACH_COLUMNS``: ``cell`` is the reach cell
     and ``x_down``, ``y_down`` the centre of the downstream reach cell (NaN at an
     outlet). ``ramp`` is the name for the default theme, ``draw`` takes the ramp of
-    the theme it receives.
+    the theme it receives. ``caption`` says which time is drawn. ``blank_zero`` leaves
+    the cells at zero undrawn, for a share of time that most cells never reach.
     """
 
     table: pd.DataFrame
@@ -88,6 +95,8 @@ class MapData:
     contours: bool
     classes: tuple[tuple[int, str], ...] = ()
     limits: tuple[float, float] | None = None
+    caption: str = ""
+    blank_zero: bool = False
 
 
 # ----------------------------------------------------------------------- data
@@ -221,6 +230,8 @@ def data(subject: Run | Compared, panel: PanelRequest) -> MapData:
     label = variables.label(name)
     if frequency:
         label, scale = variables.FREQUENCY_LABEL, "diverging" if difference else "sequential"
+        if not difference:
+            label = f"{variables.label_parts(name)[0]}, {SHARE_OF_PERIODS}"
     elif difference:
         label = f"{label[0].lower()}{label[1:]}" if label[1:2].islower() else label
         label = f"Change in {label}" if panel.change is not None else f"Difference in {label}"
@@ -251,15 +262,27 @@ def data(subject: Run | Compared, panel: PanelRequest) -> MapData:
     )[keep].reset_index(drop=True)
     classes = tuple(descriptor(name).classes) if scale == "categorical" else ()
     log = variables.is_log(name, panel.scale) and scale in ("sequential", "cyclic")
+    timed = name not in REBUILT_FIELDS or "time" in REBUILT_FIELDS[name].shape
+    timed = timed and "time" in descriptor(name).shape
+    ramp = Theme().ramps["share"] if frequency and not difference else variables.ramp(name, Theme())
     return MapData(
-        table, mesh, name, label, scale, variables.ramp(name, Theme()), log, bool(contours), classes
-    )
+        table, mesh, name, label, scale, ramp, log, bool(contours), classes,
+        caption=period_text(run, panel) if timed and not frequency else "",
+        blank_zero=frequency and not difference,
+    )  # fmt: skip
+
+
+def of_variable(subject: Run, name: str, time: Instant | None = None) -> MapData:
+    """Return the map of one variable at one instant, for a figure that draws over it."""
+    return data(subject, PanelRequest(type="map", variable=[name], time=time))
 
 
 # ----------------------------------------------------------------------- draw
 def _ramp(data: MapData, theme: Theme) -> str:
     if data.scale == "categorical":
         return ""
+    if data.blank_zero:
+        return theme.ramps["share"]
     registered = not is_column(data.variable) and data.scale == variables.scale(data.variable)
     return variables.ramp(data.variable, theme) if registered else theme.ramps[data.scale]
 
@@ -304,12 +327,14 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
 
     Uses ``static.map_axes`` and ``static.colorbar``, a ``LogNorm`` when ``data.log``,
     a ``TwoSlopeNorm`` centred on zero for a diverging scale, and rasterises the cells.
-    A categorical variable gets a legend of its class names in place of the colour bar.
-    Isolines are drawn when ``data.contours`` is set.
+    A categorical variable gets a legend of its class names in place of the colour bar,
+    and the cells of its class 0, the absence, are left undrawn. The left title is the
+    label with its unit, so the colour bar carries none, and the right title is the time
+    drawn. Isolines are drawn when ``data.contours`` is set.
     """
     table = data.table
     values = table["value"].to_numpy(dtype=float)
-    cmap = _ramp(data, theme)
+    cmap = colormap(_ramp(data, theme)) if data.scale != "categorical" else None
     norm = variables.color_norm(data.scale, data.log, values, data.limits)
     if "x_down" in table:
         shown = values
@@ -326,9 +351,10 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
         box = (table["x"].min(), table["y"].min(), table["x"].max(), table["y"].max())
     else:
         polygons = _polygons(data.mesh, table["cell"].to_numpy())
-        shown = values
+        shown = np.where(values == 0, np.nan, values) if data.blank_zero else values
         if data.scale == "categorical":
             shown, cmap, norm = variables.class_scale(values, data.classes, theme)
+            shown = np.where(values == 0, np.nan, shown)
         artist = PolyCollection(
             polygons, array=np.ma.masked_invalid(shown), cmap=cmap, norm=norm,
             edgecolors="none", linewidths=0.0, antialiased=False,
@@ -339,21 +365,22 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
     ax.add_collection(artist)
     margin = 0.0 if "x_down" not in table else 0.05 * max(box[2] - box[0], box[3] - box[1])
     extent = (box[0] - margin, box[1] - margin, box[2] + margin, box[3] + margin)
-    static.map_axes(ax, theme, extent=extent, crs=crs_name(data.mesh.crs))
+    static.map_axes(ax, theme, extent=extent)
     if data.contours:
         _isolines(ax, data, theme)
-    if data.scale == "categorical":
-        for i, (_, name) in enumerate(data.classes):
-            ax.fill([], [], color=cmap(i), label=name)
-        static.legend(ax, theme)
-    else:
-        static.colorbar(ax.figure, artist, ax, theme, label=textwrap.fill(data.label, LABEL_WIDTH))
+    when = [data.caption]
     if not is_column(data.variable) and descriptor(data.variable).zarr_path.startswith(
         BUDGET_GROUP
     ):
-        ax.set_title(
-            textwrap.fill(BUDGET_SIGN_RULE, 42), loc="right", **static.text_style(theme, small=True)
-        )
+        when.append(textwrap.fill(BUDGET_SIGN_RULE, 42))
+    static.titles(ax, theme, textwrap.fill(data.label, TITLE_WIDTH), "\n".join(filter(None, when)))
+    if data.scale == "categorical":
+        for i, (value, name) in enumerate(data.classes):
+            if value != 0 or "x_down" in table:
+                ax.fill([], [], color=cmap(i), label=name)
+        static.legend(ax, theme, inside="best")
+    else:
+        static.colorbar(ax.figure, artist, ax, theme, label="")
 
 
 # ---------------------------------------------------------------- interactive

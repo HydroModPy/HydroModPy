@@ -32,6 +32,7 @@ from hydromodpy.core.config_kit.field_param.config import (
 )
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io.paths import resolve_declared_path
+from hydromodpy.core.tracking.input_file import input_file_role
 from hydromodpy.model.boundaries.boundary_condition_registry import (
     FLOW_BC_IDS,
     FLOW_BC_KINDS,
@@ -39,6 +40,7 @@ from hydromodpy.model.boundaries.boundary_condition_registry import (
     FlowBcId,
 )
 from hydromodpy.model.boundaries.boundary_conditions import BCEntry, FlowBoundaryConditionConfig
+from hydromodpy.model.forcing.dated_forcing import CsvForcing
 from hydromodpy.model.initial_config import FlowInitialConditions, normalize_flow_initial_conditions
 from hydromodpy.model.properties.property_ids import default_unit_of, refusal_of_a_retired_id
 from hydromodpy.model.sinks_sources.container import (
@@ -350,13 +352,19 @@ def _resolve_forcing_path(
     role: str,
     workspace_data_dir: Path | None = None,
 ) -> dict[str, object]:
-    """Resolve one ``forcing.path_file`` against the project root / TOML directory."""
+    """Resolve one ``forcing.path_file`` against the project root / TOML directory.
+
+    A workspace name is read in the folder of the ``InputFile`` role of
+    ``CsvForcing.path_file``, the role the run seals the file under.
+    """
     forcing_payload = dict(forcing)
     path_value = forcing_payload.get("path_file")
     if isinstance(path_value, str) and path_value.strip() != "":
         forcing_payload["path_file"] = resolve_declared_path(
             path_value,
             base_dir=base_dir,
+            role=input_file_role(CsvForcing.model_fields["path_file"]),
+            data_dir=workspace_data_dir,
         )
     return forcing_payload
 

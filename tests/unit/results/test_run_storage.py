@@ -425,8 +425,6 @@ def test_abandoned_session_is_counted(tmp_path: Path) -> None:
 #   number.
 # - ``summary/`` tables, page and RO-Crate: derived, written again whole by
 #   ``hmp campaign collect`` (its ledgers ``index.json`` are versioned, below).
-# - ``.hmp/identity_notice.json`` of a workspace: a memo of the warnings
-#   already given; losing it repeats one warning.
 # - ``request.json`` of a job and ``chain.json``: an input the caller writes, read
 #   by its own validation, not a stored result.
 WRITER = "2.0.0a1"

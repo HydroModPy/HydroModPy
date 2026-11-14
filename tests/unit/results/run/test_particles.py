@@ -13,10 +13,13 @@ import numpy as np
 import pytest
 
 from hydromodpy.results.run.particles import (
+    moving_tracks,
     particle_time_to_days,
     particle_travel_years,
     read_particle_tracks,
     travel_time,
+    travel_time_to_exit,
+    water_ages,
 )
 
 
@@ -109,3 +112,33 @@ def test_padding_stripped() -> None:
     assert len(tracks) == 1
     assert tracks[0].shape == (2, 4)
     assert travel_time(tracks[0]) == 3.0
+
+
+GRID = np.array([[x, y] for y in range(3) for x in range(3)], dtype=float)
+"""Centres of a 3 x 3 grid, row by row from y = 0."""
+
+
+def _two_rows() -> SimpleNamespace:
+    """Two particles along x: on y = 0 in two years, on y = 2 in four years."""
+    return _run(
+        {"time_units": "days"},
+        x=np.array([[0.0, 1.0, 2.0], [0.0, 1.0, 2.0]]),
+        y=np.array([[0.0, 0.0, 0.0], [2.0, 2.0, 2.0]]),
+        time=np.array([[0.0, 365.25, 730.5], [0.0, 730.5, 1461.0]]),
+    )
+
+
+def test_the_age_of_the_water_runs_from_zero_to_the_travel_time() -> None:
+    tracks, years = moving_tracks(_two_rows())
+    young, old = water_ages(tracks, years)
+    assert young == pytest.approx([0.0, 1.0, 2.0]) and old == pytest.approx([0.0, 2.0, 4.0])
+
+
+def test_the_travel_time_to_exit_is_what_is_left_and_is_interpolated_between_pathlines() -> None:
+    field = travel_time_to_exit(_two_rows(), GRID).reshape(3, 3)
+    assert field[0] == pytest.approx([2.0, 1.0, 0.0])  # what is left of two years
+    assert field[2] == pytest.approx([4.0, 2.0, 0.0])
+    assert field[1] == pytest.approx([3.0, 1.5, 0.0])  # no pathline: between its neighbours
+    line = np.array([[x, 0.0] for x in range(5)])
+    alone = travel_time_to_exit(_two_rows(), line)
+    assert np.isnan(alone[3:]).all() and np.isfinite(alone[:3]).all()  # one line, no triangle

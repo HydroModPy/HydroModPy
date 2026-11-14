@@ -489,16 +489,6 @@ def _select_union_variant(
     return None
 
 
-def _input_file_role_local(field_info: Any) -> str | None:
-    """Return the ``InputFile.role`` annotation attached to a field, if any."""
-    from hydromodpy.core.tracking.input_file import InputFile
-
-    for meta in getattr(field_info, "metadata", None) or ():
-        if isinstance(meta, InputFile):
-            return meta.role
-    return None
-
-
 def _resolve_section_paths(
     data: dict[str, Any],
     model_cls: type[BaseModel],
@@ -512,29 +502,32 @@ def _resolve_section_paths(
     Recurses into ``list[BaseModel]`` fields to resolve paths in nested
     sub-models (e.g. ``sources`` lists containing ``path`` fields).
 
-    A bare file name is refused when the file is not at the project root,
-    naming where the former workspace fallback would have found it, so the
-    user writes one path from the root and runs again.
+    A workspace name, ``workspace:<name>``, is read under
+    ``<workspace_data_dir>/<role>/`` for a field marked ``InputFile``. A bare
+    file name is refused when the file is not at the project root, and the
+    refusal gives the workspace name to write when the file is in the folder
+    of its variable.
     """
     from hydromodpy.core.toml_io.paths import (
         BareInputNameError,
         bare_name_refusal,
-        former_bare_name_location,
         is_bare_filename,
         resolve_declared_path,
     )
+    from hydromodpy.core.tracking.input_file import input_file_role
 
     for field_name, field_info in model_cls.model_fields.items():
         value = data.get(field_name)
         if _is_path_field(field_info.annotation):
             if isinstance(value, str) and value:
-                resolved = resolve_declared_path(value, base_dir=base)
+                role = input_file_role(field_info)
+                resolved = resolve_declared_path(
+                    value, base_dir=base, role=role, data_dir=workspace_data_dir
+                )
                 if is_bare_filename(value) and not resolved.exists():
-                    role = _input_file_role_local(field_info) or role_hint
                     raise BareInputNameError(
                         bare_name_refusal(
-                            value,
-                            former=former_bare_name_location(value, workspace_data_dir, role=role),
+                            value, role=role or role_hint, data_dir=workspace_data_dir
                         )
                     )
                 data[field_name] = str(resolved)

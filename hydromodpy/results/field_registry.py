@@ -1229,6 +1229,17 @@ REBUILT_FIELDS: dict[str, FieldDescriptor] = {
         "Depth the closed depression flood adds to the mesh top",
         cell_methods="time: point area: point",
     ),
+    "travel_time_to_exit": _rebuilt(
+        "travel_time_to_exit",
+        "Travel time to the exit",
+        "duration",
+        "yr",
+        SHAPE_FACE,
+        "Time the water of the cell takes to reach the end of its pathline, the mean over "
+        "the pathline positions in the cell, interpolated between the pathlines. With "
+        "backward tracking it is the age of the water",
+        cell_methods="time: point area: mean",
+    ),
 }
 """Fields rebuilt from a run at read time and never stored.
 

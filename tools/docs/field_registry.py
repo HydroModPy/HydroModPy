@@ -36,6 +36,7 @@ from pydantic_core import PydanticUndefined
 
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.tracking.input_file import input_file_role
 
 try:
     from hydromodpy.core.config_kit.visible_when import VisibleWhen
@@ -513,6 +514,7 @@ def _leaf_info(name: str, field: FieldInfo, path: str) -> dict[str, Any]:
         "deprecated": bool(getattr(field, "deprecated", None)),
         "renamed_from": _renamed_from(extra),
         "site_scoped": bool(extra.get("site_scoped")),
+        "input_folder": input_file_role(field),
         "numeric": _unannotate(base)[0] in (int, float) or quantity,
     }
 

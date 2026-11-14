@@ -1,8 +1,8 @@
 # HydroModPy - examples
 
 `examples/` is itself a **HydroModPy workspace**: the projects live under
-[`projects/`](projects/) and share their inputs through [`data/`](data/), which
-the workspace path resolution reaches by bare filename.
+[`projects/`](projects/) and share their inputs through [`data/`](data/), where
+a TOML names a file with `workspace:<name>`.
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ needs.
 
 | # | Folder | Theme | Regime | Runtime |
 |---|---|---|---|---|
-| 00 | [`00_quick_test_of_wide_hydromodpy_capabilities`](projects/00_quick_test_of_wide_hydromodpy_capabilities/) | wide slice of the toolbox: Aber catchment, pumping wells, particles | monthly transient | ~25 s |
+| 00 | [`00_quick_test_of_wide_hydromodpy_capabilities`](projects/00_quick_test_of_wide_hydromodpy_capabilities/) | Aber catchment, two pumping wells, particle tracks | monthly transient | ~5 s |
 | 01 | [`01_simplified_example_presented_in_the_paper`](projects/01_simplified_example_presented_in_the_paper/) | the paper walkthrough: Canut, depth-decaying five-layer aquifer | steady | ~35 s |
 | 02 | [`02_basic_features_and_overview_of_possibilities`](projects/02_basic_features_and_overview_of_possibilities/) | the whole chain on a conceptual domain, fully offline | steady | ~10 s |
 | 03 | [`03_hydrographic_network_in_steady_state`](projects/03_hydrographic_network_in_steady_state/) | observed, delineated and simulated stream networks side by side | steady | ~45 s |
@@ -93,9 +93,13 @@ DuckDB from the run directories, and a deleted `.hmp/` costs nothing.
 
 ## Data
 
-`data/` is organized by variable family, which is what a bare filename in a
-TOML resolves against: `path = "DEM_nancon_25m.tif"` reads
-`data/dem/DEM_nancon_25m.tif`.
+`data/` is organized by variable, and a TOML names a file there with
+`workspace:`. `path = "workspace:DEM_nancon_25m.tif"` in `[[data.dem.sources]]`
+reads `data/dem/DEM_nancon_25m.tif`, and `path = "workspace:."` in
+`[[data.hydrometry.sources]]` reads the station folder `data/hydrometry/`. A
+bare filename is refused. Some examples still write the path from the project
+root, `../../data/dem/...`, which reads the same file and is sealed as
+`workspace:<name>`.
 
 | Family | Holds |
 |---|---|

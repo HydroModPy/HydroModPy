@@ -489,3 +489,22 @@ def test_outlet_refusals() -> None:
         resolve_outlet(everything_inactive)
     with pytest.raises(ValueError, match="catchment holds no active cell"):
         resolve_outlet(metric, within=np.zeros(4, dtype=bool))
+
+
+def test_the_outlet_snaps_inside_the_catchment_it_closes() -> None:
+    # One column of seven cells, the water going from cell 0 to cell 6. The
+    # catchment closes at cell 3 and its river goes on below.
+    vertices, connectivity = quad_mesh(7, 1, cell_size=RESOLUTION)
+    metric = build_downslope_metric(_plane(7, 1), connectivity, vertices=vertices)
+    assert metric.graph.downstream.tolist() == [1, 2, 3, 4, 5, 6, -1]
+    adjacency = shared_node_adjacency(connectivity, n_cells=7)
+    near = tuple(metric.centroids[3])
+    catchment = np.arange(7) <= 3
+
+    # Alone, the two rings reach cell 5, two cells below the outlet.
+    assert resolve_outlet(metric, near=near, adjacency=adjacency) == 5
+    # With the catchment, the outlet stays its lowest cell.
+    assert resolve_outlet(metric, near=near, within=catchment, adjacency=adjacency) == 3
+    # A catchment the window misses leaves the window rule as it was.
+    far = np.zeros(7, dtype=bool)
+    assert resolve_outlet(metric, near=near, within=far, adjacency=adjacency) == 5

@@ -112,7 +112,7 @@ def render(
     multiple. Nothing is drawn and no matplotlib object is made.
 
     ``draw``: calls ``request.draw(subject, ax, theme)`` on one axes of a static
-    figure, adding ``station`` and ``time`` from ``draw_keywords`` when the
+    figure, adding ``station``, ``time`` and ``variable`` from ``draw_keywords`` when the
     function's signature declares them. A special figure does the same with the ``draw``
     of the module ``hydromodpy.display.special.<name>``, imported when it draws, after
     the row of ``SPECIALS`` has checked the kind of subject. Both return the figure, and
@@ -157,7 +157,10 @@ def render(
             with _panel(key):
                 panels.append((_title(key, found), *module.draw_interactive(found, look)))
         return interactive.assemble(panels, look, columns, figure.title)
-    fig = static.new_figure(look, width=width, nrows=-(-len(loaded) // columns), ncols=columns)
+    fig = static.new_figure(
+        look, width=width, nrows=-(-len(loaded) // columns), ncols=columns,
+        height=max(FRAMES[panel.type].height for _, panel, _, _, _ in loaded),
+    )  # fmt: skip
     axes = list(fig.axes)
     for spare in axes[len(loaded) :]:
         spare.remove()
@@ -165,14 +168,18 @@ def render(
     for ax, (key, panel, sub, module, found) in zip(axes, loaded, strict=True):
         with _panel(key):
             module.draw(ax, found, look)
+            instant = panel.time if isinstance(panel.time, str | int) else "last"
             for name in (panel.overlays or ()) if panel.type == "map" else ():
-                OVERLAYS[name](ax, sub.run if isinstance(sub, Compared) else sub, look)
+                OVERLAYS[name](ax, sub.run if isinstance(sub, Compared) else sub, look, instant)
         if title := _title(key, found):
-            ax.set_title(title, **static.text_style(look))
+            # A frame that wrote its own left title takes the facet on the right.
+            side = "right" if ax.get_title(loc="left") else "center"
+            ax.set_title(title, loc=side, **static.text_style(look))
     if len(loaded) > 1:
         static.panel_labels(axes, look)
     if figure.title:
         fig.suptitle(figure.title, **static.text_style(look, small=False))
+    static.fit_equal_axes(fig)
     return fig
 
 
@@ -465,4 +472,5 @@ def _draw_function(figure: ResolvedFigure, subject: Any, theme: Theme) -> Figure
         draw(subject, fig.axes[0], theme, **keywords)
     if figure.title:
         fig.suptitle(figure.title, **static.text_style(theme, small=False))
+    static.fit_equal_axes(fig)
     return fig

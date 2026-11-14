@@ -15,7 +15,9 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IsoDateStr
 from hydromodpy.core.toml_io.loader import validate_toml
-from hydromodpy.core.toml_io.paths import resolve_declared_path
+from hydromodpy.core.toml_io.paths import is_workspace_name, resolve_declared_path
+from hydromodpy.core.tracking.input_file import input_file_role
+from hydromodpy.core.workspace.config import WorkspaceConfig
 
 if TYPE_CHECKING:
     from hydromodpy.core.config_kit.root import RootConfig
@@ -98,11 +100,24 @@ class BaseVariableConfig(HydroModelBase):
 
 
 def _resolve_source_paths(cfg: BaseVariableConfig, toml_dir: Path) -> BaseVariableConfig:
-    """Resolve ``path`` and ``mask_path`` on each source relative to *toml_dir*."""
+    """Resolve ``path`` and ``mask_path`` on each source relative to *toml_dir*.
+
+    A workspace name in ``path`` is read in the data folder that ``[workspace]``
+    gives this project when it sets no key.
+    """
     sources = getattr(cfg, "sources", [])
     for src in sources:
-        if getattr(src, "path", None) is not None:
-            src.path = resolve_declared_path(src.path, base_dir=toml_dir)
+        path = getattr(src, "path", None)
+        if path is not None:
+            data_dir = None
+            if is_workspace_name(path):
+                data_dir = WorkspaceConfig(project_root=toml_dir).data_dir
+            src.path = resolve_declared_path(
+                path,
+                base_dir=toml_dir,
+                role=input_file_role(type(src).model_fields.get("path")),
+                data_dir=data_dir,
+            )
         if getattr(src, "mask_path", None) is not None:
             src.mask_path = resolve_declared_path(src.mask_path, base_dir=toml_dir)
     return cfg

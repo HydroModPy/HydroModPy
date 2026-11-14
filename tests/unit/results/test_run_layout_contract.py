@@ -67,7 +67,7 @@ from hydromodpy.results.storage.contract import (
 from hydromodpy.results.storage.final_state import FinalState, write_final_state
 from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_profile
 from hydromodpy.results.storage.run_store import RunStore
-from hydromodpy.results.storage.sealing import IDENTITY_NOTICE_FILENAME, seal_completed
+from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_mesh
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
 from tests._helpers.run_stores import open_run_store
@@ -130,7 +130,6 @@ REBUILDABLE_INTERNAL_ENTRIES = frozenset(
         PROJECT_LOGS_DIRNAME,
         LAUNCHER_LEASE_FILENAME,
         PRODUCTS_DIRNAME,
-        IDENTITY_NOTICE_FILENAME,
     }
 )
 """What the project ``.hmp/`` may hold: an index, its companions, a cache, disposable markers."""

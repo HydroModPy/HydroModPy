@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+from scipy.interpolate import griddata
+from scipy.spatial import QhullError, cKDTree
 
 from hydromodpy.core.units.quantities import DAYS_PER_YEAR, SECONDS_PER_DAY
 from hydromodpy.core.units.time import factor_to_seconds
@@ -27,6 +29,8 @@ __all__ = [
     "particle_travel_years",
     "read_particle_tracks",
     "travel_time",
+    "travel_time_to_exit",
+    "water_ages",
 ]
 
 PARTICLE_COLUMNS: tuple[str, ...] = ("particle", "step", "x", "y", "z", "time_days")
@@ -188,6 +192,54 @@ def moving_tracks(run: Run) -> tuple[list[np.ndarray], np.ndarray]:
             tracks.append(track)
             years.append(span)
     return tracks, np.asarray(years, dtype="float64")
+
+
+def water_ages(tracks: list[np.ndarray], years: np.ndarray) -> list[np.ndarray]:
+    """Return the time since the release at each position of each pathline, in years.
+
+    The last value of a pathline is its travel time. ``tracks`` and ``years`` are those of
+    :func:`moving_tracks`.
+    """
+    ages = []
+    for track, total in zip(tracks, years, strict=True):
+        clock = track[:, 3]
+        elapsed = np.abs(clock - clock[np.isfinite(clock)][0])
+        ages.append(elapsed * total / np.nanmax(elapsed))
+    return ages
+
+
+MIN_CELLS_TO_INTERPOLATE = 4
+"""Fewest cells crossed by a pathline that let the others be interpolated."""
+
+
+def travel_time_to_exit(run: Run, centres: np.ndarray) -> np.ndarray:
+    """Return the time the water of each cell takes to reach the end of its pathline, in years.
+
+    Every recorded position of a pathline is a sample: the travel time of the particle
+    minus the time it has already spent to get there. A cell takes the mean of the samples
+    closest to its centre, in plan, whatever their depth. A cell no pathline crosses takes
+    the linear interpolation of the cells that hold one, and stays NaN outside their hull
+    or when those cells lie on one line. With backward tracking the end of a pathline is the recharge point, so the value is
+    the age of the water. ``centres`` holds the ``(x, y)`` of the cell centres.
+    """
+    tracks, years = moving_tracks(run)
+    field = np.full(len(centres), np.nan)
+    if not tracks:
+        return field
+    points = np.concatenate([track[:, :2] for track in tracks])
+    ages = water_ages(tracks, years)
+    left = np.concatenate([total - age for age, total in zip(ages, years, strict=True)])
+    keep = np.isfinite(points).all(axis=1) & np.isfinite(left)
+    cell = cKDTree(centres).query(points[keep])[1]
+    count = np.bincount(cell, minlength=len(centres))
+    held = count > 0
+    field[held] = np.bincount(cell, weights=left[keep], minlength=len(centres))[held] / count[held]
+    if MIN_CELLS_TO_INTERPOLATE <= held.sum() < len(centres):
+        try:
+            field[~held] = griddata(centres[held], field[held], centres[~held], method="linear")
+        except QhullError:
+            pass  # Cells on one line have no triangle to interpolate in.
+    return field
 
 
 def particle_travel_years(run: Run) -> np.ndarray:

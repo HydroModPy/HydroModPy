@@ -24,6 +24,7 @@ produces those gets the same comparison.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -312,6 +313,9 @@ def network_comparison_from_run(
         alpha_warning_threshold=float(alpha_warning_threshold),
         clipping_warning_share=float(clipping_warning_share),
         clipping_warning_gap=float(clipping_warning_gap),
+        # The build of the run compared its basin of D with the polygon and warned
+        # about the gap then. The criterion reads the same basin, so it logs it only.
+        catchment_mismatch_warning_share=math.inf,
     )
 
     release = np.asarray(sim.field("release_flux", time=timestep), dtype=float).reshape(-1)

@@ -16,6 +16,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.colors import LogNorm
 from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
 from matplotlib.figure import Figure
+from matplotlib.patheffects import withStroke
 from matplotlib.ticker import (
     AutoMinorLocator,
     FuncFormatter,
@@ -78,6 +79,7 @@ def new_figure(
     *,
     width: str | float = "single",
     height_mm: float | None = None,
+    height: float = 0.75,
     nrows: int = 1,
     ncols: int = 1,
     **subplots_kw: Any,
@@ -85,12 +87,12 @@ def new_figure(
     """Return a figure on its own Agg canvas, sized in millimetres, with its axes.
 
     ``width`` is a column name of ``WIDTHS_MM`` or a number of millimetres. The axes are
-    ``fig.axes``, in row order. The height defaults to three quarters of the width per
-    row of the grid. No ``pyplot`` and no global state are involved.
+    ``fig.axes``, in row order. The height defaults to the share ``height`` of the width
+    per row of the grid. No ``pyplot`` and no global state are involved.
     """
     width_mm = float(WIDTHS_MM[width] if isinstance(width, str) else width)
     if height_mm is None:
-        height_mm = 0.75 * width_mm * nrows / ncols
+        height_mm = height * width_mm * nrows / ncols
     fig = Figure(
         figsize=(width_mm * MM, height_mm * MM),
         dpi=100,
@@ -164,11 +166,12 @@ def map_axes(
     *,
     extent: tuple[float, float, float, float] | None = None,
     crs: str = "Lambert-93",
-    ticks: bool = True,
+    ticks: bool = False,
 ) -> None:
-    """Style a map frame. Equal aspect, no grid, coordinates in km, CRS named in the labels.
+    """Style a map frame. Equal aspect, no grid and a bare frame, the scale bar gives the size.
 
-    ``extent`` is ``(xmin, ymin, xmax, ymax)`` in metres.
+    ``extent`` is ``(xmin, ymin, xmax, ymax)`` in metres. With ``ticks`` the frame carries
+    the coordinates in km and the CRS is named in the labels.
     """
     if extent is not None:
         ax.set_xlim(extent[0], extent[2])
@@ -199,6 +202,40 @@ def map_axes(
     _pin_ticks(ax, theme)
 
 
+def titles(ax: Any, theme: Theme, left: str, right: str = "") -> None:
+    """Write what a panel shows as its left title, and when or how many as its right title."""
+    ax.set_title(left, loc="left", **{**text_style(theme), "size": theme.title_size})
+    ax.set_title(right, loc="right", **{**text_style(theme), "color": theme.muted})
+
+
+def fit_equal_axes(fig: Figure) -> None:
+    """Set the figure height so that its first equal-aspect axes fills the room it was given.
+
+    A map keeps the width of its column, so a wide catchment gives a short figure and a
+    tall one a tall figure, up to ``MAX_MAP_HEIGHT`` times the width.
+    """
+    ax = next((a for a in fig.axes if a.get_aspect() == 1.0), None)
+    if ax is None:
+        return
+    # The layout moves with the size, so a few passes bring the axes to its room.
+    for _ in range(FIT_PASSES):
+        fig.draw_without_rendering()
+        room, box = ax.get_position(original=True), ax.get_position()
+        width, height = fig.get_size_inches()
+        if box.height < room.height - FIT_TOLERANCE:
+            fig.set_size_inches(width, height * (1.0 - (room.height - box.height)))
+        elif box.width < room.width - FIT_TOLERANCE and height < MAX_MAP_HEIGHT * width:
+            fig.set_size_inches(width, min(height * room.width / box.width, MAX_MAP_HEIGHT * width))
+        else:
+            break
+
+
+MAX_MAP_HEIGHT = 1.5
+"""Largest height of a map figure, as a share of its width."""
+FIT_PASSES, FIT_TOLERANCE = 4, 0.004
+"""Passes of ``fit_equal_axes`` at most, and the share of the figure it leaves unfilled."""
+
+
 def scale_bar(
     ax: Any, theme: Theme, *, length_m: float | None = None, loc: str = "lower left"
 ) -> None:
@@ -211,6 +248,8 @@ def scale_bar(
         length_m = min((1, 2, 5, 10), key=lambda m: abs(m * mag - raw)) * mag
     x = x0 + 0.05 * (x1 - x0) if "left" in loc else x1 - 0.05 * (x1 - x0) - length_m
     y = y0 + 0.05 * (y1 - y0) if "lower" in loc else y1 - 0.05 * (y1 - y0)
+    # A halo of the face colour keeps the bar and its length readable over any drawing.
+    halo = [withStroke(linewidth=2.5, foreground=theme.face)]
     ax.plot(
         [x, x + length_m],
         [y, y],
@@ -220,6 +259,7 @@ def scale_bar(
         zorder=20,
         scalex=False,
         scaley=False,
+        path_effects=[withStroke(linewidth=4.0, foreground=theme.face)],
     )
     label = f"{length_m / 1000:g} km" if length_m >= 1000 else f"{length_m:g} m"
     ax.text(
@@ -229,13 +269,17 @@ def scale_bar(
         ha="center",
         va="bottom",
         zorder=20,
+        path_effects=halo,
         **text_style(theme),
     )
 
 
 def panel_labels(axes: Any, theme: Theme) -> None:
-    """Write (a), (b), ... above the upper left corner of each axes."""
+    """Write (a), (b), ... above the upper left corner of each axes, before its left title."""
     for i, ax in enumerate(axes):
+        if title := ax.get_title(loc="left"):
+            ax.set_title(f"({chr(97 + i)}) {title}", loc="left")
+            continue
         ax.text(
             0.0,
             1.02,
@@ -296,10 +340,9 @@ def colorbar(
     )
     cb.ax.minorticks_off()
     if isinstance(mappable.norm, LogNorm):
-        # Every tick of a log bar gets the same a x 10^b label, even below one decade.
-        cb.formatter = cb.minorformatter = LogFormatterSciNotation(
-            minor_thresholds=(np.inf, np.inf)
-        )
+        # Under one decade every tick gets the same a x 10^b label. Under two decades a few
+        # ticks between the decades keep theirs, and beyond only the decades do.
+        cb.formatter = cb.minorformatter = LogFormatterSciNotation(minor_thresholds=(2.0, 1.0))
     else:
         cb.formatter = TimesTenFormatter()
     cb.update_ticks()
@@ -309,22 +352,33 @@ def colorbar(
     return cb
 
 
+INSIDE_LEGEND_ALPHA = 0.8
+"""Opacity of the face of a legend that sits in the axes."""
 LEGEND_ROW_CHARS = 40
 """A legend whose labels hold more characters than this is set on two columns."""
 
 
-def legend(ax: Any, theme: Theme) -> Any:
-    """Put the legend in one row above the axes, right aligned, above the title when there is one."""
+def legend(ax: Any, theme: Theme, *, inside: str | None = None) -> Any:
+    """Put the legend in one row above the axes, right aligned, above the title when there is one.
+
+    ``inside`` is a matplotlib location, ``"best"`` included. The legend then sits in the
+    axes, in one column, on a face that lets the drawing show through.
+    """
     titled = any(ax.get_title(loc=loc) for loc in ("left", "center", "right"))
     lift = theme.title_size + theme.title_pad + 2.0 if titled else 2.0
     anchor = offset_copy(ax.transAxes, fig=ax.figure, y=lift, units="points")
     handles, labels = ax.get_legend_handles_labels()
     wide = sum(map(len, labels)) > LEGEND_ROW_CHARS
+    where = (
+        {"loc": inside, "ncols": 1, "borderaxespad": 0.6}
+        if inside
+        else {
+            "loc": "lower right", "bbox_to_anchor": (1.0, 1.0), "bbox_transform": anchor,
+            "ncols": 2 if wide else max(len(handles), 1), "borderaxespad": 0.0,
+        }
+    )  # fmt: skip
     leg = ax.legend(
-        loc="lower right",
-        bbox_to_anchor=(1.0, 1.0),
-        bbox_transform=anchor,
-        ncols=2 if wide else max(len(handles), 1),
+        **where,
         frameon=True,
         fancybox=False,
         shadow=False,
@@ -333,13 +387,14 @@ def legend(ax: Any, theme: Theme) -> Any:
         handletextpad=0.5,
         handlelength=1.6,
         columnspacing=1.2,
-        borderaxespad=0.0,
         markerscale=1.0,
         prop={"family": theme.family, "size": theme.small},
     )
     leg.get_frame().set(
-        edgecolor=theme.ink, facecolor=theme.face, linewidth=theme.line_width, alpha=1.0
-    )
+        edgecolor="none" if inside else theme.ink, facecolor=theme.face,
+        linewidth=theme.line_width, alpha=INSIDE_LEGEND_ALPHA if inside else 1.0,
+    )  # fmt: skip
+    leg.set_zorder(30)
     _pin(leg.get_texts() + [leg.get_title()], theme, color=theme.ink, size=theme.small)
     return leg
 

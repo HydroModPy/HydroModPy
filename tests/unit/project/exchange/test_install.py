@@ -59,7 +59,7 @@ kind = "from_outlet_coord"
 
 [[data.dem.sources]]
 source = "file"
-path = "dem.tif"
+path = "workspace:dem.tif"
 """
 
 

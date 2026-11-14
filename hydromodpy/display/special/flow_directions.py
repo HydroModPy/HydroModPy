@@ -17,7 +17,7 @@ from matplotlib.collections import PolyCollection
 
 from hydromodpy.display import static, variables
 from hydromodpy.display.subject import FigureNotApplicable, read_field, read_mesh
-from hydromodpy.display.theme import Theme
+from hydromodpy.display.theme import Theme, colormap
 from hydromodpy.results.derive.stream_network.routing_surface import unavailable_reason_for_routing
 
 TOPOGRAPHY = "topography"
@@ -50,7 +50,7 @@ def draw(subject: Any, ax: Any, theme: Theme) -> None:
     drawn = mesh.zones["domain"] & np.isfinite(top)
     polygons = [mesh.vertices[ring[ring >= 0]] for ring in mesh.faces[drawn]]
     relief = PolyCollection(
-        polygons, array=top[drawn], cmap=variables.ramp(TOPOGRAPHY, theme), edgecolors="none",
+        polygons, array=top[drawn], cmap=colormap(variables.ramp(TOPOGRAPHY, theme)), edgecolors="none",
         linewidths=0.0, antialiased=False, alpha=0.6, zorder=1,
     )  # fmt: skip
     relief.set_rasterized(True)

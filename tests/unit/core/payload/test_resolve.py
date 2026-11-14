@@ -1,6 +1,7 @@
 """The data files a project's TOML files name, found under the data root.
 
-A custom file source names a file or a station folder. A reference that does not
+A file source names a file or a station folder, from the project root or as a
+workspace name read under ``data/<variable>/``. A reference that does not
 resolve to exactly one file is refused, never guessed.
 """
 
@@ -85,7 +86,7 @@ def _station_tree(tmp_path: Path, *, files: list[str], registry: list[dict] | No
     return data
 
 
-_FOLDER = SOURCE.format(variable="discharge", path="discharge", extra='station_ids = ["A1"]')
+_FOLDER = SOURCE.format(variable="discharge", path="workspace:.", extra='station_ids = ["A1"]')
 
 
 @pytest.mark.parametrize(
@@ -108,7 +109,7 @@ _FOLDER = SOURCE.format(variable="discharge", path="discharge", extra='station_i
         (
             [],
             [{"id": "A1"}],
-            SOURCE.format(variable="discharge", path="discharge", extra=""),
+            SOURCE.format(variable="discharge", path="workspace:.", extra=""),
             r"with neither station_ids nor \[site\] gauge",
         ),
         (
@@ -155,3 +156,40 @@ def test_map_name_in_two_folders_is_refused(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigError, match="2 file"):
         project_data(project, data, root=ROOT_CONFIG)
+
+
+def test_a_file_written_in_two_forms_ships_once(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    dem = data / "dem" / "regional_dem.tif"
+    dem.parent.mkdir(parents=True)
+    dem.write_bytes(b"x")
+    project = tmp_path / "project"
+    _config(project, SOURCE.format(variable="dem", path="workspace:regional_dem.tif", extra=""))
+    _config(
+        project,
+        SOURCE.format(variable="dem", path="../data/dem/regional_dem.tif", extra=""),
+        "b.toml",
+    )
+
+    files, stations = project_data(project, data, root=ROOT_CONFIG)
+
+    assert files == [dem]
+    assert stations == ()
+
+
+def test_a_station_folder_of_the_workspace_ships_its_file_and_its_row(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    folder = data / "discharge"
+    folder.mkdir(parents=True)
+    chronicle = folder / "discharge_file_A1_20000101_20001231_D.csv"
+    chronicle.write_text("", encoding="utf-8")
+    (folder / "discharge_file_LOC.csv").write_text("id,x,y\nA1,1,2\n", encoding="utf-8")
+    project = tmp_path / "project"
+    _config(project, _FOLDER)
+
+    files, stations = project_data(project, data, root=ROOT_CONFIG)
+
+    assert files == [chronicle]
+    assert [(row.dest, row.id) for row in stations] == [
+        ("data/discharge/discharge_file_LOC.csv", "A1")
+    ]

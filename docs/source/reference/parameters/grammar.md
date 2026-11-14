@@ -325,7 +325,9 @@ loader merges the files first, then resolves the paths, so a path written in a p
 
 | Written as | Read from |
 |---|---|
-| `"dem.tif"`, a bare name, in a field that is an input file | refused with `BareInputNameError`: write `"inputs/dem.tif"` |
+| `"workspace:dem.tif"`, in a field that is an input file | `data/<role>/dem.tif` of the workspace data folder, `<role>` being the folder the card of the key gives |
+| `"workspace:."`, in a field that is an input file | the folder `data/<role>/` itself, as a station folder is |
+| `"dem.tif"`, a bare name, in a field that is an input file | refused with `BareInputNameError`: write `"workspace:dem.tif"` when the file is in `data/<role>/`, else `"inputs/dem.tif"` |
 | `"inputs/dem.tif"` or `"../dem.tif"` | the project root |
 | `"/data/dem.tif"` or `"~/dem.tif"` | as written, with `~` expanded |
 | the value of `base_config` | the folder of the file that holds it |
@@ -334,8 +336,13 @@ loader merges the files first, then resolves the paths, so a path written in a p
 
 The workspace is found in this order: `[workspace]` with `root` or `data_dir`, the environment
 variable `HMP_WORKSPACE`, the layout `<workspace>/projects/<name>/project.toml` beside a `data/`
-folder, and last the project folder itself. A bare file name is not looked up there, so a file
-writes `path = "inputs/dem.tif"` from the project root.
+folder, and last the project folder itself. A bare file name is not looked up there. A file of
+the data folder is named with `workspace:`, so `path = "workspace:regional_dem_aber.tif"` in
+`[[data.dem.sources]]` reads `data/dem/regional_dem_aber.tif`, whatever the depth of the project
+in the workspace. The data folder is `[workspace] data_dir` when it is set, else `data/` of the
+workspace. A name never leaves the folder of its role, so `"workspace:../geology/map.gpkg"` is
+refused. A run writes every file of `data/<role>/` in this form in its frozen configuration and
+in its manifest, even when the file wrote `../../data/<role>/<name>`.
 
 ## Free keys: `<id>` and `<name>`
 

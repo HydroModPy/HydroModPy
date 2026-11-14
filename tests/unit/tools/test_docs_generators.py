@@ -321,3 +321,20 @@ def test_figure_requests_list_every_frame_quantity_variable_and_preset() -> None
     assert {r["name"] for r in out["fields"]["figure"]} >= {"preset", "panels", "when"}
     assert FigureRequest.model_fields.keys() >= {r["name"] for r in out["fields"]["figure"]}
     assert all(r["description"] for r in out["fields"]["panel"])
+
+
+def test_an_input_file_key_names_the_folder_its_workspace_name_reads(registry: dict) -> None:
+    import sys
+
+    nodes = registry["nodes"]
+    paths = [path for path in nodes if path.startswith("data.dem.") and path.endswith(".path")]
+    assert paths
+    assert {nodes[path]["input_folder"] for path in paths} == {"dem"}
+    assert nodes["simulation.time.start_datetime"]["input_folder"] is None
+    ext = ROOT / "docs" / "source" / "_ext"
+    sys.path.insert(0, str(ext))
+    try:
+        import hmp_card
+    finally:
+        sys.path.remove(str(ext))
+    assert "reads data/dem/<name>" in hmp_card.render_text(paths[0], registry)

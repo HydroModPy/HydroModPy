@@ -192,7 +192,7 @@ def test_maps_of_a_minimal_raster(tmp_path) -> None:
     ]
     assert dem_map.images[0].get_array().tolist() == [[1, 2], [3, 4]]
     assert dem_map.images[0].get_cmap().name == THEME.quantity_ramps["elevation"]
-    assert dem_map.get_xlabel() == "x (Lambert-93, km)"
+    assert dem_map.get_xlabel() == "" and [t.get_text() for t in dem_map.texts] == ["5 m"]
     assert hydro.lines[0].get_xydata().tolist() == [[105.0, 195.0]]
     assert (geo.get_title(), geo.get_xlim(), geo.get_aspect()) == ("Geo", (100.0, 120.0), 1.0)
 

@@ -52,11 +52,11 @@ types = ["hydrometry", "dem"]
 
 [[data.dem.sources]]
 source = "file"
-path = "dem.tif"
+path = "workspace:dem.tif"
 
 [[data.hydrometry.sources]]
 source = "file"
-path = "hydrometry"
+path = "workspace:."
 station_ids = ["NANCON"]
 """
 

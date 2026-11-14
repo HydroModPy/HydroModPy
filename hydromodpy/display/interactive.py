@@ -14,11 +14,10 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from matplotlib import colormaps
 from matplotlib.colors import to_hex, to_rgba
 
 from hydromodpy.display.subject import FigureNotApplicable, MeshView
-from hydromodpy.display.theme import Theme
+from hydromodpy.display.theme import Theme, colormap
 
 PX_PER_POINT = 1.5
 """The theme sizes are points at print size. A screen figure takes them in pixels at this ratio."""
@@ -50,7 +49,7 @@ def plain(text: str) -> str:
 
 def colorscale(name: str, steps: int = 16) -> list[list[Any]]:
     """Return the matplotlib colormap ``name`` as a plotly colour scale."""
-    ramp = colormaps[name]
+    ramp = colormap(name)
     return [[t, to_hex(ramp(t))] for t in np.linspace(0, 1, steps)]
 
 

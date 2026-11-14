@@ -25,7 +25,7 @@ from hydromodpy.display.special.records import (
     ring_acceptable,
 )
 from hydromodpy.display.subject import FigureNotApplicable, read_table
-from hydromodpy.display.theme import Theme
+from hydromodpy.display.theme import Theme, colormap
 from hydromodpy.results.session.acceptance import acceptable_cost, phase_returned
 
 GAP = 0.14
@@ -35,7 +35,7 @@ LOG_SPAN = 10.0
 def _plane(panel: Any, frame: Any, bounds: Any, x: str, y: str, best: Any, norm: Any,
            threshold: float | None, theme: Theme) -> Any:  # fmt: skip
     """Draw the trials of the pair ``(x, y)`` on ``panel`` and return the markers."""
-    points = panel.scatter(frame[x], frame[y], c=frame["cost"], cmap=theme.ramps["sequential"],
+    points = panel.scatter(frame[x], frame[y], c=frame["cost"], cmap=colormap(theme.ramps["sequential"]),
                            norm=norm, s=12, linewidths=0, zorder=3)  # fmt: skip
     ring_acceptable(panel, frame[x], [frame[y]], frame["cost"], threshold, theme)
     if best is not None and best[x] == best[x] and best[y] == best[y]:

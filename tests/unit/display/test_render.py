@@ -30,8 +30,8 @@ def test_panels_sit_in_one_row_up_to_three_then_wrap_and_carry_a_label(stored_ru
     columns = {round(ax.get_position().x0, 3) for ax in maps}
     rows = {round(ax.get_position().y0, 3) for ax in maps}
     assert (len(rows), len(columns)) == grid
-    labels = [t.get_text() for ax in maps for t in ax.texts if t.get_text().startswith("(")]
-    assert labels == [f"({chr(97 + i)})" for i in range(count)] * (count > 1)
+    labels = [ax.get_title(loc="left")[:3] for ax in maps]
+    assert labels == ([f"({chr(97 + i)})" for i in range(count)] if count > 1 else ["Hyd"])
 
 
 @pytest.mark.parametrize("share", [True, False])

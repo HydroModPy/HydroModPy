@@ -166,8 +166,8 @@ def test_raster_axes_and_nodata(tmp_path: Path, values, transform, crs, units):
 
 
 # The Zarr attributes and the Parquet footers carry the roll-up of the inputs'
-# sidecars, derived from the facts of the run. The warning about a missing
-# identity or licence is said once per workspace, not once per run.
+# sidecars, derived from the facts of the run. A missing identity or licence is
+# logged at info level at the seal, and `hmp publish --public` warns about it.
 def _input(root: Path, name: str, **sidecar: object) -> Path:
     path = root / "data" / name
     path.parent.mkdir(parents=True, exist_ok=True)

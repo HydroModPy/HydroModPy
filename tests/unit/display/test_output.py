@@ -61,8 +61,7 @@ def test_a_regeneration_skips_the_entry_of_a_figure_of_a_pre_release(stored_run)
     )
     report = regen_run(stored_run, stored_run.dir)
     assert "recharge" in report.rendered  # the shared run may hold figures of earlier tests
-    (skipped,) = report.skipped
-    assert skipped.name == "piezo"
+    skipped = next(entry for entry in report.skipped if entry.name == "piezo")
     assert "figures/index.json records piezo.png from the figure 'piezometric_map' of a" in (
         skipped.reason
     )

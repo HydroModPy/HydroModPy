@@ -138,7 +138,7 @@ def test_a_map_against_a_run_holds_the_difference(pair):
     single = door.render(FigureRequest(**request), named["other"], data=True, runs=named)
     np.testing.assert_allclose(single["a"]["value"], 5.0)
     fig = door.render(FigureRequest(**request), named["other"], runs=named)
-    assert fig.axes[-1].get_ylabel().startswith("Difference in")
+    assert fig.axes[0].get_title(loc="left").startswith("Difference in")
 
 
 def test_against_a_run_is_refused_by_name(pair, monkeypatch):

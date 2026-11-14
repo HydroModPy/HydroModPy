@@ -23,13 +23,14 @@ from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.payload.index import PayloadStation
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.core.toml_io.paths import is_workspace_name, workspace_file
 
 AUTHORED_SUFFIXES: tuple[str, ...] = (".toml", ".md", ".py")
 """What counts as a file the author of a project wrote, at the project root."""
 
 _STATION_FILE_RE = re.compile(
-    r"^(?P<prefix>.+)_custom_(?P<station>.+)_(?P<start>\d{8})_(?P<end>\d{8})_(?P<freq>[A-Za-z]+)"
-    r"\.(?P<suffix>csv|parquet)$"
+    r"^(?P<prefix>.+)_(?:file|custom)_(?P<station>.+)_(?P<start>\d{8})_(?P<end>\d{8})"
+    r"_(?P<freq>[A-Za-z]+)\.(?P<suffix>csv|parquet)$"
 )
 """The ``data/<variable>/`` naming contract, which is how a station id resolves."""
 
@@ -144,28 +145,21 @@ def _stations_of(source: dict, document: dict) -> list[str]:
 def _source_files(
     variable: str, source: dict, document: dict, data_root: Path, config: Path
 ) -> list[Path]:
-    """Resolve one ``[[data.<variable>.sources]]`` entry to files on disk."""
+    """Resolve one ``[[data.<variable>.sources]]`` entry to files on disk.
+
+    A folder is a station folder, whose files are picked by station id, the
+    way a run picks them at load time.
+    """
     if not isinstance(source, dict) or source.get("source") != "file":
         return []
     raw = source.get("path")
     if not raw:
         return []
-
-    # Lexical normalisation: '../../data/x.tif' and the data root name one file
-    # once, so the union over the configs does not list it twice.
-    local = Path(os.path.normpath(config.parent / str(raw)))
-    if local.is_file():
-        return [local]
-    folder = data_root / variable
-    reference = Path(str(raw))
-    if reference.suffix:
-        candidate = folder / reference.name
-        if not candidate.is_file():
-            raise ConfigError(f"{config.name} names {raw!r}, which is not at {candidate}.")
-        return [candidate]
-
-    # A path without an extension is the variable folder itself: the files are
-    # picked by station id, the way a manager picks them at load time.
+    target = _declared_path(str(raw), variable, data_root, config)
+    if target.is_file():
+        return [target]
+    if not target.is_dir():
+        raise ConfigError(f"{config.name} names {raw!r}, which is not at {target}.")
     stations = _stations_of(source, document)
     if not stations:
         raise ConfigError(
@@ -173,14 +167,27 @@ def _source_files(
             f"station_ids nor [site] gauge, so the manifest cannot tell which files the "
             f"example needs."
         )
-    return [_station_file(folder, station, config) for station in stations]
+    return [_station_file(target, station, config) for station in stations]
+
+
+def _declared_path(raw: str, variable: str, data_root: Path, config: Path) -> Path:
+    """Return the file or folder a source path names, as a run reads it.
+
+    A workspace name is read under ``data/<variable>/``, any other path from
+    the folder of the configuration. Both are normalised lexically, so
+    ``../../data/x.tif`` and ``workspace:x.tif`` name one file once in the
+    union over the configs.
+    """
+    if is_workspace_name(raw):
+        return workspace_file(raw, role=variable, data_dir=data_root)
+    return Path(os.path.normpath(config.parent / raw))
 
 
 def _station_rows(document: dict, data_root: Path, config: Path) -> list[PayloadStation]:
     """Return the registry row of every station a folder source names.
 
     A station file carries values only: its coordinates, CRS and unit live in
-    ``<variable>_custom_LOC.csv``, and a load without that row fails.
+    ``<variable>_file_LOC.csv`` of its folder, and a load without that row fails.
     """
     rows: list[PayloadStation] = []
     data_section = document.get("data")
@@ -192,11 +199,14 @@ def _station_rows(document: dict, data_root: Path, config: Path) -> list[Payload
         for source in section.get("sources", ()):
             if not isinstance(source, dict) or source.get("source") != "file":
                 continue
-            if not source.get("path") or Path(str(source["path"])).suffix:
+            if not source.get("path"):
                 continue
-            registry = data_root / variable / f"{variable}_file_LOC.csv"
+            folder = _declared_path(str(source["path"]), variable, data_root, config)
+            if not folder.is_dir():
+                continue
+            registry = folder / f"{variable}_file_LOC.csv"
             if not registry.is_file():
-                registry = data_root / variable / f"{variable}_custom_LOC.csv"
+                registry = folder / f"{variable}_custom_LOC.csv"
             if not registry.is_file():
                 raise ConfigError(
                     f"{config.name} reads {variable} stations, and {registry} does not exist."

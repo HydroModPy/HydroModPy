@@ -42,6 +42,7 @@ from hydromodpy.results.field_registry import (
     kind_of,
 )
 from hydromodpy.results.run.group import RunSet
+from hydromodpy.results.run.particles import moving_tracks, water_ages
 from hydromodpy.results.run.view import Run
 from hydromodpy.results.session.view import Session
 
@@ -514,6 +515,46 @@ def compare(run: Run, reference: Run) -> Compared:
             "subtracted cell by cell.",
         )
     return Compared(run, reference)
+
+
+REDUCED = {"mean": "Mean over the record", "max": "Maximum over the record", "frequency": "Over the record"}  # fmt: skip
+
+
+def period_text(run: Run, panel: PanelRequest) -> str:
+    """Say which time a panel of a field that changes in time draws.
+
+    A whole month reads ``January 2017``, a whole year ``2017``, any other period its two
+    edges. A reduction names itself, a change names its two instants, and a run without
+    dated periods says nothing.
+    """
+    if panel.change is not None:
+        return f"{panel.change[0]} to {panel.change[1]}"
+    if panel.reduce is not None:
+        return REDUCED[panel.reduce]
+    edges = run.periods.edges
+    if edges is None or isinstance(panel.time, list):
+        return ""
+    step = run.periods.step_at("last" if panel.time is None else panel.time)
+    start, end = pd.Timestamp(edges[step]), pd.Timestamp(edges[step + 1])
+    if start == start.normalize() and start.day == 1:
+        if end == start + pd.DateOffset(months=1):
+            return f"{start:%B %Y}"
+        if start.month == 1 and end == start + pd.DateOffset(years=1):
+            return f"{start:%Y}"
+    return f"{start:%Y-%m-%d} to {end:%Y-%m-%d}"
+
+
+def read_pathlines(run: Run) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    """Return the ``(x, y)`` path of each particle that moved and the age of the water along it.
+
+    The age is the time since the release in years, one value per position, so its last
+    value is the travel time. A particle that never left its release cell, or that has no
+    time, is left out.
+    """
+    paths, years = moving_tracks(run)
+    if not paths:
+        raise _refuse(run, "it holds no particle that moved with a travel time.")
+    return [path[:, :2] for path in paths], water_ages(paths, years)
 
 
 def read_network(run: Run, role: str) -> gpd.GeoDataFrame:

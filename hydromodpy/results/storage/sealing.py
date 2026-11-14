@@ -32,7 +32,6 @@ the attempt is the bracket around every step.
 
 from __future__ import annotations
 
-import json
 import shutil
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -44,8 +43,7 @@ from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
 from hydromodpy.core.io.filesystem import link_or_copy
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.layout import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME, internal_dir
-from hydromodpy.core.state.portable import display_path
+from hydromodpy.core.state.layout import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.version import __version__ as HMP_VERSION
 from hydromodpy.results.catalog.registration import split_stem_version
@@ -80,10 +78,8 @@ from hydromodpy.schema.lineage import ProducerSide
 
 logger = get_logger(__name__)
 
-IDENTITY_NOTICE_FILENAME: Final[str] = "identity_notice.json"
-"""Marker under the workspace ``.hmp/`` recording what the identity warning already said."""
-
-_DECLARED_IDENTITY_KEYS: Final[tuple[str, ...]] = ("creator_name", "creator_institution")
+DECLARED_IDENTITY_KEYS: Final[tuple[str, ...]] = ("creator_name", "creator_institution")
+"""The keys of ``[workspace]`` that name who made a run, read at the seal and by a publication."""
 _UNKNOWN_LICENCE = "a known licence"
 
 
@@ -487,11 +483,11 @@ def _seal_field_store(store: RunStore, ended_at: datetime) -> None:
         written = sz.write_acdd_root_attrs(
             sim_row=_acdd_row(facts, licence=store.licence()),
             runs_env=_acdd_environment(facts.environment),
-            project_table=_declared_identity(workspace),
+            project_table=declared_identity(workspace),
             geographic_bounds=_bounds_in_degrees(facts),
         )
         store.identity().apply_to_zarr(sz.root)
-        _warn_about_undeclared_identity(facts.sim_id, written, workspace)
+        _note_undeclared_identity(facts.sim_id, written)
         sz.consolidate_metadata()
     finally:
         sz.close()
@@ -558,7 +554,7 @@ def _workspace_toml_path(root: Path | None) -> Path | None:
     return None
 
 
-def _declared_identity(root: Path | None) -> dict[str, str]:
+def declared_identity(root: Path | None) -> dict[str, str]:
     """Return the creator identity ``workspace.toml`` declares, and nothing else."""
     toml_path = _workspace_toml_path(root)
     if toml_path is None:
@@ -572,38 +568,9 @@ def _declared_identity(root: Path | None) -> dict[str, str]:
         return {}
     return {
         key: str(getattr(metadata, key)).strip()
-        for key in _DECLARED_IDENTITY_KEYS
+        for key in DECLARED_IDENTITY_KEYS
         if str(getattr(metadata, key, "") or "").strip()
     }
-
-
-def _identity_notice_path(root: Path | None) -> Path | None:
-    if root is None:
-        return None
-    toml_path = _workspace_toml_path(root)
-    base = toml_path.parent if toml_path is not None else Path(root).expanduser().resolve()
-    return internal_dir(base) / IDENTITY_NOTICE_FILENAME
-
-
-def _already_told(marker: Path | None) -> set[str]:
-    if marker is None or not marker.is_file():
-        return set()
-    try:
-        told = json.loads(marker.read_text(encoding="utf-8")).get("missing", [])
-    except (OSError, ValueError, AttributeError) as exc:
-        logger.debug("Could not read %s: %s", marker, exc)
-        return set()
-    return {str(item) for item in told} if isinstance(told, list) else set()
-
-
-def _remember_told(marker: Path | None, missing: list[str]) -> None:
-    if marker is None:
-        return
-    try:
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text(json.dumps({"missing": sorted(missing)}) + "\n", encoding="utf-8")
-    except OSError as exc:
-        logger.debug("Could not write %s: %s", marker, exc)
 
 
 def _human_join(items: list[str]) -> str:
@@ -612,35 +579,13 @@ def _human_join(items: list[str]) -> str:
     return f"{', '.join(items[:-1])} and {items[-1]}"
 
 
-def _warn_about_undeclared_identity(sid: str, attrs: dict, root: Path | None) -> None:
-    """Say what a sealed run lacks: once per workspace, then at verbose level."""
-    missing = [key for key in _DECLARED_IDENTITY_KEYS if not attrs.get(key)]
+def _note_undeclared_identity(sid: str, attrs: dict) -> None:
+    """Log what a sealed run lacks for a publication; ``hmp publish --public`` warns about it."""
+    missing = [key for key in DECLARED_IDENTITY_KEYS if not attrs.get(key)]
     if attrs.get("license") == UNDETERMINED_LICENSE:
         missing.append(_UNKNOWN_LICENCE)
-    if not missing:
-        return
-    marker = _identity_notice_path(root)
-    if set(missing) <= _already_told(marker):
+    if missing:
         logger.info("Run %s is sealed without %s.", sid[:8], _human_join(missing))
-        return
-    advice: list[str] = []
-    identity = [name for name in _DECLARED_IDENTITY_KEYS if name in missing]
-    if identity:
-        toml_path = _workspace_toml_path(root)
-        if toml_path is None and root is not None:
-            toml_path = Path(root).expanduser().resolve() / WORKSPACE_TOML_FILENAME
-        where = display_path(toml_path) if toml_path is not None else WORKSPACE_TOML_FILENAME
-        keys = " and ".join(f'{name} = "..."' for name in identity)
-        advice.append(f"Add {keys} under [workspace] in {where}")
-    if _UNKNOWN_LICENCE in missing:
-        advice.append("a licence comes from the 'license' key of each input sidecar (<file>.json)")
-    text = "; ".join(advice)
-    logger.warning(
-        "Runs of this workspace are sealed without %s. %s.",
-        _human_join(missing),
-        text[:1].upper() + text[1:],
-    )
-    _remember_told(marker, missing)
 
 
 def sealed_solution_key(run_dir: Path) -> str | None:
@@ -660,9 +605,10 @@ def sealed_solution_key(run_dir: Path) -> str | None:
 
 
 __all__ = [
-    "IDENTITY_NOTICE_FILENAME",
+    "DECLARED_IDENTITY_KEYS",
     "build_provenance",
     "build_record",
+    "declared_identity",
     "seal_completed",
     "sealed_solution_key",
 ]

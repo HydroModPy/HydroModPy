@@ -4,25 +4,29 @@ The names and the fields each layer reads are ``request.OVERLAY_FIELDS``. This
 module holds one function per name, called like the name, and ``OVERLAYS`` finds
 them by name. An overlay is a function ``overlay(ax, subject, theme)`` that draws on
 axes already holding the frame, in the mesh CRS, and reads the subject through
-``display.subject`` only. An overlay that finds nothing to draw logs one line and
+``display.subject`` only. An overlay whose signature declares ``time`` receives the
+instant of the panel. An overlay that finds nothing to draw logs one line and
 returns: it never refuses a figure.
 """
 
 from __future__ import annotations
 
 import functools
+import inspect
 from collections import Counter
 from collections.abc import Callable
 from typing import Any
 
 import numpy as np
+import shapely
 from matplotlib.collections import LineCollection, PolyCollection
-from matplotlib.colors import LightSource
-from matplotlib.tri import LinearTriInterpolator, Triangulation
+from matplotlib.colors import LightSource, to_rgba
+from matplotlib.tri import CubicTriInterpolator, Triangulation
+from scipy import ndimage
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.display import subject as reads
-from hydromodpy.display.request import OVERLAY_FIELDS
+from hydromodpy.display.request import OVERLAY_FIELDS, Instant
 from hydromodpy.display.static import line_style
 from hydromodpy.display.static import scale_bar as draw_scale_bar
 from hydromodpy.display.subject import FigureNotApplicable
@@ -36,21 +40,33 @@ SUN_AZIMUTH, SUN_ALTITUDE = 315.0, 40.0
 """Light direction of the hillshade, in degrees: from the north west, 40 degrees up."""
 RELIEF_EXAGGERATION = 2.0
 """Vertical exaggeration of the hillshade."""
-RELIEF_RANGE = (0.2, 1.1)
-"""Shade values mapped to black and white, so that flat ground stays mid grey."""
-RELIEF_ALPHA = 0.45
-"""Opacity of the hillshade over the map."""
+RELIEF_STRENGTH = 1.1
+"""Opacity of the shade per unit of difference to flat ground, black on the dark side."""
+RELIEF_MAX_ALPHA = 0.35
+"""Largest opacity of the shade, so that the colour under it still reads."""
+MAX_PATHLINES = 250
+"""Pathlines the overlay draws at most, evenly through the release order."""
+FILL_ALPHA = 0.5
+"""Opacity of the face of filled cells, so that what lies under them still shows."""
+CASING = 2.2
+"""Width of the white line under a network line, as a multiple of the line."""
 MIN_RELIEF_CELLS = 3
 """Fewest cells with a topography that make a hillshade."""
+RELIEF_PIXELS = (96, 480)
+"""Fewest and most pixels on a side of the shade, which is four per cell between the two."""
 
 
 def quiet(draw: Callable[..., None]) -> Callable[..., None]:
-    """Turn a missing read into one log line, so an overlay never refuses a figure."""
+    """Turn a missing read into one log line, so an overlay never refuses a figure.
+
+    The instant of the panel reaches the overlays whose signature declares ``time``.
+    """
+    timed = "time" in inspect.signature(draw).parameters
 
     @functools.wraps(draw)
-    def wrapped(ax: Any, subject: Run, theme: Theme) -> None:
+    def wrapped(ax: Any, subject: Run, theme: Theme, time: Instant = "last") -> None:
         try:
-            draw(ax, subject, theme)
+            draw(ax, subject, theme, **({"time": time} if timed else {}))
         except FigureNotApplicable as exc:
             logger.info("Overlay %s skipped: %s", draw.__name__, exc)
 
@@ -83,23 +99,33 @@ def _add_lines(
         return
     style = line_style(theme, role)
     ax.add_collection(
-        LineCollection(lines, colors=style["color"], linewidths=width, zorder=Z_LINE, **extra)
-    )
+        LineCollection(
+            lines, colors=style["color"], linewidths=width, zorder=Z_LINE,
+            capstyle="round", joinstyle="round", **extra,
+        )
+    )  # fmt: skip
 
 
-def _add_cells(ax: Any, run: Run, theme: Theme, field: str, role: str) -> None:
-    """Outline the cells where ``field`` is finite and not zero."""
+def cells(
+    ax: Any, run: Run, theme: Theme, field: str, role: str, time: Instant, *, fill: bool = False
+) -> None:
+    """Outline the cells where ``field`` is finite and not zero at ``time``, or fill them.
+
+    The collection carries the role as its label, for a figure that draws a legend.
+    """
     mesh = reads.read_mesh(run)
-    values = reads.read_field(run, field)
+    values = reads.read_field(run, field, time=time)
     mask = np.isfinite(values) & (values != 0)
     if not mask.any():
         logger.info("Overlay %s has no cell where %s is not zero.", role, field)
         return
+    color = line_style(theme, role)["color"]
     ax.add_collection(
         PolyCollection(
             _polygons(mesh, mask),
-            facecolors="none",
-            edgecolors=line_style(theme, role)["color"],
+            facecolors=to_rgba(color, FILL_ALPHA) if fill else "none",
+            edgecolors=color,
+            label=role.capitalize(),
             linewidths=theme.line_width,
             zorder=Z_FILL,
             rasterized=True,
@@ -109,7 +135,11 @@ def _add_cells(ax: Any, run: Run, theme: Theme, field: str, role: str) -> None:
 
 @quiet
 def relief(ax: Any, subject: Run, theme: Theme) -> None:
-    """Draw a grey hillshade of ``topography`` under the frame."""
+    """Shade the map by the relief of ``topography``, dark on the slopes away from the sun.
+
+    The shade is black or white with an opacity that grows with the slope, so flat ground
+    keeps the colour of the map.
+    """
     mesh = reads.read_mesh(subject)
     top = reads.read_field(subject, "topography")
     keep = np.isfinite(top)
@@ -117,30 +147,37 @@ def relief(ax: Any, subject: Run, theme: Theme) -> None:
         logger.info("Overlay relief has too few cells with a topography.")
         return
     x, y = mesh.centres[keep, 0], mesh.centres[keep, 1]
-    side = max(int(np.sqrt(keep.sum())), 8)
-    gx, gy = np.linspace(x.min(), x.max(), side), np.linspace(y.min(), y.max(), side)
-    interp = LinearTriInterpolator(Triangulation(x, y), top[keep])
-    grid = interp(*np.meshgrid(gx, gy))
-    filled = np.where(grid.mask, np.nanmin(top), grid.filled(np.nan))
+    side = int(np.clip(4 * np.sqrt(keep.sum()), *RELIEF_PIXELS))
+    half = np.sqrt(mesh.areas[keep].mean()) / 2
+    gx = np.linspace(x.min() - half, x.max() + half, side)
+    gy = np.linspace(y.min() - half, y.max() + half, side)
     step = (gx[1] - gx[0], gy[1] - gy[0])
+    # A smooth surface through the cell centres, so the shade has no facet.
+    interp = CubicTriInterpolator(Triangulation(x, y), top[keep], kind="geom")
+    grid = interp(*np.meshgrid(gx, gy))
+    # The surface stops at the centres, so the nearest value covers the last half cell.
+    far, nearest = ndimage.distance_transform_edt(grid.mask, return_indices=True)
+    filled = grid.filled(np.nan)[tuple(nearest)]
+    outside = far > half / min(step) + 1
     shade = LightSource(azdeg=SUN_AZIMUTH, altdeg=SUN_ALTITUDE).hillshade(
         filled, vert_exag=RELIEF_EXAGGERATION, dx=step[0], dy=step[1]
     )
-    shade = np.ma.masked_where(grid.mask, shade)
+    flat = np.sin(np.radians(SUN_ALTITUDE))
+    tone = np.zeros((*shade.shape, 4))
+    tone[..., :3] = (shade > flat)[..., None]
+    tone[..., 3] = np.clip(np.abs(shade - flat) * RELIEF_STRENGTH, 0.0, RELIEF_MAX_ALPHA)
+    tone[outside, 3] = 0.0
     limits = (ax.get_xlim(), ax.get_ylim()) if ax.has_data() else None
     ax.imshow(
-        shade,
+        tone,
         extent=(
-            x.min() - step[0] / 2,
-            x.max() + step[0] / 2,
-            y.min() - step[1] / 2,
-            y.max() + step[1] / 2,
+            gx[0] - step[0] / 2,
+            gx[-1] + step[0] / 2,
+            gy[0] - step[1] / 2,
+            gy[-1] + step[1] / 2,
         ),
         origin="lower",
-        cmap="gray",
-        vmin=RELIEF_RANGE[0],
-        vmax=RELIEF_RANGE[1],
-        alpha=RELIEF_ALPHA,
+        interpolation="bilinear",
         aspect="equal",
         zorder=Z_RELIEF,
     )
@@ -159,16 +196,24 @@ def outline(ax: Any, subject: Run, theme: Theme) -> None:
         ring = row[row >= 0]
         for a, b in zip(ring, np.roll(ring, -1), strict=True):
             edges[(min(a, b), max(a, b))] += 1
-    border = [mesh.vertices[list(edge)] for edge, n in edges.items() if n == 1]
-    _add_lines(ax, border, theme, "outline", width=theme.line_width * 1.8)
+    border = [mesh.vertices[list(edge)][:, :2] for edge, n in edges.items() if n == 1]
+    # Merged into rings, the outline is one stroke with clean corners.
+    rings = shapely.line_merge(shapely.MultiLineString(border)) if border else None
+    _add_lines(ax, _geometry_lines(rings), theme, "outline", width=theme.line_width * 2.5)
 
 
 @quiet
 def network(ax: Any, subject: Run, theme: Theme) -> None:
     """Draw the reference network, intermittent reaches dashed when ``reference_permanent`` exists."""
     reference = reads.read_network(subject, "reference")
-    # The dark blue is lost in the dark valleys of a relief ramp.
-    solid = "network_on_relief" if ax.images else "reference_network"
+    solid, width = "reference_network", theme.line_width * 2
+    # A white line under the network keeps it readable on any colour.
+    ax.add_collection(
+        LineCollection(
+            _all_lines(reference), colors=theme.face, linewidths=width * CASING,
+            zorder=Z_LINE, capstyle="round",
+        )
+    )  # fmt: skip
     try:
         permanent = {g.wkb for g in reads.read_network(subject, "reference_permanent").geometry}
     except FigureNotApplicable:
@@ -242,9 +287,9 @@ def stations(ax: Any, subject: Run, theme: Theme) -> None:
 
 
 @quiet
-def lake(ax: Any, subject: Run, theme: Theme) -> None:
-    """Outline the cells that exchange with a lake."""
-    _add_cells(ax, subject, theme, "lake", "lake")
+def lake(ax: Any, subject: Run, theme: Theme, time: Instant = "last") -> None:
+    """Outline the cells that exchange with a lake at the instant of the panel."""
+    cells(ax, subject, theme, "lake", "lake", time)
 
 
 @quiet
@@ -255,9 +300,23 @@ def barrier(ax: Any, subject: Run, theme: Theme) -> None:
 
 
 @quiet
-def wells(ax: Any, subject: Run, theme: Theme) -> None:
-    """Mark the cells where the ``well`` term is not zero."""
-    _add_cells(ax, subject, theme, "well", "well")
+def wells(ax: Any, subject: Run, theme: Theme, time: Instant = "last") -> None:
+    """Mark the cells where the ``well`` term is not zero at the instant of the panel."""
+    cells(ax, subject, theme, "well", "well", time)
+
+
+@quiet
+def seepage(ax: Any, subject: Run, theme: Theme, time: Instant = "last") -> None:
+    """Fill the cells where the water table reaches the land surface at the instant."""
+    cells(ax, subject, theme, "seepage_mask", "seepage", time, fill=True)
+
+
+@quiet
+def pathlines(ax: Any, subject: Run, theme: Theme) -> None:
+    """Draw the paths of the tracked particles as thin lines, one in n beyond ``MAX_PATHLINES``."""
+    paths, _ = reads.read_pathlines(subject)
+    shown = paths[:: -(-len(paths) // MAX_PATHLINES)]
+    _add_lines(ax, shown, theme, "pathline", width=theme.line_width / 2, alpha=0.7)
 
 
 @quiet

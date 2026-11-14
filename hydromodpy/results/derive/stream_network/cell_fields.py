@@ -52,6 +52,7 @@ from hydromodpy.results.derive.stream_network.run_extent import (
 )
 from hydromodpy.results.derive.virtual_fields import budget_terms_kept, package_cells_rows
 from hydromodpy.results.run.geographic import field_steps
+from hydromodpy.results.run.particles import has_particle_tracks, travel_time_to_exit
 
 __all__ = (
     "REBUILT_FIELD_ROWS",
@@ -234,6 +235,15 @@ def _package_unavailable(run: Any) -> str | None:
         sz.close()
 
 
+def _travel_time_rows(run: Any, steps: Sequence[int]) -> np.ndarray:
+    centres = np.asarray(run.mesh.cell_centers(), dtype=float)[:, :2]
+    return np.tile(travel_time_to_exit(run, centres), (len(steps), 1))
+
+
+def _particles_unavailable(run: Any) -> str | None:
+    return None if has_particle_tracks(run) else "run tracked no particle that moved"
+
+
 def _flow_unavailable(run: Any) -> str | None:
     return unavailable_reason_for_flow(run, tau_specific_ratio=_settings_of(run).tau_specific_ratio)
 
@@ -246,6 +256,7 @@ REBUILT_FIELD_ROWS: dict[str, RebuiltField] = {
     "depression_fill_depth": RebuiltField(
         _depression_rows, unavailable_reason_for_routing, static=True
     ),
+    "travel_time_to_exit": RebuiltField(_travel_time_rows, _particles_unavailable, static=True),
 }
 """One row per field of ``REBUILT_FIELDS``, which holds its descriptor."""
 

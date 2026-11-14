@@ -52,6 +52,7 @@ QUANTITY_KINDS: dict[str, QuantityKind] = {
     "depth": QuantityKind("m", "m"),
     "thickness": QuantityKind("m", "m", layers="sum"),
     "distance": QuantityKind("m", "m", layers=None),
+    "duration": QuantityKind("yr", "yr", layers=None),
     "cell_flow": QuantityKind(
         "m3 s-1",
         "mm/day",

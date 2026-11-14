@@ -4,8 +4,9 @@ It draws the cells crossed by the line as one rectangle per cell and per layer,
 coloured by a layered variable, with the land surface, the model base and the
 layer interfaces. A variable without a layer axis whose values are elevations
 (``watertable_elevation``, ``topography``) is drawn as a stepped line over the empty
-cells. It draws one instant and never a map overlay: the only context it knows is
-the lake and barrier marks it reads itself.
+cells. Under a water table the cells are filled as the saturated zone, and above it
+as the unsaturated zone. It draws one instant and never a map overlay: the only
+context it knows is the lake, barrier and seepage marks it reads itself.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-import matplotlib
 import numpy as np
 import pandas as pd
 import shapely
@@ -24,19 +24,30 @@ from hydromodpy.display.frames.map import stored_field
 from hydromodpy.display.request import PanelRequest, descriptor
 from hydromodpy.display.subject import (
     FigureNotApplicable,
+    period_text,
     read_field,
     read_mesh,
     read_network,
     refuse_fields,
 )
-from hydromodpy.display.theme import Theme
+from hydromodpy.display.theme import Theme, colormap
 from hydromodpy.results.run.view import Run
 
-FIELDS = ("variable", "time", "overlays", "line", "scale", "share", "reduce", "change")
+FIELDS = ("variable", "time", "overlays", "line", "bbox", "scale", "share", "reduce", "change")
 SECTION_COLUMNS = ("cell", "layer", "start", "end", "top", "bottom", "value")
 LINE_COLUMNS = ("cell", "start", "end", "value")
-SECTION_MARKS = ("lake", "barrier")
-"""Overlay names a section draws itself, as spans along the line."""
+SECTION_MARKS = ("lake", "barrier", "seepage")
+"""Overlay names a section draws itself, as spans or points along the line."""
+CELL_MARKS = {"lake": "lake", "seepage": "seepage_mask"}
+"""The marks read from a field: the cells where it is not zero at the instant."""
+DEEP = 2.0
+"""A water table section is cut under the water table when the body under its lowest point
+is more than this many times thicker than the ground above that point."""
+HEADINGS = (
+    "west to east", "south-west to north-east", "south to north", "south-east to north-west",
+    "east to west", "north-east to south-west", "north to south", "north-west to south-east",
+)  # fmt: skip
+"""The way a line runs, by sector of 45 degrees counted from the east towards the north."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,11 +67,14 @@ class SectionData:
     of ``LINE_COLUMNS`` and one row per piece of cell: the variable itself when it
     has no layer axis, else ``watertable_elevation`` at the same instant when the
     variable is ``head`` and the run holds it, else None. ``line_label`` is its
-    legend text. ``marks`` holds ``(overlay name, start, end)`` spans in m for the
-    names of ``SECTION_MARKS`` the panel asked. ``trace`` is the line used, points
-    ``(x, y)`` in m in the mesh CRS. ``label``, ``scale``, ``ramp``, ``log``,
-    ``classes`` and ``limits`` mean what they mean on ``MapData``, so a shared norm
-    reaches a section as it reaches a map.
+    legend text, and ``water`` says that it is a water table. ``marks`` holds
+    ``(overlay name, start, end)`` spans in m for the names of ``SECTION_MARKS`` the
+    panel asked, one span per cell for ``seepage``. ``trace`` is the line used, points
+    ``(x, y)`` in m in the mesh CRS. ``caption`` says the way the line runs and
+    ``period`` the time drawn. ``window`` is the ``bbox`` of the panel, ``(start, low,
+    end, high)`` in m along the line and in elevation. ``label``, ``scale``, ``ramp``, ``log``, ``classes`` and ``limits``
+    mean what they mean on ``MapData``, so a shared norm reaches a section as it
+    reaches a map.
     """
 
     table: pd.DataFrame
@@ -75,6 +89,10 @@ class SectionData:
     marks: tuple[tuple[str, float, float], ...] = ()
     classes: tuple[tuple[int, str], ...] = ()
     limits: tuple[float, float] | None = None
+    water: bool = False
+    caption: str = ""
+    period: str = ""
+    window: tuple[float, float, float, float] | None = None
 
 
 def data(subject: Run, panel: PanelRequest) -> SectionData:
@@ -94,9 +112,11 @@ def data(subject: Run, panel: PanelRequest) -> SectionData:
     variable without a layer axis is accepted only when its quantity is ``head`` or
     ``elevation``, because the vertical axis is an elevation; any other one is
     refused, pointing at a map. ``reduce`` and ``change`` follow the map rules;
-    ``against``, ``cumulative``, ``observed``, ``scores``, ``stack``, ``by`` and
-    ``bbox`` are refused. An overlay outside ``SECTION_MARKS`` is refused. ``lake``
-    marks the cells whose ``lake`` term is not zero at the instant, ``barrier`` the
+    ``against``, ``cumulative``, ``observed``, ``scores``, ``stack`` and ``by`` are
+    refused. ``bbox`` is the window drawn, distances along the line and elevations. An overlay outside ``SECTION_MARKS`` is refused. ``lake``
+    and ``seepage`` mark the cells whose ``lake`` term or ``seepage_mask`` is not zero
+    at the instant. ``seepage`` is marked only where a water table is drawn, and a run
+    without the mask has no such mark. ``barrier`` marks the
     places where a feature of ``read_network(run, "barrier")`` crosses the line.
     The scale, ramp, log and classes follow ``variables`` as on a map.
 
@@ -118,10 +138,8 @@ def data(subject: Run, panel: PanelRequest) -> SectionData:
     table = _layer_table(subject, panel, mesh, pieces, name if layered else None)
     line, line_label = None, ""
     if not layered:
-        line, line_label = (
-            pieces.assign(value=_read(subject, panel, mesh, name)[cells]),
-            variables.label(name),
-        )
+        line = pieces.assign(value=_read(subject, panel, mesh, name)[cells])
+        line_label = "Water table" if found.quantity == "head" else variables.label(name)
     elif found.quantity == "head":
         try:
             water = _read(subject, panel, mesh, "watertable_elevation")[cells]
@@ -130,12 +148,26 @@ def data(subject: Run, panel: PanelRequest) -> SectionData:
             pass  # A run without a water table draws the cells alone.
     if line is not None:
         line = line[list(LINE_COLUMNS)].sort_values("start", ignore_index=True)
+    water = line is not None and found.quantity == "head"
     scale, label, log = _scale(panel, name, layered, table["value"].dropna().to_numpy())
     classes = tuple(found.classes) if scale == "categorical" else ()
     return SectionData(
         table, name, label, scale, variables.ramp(name, Theme()) if layered else "", log,
-        trace, line, line_label, _marks(subject, panel, pieces, trace), classes,
+        trace, line, line_label, _marks(subject, panel, pieces, trace, water), classes,
+        water=water,
+        caption=_caption(trace),
+        period=period_text(subject, panel) if "time" in found.shape else "",
+        window=panel.bbox,
     )  # fmt: skip
+
+
+def _caption(trace) -> str:
+    """Say the way the line runs and its length, as ``north to south, 2.1 km``."""
+    (x0, y0), (x1, y1) = trace[0], trace[-1]
+    sector = int(((np.degrees(np.arctan2(y1 - y0, x1 - x0)) + 22.5) % 360.0) // 45.0)
+    length = shapely.LineString(trace).length
+    span = f"{length / 1000.0:.1f} km" if length >= 1000.0 else f"{length:.0f} m"
+    return f"{HEADINGS[sector]}, {span}"
 
 
 def _check(panel: PanelRequest, name: str) -> Any:
@@ -231,20 +263,25 @@ def _pieces(mesh, trace) -> pd.DataFrame:
     return frame.drop(index=twice[twice].index)[["cell", "start", "end"]].astype({"cell": "int64"})
 
 
-def _marks(subject, panel, pieces, trace) -> tuple[tuple[str, float, float], ...]:
+def _marks(subject, panel, pieces, trace, water: bool) -> tuple[tuple[str, float, float], ...]:
     marks = []
-    if "lake" in (panel.overlays or ()):
-        time = "last" if panel.time is None else panel.time
-        flow = read_field(subject, "lake", time=time)[pieces["cell"].to_numpy()]
-        hit = pieces[np.isfinite(flow) & (flow != 0)].sort_values("start")
-        span = None
+    time = "last" if panel.time is None else panel.time
+    for name in panel.overlays or ():
+        if name not in CELL_MARKS:
+            continue
+        # Seepage is asked by default, so it never refuses a section.
+        if name == "seepage" and not (water and subject.has_field(CELL_MARKS[name])):
+            continue
+        values = read_field(subject, CELL_MARKS[name], time=time)[pieces["cell"].to_numpy()]
+        hit = pieces[np.isfinite(values) & (values != 0)].sort_values("start")
+        spans: list[list[float]] = []
         for start, end in zip(hit["start"], hit["end"], strict=True):
-            if span is not None and start <= span[2] + 1e-6:
-                span = ("lake", span[1], max(span[2], end))
+            # A lake is one span over its cells, a seepage cell keeps its own land elevation.
+            if name == "lake" and spans and start <= spans[-1][1] + 1e-6:
+                spans[-1][1] = max(spans[-1][1], end)
             else:
-                marks += [span] if span else []
-                span = ("lake", start, end)
-        marks += [span] if span else []
+                spans.append([start, end])
+        marks += [(name, start, end) for start, end in spans]
     if "barrier" in (panel.overlays or ()):
         line = shapely.LineString(trace)
         crossing = shapely.intersection(read_network(subject, "barrier").geometry.union_all(), line)
@@ -258,7 +295,39 @@ def _marks(subject, panel, pieces, trace) -> tuple[tuple[str, float, float], ...
 # ----------------------------------------------------------------------- draw
 def _stepped(table: pd.DataFrame, column: str) -> tuple[np.ndarray, np.ndarray]:
     x = table[["start", "end"]].to_numpy().ravel()
-    return x, np.repeat(table[column].to_numpy(), 2)
+    return x, np.repeat(table[column].to_numpy(dtype=float), 2)
+
+
+def _profile(table: pd.DataFrame, column: str, smooth: bool) -> tuple[np.ndarray, np.ndarray]:
+    """Return ``column`` along the line: through the middle of each cell, or as steps."""
+    if not smooth:
+        return _stepped(table, column)
+    start, end = table["start"].to_numpy(), table["end"].to_numpy()
+    values = table[column].to_numpy(dtype=float)
+    return (
+        np.concatenate([start[:1], (start + end) / 2, end[-1:]]),
+        np.concatenate([values[:1], values, values[-1:]]),
+    )
+
+
+def _window(data: SectionData, land, water, base) -> tuple[float, float, float, float]:
+    """Return the window drawn, ``(start, low, end, high)`` in m.
+
+    The window asked wins. Else the whole model is drawn, unless the section shows a
+    water table alone over a body more than ``DEEP`` times thicker than what lies above
+    its lowest point. The view then keeps as much aquifer under that point as there is
+    ground above it, since the model base would flatten the water table.
+    """
+    if data.window is not None:
+        return data.window
+    start, end = float(data.table["start"].min()), float(data.table["end"].max())
+    low, high = float(np.nanmin(base)), float(np.nanmax(land))
+    if water is not None and np.isfinite(water).any():
+        above = high - float(np.nanmin(water))
+        if float(np.nanmin(water)) - low > DEEP * above > 0:
+            low = float(np.nanmin(water)) - above
+    pad = 0.04 * (high - low or 1.0)
+    return start, low - pad, end, high + pad
 
 
 def draw(ax: Any, data: SectionData, theme: Theme) -> None:
@@ -267,21 +336,25 @@ def draw(ax: Any, data: SectionData, theme: Theme) -> None:
     Rectangles are ``(start, bottom)`` to ``(end, top)``, rasterised, with the
     norm rules of the map frame (``LogNorm``, ``TwoSlopeNorm`` centred on zero,
     categorical classes in a legend). Over them: the layer interfaces as thin
-    dashed lines, the land surface and the model base as outline lines, then
-    ``line`` as a stepped line of the ``simulated`` role. Each mark is a span of
-    the ``bounds`` role with its name in the legend. The x axis reads ``Distance
-    along the section (m)``, the y axis ``Elevation (m)``, and a small note writes
-    the vertical exaggeration as the atlas does. Legend above the axes.
+    dashed lines, the land surface, the model base, then ``line``. When a cell is
+    coloured the lines are steps that follow the cells. When none is, the lines run
+    through the middle of each cell, a water table takes the ``water_table`` role,
+    the body under it is filled as the saturated zone and the ground above it as the
+    unsaturated zone. A dry column is unsaturated down to the base. Each mark is a
+    span of the ``bounds`` role with its name in the legend, and a seepage cell is a
+    point on the land surface. The left title says what is drawn, the right title
+    the time, the way the line runs and the vertical exaggeration. The legend sits in
+    the axes. A model base left under the window is given in a note.
     """
     table = data.table
     values = table["value"].to_numpy(dtype=float)
     colored = bool(np.isfinite(values).any())
     shown, norm = values, variables.color_norm(data.scale, data.log, values, data.limits)
-    cmap = matplotlib.colormaps[data.ramp or "viridis"]
+    cmap = colormap(data.ramp or theme.ramps["sequential"])
     if data.scale == "categorical":
         shown, cmap, norm = variables.class_scale(values, data.classes, theme)
     elif data.scale != variables.scale(data.variable):
-        cmap = matplotlib.colormaps[theme.ramps[data.scale]]
+        cmap = colormap(theme.ramps[data.scale])
     cmap = cmap.with_extremes(bad=theme.roles["no_data"])
     x0, x1 = table["start"].to_numpy(), table["end"].to_numpy()
     bottom, top = table["bottom"].to_numpy(), table["top"].to_numpy()
@@ -292,25 +365,50 @@ def draw(ax: Any, data: SectionData, theme: Theme) -> None:
         edgecolors="none", linewidths=0.0, antialiased=False,
     )  # fmt: skip
     cells.set_rasterized(True)
-    ax.add_collection(cells)
+    if colored:
+        ax.add_collection(cells)
+    smooth = not colored
     n_layers = int(table["layer"].max())
     first, last = table[table["layer"] == 0], table[table["layer"] == n_layers]
-    outline = {**static.line_style(theme, "outline"), "linewidth": theme.line_width * 1.4}
-    ax.plot(*_stepped(first, "top"), label="Land surface", **{**outline, "zorder": 4})
-    ax.plot(*_stepped(last, "bottom"), label="Model base", **{**outline, "zorder": 4})
+    (x, land), (_, base) = _profile(first, "top", smooth), _profile(last, "bottom", smooth)
+    water = None
+    if data.line is not None:
+        water = _profile(data.line, "value", smooth)[1]
+    if data.water and not colored:
+        wet = np.fmin(np.where(np.isnan(water), base, water), land)
+        for low, high, role in ((base, wet, "saturated"), (wet, land, "unsaturated")):
+            ax.fill_between(
+                x, low, high, color=theme.roles[role], linewidth=0.0, zorder=1,
+                label=f"{role.capitalize()} zone",
+            )  # fmt: skip
     for k in range(1, n_layers + 1):
         inner = table[table["layer"] == k]
         ax.plot(
-            *_stepped(inner, "top"), color=theme.roles["bounds"], linewidth=theme.line_width,
-            linestyle="--", label="Layer interface" if k == 1 else None, zorder=3,
+            *_profile(inner, "top", smooth), color=theme.roles["layer_interface"],
+            linewidth=theme.line_width, linestyle="--",
+            label="Layer interface" if k == 1 else None, zorder=3,
         )  # fmt: skip
-    if data.line is not None:
+    ax.plot(
+        x, base, label="Model base", zorder=4,
+        color=theme.roles["layer_interface"], linewidth=theme.line_width * 1.4,
+    )  # fmt: skip
+    ax.plot(x, land, label="Land surface", zorder=4, **static.line_style(theme, "ground"))
+    if data.line is not None and (data.water or colored):
         ax.plot(
-            *_stepped(data.line, "value"), label=data.line_label, zorder=5,
-            **static.line_style(theme, "simulated"),
+            x, water, label=data.line_label, zorder=5,
+            **{**static.line_style(theme, "water_table"), "linewidth": theme.data_line_width * 1.3},
+        )  # fmt: skip
+    seeps = np.array([(start + end) / 2 for name, start, end in data.marks if name == "seepage"])
+    if seeps.size:
+        ground = first["top"].to_numpy()[np.searchsorted(first["start"].to_numpy(), seeps) - 1]
+        ax.scatter(
+            seeps, ground, s=14, color=theme.roles["seepage"], edgecolors=theme.ink,
+            linewidths=theme.line_width, zorder=6, label="Seepage",
         )  # fmt: skip
     shown_marks = set()
     for name, start, end in data.marks:
+        if name == "seepage":
+            continue
         text = None if name in shown_marks else name.capitalize()
         shown_marks.add(name)
         if end - start > 0:
@@ -320,21 +418,25 @@ def draw(ax: Any, data: SectionData, theme: Theme) -> None:
                 start, color=theme.roles["bounds"], linewidth=theme.data_line_width * 1.5,
                 linestyle=":", label=text, zorder=6,
             )  # fmt: skip
-    low, high = float(bottom.min()), float(top.max())
-    pad = 0.04 * (high - low or 1.0)
-    ax.set_xlim(float(x0.min()), float(x1.max()))
-    ax.set_ylim(low - pad, high + pad)
+    start, low, end, high = _window(data, land, water if data.water and not colored else None, base)
+    ax.set_xlim(start, end)
+    ax.set_ylim(low, high)
     ax.set_xlabel("Distance along the section (m)")
     ax.set_ylabel("Elevation (m)")
     static.style_axes(ax, theme)
     if colored:
-        static.colorbar(ax.figure, cells, ax, theme, label=data.label)
+        static.colorbar(ax.figure, cells, ax, theme, label="")
+    if low > float(np.nanmax(base)):
+        static.note(
+            ax, f"Model base at {np.nanmin(base):.0f} to {np.nanmax(base):.0f} m, under the frame",
+            theme, loc="lower right",
+        )  # fmt: skip
     box = ax.get_position()
     size = ax.figure.get_size_inches()
-    drawn_width = box.width * size[0] / max(float(x1.max() - x0.min()), 1e-9)
-    drawn_height = box.height * size[1] / (high - low + 2 * pad)
+    drawn_width = box.width * size[0] / max(end - start, 1e-9)
+    drawn_height = box.height * size[1] / max(high - low, 1e-9)
     # The layout still moves after this, so the ratio is only given to two digits.
     ratio = float(f"{drawn_height / drawn_width:.2g}")
-    static.note(ax, f"Vertical exaggeration about x{ratio:g}", theme, loc="lower right")
-    if ax.get_legend_handles_labels()[0]:
-        static.legend(ax, theme)
+    when = ", ".join(filter(None, [data.period, data.caption, f"vertical exaggeration x{ratio:g}"]))
+    static.titles(ax, theme, data.label if colored else data.line_label, when)
+    static.legend(ax, theme, inside="best")

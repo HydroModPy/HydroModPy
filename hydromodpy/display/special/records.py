@@ -1,9 +1,8 @@
 """Records of a run or a session that more than one special figure reads or marks.
 
 The station a run was scored at, the completed trials of a session, the two marks of
-the returned and of the acceptable trials, and the particles that moved with their
-travel times. The returned trial and the acceptable cost of a phase come from
-``results/session/acceptance.py``.
+the returned and of the acceptable trials. The returned trial and the acceptable cost
+of a phase come from ``results/session/acceptance.py``.
 """
 
 from __future__ import annotations
@@ -14,9 +13,8 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.display.frames.series import scores
-from hydromodpy.display.subject import FigureNotApplicable, read_table
+from hydromodpy.display.subject import read_table
 from hydromodpy.display.theme import Theme, unit_text
-from hydromodpy.results.run.particles import moving_tracks
 
 STAR_SIZE = 65
 RING_SIZE = 40
@@ -68,17 +66,3 @@ def ring_acceptable(
         s=RING_SIZE, facecolors="none", edgecolors=theme.ink, linewidths=theme.line_width,
         zorder=4, label=f"Cost under {threshold:.3g}",
     )  # fmt: skip
-
-
-def moving_particles(run: Any) -> tuple[list[np.ndarray], np.ndarray]:
-    """Return the ``(x, y)`` path of each particle that moved and its travel time in years.
-
-    A particle that never left its release cell, or that has no time, is left out.
-    """
-    paths, years = moving_tracks(run)
-    if not paths:
-        raise FigureNotApplicable(
-            f"Run {run.name!r} holds no particle that moved with a travel time, so no "
-            "pathline exists."
-        )
-    return [path[:, :2] for path in paths], years

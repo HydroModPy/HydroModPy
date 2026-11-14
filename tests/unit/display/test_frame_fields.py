@@ -28,7 +28,7 @@ EVERY = {"time": WINDOW, "layer": 1, "observed": True, "scale": "log", "reduce":
 BRANCHES = [
     ("section", {"variable": "head", "line": LINE},
      {"time": 0, "overlays": ["lake"], "line": LINE[::-1], "scale": "log", "reduce": "mean",
-      "change": (0, 3)}),
+      "change": (0, 3), "bbox": (0.0, 50.0, 800.0, 130.0)}),
     ("distribution", {"variable": "head"}, {**EVERY, "station": DOMAIN, "cumulative": True}),
     ("distribution", {**SERIES, "variable": "discharge"}, {**EVERY, "against": "observed"}),
     ("xy", {**SERIES, "observed": True},

@@ -6,7 +6,9 @@ import re
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from matplotlib import font_manager
+import numpy as np
+from matplotlib import colormaps, font_manager
+from matplotlib.colors import Colormap, LinearSegmentedColormap
 
 from hydromodpy.core.logging import get_logger
 
@@ -89,9 +91,10 @@ ROLES: dict[str, str] = {
     # fields
     "contour": "#222222",
     # geology
-    "unsaturated": "#EEDD88",
-    "saturated": "#77AADD",
-    "water_table": "#004488",
+    "unsaturated": "#D9B88F",
+    "saturated": "#9CCBEE",
+    "water_table": "#0B5394",
+    "ground": "#6B4423",
     "layer_interface": "#555555",
     # network
     "intermittent_reach": "#EE8866",
@@ -104,6 +107,7 @@ ROLES: dict[str, str] = {
     "dry": "#FFAABB",
     # transport
     "reference_law": "#222222",
+    "pathline": "#222222",
     "turnover": "#AA4499",
     "initial_concentration": "#DDCC77",
     "input_concentration": "#882255",
@@ -123,13 +127,38 @@ CATEGORICAL_ROLES = (
     "barrier",
 )
 
-RAMPS = {"sequential": "viridis", "diverging": "RdBu_r", "cyclic": "twilight"}
+RAMPS = {"sequential": "viridis", "diverging": "RdBu_r", "cyclic": "twilight", "share": "share"}
+
+BUILT_RAMPS: dict[str, tuple[str, float, float]] = {
+    "hypsometric": ("terrain", 0.22, 1.0),
+    "water_level": ("GnBu_r", 0.0, 0.85),
+    "share": ("YlGnBu", 0.2, 1.0),
+    "water_depth": ("YlGnBu_r", 0.2, 1.0),
+    "water_age": ("plasma_r", 0.12, 1.0),
+}
+"""Ramps cut from a matplotlib ramp: the base ramp, then the first and last share kept.
+
+``hypsometric`` is ``terrain`` without its sea blues, ``water_level`` is ``GnBu_r`` without
+its white end, ``share`` is ``YlGnBu`` without its palest yellow, and ``water_depth`` is
+``YlGnBu_r`` without its darkest blues, so a shallow water table reads blue and not black.
+``water_age`` is ``plasma_r`` without its pale yellow, which is lost on a white ground.
+"""
+
+
+def colormap(name: str) -> Colormap:
+    """Return the colormap ``name``, a ramp of ``BUILT_RAMPS`` or a ramp of matplotlib."""
+    if name not in BUILT_RAMPS:
+        return colormaps[name]
+    base, low, high = BUILT_RAMPS[name]
+    return LinearSegmentedColormap.from_list(name, colormaps[base](np.linspace(low, high, 256)))
+
 
 # Only the quantities whose usage wants its own ramp. Others use the scale ramp.
 QUANTITY_RAMPS: dict[str, str] = {
-    "head": "viridis",
-    "elevation": "gist_earth",
-    "depth": "viridis_r",
+    "head": "water_level",
+    "elevation": "hypsometric",
+    "depth": "water_depth",
+    "duration": "water_age",
     "thickness": "cividis",
     "conductivity": "cividis",
     "specific_storage": "cividis",
@@ -228,7 +257,7 @@ THEMES: dict[str, Theme] = {
         name="print",
         muted="#444444",
         roles={key: _grey(value) for key, value in ROLES.items()},
-        ramps={"sequential": "Greys", "diverging": "PuOr", "cyclic": "twilight"},
+        ramps={"sequential": "Greys", "diverging": "PuOr", "cyclic": "twilight", "share": "Greys"},
         quantity_ramps={k: "PuOr" if v == "RdBu_r" else "Greys" for k, v in QUANTITY_RAMPS.items()},
     ),
     "dark": replace(

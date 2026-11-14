@@ -500,6 +500,13 @@ def render_card(builder, fromdoc: str, path: str, n: dict, line_text: str | None
             f'<a class="hmp-toml-ref" href="{esc(sites_link)}"><code>sites.bind</code></a> '
             "or set it in a per-site overlay; a literal value is refused",
         )
+    if n.get("input_folder"):
+        folder = esc(n["input_folder"])
+        add(
+            "Workspace file",
+            f"<code>workspace:&lt;name&gt;</code> reads <code>data/{folder}/&lt;name&gt;</code> "
+            "of the workspace, and <code>workspace:.</code> the folder itself",
+        )
     if n.get("kind") != "leaf" and n.get("variants_detail"):
         add(
             "Shapes",

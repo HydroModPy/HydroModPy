@@ -406,8 +406,11 @@ def resolve_outlet(
     CRS. The search then starts at the active cell whose center is nearest to
     it and keeps the most accumulated cell within ``rings`` neighbor steps on
     ``adjacency``, the graph the metric descends: the ``SnapPourPoints`` rule
-    of the paper, read on the mesh. Without ``near``, ``within`` restricts the
-    search to a catchment; without either, the largest basin of the mesh wins.
+    of the paper, read on the mesh. With ``within`` too, only the cells of the
+    catchment in that window count, since the window can reach the river below
+    the outlet and close on a larger basin. Without ``near``, ``within``
+    restricts the search to a catchment; without either, the largest basin of
+    the mesh wins.
 
     ``cell_area_m2`` weighs the accumulation into a drained area, which a mesh
     of unequal cells needs; the cell count is used without it.
@@ -432,6 +435,8 @@ def resolve_outlet(
         window = np.zeros(active.size, dtype=bool)
         window[_rings_around(int(np.argmin(gap)), adjacency, rings)] = True
         candidates &= window
+        if within is not None and np.any(candidates & within):
+            candidates &= np.asarray(within, dtype=bool).reshape(-1)
     elif within is not None:
         candidates &= np.asarray(within, dtype=bool).reshape(-1)
         if not np.any(candidates):

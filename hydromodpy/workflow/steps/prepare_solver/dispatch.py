@@ -262,9 +262,11 @@ def _register_tracked_input_files(ctx: WorkflowContext, *, store: RunStore) -> N
     from hydromodpy.core.tracking.walker import collect_input_files
 
     # Anchor relative paths on the project, not on the shell's working
-    # directory: a bare filename is resolved under <workspace>/data/<family>/
-    # everywhere else, and tracking it from the cwd silently dropped it.
-    project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
+    # directory, and declare files of the workspace data folder by the data
+    # folder the configuration reads, so they are sealed as workspace names.
+    workspace = getattr(ctx.setup, "workspace", None)
+    project_root = getattr(workspace, "project_root", None)
+    data_dir = getattr(workspace, "data_dir", None)
     try:
         entries = collect_input_files(ctx.cfg, base=project_root)
     except Exception as exc:
@@ -275,7 +277,9 @@ def _register_tracked_input_files(ctx: WorkflowContext, *, store: RunStore) -> N
     portable = [e for e in entries if e.portable]
     if not portable:
         return
-    written = store.register_tracked_files(ctx.sim_id, portable)
+    written = store.register_tracked_files(
+        ctx.sim_id, portable, data_dir=None if data_dir is None else Path(data_dir)
+    )
     logger.debug("Recorded %d tracked input file(s) for simulation %s", written, ctx.sim_id)
 
 

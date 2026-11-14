@@ -20,6 +20,7 @@ from hydromodpy.display.request import (
     FigureRequest,
     expand,
     is_registered,
+    required_variables,
 )
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive.stream_network import cell_fields
@@ -51,6 +52,14 @@ def test_the_row_of_a_special_agrees_with_its_module(name):
     assert sorted(declared) == sorted(row.keywords)
     assert row.subject in ("run", "session", "runset") and row.width in (*WIDTHS_MM, None)
     assert all(is_registered(variable) for variable in row.variables)
+
+
+def test_a_special_that_takes_a_variable_asks_the_run_to_keep_it():
+    request = FigureRequest(preset="particle_tracks", variable="watertable_depth", time=0)
+    figure = expand(request, PRESETS)
+    assert figure.draw_keywords == {"variable": ["watertable_depth"], "time": 0}
+    assert required_variables(request, PRESETS) == ("watertable_depth",)
+    assert required_variables(FigureRequest(preset="particle_tracks"), PRESETS) == ()
 
 
 @pytest.mark.allow_subprocess

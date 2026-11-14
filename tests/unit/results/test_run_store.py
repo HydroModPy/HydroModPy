@@ -97,6 +97,31 @@ def test_the_grid_and_the_tracked_inputs_land_in_the_facts(run_dir: Path, tmp_pa
     assert facts.geographic_metadata == {"catch_area": 65.2, "x_outlet": 350000.0}
 
 
+def test_a_file_of_the_data_folder_of_the_workspace_is_sealed_by_its_workspace_name(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "ws"
+    project = workspace / "projects" / "aber"
+    run_dir = project / "runs" / "aber_monthly"
+    run_dir.mkdir(parents=True)
+    shared = tmp_path / "team" / "data"
+    dem = shared / "dem" / "regional_dem_aber.tif"
+    dem.parent.mkdir(parents=True)
+    dem.write_bytes(b"dem")
+    (workspace / "data").mkdir()
+    entry = TrackedFileEntry(
+        role="dem",
+        category="data",
+        original_path=str(dem),
+        canonical_path=dem,
+        portable=True,
+    )
+    with RunStore.open(run_dir, facts=_facts(), workspace=project) as store:
+        store.register_tracked_files(SIM_ID, [entry], data_dir=shared)
+
+    assert read_facts(run_dir).tracked_inputs[0].declared_path == "workspace:regional_dem_aber.tif"
+
+
 def test_a_store_that_keeps_no_parquet_writes_no_table(run_dir: Path) -> None:
     from hydromodpy.core.config_kit.persistence import PersistenceConfig
 

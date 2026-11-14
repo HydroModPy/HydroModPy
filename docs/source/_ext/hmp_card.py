@@ -105,6 +105,8 @@ def render_text(
             )
         if n.get("site_scoped"):
             lines.append("  site       varies by site")
+        if n.get("input_folder"):
+            lines.append(f"  workspace  workspace:<name> reads data/{n['input_folder']}/<name>")
         if n.get("profile") != "user":
             lines.append(f"  profile    {n.get('profile')}")
     else:

@@ -210,6 +210,13 @@ quantities = []
 text = "Input paths starting with a URL scheme are refused with a message directing users to source = 'url'."
 
 [[recipe]]
+id = "workspace_input_names"
+since = "2.0.0"
+effect = "layout"
+quantities = []
+text = "An input file can be written workspace:<name>, which reads data/<role>/<name> of the workspace data folder. The frozen config.toml, config.resolved.toml and the inputs of manifest.json write a file of data/<role>/ as workspace:<name>, where they wrote ../../data/<role>/<name>, and they read the data folder [workspace] gives, where they read <workspace>/data."
+
+[[recipe]]
 id = "url_source"
 since = "2.0.0"
 effect = "layout"
@@ -530,6 +537,13 @@ since = "2.0.0"
 versions = ">=2.0.0a1,<=2.0.0rc1"
 quantities = ["fluxes@modflow_nwt"]
 text = "MODPATH pathlines and endpoints were stored in the coordinates of the grid, counted from its lower left corner, while the mesh and the MODFLOW 6 PRT tracks are in the CRS of the project. The corner is now added back: on example 00 (Aber) every x moves by 150562.5 m and every y by 6856762.5 m, and the tracks lie on the catchment. Travel times do not change."
+
+[[bug]]
+id = "outlet_snap_ignored_the_catchment"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
+quantities = ["fluxes@modflow6", "fluxes@modflow_nwt", "metrics"]
+text = "The outlet of the basin of D was the most drained cell within two rings of the snapped point, whether or not it lay in the delineated catchment. Where the river goes on below the outlet, it closed on a cell outside the polygon and the basin took in the strip around the river. The search now keeps the cells of the polygon when the window holds some. On example 00 (Aber) the basin goes from 502 cells to the 426 of the polygon, and the January discharge from 1495 m3/day to 1146 m3/day."
 
 [[recipe]]
 id = "recharge_forcing_is_a_rate"

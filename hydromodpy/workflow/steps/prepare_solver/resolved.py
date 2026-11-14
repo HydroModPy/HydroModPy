@@ -304,8 +304,8 @@ def portable_config_payload(
     resolves on this machine are left out. Every input file the configuration
     names is written in the form that resolves back to it from any copy of the
     workspace (:func:`~hydromodpy.core.toml_io.paths.portable_declared_path`): a
-    bare name found in ``data/``, a path relative to the project root, or
-    ``../../data/...``. Every other path under the project root is written
+    workspace name for a file of ``data/<role>/``, a path relative to the
+    project root, or ``../../data/...``. Every other path under the project root is written
     relative to it. A data type with no section stays out of ``data.types``: the
     planner inferred it, a file cannot list it, and a replay infers it again. The
     document is staged in *staging_dir* while it is rendered.

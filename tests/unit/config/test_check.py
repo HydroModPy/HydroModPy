@@ -528,7 +528,7 @@ RAISERS: dict[str, tuple[typing.Callable[[], str], str]] = {
     "a key the model base refuses": (_refusal_of_the_model_base, "retired_key"),
     "a key the migration moves": (_move_of_the_migration, "retired_key"),
     "an input written as a bare name": (
-        lambda: bare_name_refusal("dem.tif", former=None),
+        lambda: bare_name_refusal("dem.tif", role=None, data_dir=None),
         "retired_key",
     ),
     "a key only a pre-release wrote": (

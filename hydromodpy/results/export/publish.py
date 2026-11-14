@@ -412,6 +412,7 @@ def _sealed_source(source_dir: Path, root: Path, *, public: bool) -> Any:
         )
     if public:
         _warn_without_licence(source_dir if not is_summary else root, is_summary=is_summary)
+        _warn_without_creator(root)
     return manifest
 
 
@@ -634,6 +635,22 @@ def _warn_without_licence(source: Path, *, is_summary: bool) -> None:
         logger.warning(
             "hmp publish --public: this project declares no [publication] license, so the copy "
             "states LicenseRef-undetermined. Declare one in project.toml to state it."
+        )
+
+
+def _warn_without_creator(root: Path) -> None:
+    """Warn that a public copy names no creator when its workspace declares none."""
+    from hydromodpy.results.storage.sealing import DECLARED_IDENTITY_KEYS, declared_identity
+
+    declared = declared_identity(root)
+    missing = [key for key in DECLARED_IDENTITY_KEYS if key not in declared]
+    if missing:
+        keys = " and ".join(f'{key} = "..."' for key in missing)
+        logger.warning(
+            "hmp publish --public: the workspace declares no %s, so the copy names no creator. "
+            "Add %s under [workspace] in workspace.toml to name one.",
+            " and ".join(missing),
+            keys,
         )
 
 

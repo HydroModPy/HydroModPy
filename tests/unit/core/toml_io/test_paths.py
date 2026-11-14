@@ -1,8 +1,9 @@
 """Dotted key paths (--set, HMP_SET_*, bind, inline recipes) and declared file paths.
 
 A dotted path names a key inside nested tables, with quotes around a part that
-holds dots. A declared file path is written relative to the project root, so a
-run frozen in one workspace resolves to the same file in another.
+holds dots. A declared file path is written relative to the project root, or as
+a workspace name read in the folder of its role under the data folder, so a run
+frozen in one workspace resolves to the same file in another.
 """
 
 from __future__ import annotations
@@ -14,13 +15,15 @@ import pytest
 from pydantic import BaseModel, Field
 
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.paths import (
     DottedPath,
     UnknownPathError,
     assign,
-    former_bare_name_location,
+    has_url_scheme,
     parse,
     portable_declared_path,
+    resolve_declared_path,
     resolve_field,
 )
 
@@ -153,13 +156,76 @@ def test_portable_declared_path(tmp_path):
     assert kept == "inputs/DEM.tif"  # a relative value is kept as written
 
 
-def test_former_bare_name_location(tmp_path):
-    workspace, _ = build_workspace(tmp_path)
-    data = workspace / "data"
+WORKSPACE_NAMES = [
+    pytest.param("workspace:regional_dem.tif", "data/dem/regional_dem.tif", id="a file"),
+    pytest.param("workspace:aber/dem_5m.tif", "data/dem/aber/dem_5m.tif", id="a sub-folder"),
+    pytest.param("workspace:.", "data/dem", id="the folder itself"),
+    pytest.param("workspace:aber/../dem.tif", "data/dem/dem.tif", id="a step back inside"),
+]
 
-    found = former_bare_name_location("DEM_armorican_massif.tif", data, role="dem")
-    assert found == (data / "dem" / "DEM_armorican_massif.tif").resolve()
-    in_data = former_bare_name_location("map.gpkg", data / "geology")
-    assert in_data == (data / "geology" / "map.gpkg").resolve()
-    assert former_bare_name_location("map.gpkg", data, role="other") is None
-    assert former_bare_name_location("absent.tif", data, role="dem") is None
+
+@pytest.mark.parametrize(("written", "relative"), WORKSPACE_NAMES)
+def test_a_workspace_name_is_read_in_the_folder_of_its_role(tmp_path, written, relative):
+    resolved = resolve_declared_path(
+        written, base_dir=tmp_path / "project", role="dem", data_dir=tmp_path / "data"
+    )
+
+    assert resolved == tmp_path / relative
+
+
+WORKSPACE_REFUSALS = [
+    pytest.param("workspace:../geology/map.gpkg", "dem", "leaves the folder", id="climbs out"),
+    pytest.param("workspace:/srv/dem.tif", "dem", "leaves the folder", id="absolute"),
+    pytest.param("workspace:", "dem", "names no file", id="empty"),
+    pytest.param("workspace:dem.tif", None, "this key is not one", id="not an input file"),
+]
+
+
+@pytest.mark.parametrize(("written", "role", "message"), WORKSPACE_REFUSALS)
+def test_a_workspace_name_is_refused(tmp_path, written, role, message):
+    with pytest.raises(ConfigError, match=message):
+        resolve_declared_path(written, base_dir=tmp_path, role=role, data_dir=tmp_path / "data")
+
+
+def test_a_workspace_name_needs_a_data_folder(tmp_path):
+    with pytest.raises(ConfigError, match="no workspace data folder"):
+        resolve_declared_path("workspace:dem.tif", base_dir=tmp_path, role="dem", data_dir=None)
+
+
+def test_a_workspace_name_is_no_url_scheme():
+    assert not has_url_scheme("workspace:dem.tif")
+    assert has_url_scheme("https://depot.org/dem.tif")
+    assert not has_url_scheme("C:/data/dem.tif")
+
+
+SEALED_FORMS = [
+    pytest.param(
+        "ws/data/dem/DEM_armorican_massif.tif",
+        "dem",
+        "workspace:DEM_armorican_massif.tif",
+        id="file of its folder",
+    ),
+    pytest.param("ws/data/hydrometry", "hydrometry", "workspace:.", id="station folder"),
+    pytest.param(
+        "ws/data/geology/map.gpkg",
+        "dem",
+        "../../data/geology/map.gpkg",
+        id="folder of another role",
+    ),
+    pytest.param(
+        "ws/projects/nancon/inputs/zones.shp", "dem", "inputs/zones.shp", id="file of the project"
+    ),
+]
+
+
+@pytest.mark.parametrize(("located", "role", "sealed"), SEALED_FORMS)
+def test_the_sealed_form_reads_back_to_the_same_file(tmp_path, located, role, sealed):
+    workspace, project = build_workspace(tmp_path)
+    data = workspace / "data"
+    target = tmp_path / located
+
+    written = portable_declared_path(target, role=role, project_root=project, data_dir=data)
+    read_back = resolve_declared_path(written, base_dir=project, role=role, data_dir=data)
+
+    assert written == sealed
+    assert read_back.resolve() == target.resolve()

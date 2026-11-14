@@ -18,7 +18,7 @@ from matplotlib.axes import Axes
 
 from hydromodpy.display import static
 from hydromodpy.display.overview.summary import OverviewSummary
-from hydromodpy.display.theme import Theme
+from hydromodpy.display.theme import Theme, colormap
 
 # ---------------------------------------------------------------------------
 # Map panels
@@ -555,14 +555,6 @@ def _table_title(ax: Axes, theme: Theme, text: str) -> None:
     )
 
 
-def _crs_label(crs) -> str:
-    """Short name of a CRS for the axis labels."""
-    epsg = crs.to_epsg() if crs is not None else None
-    if epsg == 2154:
-        return "Lambert-93"
-    return f"EPSG:{epsg}" if epsg else "map units"
-
-
 def _read_dem(path: str):
     """Return the masked first band, its extent (left, right, bottom, top) and its CRS."""
     import rasterio
@@ -575,7 +567,9 @@ def _read_dem(path: str):
 
 def _relief(ax: Axes, theme: Theme, data, extent) -> None:
     """Draw the elevation raster with its colorbar."""
-    im = ax.imshow(data, cmap=theme.quantity_ramps["elevation"], extent=extent, origin="upper")
+    im = ax.imshow(
+        data, cmap=colormap(theme.quantity_ramps["elevation"]), extent=extent, origin="upper"
+    )
     static.colorbar(ax.figure, im, ax, theme, label="Elevation (m)")
 
 
@@ -586,10 +580,11 @@ def _draw_relief(ax: Axes, theme: Theme, dem_path: str):
 
 
 def _finish_map(ax: Axes, theme: Theme, extent, crs, title: str, *, legend: bool = True) -> Axes:
-    """Title, frame, limits in km and the legend of what was drawn."""
+    """Title, bare frame with a scale bar, and the legend of what was drawn."""
     ax.set_title(title)
     left, right, bottom, top = extent
-    static.map_axes(ax, theme, extent=(left, bottom, right, top), crs=_crs_label(crs))
+    static.map_axes(ax, theme, extent=(left, bottom, right, top))
+    static.scale_bar(ax, theme)
     if legend and ax.get_legend_handles_labels()[0]:
         static.legend(ax, theme)
     return ax

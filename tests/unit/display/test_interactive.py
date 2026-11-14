@@ -32,9 +32,9 @@ def test_a_map_trace_holds_the_value_of_each_cell_and_the_static_scale(stored_ru
     np.testing.assert_allclose(values_of(trace), table["value"], rtol=1e-6)
     assert list(trace.text[::4]) == [f"cell {c}: {v:.4g}" for c, v in zip(table["cell"], table["value"])]  # fmt: skip
     drawn = stored_run.figure(name, time="last")
-    bar = next(ax for ax in drawn.axes if ax.get_label() == "<colorbar>")
     assert (trace.cmin, trace.cmax) == pytest.approx(drawn.axes[0].collections[0].get_clim())
-    assert trace.colorbar.title.text == interactive.plain(bar.get_ylabel()).replace("\n", "<br>")
+    title = interactive.plain(drawn.axes[0].get_title(loc="left"))
+    assert trace.colorbar.title.text.replace("<br>", " ") == title.replace("\n", " ")
 
 
 def test_a_series_holds_the_simulated_values_and_the_observed_points(stored_run):

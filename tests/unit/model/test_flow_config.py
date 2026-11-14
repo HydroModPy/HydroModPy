@@ -258,3 +258,12 @@ def test_a_missing_csv_keeps_a_predictable_path(layout) -> None:
     raw = {"lakes": {"lac0": {"rainfall": csv("absent.csv")}}}
     out = resolve_forcing_paths(raw, base_dir=base, workspace_data_dir=data)
     assert Path(out["lakes"]["lac0"]["rainfall"]["path_file"]) == (base / "absent.csv").resolve()
+
+
+@pytest.mark.unit
+def test_a_csv_forcing_written_as_a_workspace_name_reads_the_forcing_folder(layout) -> None:
+    # The folder is the role of the file, the one the run seals it under.
+    base, data = layout
+    raw = {"lakes": {"lac0": {"rainfall": csv("workspace:rain.csv")}}}
+    out = resolve_forcing_paths(raw, base_dir=base, workspace_data_dir=data)
+    assert Path(out["lakes"]["lac0"]["rainfall"]["path_file"]) == data / "forcing" / "rain.csv"

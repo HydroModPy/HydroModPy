@@ -47,7 +47,8 @@ def test_time_operations_on_a_head(stored_run, fields, expected):
 def test_frequency_counts_the_periods_with_a_value(stored_run):
     out = data(stored_run, variable="recharge", reduce="frequency")
     np.testing.assert_allclose(out.table["value"], 1.0)
-    assert out.scale == "sequential" and out.label.startswith("Share of")
+    assert out.scale == "sequential" and out.label.endswith(", share of the periods")
+    assert out.blank_zero and out.caption == "" and frame._ramp(out, THEME) == "share"
 
 
 def test_a_difference_is_signed_and_has_no_isolines(stored_run):
@@ -71,14 +72,19 @@ def test_a_categorical_keeps_its_classes_in_a_legend(stored_run):
     assert out.classes == ((0, "no seepage"), (1, "seepage")) and out.ramp == ""
     fig, ax = drawn(out)
     assert len(fig.axes) == 1
-    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["no seepage", "seepage"]
+    # Class 0 is the absence: its cells are left undrawn and it has no legend entry.
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["seepage"]
 
 
-def test_a_state_is_drawn_once_in_kilometres_with_isolines_and_a_colour_bar(stored_run):
-    fig, ax = drawn(data(stored_run, variable="head"))
+def test_a_state_is_drawn_once_with_its_title_its_period_isolines_and_a_colour_bar(stored_run):
+    out = data(stored_run, variable="head")
+    fig, ax = drawn(out)
     assert len([c for c in ax.collections if isinstance(c, PolyCollection)]) == 1
     assert len(ax.collections) > 1 and len(fig.axes) == 2
-    assert ax.get_aspect() == 1.0 and ax.get_xlabel().endswith(", km)")
+    assert ax.get_aspect() == 1.0 and len(ax.get_xticks()) == 0 and ax.get_xlabel() == ""
+    assert (ax.get_title(loc="left"), ax.get_title(loc="right")) == (out.label, "April 2001")
+    assert fig.axes[1].get_ylabel() == ""  # the title carries the unit
+    assert data(stored_run, variable="topography").caption == ""
 
 
 def test_a_log_scale_and_shared_limits(stored_run):

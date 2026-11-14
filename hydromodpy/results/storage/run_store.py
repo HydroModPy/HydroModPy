@@ -996,18 +996,24 @@ class RunStore:
         if version_text is not None:
             environment["solver_version_text"] = version_text
 
-    def register_tracked_files(self, sim_id: str | UUID, entries: list[Any]) -> int:
+    def register_tracked_files(
+        self, sim_id: str | UUID, entries: list[Any], *, data_dir: Path | None = None
+    ) -> int:
         """Record the input files the configuration declares, with their digests.
 
         ``path`` is relative to the workspace root when the file sits under it
         (``data/dem/dem.tif``, ``projects/<name>/zones.shp``), and
         ``declared_path`` the form the frozen ``config.toml`` writes: no copy
-        of the record names the machine it ran on.
+        of the record names the machine it ran on. *data_dir* is the data
+        folder of ``[workspace]``, ``<workspace>/data`` when not given, so a
+        file of ``data/<role>/`` is declared as ``workspace:<name>``.
         """
         from hydromodpy.core.toml_io.paths import portable_declared_path
 
         self._check_sim(sim_id)
         root = self.data_root
+        if data_dir is None and root is not None:
+            data_dir = root / "data"
         written = 0
         for entry in entries:
             canonical = Path(entry.canonical_path)
@@ -1031,7 +1037,7 @@ class RunStore:
                     declared,
                     role=str(entry.role),
                     project_root=self._workspace,
-                    data_dir=root / "data",
+                    data_dir=data_dir,
                 )
             self._facts.put_tracked_input(
                 TrackedInput(

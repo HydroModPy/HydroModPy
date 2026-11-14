@@ -23,7 +23,7 @@ from matplotlib.colors import LogNorm, Normalize
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.display import static
-from hydromodpy.display.theme import Theme, get_theme
+from hydromodpy.display.theme import Theme, colormap, get_theme
 
 logger = get_logger(__name__)
 
@@ -114,7 +114,7 @@ def draw_map(
         low, high = float(values[valued].min()), float(values[valued].max())
         use_log = wants_log(values, log) and low > 0
         points = ax.scatter(
-            xs[valued], ys[valued], c=values[valued], cmap=theme.ramps["sequential"],
+            xs[valued], ys[valued], c=values[valued], cmap=colormap(theme.ramps["sequential"]),
             norm=LogNorm(low, high) if use_log else Normalize(low, high), s=40,
             edgecolors=theme.ink, linewidths=theme.line_width, zorder=3,
         )  # fmt: skip
