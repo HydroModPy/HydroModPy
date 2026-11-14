@@ -33,8 +33,9 @@ beside the first one.
 
 - `runs/aber_example_00/figures/`: the catchment card, the mesh on the topography, the
   water-table depth and the seepage cells in January, the section through the two wells, the
-  share of the year each cell seeps, the particle tracks, the distribution of their travel times
-  and the monthly water budget.
+  share of the year each cell seeps, the particle tracks alone, then over the travel time to the
+  exit and over the water-table depth, the distribution of their travel times and the monthly
+  water budget.
 - `runs/aber_example_00/exports/`: the catchment, its box and the mapped streams as GeoPackage,
   the DEM, the head, the water-table depth and the seepage cells of January as GeoTIFF, the
   twelve months of the same three fields in `watertable_2017.nc`, the discharge and the budget

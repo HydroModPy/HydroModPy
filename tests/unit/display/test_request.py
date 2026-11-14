@@ -60,6 +60,28 @@ def test_a_preset_fills_only_its_holes() -> None:
 
 
 @pytest.mark.parametrize(
+    ("written", "drawn"),
+    [
+        ('variable = "head"', ["relief", "outline", "network", "outlet", "scale_bar"]),
+        (
+            'variable = "head", overlays = ["mesh", "outline"]',
+            ["relief", "mesh", "outline", "scale_bar"],
+        ),
+        ('variable = "head", overlays = ["scale_bar", "wells"]', ["relief", "wells", "scale_bar"]),
+        ('variable = "head", overlays = []', ["relief", "scale_bar"]),
+        ('variable = "head", type = "section", line = [[0, 0], [1, 1]]', ["seepage"]),
+        ('variable = "head", type = "section", line = [[0, 0], [1, 1]], overlays = []', []),
+    ],
+)
+def test_a_map_keeps_its_relief_and_scale_bar_around_the_overlays_written(
+    written: str, drawn: list[str]
+) -> None:
+    figure = rq.expand(ask(written), PRESETS)
+    assert figure.panels[0].overlays == drawn
+    assert rq.expand(rq.replay_request(figure), PRESETS).panels == figure.panels
+
+
+@pytest.mark.parametrize(
     ("text", "words"),
     [
         ('variable = "head", type = "mapp"', "Known frames: map"),

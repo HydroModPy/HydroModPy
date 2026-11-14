@@ -164,6 +164,19 @@ overlays = ["outline", "network"]
 [[display.figure]]
 preset = "particle_tracks"
 
+# The same pathlines over a map: how long the water still travels before it leaves,
+# then the water-table depth of January.
+[[display.figure]]
+preset = "particle_tracks"
+name = "particle_tracks_over_travel_time"
+variable = "travel_time_to_exit"
+
+[[display.figure]]
+preset = "particle_tracks"
+name = "particle_tracks_over_depth"
+variable = "watertable_depth"
+time = "2017-01-15"
+
 [[display.figure]]
 preset = "residence_time_distribution"
 

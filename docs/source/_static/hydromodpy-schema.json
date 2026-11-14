@@ -6822,7 +6822,7 @@
             }
           ],
           "default": null,
-          "description": "Context layers drawn over a map or a section.",
+          "description": "Context layers drawn over a map or a section, in place of the default ones. A map keeps its relief and its scale bar.",
           "title": "Overlays",
           "x-hmp-profile": "user"
         },
@@ -19312,7 +19312,7 @@
             }
           ],
           "default": null,
-          "description": "Context layers drawn over a map or a section.",
+          "description": "Context layers drawn over a map or a section, in place of the default ones. A map keeps its relief and its scale bar.",
           "title": "Overlays",
           "x-hmp-profile": "user"
         },

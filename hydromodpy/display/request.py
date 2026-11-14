@@ -16,9 +16,10 @@ import json
 import re
 import tomllib
 from collections import Counter
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from importlib import resources
+from itertools import takewhile
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -104,12 +105,14 @@ class Frame:
     """One frame, drawn by ``hydromodpy.display.frames.<name>``.
 
     ``shapes`` are the registry shapes it is the natural frame of, the first frame in
-    table order winning. ``overlays`` are drawn when a panel names none. ``height`` is the
+    table order winning. ``overlays`` are drawn when a panel names none. ``kept`` are the
+    ones of them that stay, in their place, when a panel names its own. ``height`` is the
     height of one panel as a share of its width.
     """
 
     shapes: tuple[str, ...] = ()
     overlays: tuple[str, ...] = ()
+    kept: tuple[str, ...] = ()
     engines: tuple[str, ...] = (STATIC,)
     height: float = 0.75
 
@@ -126,6 +129,8 @@ FRAMES: dict[str, Frame] = {
     "map": Frame(
         (SHAPE_TIME_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_LAYER_FACE, SHAPE_FACE),
         ("relief", "outline", "network", "outlet", "scale_bar"),
+        # A map has no coordinates, so it always carries its scale, and its relief.
+        kept=("relief", "scale_bar"),
         engines=(STATIC, INTERACTIVE),
     ),
     "series": Frame((SHAPE_TIME,), engines=(STATIC, INTERACTIVE)),
@@ -346,7 +351,9 @@ class PanelFields(HydroModelBase):
         "zone:domain.",
     )
     overlays: Names | None = Field(
-        default=None, description="Context layers drawn over a map or a section."
+        default=None,
+        description="Context layers drawn over a map or a section, in place of the default "
+        "ones. A map keeps its relief and its scale bar.",
     )
     bbox: tuple[float, float, float, float] | None = Field(
         default=None,
@@ -749,9 +756,16 @@ def _resolved_panel(panel: PanelRequest, where: str) -> PanelRequest:
             raise ValueError(f"{where}: a table panel takes 'table.column' names, not {name!r}.")
         elif name != BUDGET:
             shape_of(name)
-    if resolved.overlays is None:
-        resolved = resolved.model_copy(update={"overlays": list(FRAMES[frame].overlays)})
-    return resolved
+    return resolved.model_copy(update={"overlays": _overlays(FRAMES[frame], resolved.overlays)})
+
+
+def _overlays(frame: Frame, listed: Sequence[str] | None) -> list[str]:
+    """Return the overlays a panel draws: its own list around the ones the frame keeps."""
+    if listed is None:
+        return list(frame.overlays)
+    under = list(takewhile(lambda name: name in frame.kept, frame.overlays))
+    over = [name for name in frame.kept if name not in under]
+    return [*under, *(name for name in listed if name not in frame.kept), *over]
 
 
 def _given(request: PanelRequest) -> dict[str, Any]:
