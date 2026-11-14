@@ -6,6 +6,13 @@ the field does not read, a run where none is read or none where one is, and a
 corridor thinner than a cell. A table dumps back to itself, and describes itself
 in a few words for the notes and the journal.
 
+The layer of a zone is an input file, read by the rule of every input file. A
+relative path reads from the project root, an absolute path as written, and
+``workspace:<name>`` reads ``data/refinement_zone/<name>`` of the workspace. A
+bare name is refused unless the file is at the root, and the refusal gives the
+workspace name when the file is in ``data/refinement_zone/``. The run tracks the
+layer with its digest and freezes it in its workspace form.
+
 ``[mesh.lake_refinement]`` refines the shore band, the structures and maybe the
 interior. The table is the switch: an ``enabled`` key is refused and names the
 table. A size or a band that would slip between the sampling nodes of the size
@@ -15,10 +22,17 @@ size of zero and an infinite number are refused, with the key.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.toml_io.paths import BareInputNameError
+from hydromodpy.core.tracking.walker import collect_input_files
 from hydromodpy.mesh.refinement_config import LakeRefinementConfig, RefinementZoneConfig
+from hydromodpy.workflow.steps.prepare_solver.resolved import portable_config_payload
 
 _HAND = {"where": "height_above_stream", "below": 2.0, "cell_size": 20.0}
 _RUN_ZONE = {"where": "watertable_depth", "below": 1.0, "run": "coarse", "cell_size": 20.0}
@@ -67,6 +81,83 @@ def test_zone_refusals(table: dict, words: tuple[str, ...]) -> None:
 )
 def test_zone_description(table: dict, description: str) -> None:
     assert RefinementZoneConfig.model_validate(table).describe() == description
+
+
+def _loaded(tmp_path: Path, path: str) -> HydroModPyConfig:
+    """Load a project whose one zone reads the layer at *path*.
+
+    The project root is ``tmp_path/project`` and holds ``root.gpkg``. The
+    workspace data folder is ``tmp_path/data`` and holds
+    ``refinement_zone/zones.gpkg``.
+    """
+    project, folder = tmp_path / "project", tmp_path / "data" / "refinement_zone"
+    folder.mkdir(parents=True, exist_ok=True)
+    project.mkdir(exist_ok=True)
+    (project / "root.gpkg").touch()
+    (folder / "zones.gpkg").touch()
+    return HydroModPyConfig.from_dict(
+        {
+            "workflow": {"mode": "simulation"},
+            "workspace": {"data_dir": str(tmp_path / "data")},
+            "site": {"name": "site_a"},
+            "geographic": {"catchment": {"kind": "dem"}},
+            "data": {"dem": {"sources": [{"source": "file", "path": "inputs/dem.tif"}]}},
+            "mesh": {
+                "engine": "voronoi",
+                "families": {"rivers": "none"},
+                "refinement_zone": [{"path": path, "cell_size": 20.0}],
+            },
+        },
+        base_dir=project,
+    )
+
+
+@pytest.mark.parametrize(
+    ("written", "read"),
+    [
+        ("inputs/zones.gpkg", "project/inputs/zones.gpkg"),
+        ("{tmp}/elsewhere/zones.gpkg", "elsewhere/zones.gpkg"),
+        ("workspace:zones.gpkg", "data/refinement_zone/zones.gpkg"),
+        ("workspace:basin/zones.gpkg", "data/refinement_zone/basin/zones.gpkg"),
+        ("root.gpkg", "project/root.gpkg"),
+    ],
+    ids=[
+        "relative path from the project root",
+        "absolute path as written",
+        "workspace name",
+        "workspace name in a sub-folder",
+        "bare name of a file at the root",
+    ],
+)
+def test_layer_path(tmp_path: Path, written: str, read: str) -> None:
+    cfg = _loaded(tmp_path, written.format(tmp=tmp_path))
+
+    assert Path(cfg.mesh.refinement_zone[0].path).resolve() == (tmp_path / read).resolve()
+
+
+@pytest.mark.parametrize(
+    ("written", "message"),
+    [
+        ("zones.gpkg", "Write 'workspace:zones.gpkg'"),
+        ("absent.gpkg", "for example 'inputs/absent.gpkg'"),
+    ],
+    ids=["file in data/refinement_zone", "file nowhere"],
+)
+def test_layer_bare_name_refused(tmp_path: Path, written: str, message: str) -> None:
+    with pytest.raises(BareInputNameError, match=re.escape(message)):
+        _loaded(tmp_path, written)
+
+
+def test_layer_tracked_and_frozen_as_workspace_name(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    cfg = _loaded(tmp_path, "workspace:zones.gpkg")
+
+    (entry,) = [e for e in collect_input_files(cfg, base=project) if e.role == "refinement_zone"]
+    frozen = portable_config_payload(cfg, tmp_path, project, written_only=True)
+
+    assert entry.category == "geometry"
+    assert entry.canonical_path == (tmp_path / "data" / "refinement_zone" / "zones.gpkg").resolve()
+    assert frozen["mesh"]["refinement_zone"][0]["path"] == "workspace:zones.gpkg"
 
 
 @pytest.mark.parametrize(

@@ -49,6 +49,8 @@ from hydromodpy.core.toml_io.error_locator import (
     located_faults,
 )
 from hydromodpy.core.toml_io.paths import (
+    BareInputNameError,
+    bare_name_refusal,
     has_url_scheme,
     is_bare_filename,
     resolve_declared_path,
@@ -59,6 +61,7 @@ from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.refinement_config import RefinementZoneConfig
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.initial_config import SpinupConfig
@@ -76,9 +79,9 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 def _is_path_field(field_info: FieldInfo) -> bool:
-    """
-    Return True if the field is typed as ``Path`` or ``Path | None``.
-    """
+    """Return True if the field is typed ``Path`` or ``Path | None``, or is marked ``InputFile``."""
+    if input_file_role(field_info) is not None:
+        return True
     annotation = field_info.annotation
     if annotation is Path:
         return True
@@ -122,8 +125,6 @@ def _resolve_section_paths(
                 # A bare name used to be looked up in the workspace data
                 # folder. The refusal gives the workspace name to write when
                 # the file is in the folder of its variable.
-                from hydromodpy.core.toml_io.paths import BareInputNameError, bare_name_refusal
-
                 raise BareInputNameError(
                     bare_name_refusal(value, role=role, data_dir=workspace_data_dir)
                 )
@@ -227,11 +228,15 @@ def load_optional_section(section_data: Any, model_cls: type[ModelT], base: Path
 def _load_optional_mesh_section(
     section_data: Any,
     base: Path,
+    *,
+    workspace_data_dir: Path | None = None,
 ) -> MeshConfig | None:
     """Load the optional ``[mesh]`` section.
 
     The file named by ``[mesh.triangle] path`` is resolved against the TOML
-    directory, like every other declared path.
+    directory, like every other declared path. The layer of a
+    ``[[mesh.refinement_zone]]`` is an input file: a path from the project
+    root, an absolute path or a workspace name, and a bare name is refused.
     """
     if section_data is None:
         return None
@@ -244,6 +249,16 @@ def _load_optional_mesh_section(
             **triangle,
             "path": str(resolve_declared_path(triangle["path"], base_dir=base)),
         }
+    if isinstance(payload.get("refinement_zone"), list):
+        zones = []
+        for zone in payload["refinement_zone"]:
+            if isinstance(zone, Mapping):
+                zone = dict(zone)
+                _resolve_section_paths(
+                    zone, RefinementZoneConfig, base, workspace_data_dir=workspace_data_dir
+                )
+            zones.append(zone)
+        payload["refinement_zone"] = zones
     return MeshConfig.model_validate(payload)
 
 
@@ -1190,7 +1205,12 @@ SECTIONS: dict[str, Section] = {
     "export": Section(lambda data, _ctx: load_export_requests(data), default=[]),
     "observation": Section(_standard(ObservationConfig), default={}),
     "overview": Section(_optional(OverviewConfig), default=None),
-    "mesh": Section(lambda data, ctx: _load_optional_mesh_section(data, ctx.base), default=None),
+    "mesh": Section(
+        lambda data, ctx: _load_optional_mesh_section(
+            data, ctx.base, workspace_data_dir=ctx.workspace_data_dir
+        ),
+        default=None,
+    ),
     "calibration": Section(
         lambda data, ctx: _load_optional_calibration_section(data, ctx.base, sealed=ctx.sealed),
         default=None,

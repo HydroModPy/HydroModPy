@@ -66,8 +66,6 @@ def _inputs(
     zone_path = _zone_file(tmp_path / zones_dir)
     zones = load_refinement_zones(
         [RefinementZoneConfig(path=zone_path, cell_size=15.0)],
-        config_dir=None,
-        data_dir=None,
         crs_wkt="EPSG:2154",
     )
     river = LineString([(-100.0, 520.0), (480.0, 500.0), (1100.0, 560.0)])

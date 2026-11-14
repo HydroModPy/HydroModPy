@@ -58,8 +58,6 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
         geology=geology,
         refinement_zones=load_refinement_zones(
             mesh_cfg.refinement_zone,
-            config_dir=Path(ctx.config_path).parent,
-            data_dir=_data_dir(setup),
             crs_wkt=crs_wkt,
             criteria=criterion_inputs(setup, mesh_cfg, grid, river_trace) if sized else None,
         ),
@@ -130,12 +128,6 @@ def mesh_crs_wkt(setup: object) -> str:
             "surface support declares one. Set [geographic] crs_project."
         )
     return CRS.from_user_input(declared).to_wkt()
-
-
-def _data_dir(setup: object) -> Path | None:
-    workspace = getattr(setup, "workspace", None)
-    data_dir = getattr(workspace, "data_dir", None)
-    return None if data_dir is None else Path(data_dir)
 
 
 def domain_polygon(

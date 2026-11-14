@@ -217,6 +217,13 @@ quantities = []
 text = "An input file can be written workspace:<name>, which reads data/<role>/<name> of the workspace data folder. The frozen config.toml, config.resolved.toml and the inputs of manifest.json write a file of data/<role>/ as workspace:<name>, where they wrote ../../data/<role>/<name>, and they read the data folder [workspace] gives, where they read <workspace>/data."
 
 [[recipe]]
+id = "refinement_zone_input_path"
+since = "2.0.0"
+effect = "refusal"
+quantities = []
+text = "[[mesh.refinement_zone]] path is read as every input file: a relative path from the project root, an absolute path as written, workspace:<name> in data/refinement_zone/. A bare name is refused, where it was looked up in data/refinement_zone/, then in the data folder, then beside the configuration. A run tracks the layer with its digest, with the role refinement_zone."
+
+[[recipe]]
 id = "url_source"
 since = "2.0.0"
 effect = "layout"

@@ -21841,9 +21841,10 @@
             }
           ],
           "default": null,
-          "description": "Vector layer (gpkg / shp / GeoJSON) of polygons (zones) and/or points or lines (corridors). A bare filename resolves against <workspace>/data/refinement_zone/; relative paths resolve against that directory, the data directory, then the config directory. Give path or where, not both.",
+          "description": "Vector layer (gpkg / shp / GeoJSON) of polygons (zones) and/or points or lines (corridors). A relative path is read from the project root, and workspace:<name> reads data/refinement_zone/<name> of the workspace. Give path or where, not both.",
           "examples": [
-            "refinement_zone.gpkg"
+            "inputs/refinement_zone.gpkg",
+            "workspace:refinement_zone.gpkg"
           ],
           "title": "Path",
           "x-hmp-profile": "user"

@@ -214,6 +214,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - source = "custom" is now source = "file" in every [[data.<variable>.sources]]. hmp doctor --fix-config rewrites it, and a sealed run reads it.
 - A relative path is read from the project root only. A bare file name is no longer looked up in the workspace data folder, and a path that starts with a URL scheme is refused.
 - The refusal of a bare file name gives the workspace name to write, `workspace:<name>`, when the file is in the folder of its variable.
+- `[[mesh.refinement_zone]] path` is read as every other input file. A relative path is read from the project root, `workspace:<name>` reads `data/refinement_zone/<name>`, and a bare name is refused with the form to write. It was looked up in `data/refinement_zone/`, then in the data folder, then beside the configuration. A run tracks the layer with its digest and freezes it in that form.
 - `hmp publish --package` reads a station folder whose files are named `<variable>_file_<id>_...`, as a run does, and no longer looks a file it does not find up in `data/<variable>/`.
 - The lake and wall files are read by hydromodpy.data, and the binders of hydromodpy.model receive geometries and tables.
 - `hydromodpy.analysis.compare` is now `hydromodpy.project.compare`, and `hydromodpy.examples` is now

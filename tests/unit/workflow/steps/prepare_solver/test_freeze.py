@@ -243,8 +243,6 @@ def _read_by_the_mesh_step(project: Path, cfg: HydroModPyConfig) -> dict[str, st
     zones = cfg.mesh.refinement_zone
     planned = load_refinement_zones(
         zones,
-        config_dir=None,
-        data_dir=None,
         crs_wkt=GRID.crs_wkt,
         criteria=CriterionInputs(
             grid=GRID,
@@ -317,7 +315,7 @@ def test_only_run_zones_rewritten(project: Path) -> None:
         project,
         {"where": "height_above_stream", "below": 2.0, "cell_size": 25.0},
         {**ZONE, "run": "coarse.v1"},
-        {"path": "layer.gpkg", "cell_size": 30.0},
+        {"path": "inputs/layer.gpkg", "cell_size": 30.0},
     )
     ctx = SimpleNamespace(
         cfg=cfg, run_dir=project / "runs" / "x", setup=SimpleNamespace(domain=None)
@@ -328,7 +326,7 @@ def test_only_run_zones_rewritten(project: Path) -> None:
 
     zones = tomllib.loads(document)["mesh"]["refinement_zone"]
     assert [zone.get("run") for zone in zones] == [None, sim_id, None]
-    assert zones[0]["where"] == "height_above_stream" and zones[2]["path"] == "layer.gpkg"
+    assert zones[0]["where"] == "height_above_stream" and zones[2]["path"] == "inputs/layer.gpkg"
 
 
 def test_same_state_same_request_id(project: Path) -> None:

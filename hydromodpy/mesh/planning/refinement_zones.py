@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import numpy as np
 import shapely
@@ -121,20 +120,17 @@ class CriterionInputs:
 def load_refinement_zones(
     cfgs: Sequence[RefinementZoneConfig],
     *,
-    config_dir: Path | None,
-    data_dir: Path | None,
     crs_wkt: str,
     criteria: CriterionInputs | None = None,
 ) -> tuple[RefinementZone, ...]:
     """Read each zone in the CRS *crs_wkt*, in the order of *cfgs*.
 
     A layer zone: polygons refine as they are; points and lines are dilated
-    by ``buffer`` (default ``2 * cell_size``) into corridors. A bare file
-    name resolves in ``<data_dir>/refinement_zone/``, then ``<data_dir>``,
-    then *config_dir*. An unreadable or empty layer raises, so a
-    misconfigured zone never meshes coarse in silence. A zone drawn by a
-    threshold reads *criteria*; without it, for an engine that does not grade
-    its cells, it is left out.
+    by ``buffer`` (default ``2 * cell_size``) into corridors. The layer is
+    read at ``path`` as the config loader resolved it. An unreadable or empty
+    layer raises, so a misconfigured zone never meshes coarse in silence. A
+    zone drawn by a threshold reads *criteria*; without it, for an engine that
+    does not grade its cells, it is left out.
     """
     import geopandas as gpd
 
@@ -149,7 +145,7 @@ def load_refinement_zones(
                 height = _height_above_stream(criteria)
             zones.append(_criterion_zone(cfg, criteria, height, ramp=width))
             continue
-        path = _resolve_zone_path(Path(cfg.path), data_dir=data_dir, config_dir=config_dir)
+        path = cfg.path
         frame = gpd.read_file(path)
         frame = frame[frame.geometry.notna() & ~frame.geometry.is_empty]
         if frame.empty:
@@ -263,22 +259,3 @@ def _criterion_zone(
         label=label,
         source_run=source_run,
     )
-
-
-def _resolve_zone_path(raw: Path, *, data_dir: Path | None, config_dir: Path | None) -> Path:
-    """The first existing candidate, or the first candidate when none exists."""
-    path = raw.expanduser()
-    if path.is_absolute():
-        return path
-    bases = []
-    if data_dir is not None:
-        bases.extend([Path(data_dir) / "refinement_zone", Path(data_dir)])
-    if config_dir is not None:
-        bases.append(Path(config_dir))
-    for base in bases:
-        candidate = (base / path).resolve()
-        if candidate.exists():
-            return candidate
-    if not bases:
-        return path
-    return (bases[0] / path).resolve()

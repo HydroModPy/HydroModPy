@@ -30,6 +30,7 @@ from pydantic import ConfigDict, Field, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyPath, NonEmptyStr, StripLower
+from hydromodpy.core.tracking.input_file import InputFile
 
 __all__ = ["RUN_FIELDS", "LakeRefinementConfig", "RefinementZoneConfig", "ZoneField"]
 
@@ -45,16 +46,19 @@ class RefinementZoneConfig(HydroModelBase):
 
     model_config = ConfigDict(allow_inf_nan=False)
 
-    path: Annotated[NonEmptyPath | None, Profile.USER] = Field(
+    path: Annotated[
+        NonEmptyPath | None,
+        Profile.USER,
+        InputFile(role="refinement_zone", category="geometry"),
+    ] = Field(
         default=None,
         description=(
             "Vector layer (gpkg / shp / GeoJSON) of polygons (zones) and/or "
-            "points or lines (corridors). A bare filename resolves against "
-            "<workspace>/data/refinement_zone/; relative paths resolve against "
-            "that directory, the data directory, then the config directory. Give "
-            "path or where, not both."
+            "points or lines (corridors). A relative path is read from the project "
+            "root, and workspace:<name> reads data/refinement_zone/<name> of the "
+            "workspace. Give path or where, not both."
         ),
-        examples=["refinement_zone.gpkg"],
+        examples=["inputs/refinement_zone.gpkg", "workspace:refinement_zone.gpkg"],
     )
     where: Annotated[Annotated[ZoneField, StripLower] | None, Profile.USER] = Field(
         default=None,

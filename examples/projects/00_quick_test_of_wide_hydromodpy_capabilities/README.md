@@ -11,8 +11,8 @@ PRT follows the water. A run takes about 5 s.
 - `py1_run_and_plot.py`: runs `project.toml` from Python, draws a figure of its own from what the
   run stored, and writes the particle tracks as a GeoPackage.
 
-The DEM and the mapped streams are read from `../../data/`. The recharge and the pumping rates
-are written in `project.toml`.
+The DEM and the mapped streams are read from the shared `data/` folder of the workspace, by a
+`workspace:` name. The recharge and the pumping rates are written in `project.toml`.
 
 ## Commands
 

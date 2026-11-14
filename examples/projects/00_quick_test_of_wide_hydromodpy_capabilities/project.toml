@@ -57,13 +57,13 @@ types = ["dem", "hydrography"]
 
 [[data.dem.sources]]
 source = "file"
-path = "../../data/dem/regional_dem_aber.tif"
+path = "workspace:regional_dem_aber.tif"
 
 # The mapped streams, drawn on the figures and exported. The model does not
 # read them.
 [[data.hydrography.sources]]
 source = "file"
-path = "../../data/hydrography/regional_stream_network.shp"
+path = "workspace:regional_stream_network.shp"
 
 [flow]
 flow_regime = "transient"

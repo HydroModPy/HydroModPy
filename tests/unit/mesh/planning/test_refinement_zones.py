@@ -2,9 +2,9 @@
 
 The table reads like the layer one: ``where`` names the field, ``below`` or
 ``above`` the threshold, ``run`` the earlier run a field of a run comes from. A
-layer is read in the project CRS from the data directory or beside the
-configuration; a zone drawn by a threshold reads the DEM, the traced network
-or the field of an earlier run, and is left out where the engine sizes nothing.
+layer is read in the project CRS at the path the config loader resolved; a zone
+drawn by a threshold reads the DEM, the traced network or the field of an
+earlier run, and is left out where the engine sizes nothing.
 
 A field of an earlier run reaches the planner as its extremes over time, per
 cell. A threshold is passed when the field went below it, or above it, at some
@@ -16,7 +16,6 @@ a cell smaller than a pixel still marks the pixel under it.
 from __future__ import annotations
 
 import dataclasses
-import shutil
 from pathlib import Path
 
 import geopandas as gpd
@@ -76,11 +75,9 @@ def _criteria(*, streams: bool = True) -> CriterionInputs:
     )
 
 
-def _zones(*tables: dict, criteria: CriterionInputs | None, **where: Path | None) -> tuple:
+def _zones(*tables: dict, criteria: CriterionInputs | None) -> tuple:
     return load_refinement_zones(
         [RefinementZoneConfig.model_validate(table) for table in tables],
-        config_dir=where.get("config_dir"),
-        data_dir=where.get("data_dir"),
         crs_wkt="EPSG:2154",
         criteria=criteria,
     )
@@ -149,25 +146,15 @@ def test_no_criteria_keeps_layer_zone(tmp_path: Path) -> None:
     assert zone.label == RefinementZoneConfig(path=path, cell_size=15.0).describe()
 
 
-def test_layer_lookup_folders(tmp_path: Path) -> None:
-    geometries = (box(600.0, 600.0, 700.0, 700.0), LineString([(100.0, 100.0), (200.0, 300.0)]))
-    source = _layer(tmp_path / "data" / "refinement_zone" / "zones.geojson", *geometries)
-    shutil.copy(source, tmp_path / "copy.geojson")
+def test_layer_corridor(tmp_path: Path) -> None:
+    square = box(600.0, 600.0, 700.0, 700.0)
+    line = LineString([(100.0, 100.0), (200.0, 300.0)])
+    path = _layer(tmp_path / "zones.geojson", square, line)
 
-    (by_data_dir,) = _zones(
-        {"path": "zones.geojson", "cell_size": 15.0},
-        criteria=None,
-        config_dir=tmp_path,
-        data_dir=tmp_path / "data",
-    )
-    (by_config_dir,) = _zones(
-        {"path": "copy.geojson", "cell_size": 15.0}, criteria=None, config_dir=tmp_path
-    )
-    (by_absolute_path,) = _zones({"path": str(source), "cell_size": 15.0}, criteria=None)
+    (zone,) = _zones({"path": str(path), "cell_size": 15.0}, criteria=None)
 
-    assert by_data_dir.region.equals(by_config_dir.region)
-    assert by_absolute_path.region.equals(by_data_dir.region)
-    assert by_data_dir.ramp_m == 2.0 * 15.0
+    assert zone.ramp_m == 2.0 * 15.0
+    assert zone.region.equals(square.union(line.buffer(2.0 * 15.0)))
 
 
 @pytest.mark.filterwarnings("ignore:'crs' was not provided")
@@ -198,16 +185,11 @@ def test_layer_without_area(tmp_path: Path) -> None:
         _zones({"path": str(path), "cell_size": 15.0}, criteria=None)
 
 
-@pytest.mark.parametrize("data_dir", [True, False], ids=["data directory", "no directory"])
-def test_missing_layer_named(tmp_path: Path, data_dir: bool) -> None:
-    first = tmp_path / "data" / "refinement_zone" / "missing.gpkg" if data_dir else "missing.gpkg"
+def test_missing_layer_named(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.gpkg"
 
-    with pytest.raises(DataSourceError, match=str(first)):
-        _zones(
-            {"path": "missing.gpkg", "cell_size": 15.0},
-            criteria=None,
-            data_dir=tmp_path / "data" if data_dir else None,
-        )
+    with pytest.raises(DataSourceError, match=str(missing)):
+        _zones({"path": str(missing), "cell_size": 15.0}, criteria=None)
 
 
 def test_envelope_passing() -> None:
