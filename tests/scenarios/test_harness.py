@@ -30,7 +30,7 @@ pytestmark = pytest.mark.fast
 
 HERE = Path(__file__).resolve().parent
 
-# The thirty scenarios, in the order of what they cover. A new scenario
+# The thirty-one scenarios, in the order of what they cover. A new scenario
 # file gets its line here.
 SCENARIOS: tuple[str, ...] = (
     "test_backends_write_what_they_declare.py",
@@ -63,6 +63,7 @@ SCENARIOS: tuple[str, ...] = (
     "test_a_run_over_http.py",
     "test_two_runs_in_two_processes.py",
     "test_a_run_follows_its_short_path.py",
+    "test_a_lab_run_is_the_run_of_its_file.py",
 )
 
 # A row that plays the default of its registry writes nothing to select it.
@@ -112,9 +113,9 @@ REGISTRIES = {
 }
 
 
-def test_the_scenarios_are_the_thirty_named():
+def test_the_scenarios_are_the_thirty_one_named():
     found = {p.name for p in HERE.glob("test_*.py")} - {Path(__file__).name}
-    assert len(SCENARIOS) == 30
+    assert len(SCENARIOS) == 31
     assert len(set(SCENARIOS)) == len(SCENARIOS)
     assert found == set(SCENARIOS)
 

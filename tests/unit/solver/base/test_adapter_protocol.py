@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from collections.abc import Callable
 from typing import Any, ClassVar
 
 import pytest
@@ -93,6 +94,7 @@ class _ShapeAdapter:
     options: ClassVar[type[BaseModel] | None] = _Options
     category: ClassVar[str] = "distributed"
     native_step: ClassVar[str | None] = None
+    cell_column: ClassVar[Callable[..., Any] | None] = None
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 

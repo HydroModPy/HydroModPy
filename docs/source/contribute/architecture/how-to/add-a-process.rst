@@ -68,7 +68,7 @@ just a package:
    * - ``solver/base/registry.py``
      - One adapter and one extractor per solver in ``_BUILTIN_PATHS`` and
        ``_BUILTIN_EXTRACTOR_PATHS``, keyed ``"<process_type>_<name>"``. A plugin publishes the groups of :doc:`plug-into-a-port` instead. The
-       adapter carries the twelve attributes of the port. The process type
+       adapter carries the thirteen attributes of the port. The process type
        becomes known to the planner as soon as one adapter is registered.
    * - ``config/solver_supports.py``
      - The refusals derived from what the process declares: every name in

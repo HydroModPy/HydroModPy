@@ -1,6 +1,6 @@
 """Lakes, a cutoff wall, a barrier, streams and wells, solved and written to the store.
 
-Three projects play the lake family of MODFLOW 6.
+Four projects play the lake family of MODFLOW 6.
 
 The first is the island of the lake, its cutoff wall and its barrier, stopped
 before the solve and played in the process of pytest. The inputs it hands to the
@@ -16,11 +16,16 @@ term follows the change of the lake volume with the sign the descriptor gives.
 The third is the valley of the Cheze, the lake ``res0`` that its stream network
 flows into, two wells, evapotranspiration and a barrier, solved for thirty days.
 Its stream series are registered, and its wells pump what the project wrote.
+
+The fourth is the solved island with its lake switched off. One project runs it,
+then runs it again with the lake on, and gets the mesh and the solution key of a
+single run with the lake on. A lab given the same change rebuilds its mesh.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import tomllib
 from dataclasses import replace
 from pathlib import Path
@@ -33,7 +38,7 @@ from hydromodpy.results.field_registry import FIELD_REGISTRY, TIME_SERIES_REGIST
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
 from hydromodpy.results.storage.udunits import udunits_spelling
 from tests.scenarios.factory import cheze_valley_files, lake_island_files, write_project
-from tests.scenarios.launcher import Scenario, play
+from tests.scenarios.launcher import Scenario, play, play_script
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CHEZE_DATA = REPO_ROOT / "tests" / "data" / "sfr_cheze"
@@ -308,3 +313,59 @@ def test_a_valley_river_feeds_its_lake(
     _assert_wells_pump_what_was_written(rows, played.root / "project.toml")
 
     assert sorted(path.name for path in CHEZE_DATA.iterdir()) == before
+
+
+LAKE_ON = "flow.sinks_sources.lakes.reservoir.enabled"
+
+TOGGLE_SCRIPT = f"""
+import json
+import hydromodpy as hmp
+
+on = {{"{LAKE_ON}": True}}
+project = hmp.Project("step/project.toml")
+dry = project.simulate(name="dry")
+wet = project.simulate(name="wet", set=on)
+project.close()
+one = hmp.run("file/project.toml", name="wet", set=on)
+with hmp.Lab("step/project.toml") as lab:
+    lab.advance("build_mesh")
+    stale = lab.set(on)
+    lab_cells = lab.advance("build_mesh").mesh.n_cells
+seen = {{"dry": dry.n_cells, "wet": wet.n_cells, "one": hmp.open(one.run_dir).n_cells,
+        "stale": list(stale), "lab": lab_cells}}
+open("seen.json", "w").write(json.dumps(seen))
+"""
+
+
+def test_a_lake_switched_on_between_two_runs_is_meshed(
+    tmp_path: Path, scenario_env: dict[str, str], scenario_cache: Path
+) -> None:
+    """A lake switched on by a change gives the mesh and the key of a run that has it."""
+    binaries = tmp_path / "binaries"
+    _write_binary_inputs(binaries)
+    files = lake_island_files(three_months=True, deep_abacus=True, binary_dir=str(binaries))
+    text = files.pop("project.toml").replace(
+        "bedleak = 1.0e-6", "enabled = false\nbedleak = 1.0e-6"
+    )
+    both = {f"{folder}/{path}": body for folder in ("step", "file") for path, body in files.items()}
+    both |= {"step/project.toml": text, "file/project.toml": text}
+
+    played = play_script(
+        "lake_toggle",
+        both,
+        TOGGLE_SCRIPT,
+        tmp_path / "play",
+        scenario_env,
+        scenario_cache,
+        needs=MF6_FILES,
+    )
+
+    assert played.returncode == 0, played.log.read_text(encoding="utf-8")[-3000:]
+    seen = json.loads((played.root / "seen.json").read_text(encoding="utf-8"))
+    assert seen["wet"] == seen["one"] == seen["lab"] > seen["dry"]
+    assert seen["stale"] == ["load_data", "build_mesh"]
+    keys = {
+        folder: json.loads((played.root / folder / "runs" / "wet" / "manifest.json").read_text())
+        for folder in ("step", "file")
+    }
+    assert keys["step"]["identity"]["solution_key"] == keys["file"]["identity"]["solution_key"]

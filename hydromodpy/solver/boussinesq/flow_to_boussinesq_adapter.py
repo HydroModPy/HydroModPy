@@ -95,9 +95,15 @@ def resolve_runtime_solver_mesh(model: Model) -> BoussinesqMesh | None:
         steady=["Sy" not in required_properties],
         profiles=profiles,
     )
+    column = model.geometry.column
+    if column is None:
+        raise MeshError(
+            "flow/boussinesq needs the top and the bottom of every cell "
+            "(Model.geometry.column), which the prepare_solver step builds."
+        )
     return BoussinesqMesh.from_cell_mesh(
         cell_mesh,
-        domain=domain,
+        column=column,
         hydraulic_conductivity_m_s=conductivity,
         storage_coefficient=storage,
     )

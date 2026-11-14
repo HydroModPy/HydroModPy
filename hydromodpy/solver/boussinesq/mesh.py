@@ -22,7 +22,7 @@ import numpy as np
 from hydromodpy.mesh.cells.boundary import SIDE_IDS, label_cells, side_cells
 from hydromodpy.mesh.cells.locate import locate_cells
 from hydromodpy.mesh.io.bundle import CatchmentMeshBundle, cell_mesh_from_bundle
-from hydromodpy.model.domain.domain import Domain
+from hydromodpy.model.domain.cell_column import CellColumn
 from hydromodpy.solver.boussinesq._mesh_builders import (
     assemble_mesh_arrays_from_bundle,
     family_edge_indices,
@@ -204,7 +204,7 @@ class BoussinesqMesh:
         cls,
         cell_mesh: PlanarCellMesh,
         *,
-        domain: Domain,
+        column: CellColumn,
         hydraulic_conductivity_m_s,
         storage_coefficient,
         source_path: Path | None = None,
@@ -214,12 +214,12 @@ class BoussinesqMesh:
         This path keeps the solver in the same architectural shape as the
         MODFLOW adapters: geometry comes from the runtime meshing workflow and
         hydraulic properties come from process-level parameter mapping rather
-        than pre-exported CSV tables. The river is the ``rivers`` face family of
-        the cell mesh.
+        than pre-exported CSV tables. The top and the bottom are ``column``. The
+        river is the ``rivers`` face family of the cell mesh.
         """
         arrays = mesh_arrays_from_cell_mesh(
             cell_mesh,
-            domain=domain,
+            column=column,
             hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
             storage_coefficient=storage_coefficient,
             source_path=source_path,

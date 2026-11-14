@@ -340,7 +340,7 @@ def test_run_view_indexes_then_reads(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     monkeypatch.setattr(
         runner,
         "run_view_of",
-        lambda run_dir, *, project_root, sim_id: order.append(("view", run_dir, sim_id)) or "V",
+        lambda run_dir: order.append(("view", run_dir)) or "V",
     )
     outcome = SimpleNamespace(
         project_root=tmp_path, run_dir=tmp_path / "runs" / "case", sim_id="sid"
@@ -349,7 +349,6 @@ def test_run_view_indexes_then_reads(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     assert order[0] == ("index", tmp_path)
     assert order[1][0] == "view"
     assert order[1][1].name == "case"
-    assert order[1][2] == "sid"
 
 
 def _phases_loader(monkeypatch: pytest.MonkeyPatch, names: list[str] | Exception) -> None:

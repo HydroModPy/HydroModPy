@@ -38,10 +38,10 @@ from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
-from hydromodpy.solver.modflow_grid.discretization_spatial import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from tests._helpers import ground_bench as bench
 from tests._helpers.cell_meshes import cell_mesh_of
+from tests._helpers.discretize import discretize
 from tests._helpers.geographic_cases import (
     BENCH_BLANK_COLS,
     BENCH_CLIP_ORIGIN,
@@ -465,7 +465,7 @@ def test_one_regularised_ground(tmp_path, monkeypatch) -> None:
         vertices=np.asarray(vertices, dtype=float),
         cell_blocks=(CellBlock(CellType.TRIANGLE, np.asarray(cells, dtype=int)),),
     )
-    grid = build_spatial_discretization(
+    grid = discretize(
         domain=domain,
         vertical_config=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
         sgrid_config=SolverSGridConfig(),

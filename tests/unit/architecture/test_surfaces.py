@@ -433,7 +433,7 @@ def test_a_path_finds_the_row_or_the_line_that_covers_it(path: str, row: bool, l
 
 
 # ---------------------------------------------------------------------------
-# The facade holds fifteen typed verbs and five objects
+# The facade holds fifteen typed verbs and six objects
 # ---------------------------------------------------------------------------
 
 
@@ -461,6 +461,7 @@ VERBS = (
 
 HOMES = {
     "Project": "hydromodpy.project.facade",
+    "Lab": "hydromodpy.project.lab",
     "Run": "hydromodpy.results.run.view",
     "RunSet": "hydromodpy.results.run.group",
     "Session": "hydromodpy.results.session.view",
@@ -468,7 +469,7 @@ HOMES = {
 }
 
 
-"""Where each of the five objects is defined."""
+"""Where each of the six objects is defined."""
 
 
 KEPT_READERS = ("read", "index", "Catalog")
@@ -567,6 +568,7 @@ def _conveniences() -> tuple[type, ...]:
         hmp.Session,
         hmp.RunSet,
         hmp.Project,
+        hmp.Lab,
         Environment,
         SpinupConfig,
     )

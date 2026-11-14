@@ -116,3 +116,24 @@ def test_unsealed_run_has_no_record(tmp_path) -> None:
     with pytest.raises(RunNotSealedError):
         run.label()
     assert run.metrics.empty
+
+
+@pytest.mark.parametrize("member", ["record", "checks", "inputs", "label"])
+def test_run_with_facts_opens_partial(tmp_path, member) -> None:
+    from hydromodpy.results.run.view import open_run_dir
+    from hydromodpy.results.storage.run_facts import write_facts
+    from tests._helpers.run_stores import claim_run, facts_of
+
+    claim = claim_run(tmp_path / "p", "essai")
+    write_facts(claim.run_dir, facts_of(claim, project="p"))
+
+    def fake_render(*_args, **_kwargs):
+        return "drawn"
+
+    run = open_run_dir(claim.run_dir, render=fake_render)
+
+    assert run.sim_id == claim.sim_id
+    assert run.metrics.empty
+    assert run.figure("any") == "drawn"
+    with pytest.raises(RunNotSealedError):
+        getattr(run, member)() if member == "label" else getattr(run, member)

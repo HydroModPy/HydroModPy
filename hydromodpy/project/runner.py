@@ -56,6 +56,7 @@ from hydromodpy.workflow.record.manifest import config_sections_moved_since
 from hydromodpy.workflow.record.resume import resolve_resume_step_index
 from hydromodpy.workflow.solution_key import request_id_of, solution_key_of
 from hydromodpy.workflow.state import PipelineState
+from hydromodpy.workflow.steps.dependencies import section_value
 from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
 from hydromodpy.workflow.steps.prepare_solver.freeze import write_claim_config
 from hydromodpy.workflow.steps.prepare_solver.restart import (
@@ -72,10 +73,45 @@ if TYPE_CHECKING:
     from hydromodpy.project.facade import Project
     from hydromodpy.project.launch.plan import PlanDraft
     from hydromodpy.results.run.view import Run
+    from hydromodpy.solver.base.runner import SimulationRunner
 
 logger = get_logger(__name__)
 
 DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"
+
+SETUP_BUILT_BY_STEP: dict[str, tuple[str, ...]] = {
+    "build_geographic": (
+        "geographic",
+        "geographic_features",
+        "domain_geographic",
+        "domain",
+        "dem_record",
+    ),
+    # A forgotten ``domain_config_source`` makes ``rebuild_domain_if_stale`` give
+    # back the domain without the geology zone the former load put on it.
+    "load_data": (
+        "flow",
+        "model",
+        "soil_forcings",
+        "soil_product_inputs",
+        "sfr_reach_traces",
+        "domain_config_source",
+    ),
+    "build_mesh": ("cell_mesh", "mesh_summary"),
+}
+"""What each step of the model phase builds on ``ctx.setup``, in the order of the steps.
+
+A run that moves a section one of these steps reads forgets what that step and the
+later ones built. ``load_data`` also starts ``ctx.loaded_data`` again, and each step
+forgets the stored products it cited.
+"""
+
+PHASE_BEFORE_STEP = {
+    "build_geographic": "uninitialized",
+    "load_data": "geographic",
+    "build_mesh": "data",
+}
+"""The phase a ``Project`` is in before each step of the model phase."""
 
 
 @contextmanager
@@ -96,25 +132,21 @@ def pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Iterat
         ctx.parent_sim_id = previous
 
 
-def run_view_of(run_dir: Path, *, project_root: Path, sim_id: str) -> Run | None:
-    """Return the view of a run directory: a sealed run through its seal, else its store.
+def run_view_of(run_dir: Path) -> Run | None:
+    """Return the view of a run directory, sealed or partial, that reads and draws.
 
-    The index lists sealed runs only, so a run that stopped before its seal is read
-    through its own store. A run that wrote no facts has nothing to read: ``None``.
+    A run that stopped before its seal is read through its facts. A run that wrote no
+    facts has nothing to read: ``None``.
     """
     from hydromodpy.project.facade import read_sealed_config
     from hydromodpy.project.show import render
-    from hydromodpy.results.record.manifest import is_sealed
-    from hydromodpy.results.run.view import Run, open_run_dir
-    from hydromodpy.results.storage.run_facts import read_facts
-    from hydromodpy.results.storage.run_store import RunStore
+    from hydromodpy.results.errors import RunNotSealedError
+    from hydromodpy.results.run.view import open_run_dir
 
-    if is_sealed(run_dir):
+    try:
         return open_run_dir(run_dir, read_config=read_sealed_config, render=render)
-    if read_facts(run_dir) is None:
+    except RunNotSealedError:
         return None
-    store = RunStore.open(run_dir, workspace=project_root)
-    return Run(sim_id, store)
 
 
 def _attempt_bracket(workspace_path: Path, name: str, cfg_run: Any, *, fresh: bool, force: bool):
@@ -184,6 +216,16 @@ def _refuse_resume_of_nothing(handle: AttemptHandle, resume: str, name: str) -> 
     )
 
 
+def refuse_a_draft(cfg: Any) -> None:
+    """Refuse a run from a configuration read as a draft in the lab."""
+    if cfg.read_as_draft:
+        raise ConfigError(
+            "This configuration is a draft, built section after section in the lab, and a run "
+            "needs it complete. Complete it with lab.set(), then call lab.run(), which lists "
+            "what is missing."
+        )
+
+
 class ProjectRunner:
     """Run-phase methods bound to a :class:`Project` instance.
 
@@ -224,6 +266,7 @@ class ProjectRunner:
         *,
         lineage: Any = None,
         calibrated_by: Any = None,
+        launcher: SimulationRunner | None = None,
         **options: Any,
     ) -> Run | None:
         """Run one attempt and return the :class:`Run` view of its directory.
@@ -236,7 +279,9 @@ class ProjectRunner:
         the run yet. A run that wrote no directory, or no facts to read, returns
         ``None``.
         """
-        sealed = self.execute(request, lineage=lineage, calibrated_by=calibrated_by, **options)
+        sealed = self.execute(
+            request, lineage=lineage, calibrated_by=calibrated_by, launcher=launcher, **options
+        )
         if sealed is None:
             return None
         from hydromodpy.project import phases as project_phases
@@ -252,9 +297,7 @@ class ProjectRunner:
                     "the run is read from its directory.",
                     str(exc).rstrip("."),
                 )
-        run_view = run_view_of(
-            sealed.run_dir, project_root=sealed.project_root, sim_id=str(sealed.sim_id)
-        )
+        run_view = run_view_of(sealed.run_dir)
         if run_view is not None:
             project._run_history.append(run_view)
         return run_view
@@ -297,11 +340,11 @@ class ProjectRunner:
         all_steps = standard_steps()
         from_idx, until_idx, head_only = step_window(all_steps, from_step, until_step, resume)
         first_model_step = model_phase_index(all_steps)
-        start = from_idx
-        if start is None and not head_only and self._is_model_phase_ready():
-            start = first_model_step
         changes = override_changes(project._cfg, set or {})
         cfg_run = project._cfg.with_changes(changes) if changes else project._cfg
+        start = from_idx
+        if start is None and not head_only and self._is_model_phase_ready(cfg_run):
+            start = first_model_step
         run_name = self._run_name(name, resume) or DEFAULT_RUN_NAME_TEMPLATE.format(counter=1)
         window = all_steps[start or 0 : None if until_idx is None else until_idx + 1]
         return single_case_draft(
@@ -326,6 +369,7 @@ class ProjectRunner:
         window_source: WindowSource | None = None,
         replay_of: Path | None = None,
         strict: bool = False,
+        launcher: SimulationRunner | None = None,
         **options: Any,
     ) -> RunOutcome | None:
         """Run one attempt of the case through the workflow Pipeline.
@@ -348,7 +392,8 @@ class ProjectRunner:
         digest enters the request id and the run takes it as the input ``initial_state``.
         ``replay_of`` is the run or published copy a replay plays again: its inputs are
         pinned from its ``inputs.json``, and ``strict`` refuses a value that did not
-        reproduce it, at the seal.
+        reproduce it, at the seal. ``launcher`` replaces the one of the run-solver step: the
+        lab hands its solve over this way, as a promotion hands the solve of its trial.
 
         A frozen request reads the lockfile once, before the claim, and the inputs it
         holds travel on the setup context to the data step: the run never changes a
@@ -358,6 +403,7 @@ class ProjectRunner:
         from hydromodpy.workflow.steps.sequence import standard_steps
 
         project = self._project
+        refuse_a_draft(project._cfg)
         request = request if request is not None else self.request_of(**options)
         frozen_inputs = request.frozen if frozen is None else frozen
 
@@ -379,6 +425,10 @@ class ProjectRunner:
         )
         if until_idx is not None:
             steps = tuple(all_steps[: until_idx + 1])
+        if launcher is not None:
+            from hydromodpy.workflow.steps.run_solver import RunSolverStep
+
+            steps = tuple(RunSolverStep(launcher) if s.name == "run_solver" else s for s in steps)
 
         # The Pipeline owns the model phase: it executes ``build_geographic``,
         # ``load_data`` and ``build_mesh`` itself, so each of them gets a
@@ -386,9 +436,9 @@ class ProjectRunner:
         workspace_path = self._resolve_workspace_path()
         persisted = bool(project._cfg.simulation.results.persistence.save_catalog)
         claims = not head_only and persisted
-        model_phase_ready = not head_only and self._is_model_phase_ready()
 
         cfg_run = self._load_run_context(name, changes)
+        model_phase_ready = not head_only and self._is_model_phase_ready(cfg_run)
         # The lineage belongs to one run: a later point of a sweep starts without it.
         project._ctx.lineage = None
         overrides = request.overrides(changes)
@@ -575,13 +625,24 @@ class ProjectRunner:
         what the plan reads, what the Pipeline signs, what the run seals, and
         what every builder reads. ``project._cfg`` stays the configuration the
         project declares; the context carries the one of the run in flight.
+
+        The model phase on the context was built from a configuration that reads
+        like the one on the context, before ``setup_process``. When the run reads
+        otherwise, what the first step that reads a moved section built is dropped,
+        with what the later steps of the phase built, and the run builds it again.
         """
+        from hydromodpy.project.phases import put_time_grids
         from hydromodpy.workflow.steps.data import rebind_flow_if_stale
         from hydromodpy.workflow.steps.planning import step_build_plan
         from hydromodpy.workflow.steps.setup import rebuild_domain_if_stale
 
         project = self._project
         cfg_run = project._cfg.with_changes(changes) if changes else project._cfg
+        moved = self._first_step_reading_a_moved_section(cfg_run)
+        if moved is not None:
+            self._drop_model_phase_from(moved)
+        if cfg_run.simulation.time != project._ctx.cfg.simulation.time:
+            put_time_grids(project._ctx.setup, cfg_run)
         project._ctx.cfg = cfg_run
         # Here and not in the validate step: the prefix of a calibration and its
         # trials run that step too, and a session says it once, at its preflight.
@@ -672,16 +733,15 @@ class ProjectRunner:
             heartbeat=None if handle is None else handle.heartbeat,
         )
 
-        if not in_process_skip:
-            # The Pipeline built the model phase on the Project's own ctx - a
-            # head-only window, a fresh run, or a resume that reconstructed its
-            # prefix. The phase marker has to say so or the next call rebuilds
-            # what is already there.
-            from hydromodpy.project import phases as adopt_phases
+        # The Pipeline built the model phase on the Project's own ctx - a
+        # head-only window, a fresh run, a resume that reconstructed its prefix,
+        # or a run that built again the steps a moved section made stale. The
+        # phase marker has to say so or the next call rebuilds what is there.
+        from hydromodpy.project import phases as adopt_phases
 
-            adopt_phases.adopt_pipeline_phase(
-                project, tuple(getattr(step, "name", "") for step in steps)
-            )
+        adopt_phases.adopt_pipeline_phase(
+            project, tuple(getattr(step, "name", "") for step in steps)
+        )
 
         final_ctx = final.get("ctx") if final is not None else None
         sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
@@ -756,14 +816,64 @@ class ProjectRunner:
 
     # -- Helpers ----------------------------------------------------------
 
-    def _is_model_phase_ready(self) -> bool:
-        """Return True when Project's eager init has produced the runtime objects."""
+    def _is_model_phase_ready(self, cfg_run: Any) -> bool:
+        """Return True when the context holds a model phase that ``cfg_run`` can reuse."""
         setup = self._project._ctx.setup
         return (
             setup.workspace is not None
             and setup.geographic is not None
             and setup.domain is not None
+            and self._first_step_reading_a_moved_section(cfg_run) is None
         )
+
+    def _first_step_reading_a_moved_section(self, cfg_run: Any) -> str | None:
+        """Return the first step of the model phase that reads a section ``cfg_run`` moves.
+
+        The sections are compared with the configuration on the context, which built
+        the model phase the context holds. ``None`` when nothing those steps read
+        moved: a section that no step of the phase reads never makes it stale.
+        """
+        from hydromodpy.workflow.steps.sequence import standard_steps
+
+        built_from = self._project._ctx.cfg
+        if built_from is cfg_run:
+            return None
+        before = built_from.model_dump(mode="json")
+        after = cfg_run.model_dump(mode="json")
+        for step in standard_steps():
+            if step.name not in SETUP_BUILT_BY_STEP:
+                continue
+            for section in step.config_sections:
+                if section_value(before, section) != section_value(after, section):
+                    return step.name
+        return None
+
+    def _drop_model_phase_from(self, step: str) -> None:
+        """Forget what ``step`` and the later steps of the model phase built on the context.
+
+        The context is then what a new ``Project`` holds before ``step``, and the
+        Pipeline builds the rest again: a step whose objects are missing is never
+        taken as built.
+        """
+        from hydromodpy.core.state.run_state import LoadedDataContext
+        from hydromodpy.workflow.products import PRODUCT_KINDS
+
+        project = self._project
+        setup = project._ctx.setup
+        names = list(SETUP_BUILT_BY_STEP)
+        dropped = names[names.index(step) :]
+        for name in dropped:
+            for attribute in SETUP_BUILT_BY_STEP[name]:
+                setattr(setup, attribute, None)
+        setup.products = {
+            kind: key
+            for kind, key in setup.products.items()
+            if PRODUCT_KINDS[kind].step not in dropped
+        }
+        if "load_data" in dropped:
+            project._ctx.loaded_data = LoadedDataContext()
+            project._data_loaded = set()
+        project._phase = PHASE_BEFORE_STEP[step]
 
     def _resolve_workspace_path(self) -> Path:
         """Return the project root used for the run directories and checkpoints.

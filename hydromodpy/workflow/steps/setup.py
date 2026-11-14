@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.catchment.algorithms.derived_features import coerce_geographic_derived_features
 from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
-from hydromodpy.catchment.preprocess.geographic_tree import geographic_artifact_paths
 from hydromodpy.catchment.synthetic.catchment import build_synthetic_geographic
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
@@ -28,6 +27,7 @@ from hydromodpy.model.domain.spatial_support import (
     validate_domain_support_contract,
 )
 from hydromodpy.model.domain.structure_binders import apply_catchment_zones_to_domain
+from hydromodpy.results.products.store import ProductStore, products_root
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 from hydromodpy.workflow.products import terrain_supply
 from hydromodpy.workflow.state import PipelineState
@@ -358,7 +358,16 @@ class BuildGeographicStep:
         "spatial_support_registry",
     )
     writes: ClassVar[tuple[str, ...]] = ("ctx",)
-    config_sections: ClassVar[tuple[str, ...]] = ("geographic", "data.dem")
+    # The terrain and its network, then the base surfaces of the domain. The
+    # domain section itself is rebuilt by ``rebuild_domain_if_stale``.
+    config_sections: ClassVar[tuple[str, ...]] = (
+        "geographic",
+        "data.dem",
+        "data.crossings",
+        "data.hydrography",
+        "data.substratum",
+        "data.layer_base",
+    )
 
     def depends_on(self) -> tuple[str, ...]:
         return ("resolve",)
@@ -367,13 +376,20 @@ class BuildGeographicStep:
         return self._build(state)
 
     def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
-        """Return the geographic tree this step wrote, as the runtime names it."""
+        """Return the stored terrain this step cited, for the step journal.
+
+        The product store keeps the terrain across processes. The scratch tree
+        goes with the project, so a resume must not need it.
+        """
         ctx = state_out.get("ctx")
         if ctx is None:
             return ()
-        return tuple(
-            str(path) for path in geographic_artifact_paths(getattr(ctx.setup, "geographic", None))
-        )
+        products = ctx.setup.products
+        key = products.get("terrain_notched") or products.get("terrain")
+        if key is None:
+            return ()
+        directory = ProductStore(products_root(ctx.cfg.workspace.project_root)).get(key)
+        return () if directory is None else tuple(str(p) for p in sorted(directory.iterdir()))
 
     def rebuild_state(
         self,

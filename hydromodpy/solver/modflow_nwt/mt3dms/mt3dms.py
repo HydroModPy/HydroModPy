@@ -20,7 +20,7 @@ Created on Thu Apr  3 13:06:53 2025 by rabherve.
 # Python
 import os
 import shutil
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, ClassVar
@@ -37,6 +37,7 @@ from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.domain.cell_column import CellColumn
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.transport.transport_config import ConcentrationTransportParametersConfig
 from hydromodpy.results.field_registry import FACE_FLOW
@@ -566,6 +567,7 @@ class Mt3dmsTransportAdapter:
     options: ClassVar[type[BaseModel] | None] = ConcentrationTransportParametersConfig
     category: ClassVar[str] = "distributed"
     native_step: ClassVar[str | None] = None
+    cell_column: ClassVar[Callable[..., CellColumn] | None] = None
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow_nwt"),)
     SUFFIX: ClassVar[str] = "_mt_s1"

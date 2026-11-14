@@ -115,7 +115,7 @@ from hydromodpy.solver.modflow_common.flow_directions import (
     channel_exits_for_build,
     resolve_dam_foot_cells,
 )
-from hydromodpy.solver.modflow_common.flow_run import require_cell_mesh
+from hydromodpy.solver.modflow_common.flow_run import require_cell_column, require_cell_mesh
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 from hydromodpy.solver.modflow_common.property_mapping import resolve_flow_property_arrays
 from hydromodpy.solver.modflow_common.raster_export import write_grid_array_to_raster
@@ -285,119 +285,6 @@ def _constant_head_cells(
         for row in rows:
             cells[int(row[1])] = True
     return cells
-
-
-def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
-    """Boolean channel-pixel mask aligned to ``surface_topo`` for zonal top sampling.
-
-    Only produced when ``sgrid.top_sampling.mode == 'zonal'`` and its
-    ``channel_source`` requests one. Reads the channel tree A over the whole model
-    domain, the full-extent raster the model carries in
-    ``geometry.raster.channel.link``, and reprojects it (nearest) onto the model-top
-    DEM grid. The rasters clipped to the watershed miss the buffer the grid keeps
-    active, so they are the fallback only. Returns ``None`` (channel class disabled, every
-    pixel treated as hillslope) when zonal is off, the source is 'none', or no
-    stream raster / georeferenced surface is available.
-    """
-    sgrid_cfg = getattr(model.modflow_config, "sgrid", None)
-    top_sampling = getattr(sgrid_cfg, "top_sampling", None)
-    if top_sampling is None or top_sampling.mode != "zonal":
-        return None
-    if top_sampling.channel_source == "none":
-        return None
-
-    raster = model.inputs.geometry.raster
-    channel = None if raster is None else raster.channel
-    path = None
-    if channel is not None and channel.link is not None and os.path.exists(channel.link):
-        path = channel.link
-        logger.info("Zonal channel mask reads the full-extent channel tree: %s.", path)
-    if path is None and channel is not None:
-        for candidate in channel.clipped:
-            if os.path.exists(candidate):
-                path = candidate
-                logger.info(
-                    "Zonal channel mask reads the stream raster clipped to the watershed "
-                    "(no full-extent raster in the corrected-flow folder): %s.",
-                    path,
-                )
-                break
-    if path is None:
-        logger.warning(
-            "Zonal channel_source=%s but no stream raster found; the channel class "
-            "is disabled (every DEM pixel treated as hillslope).",
-            top_sampling.channel_source,
-        )
-        return None
-
-    surface = getattr(model.inputs.geometry.domain, "surface_topo", None)
-    support = getattr(surface, "support", None)
-    fields = ("xmin", "xmax", "ymin", "ymax", "nrows", "ncols")
-    if support is None or any(getattr(support, name, None) is None for name in fields):
-        logger.warning("Zonal channel mask needs a georeferenced surface; channel class disabled.")
-        return None
-
-    import rasterio
-    from rasterio.transform import from_bounds
-    from rasterio.warp import Resampling, reproject
-
-    out_shape = (int(support.nrows), int(support.ncols))
-    dst_transform = from_bounds(
-        float(support.xmin),
-        float(support.ymin),
-        float(support.xmax),
-        float(support.ymax),
-        int(support.ncols),
-        int(support.nrows),
-    )
-    # The fill value must not be 0: GDAL moves a valid source pixel equal to the
-    # destination nodata to the next float (5e-324), so with 0 every background
-    # pixel of the stream raster turned "positive" and the channel class covered
-    # the whole catchment (measured on the Flume: 146 384 pixels for 4 197).
-    dst = np.full(out_shape, -1.0, dtype=np.float64)
-    with rasterio.open(path) as src:
-        src_nodata = src.nodata
-        src_crs = src.crs
-        dst_crs = support.crs if support.crs is not None else src_crs
-        # WhiteboxTools strips the delineated stream raster CRS to an engineering
-        # LOCAL_CS tag, but it is delineated from the same projected DEM domain, so
-        # it is already co-registered with the model top. Asking PROJ to transform
-        # an engineering CRS to the projected DEM CRS raises, so treat a missing or
-        # non-standard tag as the model coordinate space (a pure nearest resample).
-        if src_crs is None or not (src_crs.is_projected or src_crs.is_geographic):
-            src_crs = dst_crs
-        try:
-            reproject(
-                source=src.read(1).astype(np.float64),
-                destination=dst,
-                src_transform=src.transform,
-                src_crs=src_crs,
-                dst_transform=dst_transform,
-                dst_crs=dst_crs,
-                resampling=Resampling.nearest,
-                src_nodata=src_nodata,
-                dst_nodata=-1.0,
-            )
-        except Exception as exc:  # noqa: BLE001 - degrade, never abort the build
-            logger.warning(
-                "Zonal channel mask reprojection failed (%s); channel class disabled.", exc
-            )
-            return None
-    # Channel pixels carry a positive link id / stream flag; 0 is background. A
-    # nearest reproject can still copy the source nodata value into the target
-    # (it is not always filled with dst_nodata), so require a strictly positive
-    # value and drop a positive nodata sentinel explicitly.
-    mask = np.isfinite(dst) & (dst > 0.0)
-    if src_nodata is not None and float(src_nodata) > 0.0:
-        mask &= dst != float(src_nodata)
-    if top_sampling.channel_buffer_px > 0:
-        from scipy import ndimage
-
-        mask = ndimage.binary_dilation(mask, iterations=int(top_sampling.channel_buffer_px))
-    logger.info(
-        "Zonal channel mask: %d/%d channel pixels from %s.", int(mask.sum()), mask.size, path
-    )
-    return mask
 
 
 def xt3d_mode(model, solver_mesh=None) -> str:
@@ -580,9 +467,8 @@ def _discretize_space(model):
     model.grid_ctx = build_spatial_discretization(
         domain=geometry.domain,
         vertical_config=geometry.domain.config.layers,
-        sgrid_config=getattr(model.modflow_config, "sgrid", None),
         cell_mesh=cell_mesh,
-        channel_mask=_resolve_channel_mask_for_zonal(model),
+        column=require_cell_column(model.inputs),
     )
     solver_mesh = model.grid_ctx.solver_mesh
     model.solver_mesh = solver_mesh

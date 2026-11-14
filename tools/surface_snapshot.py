@@ -62,6 +62,7 @@ REGENERATE = "python -m tools.surface_snapshot"
 
 OBJECTS: tuple[tuple[str, str], ...] = (
     ("Project", "hydromodpy.project.facade:Project"),
+    ("Lab", "hydromodpy.project.lab:Lab"),
     ("Run", "hydromodpy.results.run.view:Run"),
     ("RunSet", "hydromodpy.results.run.group:RunSet"),
     ("Catalog", "hydromodpy.results.catalog.facade:Catalog"),

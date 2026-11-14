@@ -23,6 +23,7 @@ from hydromodpy.catchment.preprocess.capped_breach_config import capped_breach_o
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.domain.cell_column import resolve_domain_surfaces
 from hydromodpy.model.initial.state import SteadyStart
 from hydromodpy.model.model import Model
 from hydromodpy.solver.base.plan import RunSlot
@@ -33,7 +34,7 @@ from hydromodpy.solver.modflow_common.flow_directions import (
     build_solver_mesh_descent,
     channel_exits_for_build,
 )
-from hydromodpy.solver.modflow_common.flow_run import require_cell_mesh
+from hydromodpy.solver.modflow_common.flow_run import require_cell_column, require_cell_mesh
 from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
@@ -49,13 +50,11 @@ from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnec
 from hydromodpy.solver.modflow_grid.discretization_spatial import (
     SolverGridContext,
     build_spatial_discretization,
-    resolve_domain_surfaces,
 )
 from hydromodpy.solver.modflow_grid.discretization_temporal import (
     build_temporal_discretization_from_time_grid,
     resolve_first_period_steady,
 )
-from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 
 from ._pre_processing import assemble_flopy_packages
 from .flow_to_modflow_adapter import FlowModflowInputs, FlowToModflowAdapter
@@ -152,7 +151,6 @@ class ModflowNwt:
             self.modflow_config = ModflowConfig.model_validate(dict(modflow_config))
 
         self._params: ModflowSpecifParams = specif_params
-        self.sgrid_config: SolverSGridConfig | None = specif_params.sgrid
         self.grid_ctx: SolverGridContext | None = None
         self.routing_ctx: SolverRoutingContext | None = None
         self.descent: Descent | None = None
@@ -289,8 +287,8 @@ class ModflowNwt:
         self.grid_ctx = build_spatial_discretization(
             domain=geometry.domain,
             vertical_config=geometry.domain.config.layers,
-            sgrid_config=self.sgrid_config,
             cell_mesh=geometry.cells,
+            column=require_cell_column(self.inputs),
         )
         self.solver_mesh = self.grid_ctx.solver_mesh
         if (self.solver_mesh.idomain < 0).any():

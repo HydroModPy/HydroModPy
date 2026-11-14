@@ -132,12 +132,10 @@ def run_setup_process(trial) -> None:
 
 def column_depth(domain, *, cell_mesh) -> np.ndarray:
     # Top minus botm of the solver grid the MODFLOW 6 build derives from the domain.
-    from hydromodpy.solver.modflow_grid.discretization_spatial import (
-        build_spatial_discretization,
-    )
+    from tests._helpers.discretize import discretize
 
-    mesh = build_spatial_discretization(
-        domain=domain, vertical_config=domain.config.layers, sgrid_config=None, cell_mesh=cell_mesh
+    mesh = discretize(
+        domain=domain, vertical_config=domain.config.layers, cell_mesh=cell_mesh
     ).solver_mesh
     active = ~mesh.inactive_mask[0]
     return (mesh.top - mesh.botm[-1])[active]

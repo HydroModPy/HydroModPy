@@ -50,6 +50,19 @@ Catalog.tables_dir_for	method	(self, sim_id: str | UUID) -> Path
 Catalog.variables	method	(self) -> list[str]
 Catalog.workspace_path	property	Path
 Catalog.worst	method	(self, project: str, metric: str = 'nse', *, site: str | None = None, mixed_windows: bool = False) -> Run
+Lab.advance	method	(self, to: str | None = None) -> LabState
+Lab.capture	method	(self, *targets: str) -> Iterator[dict[str, list[dict[str, Any]]]]
+Lab.close	method	(self) -> None
+Lab.config	property	HydroModPyConfig
+Lab.force	method	(self, name: str, value: object) -> None
+Lab.project	property	Project
+Lab.release	method	(self, name: str) -> None
+Lab.run	method	(self, name: str | None = None, *, until_step: str | None = None) -> Run | None
+Lab.set	method	(self, changes: Mapping[str, Any] | None = None, /, **named: Any) -> tuple[str, ...]
+Lab.solve	method	(self, built: Mapping[str, SolverRun] | None = None, *, build_only: bool = False) -> dict[str, SolverRun]
+Lab.state	property	LabState
+Lab.steps	property	pd.DataFrame
+Lab.write_config	method	(self, path: str | Path) -> Path
 Project.best_runs	method	(self, metric: str = 'nse', *, by: Literal['site', 'recipe'] | None = 'site', label: str | Sequence[str] | None = ('calibrated', 'evaluated'), mixed_windows: bool = False) -> pd.DataFrame
 Project.build_geographic	method	(self, *, reuse_dem: bool = False) -> None
 Project.build_mesh	method	(self, **overrides) -> None

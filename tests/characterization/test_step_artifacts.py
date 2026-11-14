@@ -6,11 +6,14 @@ no durable artifact, while four later steps do, so the contract existed and was
 simply not honored by the head of the pipeline. After a real run the journal
 held no row at all for those six, and a resume had nothing to rebuild from.
 
-Phase F7 closed that, and measuring it changed the claim. Four of the six have
-a durable product and now name it: the resolved configuration for ``validate``,
-the delineated tree for ``build_geographic``, the description of what was bound
-for ``load_data``, the stored mesh for ``build_mesh``. The other two leave
-nothing, and that is the honest answer rather than a gap - see D172.
+Phase F7 closed that, and measuring it changed the claim. Three of the six have
+a durable product on this project and name it: the resolved configuration for
+``validate``, the description of what was bound for ``load_data``, the stored
+mesh for ``build_mesh``. The other three leave nothing, and that is the honest
+answer rather than a gap - see D172. ``build_geographic`` names the terrain it
+stored in the product cache, and the synthetic terrain of this project is built
+in memory and stores none. The scratch tree it once named went away with the
+project, so a resume could not read it anyway.
 ``resolve`` builds a data plan in memory whose result is already on disk
 inside the document ``load_data`` writes, and ``setup_process`` instantiates
 the flow and transport objects from a domain that is already described.
@@ -18,7 +21,7 @@ the flow and transport objects from a domain that is already described.
 product store, so it names the mesh product it stored.
 
 So the assertion is no longer "all six declare". It is: every step of a run has
-a row, every step with a durable product declares it, and the two that leave
+a row, every step with a durable product declares it, and the three that leave
 nothing are named here. A step that starts or stops declaring turns this red,
 which is the point - the list is a measurement, not a tolerance.
 
@@ -43,11 +46,12 @@ MODEL_BUILD_STEPS = (
 )
 
 # The head steps that leave a durable product of their own.
-DECLARING_HEAD_STEPS = ("validate", "build_geographic", "load_data", "build_mesh")
+DECLARING_HEAD_STEPS = ("validate", "load_data", "build_mesh")
 
 # The head steps that leave nothing on this project, and why. D172.
 SILENT_HEAD_STEPS = {
     "resolve": "builds a data plan in memory; load_data's document carries its result",
+    "build_geographic": "a synthetic terrain is built in memory and stores no product",
     "setup_process": "instantiates flow and transport from a domain already described",
 }
 
@@ -95,7 +99,7 @@ def test_every_step_of_a_run_declares_what_it_left_on_disk(
     assert not without_artifacts, f"steps that rebuild from nothing: {without_artifacts}"
 
 
-def test_the_two_head_steps_that_leave_nothing_are_the_measured_two(
+def test_the_three_head_steps_that_leave_nothing_are_the_measured_three(
     run_before_its_seal: ProducedRun,
 ) -> None:
     """The list of steps with no durable product is a measurement, not a tolerance."""

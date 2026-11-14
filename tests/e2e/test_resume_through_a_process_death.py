@@ -168,7 +168,19 @@ elif kill_at == "setup_process":
 import numpy as np
 
 from hydromodpy.project.facade import Project
-from hydromodpy.catchment.preprocess.geographic_tree import geographic_artifact_paths
+from hydromodpy.results.products.store import ProductStore, products_root
+
+
+def _terrain_files(setup, project_root):
+    key = setup.products.get("terrain_notched") or setup.products.get("terrain")
+    directory = ProductStore(products_root(project_root)).get(key) if key else None
+    if directory is None:
+        return []
+    return sorted(
+        (path.name, hashlib.sha256(path.read_bytes()).hexdigest())
+        for path in directory.iterdir()
+        if path.is_file()
+    )
 
 
 def _array_digest(values):
@@ -218,9 +230,7 @@ try:
             "z_interfaces": [float(value) for value in domain.z_interfaces],
             "zones": {key: _zone_digest(value) for key, value in sorted(domain.zones.items())},
         },
-        "declared_geographic_files": sorted(
-            str(path) for path in geographic_artifact_paths(setup.geographic)
-        ),
+        "terrain_product_files": _terrain_files(setup, project._cfg.workspace.project_root),
         "mesh_loaded": setup.cell_mesh is not None,
     }
     Path(digest_path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")

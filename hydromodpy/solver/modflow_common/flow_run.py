@@ -37,6 +37,7 @@ from hydromodpy.solver.modflow_common.options import (
 
 if TYPE_CHECKING:
     from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+    from hydromodpy.model.domain.cell_column import CellColumn
     from hydromodpy.model.model import Model
 
 
@@ -99,6 +100,17 @@ def require_cell_mesh(model: Model) -> PlanarCellMesh:
             "mesh step has not built one."
         )
     return cell_mesh
+
+
+def require_cell_column(model: Model) -> CellColumn:
+    """Return the top and bottom of every cell, or say that ``prepare_solver`` built none."""
+    column = model.geometry.column
+    if column is None:
+        raise MeshError(
+            "The solver needs the top and the bottom of every cell (Model.geometry.column), "
+            "which the prepare_solver step builds from the mesh and the domain."
+        )
+    return column
 
 
 def build_flow_model(

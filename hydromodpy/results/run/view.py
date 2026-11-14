@@ -107,6 +107,7 @@ from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     RUN_OUTCOME_FILENAME,
 )
+from hydromodpy.results.storage.run_facts import read_facts
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.validity_rules import LabelResult
 
@@ -338,25 +339,27 @@ def open_run_dir(
     read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None,
     render: Renderer | None = None,
 ) -> Run:
-    """Open the sealed run in *run_dir* from its own files, without the index.
+    """Open the run in *run_dir* from its own files, without the index.
 
-    The run reads its row from its seal, its tables and fields from its
+    A run that wrote its facts but is not sealed yet opens as a partial run: it reads
+    and draws what its store holds, and :attr:`Run.record`, :attr:`Run.checks`,
+    :attr:`Run.inputs` and :meth:`Run.label` refuse until the seal. A sealed run
+    reads its row from its seal, its tables and fields from its
     directory, so a run copied out of its project or a project never indexed
     reads the same. *read_config* is the function that validates a sealed
     configuration snapshot; without one, :attr:`Run.hydromodpy_config` is
     refused and the raw mapping stays on :attr:`Run.config_snapshot`. *render* is
     the function that draws a figure; without one, :meth:`Run.figure` is refused. Raises
-    :class:`~hydromodpy.results.errors.RunNotSealedError` for a directory
-    without ``manifest.json``: a run that never completed is read through the
-    index of its project, or from its ``outcome.json``.
+    :class:`~hydromodpy.results.errors.RunNotSealedError` for a directory with
+    neither ``manifest.json`` nor facts: such a run is read from its ``outcome.json``.
     """
     directory = Path(run_dir).expanduser().resolve()
     if not directory.is_dir():
         raise FileNotFoundError(f"{directory} is not a run directory")
-    if not is_sealed(directory):
+    if not is_sealed(directory) and read_facts(directory) is None:
         raise RunNotSealedError(
-            f"{directory} has no {RUN_MANIFEST_FILENAME}: the run never completed and has no "
-            f"seal to read alone. Read its {RUN_OUTCOME_FILENAME}, or open its project."
+            f"{directory} has no {RUN_MANIFEST_FILENAME} and wrote no facts: the run never "
+            f"completed and has nothing to read alone. Read its {RUN_OUTCOME_FILENAME}, or open its project."
         )
     located = project_root_of(directory)
     store = RunStore.open(directory, workspace=None if located is None else located[0])

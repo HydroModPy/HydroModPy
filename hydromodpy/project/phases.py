@@ -24,6 +24,7 @@ from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
 if TYPE_CHECKING:
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.core.state.run_state import SetupContext
     from hydromodpy.project.environment import Environment
     from hydromodpy.project.facade import Project
 
@@ -84,7 +85,6 @@ def configure(
     from hydromodpy.catchment.algorithms.river_network_config import river_network_for_the_mesh
     from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.core.time.window import require_flow_simulation_time_grid
     from hydromodpy.data.loading.planner import DataPlanner
     from hydromodpy.model.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
@@ -93,7 +93,6 @@ def configure(
         support_provider_names,
     )
     from hydromodpy.model.forcing.soil_config import soil_reservoir_of
-    from hydromodpy.project.windows import cut_grid
     from hydromodpy.workflow.steps.data import log_data_plan
 
     raw_toml = _read_config(project, config, base=base, document=document, source=source)
@@ -101,11 +100,6 @@ def configure(
     _refuse_another_solver(project._cfg, solver)
     project._solver = solver or detect_solver(project)
     _ensure_simulation_block(project)
-
-    whole_time_grid = require_flow_simulation_time_grid(project._cfg)
-    project._time_grid, chain_window = cut_grid(
-        whole_time_grid, getattr(project._cfg.simulation, "time", None)
-    )
 
     project._cfg.geographic = river_network_for_the_mesh(project._cfg)
 
@@ -138,9 +132,8 @@ def configure(
         bounds=environment.bounds if environment is not None else None,
     )
     project._ctx.data_plan = data_plan
-    project._ctx.setup.time_grid = project._time_grid
-    project._ctx.setup.whole_time_grid = whole_time_grid
-    project._ctx.setup.chain_window = chain_window
+    put_time_grids(project._ctx.setup, project._cfg)
+    project._time_grid = project._ctx.setup.time_grid
 
     project._environment = environment
     project._headless = headless
@@ -155,6 +148,17 @@ def configure(
     project._run_history = []
     source = project._config_path.name if project._config_path else "<in-memory config>"
     logger.info("Project configured: %s", source)
+
+
+def put_time_grids(setup: SetupContext, cfg: HydroModPyConfig) -> None:
+    """Put the whole time grid of ``cfg``, the grid its run solves and its chain window on ``setup``."""
+    from hydromodpy.core.time.window import require_flow_simulation_time_grid
+    from hydromodpy.project.windows import cut_grid
+
+    setup.whole_time_grid = require_flow_simulation_time_grid(cfg)
+    setup.time_grid, setup.chain_window = cut_grid(
+        setup.whole_time_grid, getattr(cfg.simulation, "time", None)
+    )
 
 
 def setup_workspace(project: Project) -> None:
@@ -355,7 +359,10 @@ def detect_solver(project: Project) -> str:
 
 
 def _ensure_simulation_block(project: Project) -> None:
-    """Synthesize [simulation] from [data.recharge] when it is absent."""
+    """Synthesize [simulation] from [data.recharge] when it is absent.
+
+    A draft may lack both, since the lab asks for [simulation] before the step that reads it.
+    """
     if project._cfg.simulation.has_processes():
         return
 
@@ -370,6 +377,8 @@ def _ensure_simulation_block(project: Project) -> None:
     start = getattr(recharge_cfg, "date_start", None) if recharge_cfg else None
     end = getattr(recharge_cfg, "date_end", None) if recharge_cfg else None
     if start is None or end is None:
+        if project._cfg.read_as_draft:
+            return
         raise ConfigMissingError(
             "Simulation requires [simulation.time] or [data.recharge] with "
             "date_start/date_end to define the simulation window."

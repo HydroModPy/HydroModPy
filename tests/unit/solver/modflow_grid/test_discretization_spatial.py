@@ -27,19 +27,18 @@ from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, MeshIdentity, build_planar_cell_mesh
 from hydromodpy.mesh.request import RasterGridSpec
+from hydromodpy.model.domain.cell_column import modflow_column
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
+from hydromodpy.model.domain.top_sampling_config import TopSamplingConfig
 from hydromodpy.model.model import Geometry
-from hydromodpy.solver.modflow_grid.discretization_spatial import (
-    StructuredGridBuilder,
-    _build_extruded_solver_mesh_from_runtime_planar,
-    build_spatial_discretization,
-)
-from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig, TopSamplingConfig
+from hydromodpy.solver.modflow_grid.discretization_spatial import StructuredGridBuilder
+from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from tests._helpers.cell_meshes import TEST_CRS_WKT, cell_mesh_of
+from tests._helpers.discretize import discretize
 from tests._helpers.mesh_cases import mesh_request
 from tests._helpers.model_factory import make_model
 from tests._helpers.regular_cell_meshes import regular_cell_mesh, regular_cell_mesh_of_surface
@@ -250,7 +249,7 @@ def test_grid_refusals(top, bottom, kwargs, match):
 def test_resamples_to_the_mesh_shape():
     domain = domain_of(raster([[20.0, 22.0], [24.0, 26.0]], name="surface_topo"))
 
-    ctx = build_spatial_discretization(
+    ctx = discretize(
         domain=domain,
         vertical_config=VerticalGridConfig(genmtd_lay="constant", nlay=2, nodata=NODATA),
         sgrid_config=SolverSGridConfig(),
@@ -276,7 +275,7 @@ def test_planar_mesh_cell_centres():
         cell_blocks=(CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2], [0, 2, 3]])),),
     )
 
-    ctx = build_spatial_discretization(
+    ctx = discretize(
         domain=domain,
         vertical_config=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=NODATA),
         sgrid_config=SolverSGridConfig(),
@@ -308,7 +307,7 @@ def extrude(cell_mesh):
             name=name,
         )
 
-    return build_spatial_discretization(
+    return discretize(
         domain=domain_of(flat("surface_topo", 20.0), flat("substratum", 0.0)),
         vertical_config=VerticalGridConfig(nlay=1, nodata=NODATA),
         sgrid_config=SolverSGridConfig(),
@@ -479,7 +478,7 @@ def test_dis_and_disv_unchanged(grid: RegularGrid, tmp_path: Path):
     vertical = VerticalGridConfig(genmtd_lay="constant", nlay=2, nodata=NODATA)
     before = flopy_round_trip_mesh(grid, domain, vertical)
 
-    now = build_spatial_discretization(
+    now = discretize(
         domain=domain,
         vertical_config=vertical,
         sgrid_config=SolverSGridConfig(),
@@ -561,7 +560,7 @@ def triangle_layered_cells():
 
 
 def layered_solver_mesh(domain: Domain, cell_mesh) -> SolverMesh:
-    return build_spatial_discretization(
+    return discretize(
         domain=domain,
         vertical_config=domain.config.layers,
         sgrid_config=None,
@@ -624,7 +623,9 @@ def test_triangle_mesh_samples_base():
 
 def test_nwt_refuses_pass_through_cells():
     domain = layered_domain()
-    geometry = Geometry(cells=regular_layered_cells(domain), domain=domain)
+    cells = regular_layered_cells(domain)
+    column = modflow_column(cell_mesh=cells, domain=domain, top_sampling=None, channel_mask=None)
+    geometry = Geometry(cells=cells, domain=domain, column=column)
     solver = SimpleNamespace(inputs=make_model(geometry=geometry), sgrid_config=None)
 
     with pytest.raises(ConfigError, match="MODFLOW-NWT does not have"):
@@ -687,17 +688,18 @@ def extrude_quads(*, chains=(), dem=None, bottom=-10.0, top_sampling=None, chann
     )
 
     def dem_surface(values, name):
-        return raster(values, dx=DEM_PIXEL_M, dy=DEM_PIXEL_M, crs=None, name=name)
+        return raster(values, dx=DEM_PIXEL_M, dy=DEM_PIXEL_M, name=name)
 
-    return _build_extruded_solver_mesh_from_runtime_planar(
-        cell_mesh=cell_mesh,
-        top_surface=dem_surface(ramp_dem(THALWEG_M) if dem is None else dem, "top"),
-        bottom_surface=dem_surface(np.full((DEM_N, DEM_N), bottom), "bot"),
+    return discretize(
+        domain=domain_of(
+            dem_surface(ramp_dem(THALWEG_M) if dem is None else dem, "top"),
+            dem_surface(np.full((DEM_N, DEM_N), bottom), "bot"),
+        ),
         vertical_config=VerticalGridConfig(),
-        nodata=NODATA,
-        top_sampling=top_sampling,
+        sgrid_config=None if top_sampling is None else SolverSGridConfig(top_sampling=top_sampling),
+        cell_mesh=cell_mesh,
         channel_mask=channel_mask,
-    )
+    ).solver_mesh
 
 
 CENTROID_HALF_METER = TopSamplingConfig(mode="centroid", min_thickness_m=0.5)
@@ -855,7 +857,7 @@ def channel_pixels() -> np.ndarray:
 def zonal_discretization(
     dem, top_sampling, *, n_cells=BLOCKS_PER_SIDE, channel_mask=None, bottom=0.0
 ):
-    return build_spatial_discretization(
+    return discretize(
         vertical_config=ONE_LAYER,
         domain=domain_of(
             hill_surface(dem, "surface_topo"),

@@ -27,7 +27,6 @@ from hydromodpy.core.state.scratch import (
     kept_preprocessing_dir,
     preprocessing_dir,
     run_scratch,
-    run_scratch_of,
     scratch_dir_for,
     scratch_root_for,
     sweep_dead_run_scratch,
@@ -163,62 +162,6 @@ def _dead_pid() -> int:
         [sys.executable, "-c", "import os; print(os.getpid())"], capture_output=True, text=True
     )
     return int(dead.stdout.strip())
-
-
-def test_resume_finds_the_journalled_folder() -> None:
-    uris = [
-        "runs/killed/config.toml",
-        ".hmp/scratch/killed.p4242/_preprocessing/geographic/dem.tif",
-        ".hmp/scratch/other.p1/_preprocessing/geographic/dem.tif",
-    ]
-
-    assert run_scratch_of(uris) == "killed.p4242"
-    assert run_scratch_of([".hmp/scratch/_preprocessing/geographic/dem.tif"]) is None
-    assert run_scratch_of([]) is None
-
-
-@pytest.mark.allow_subprocess
-def test_resume_in_the_killed_folder(tmp_path: Path) -> None:
-    root = scratch_root_for(tmp_path)
-    killed = f"killed.p{_dead_pid()}"
-    tree = root / killed / "_preprocessing" / "geographic"
-    tree.mkdir(parents=True)
-    (tree / "dem.tif").write_bytes(b"dem")
-    sweep = textwrap.dedent(
-        f"""
-        from pathlib import Path
-        from hydromodpy.core.state.scratch import sweep_dead_run_scratch
-        print([path.name for path in sweep_dead_run_scratch(Path({str(tmp_path)!r}))])
-        """
-    )
-    env = dict(os.environ)
-
-    with run_scratch(tmp_path, "resume", resumes=killed) as key:
-        assert key == killed
-        assert preprocessing_dir(tmp_path) == root / killed / "_preprocessing"
-        assert (tree / "dem.tif").read_bytes() == b"dem"
-        other = subprocess.run(
-            [sys.executable, "-c", sweep], capture_output=True, text=True, env=env, check=True
-        )
-        assert other.stdout.strip() == "[]"
-
-    assert (tree / "dem.tif").is_file()
-    assert [path.name for path in sweep_dead_run_scratch(tmp_path)] == [killed]
-    assert not root.exists() or list(root.iterdir()) == []
-
-
-@pytest.mark.allow_subprocess
-def test_resume_leaves_a_live_folder(tmp_path: Path) -> None:
-    root = scratch_root_for(tmp_path)
-    alive = f"running.p{os.getppid()}"
-    (root / alive).mkdir(parents=True)
-    gone = f"gone.p{_dead_pid()}"
-
-    with run_scratch(tmp_path, "resume", resumes=alive) as key:
-        assert key == f"resume.p{os.getpid()}"
-    with run_scratch(tmp_path, "resume", resumes=gone) as key:
-        assert key == f"resume.p{os.getpid()}"
-    assert (root / alive).is_dir()
 
 
 def test_kept_tree(tmp_path: Path) -> None:

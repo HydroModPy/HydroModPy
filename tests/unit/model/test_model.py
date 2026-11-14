@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
+from hydromodpy.model.domain.cell_column import CellColumn
 from hydromodpy.model.domain.geometry import CatchmentGeometry, ChannelRasters, RasterGeometry
 from hydromodpy.model.flow import Flow, flow_profiles
 from hydromodpy.model.flow_config import FlowConfig
@@ -91,7 +92,9 @@ def test_factory_start_wins() -> None:
 
 def test_pickled_model() -> None:
     prior = PriorState(head=np.zeros((1, 6)), lake_stages={"lake": 12.5}, path="run/heads")
+    column = CellColumn(top=np.array([3.0, 4.0]), bottom=np.array([1.0, 2.0]))
     model = make_model(
+        geometry=dataclasses.replace(small_geometry(), column=column),
         properties=Properties(profiles={"K": 1e-5}, overrides={"K": 2e-5}),
         boundaries=BoundaryConditionBundle(conditions={"west_side": 3.0}, active_ids=["west_side"]),
         wells={"well": {"q": -1e-3}},
@@ -104,6 +107,7 @@ def test_pickled_model() -> None:
 
     copy = pickle.loads(pickle.dumps(model))
 
+    assert copy.geometry.column.top.tobytes() == column.top.tobytes()
     assert copy.properties.profiles == {"K": 1e-5}
     assert copy.properties.overrides == {"K": 2e-5}
     assert copy.boundaries.conditions == {"west_side": 3.0}

@@ -57,10 +57,14 @@ def _fake_project(cfg_path: Path | None, workspace: Path | None) -> SimpleNamesp
     if cfg_path is None:
         # A project built in memory anchors its checks where project.toml would be.
         ctx = SimpleNamespace(config_path=Path.cwd() / "project.toml", setup=None)
-        return SimpleNamespace(_config_path=None, _ctx=ctx, _cfg=None)
+        return SimpleNamespace(
+            _config_path=None, _ctx=ctx, _cfg=SimpleNamespace(read_as_draft=False)
+        )
     workspace = SimpleNamespace(root=workspace, project_root=cfg_path.parent)
     ctx = SimpleNamespace(setup=SimpleNamespace(workspace=workspace))
-    return SimpleNamespace(_config_path=cfg_path, _cfg=None, _ctx=ctx)
+    return SimpleNamespace(
+        _config_path=cfg_path, _cfg=SimpleNamespace(read_as_draft=False), _ctx=ctx
+    )
 
 
 @pytest.fixture

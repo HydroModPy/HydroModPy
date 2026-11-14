@@ -6,11 +6,13 @@ When a calibration overrides a field deep in the config (e.g.
 earlier (setup) steps give the same result for every trial and can be
 executed once, then shared across the ask/tell loop.
 
-``earliest_affected_step`` performs a longest-prefix match between every
-override path and every step's declared ``config_sections``. The first
-step (lowest index) that owns a matching section wins, and a path no step
-owns is refused: nothing would re-run, so the trial would score the previous
-model.
+``earliest_affected_step`` performs a dotted-prefix match between every
+override path and every step's declared ``config_sections``, either way:
+``flow.sinks_sources.lakes`` replaces every lake, so it reaches a step that
+reads ``flow.sinks_sources.lakes.*.enabled``. A ``*`` key stands for any one
+id of a table. The first step (lowest index) that owns a matching section
+wins, and a path no step owns is refused: nothing would re-run, so the trial
+would score the previous model.
 
 All steps in ``steps[earliest:]`` must re-run, even those with empty
 ``config_sections``, because they consume the output state produced by
@@ -19,25 +21,44 @@ the re-run predecessor.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from hydromodpy.core.exceptions import ConfigError
 
 
 def _matches(path: str, section: str) -> bool:
-    """Return True if ``path`` is ``section`` or a descendant of it.
+    """Return True if ``path`` is ``section``, holds it, or lies under it.
 
-    A path matches a section when the section is a dotted-prefix of the
-    path. Both ``"flow"`` matches ``"flow.param.K.field.value"`` and
-    ``"flow.param.K"`` matches ``"flow.param.K.field.value"``. The empty
-    section never matches.
+    ``"flow.param.K"`` matches the sections ``"flow"`` and
+    ``"flow.param.K.field.value"``. A ``*`` key of the section matches any key,
+    so ``"flow.sinks_sources.lakes.a.enabled"`` matches
+    ``"flow.sinks_sources.lakes.*.enabled"``. The empty section never matches.
     """
     if not section:
         return False
-    if path == section:
-        return True
-    return path.startswith(section + ".")
+    pairs = zip(path.split("."), section.split("."), strict=False)
+    return all(key in ("*", part) for part, key in pairs)
+
+
+def section_value(document: Mapping[str, Any], section: str) -> Any:
+    """Return what a dumped configuration holds under ``section``, None where a key is missing.
+
+    A ``*`` key gives, for each id of that table, what the id holds under the
+    rest of the section.
+    """
+    keys = section.split(".")
+    value: Any = document
+    for index, key in enumerate(keys):
+        if not isinstance(value, Mapping):
+            return None
+        if key == "*":
+            rest = ".".join(keys[index + 1 :])
+            return {
+                name: section_value(item, rest) if rest else item for name, item in value.items()
+            }
+        value = value.get(key)
+    return value
 
 
 def earliest_affected_step(
@@ -101,4 +122,4 @@ def earliest_affected_step(
     return earliest
 
 
-__all__ = ("earliest_affected_step",)
+__all__ = ("earliest_affected_step", "section_value")

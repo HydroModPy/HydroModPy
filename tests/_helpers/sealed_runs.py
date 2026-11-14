@@ -19,6 +19,7 @@ from typing import Any
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
 from hydromodpy.core.toml_io.writer import dumps
+from hydromodpy.core.version import __version__
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.heartbeat import Heartbeat, write_heartbeat
 from hydromodpy.results.identity import Identity
@@ -56,7 +57,7 @@ from tests._helpers.metric_rows import headline_row, headline_score
 
 NOW = datetime(2026, 10, 15, 8, 2, 11, tzinfo=UTC)
 WINDOW = DateWindow(start=date(2016, 1, 1), end=date(2020, 12, 31))
-VERSION = "2.0.0a5"
+VERSION = __version__
 SITE = "J0014010"
 FINGERPRINT = "abcd1234abcd1234"
 CONFIG_HASH = "c0ffee" * 10 + "c0ff"

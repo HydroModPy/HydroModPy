@@ -48,6 +48,7 @@ from hydromodpy.config.solver_supports import (
     refuse_the_reads_the_flow_does_not_write,
     refuse_the_traits_the_solver_ignores,
 )
+from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import ConfigError, HydroModPyError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.site.config import resolve_gauge
@@ -890,13 +891,20 @@ def run_cross_rules(
 
     *sections* is the built document, or any object that holds the validated
     sections as attributes. *ready* skips a rule whose sections are not complete
-    yet. *first_only* stops at the first refusal, as a validator does. The time
-    of the run is built once for the walk, and only if a rule reads it.
+    yet. A configuration read as a draft runs a rule only once each section it
+    reads is written. *first_only* stops at the first refusal, as a validator
+    does. The time of the run is built once for the walk, and only if a rule
+    reads it.
     """
+    written = None
+    if getattr(sections, "read_as_draft", False):
+        written = {name for name, value in written_payload(sections).items() if value}
     outcomes: list[RuleOutcome] = []
     time = _TimeOfTheRun(sections)
     for rule in CROSS_RULES.values():
         if ready is not None and not ready(rule):
+            continue
+        if written is not None and not rule.reads <= written:
             continue
         given = {"time": time} if rule.reads_the_time else {}
         try:

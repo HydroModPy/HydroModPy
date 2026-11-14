@@ -9,7 +9,7 @@ in ``hydromodpy.solver.modflow_common.flow_run``.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, ClassVar
@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
+from hydromodpy.model.domain.cell_column import CellColumn, modflow_column
 from hydromodpy.model.sinks_sources.wells import WELLS_PUMPED_METRIC
 from hydromodpy.results.field_registry import CONNECTION_CELLS, FACE_FLOW
 from hydromodpy.results.storage.kept import Retention
@@ -168,6 +169,7 @@ class Modflow6FlowAdapter:
     options: ClassVar[type[BaseModel] | None] = Modflow6Config
     category: ClassVar[str] = "distributed"
     native_step: ClassVar[str | None] = None
+    cell_column: ClassVar[Callable[..., CellColumn] | None] = staticmethod(modflow_column)
     mutable: ClassVar[frozenset[str]] = frozenset({"K", "Sy"})
     requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 

@@ -15,7 +15,8 @@ directory: with ``workspace=None`` a reference is a path. The command line
 passes ``-w``, or the project of its working directory.
 
 The module imports at its top the five objects its signatures take and return,
-which the facade reads here, and everything else inside the verbs.
+and ``Lab``. The facade reads these six objects here. Everything else is
+imported inside the verbs.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.project.check_source import check_document, check_file
 from hydromodpy.project.environment import Environment
 from hydromodpy.project.facade import Project
+from hydromodpy.project.lab import Lab  # noqa: F401 - no verb takes it, the facade reads it here
 from hydromodpy.project.launch.plan import PlanDraft
 from hydromodpy.project.request import (
     RunOutcome,
@@ -104,8 +106,8 @@ def open(path: PathLike) -> Project | Run | Session | Workspace:
 
     - a project directory, its ``project.toml`` or any folder inside it gives a
       :class:`~hydromodpy.project.facade.Project`, read only;
-    - a sealed run directory (``runs/<name>`` or a kept trial) gives a
-      :class:`~hydromodpy.results.run.view.Run` read from its own files;
+    - a run directory gives a :class:`~hydromodpy.results.run.view.Run`, partial
+      before its seal (``record``, ``checks``, ``inputs`` and ``label()`` refuse);
     - a session directory (``sessions/<name>``) gives a
       :class:`~hydromodpy.results.session.view.Session`;
     - a workspace root (``workspace.toml`` or ``projects/``) gives a
@@ -131,7 +133,7 @@ def open(path: PathLike) -> Project | Run | Session | Workspace:
     FileNotFoundError
         If the path does not exist, or stands for none of the above.
     hydromodpy.results.errors.RunNotSealedError
-        If the path is a run directory that never completed.
+        If the path is a run directory that wrote no facts.
 
     Examples
     --------

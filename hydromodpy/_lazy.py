@@ -47,8 +47,8 @@ VERBS: tuple[str, ...] = (
 )
 """The fifteen verbs, in the order of ``hydromodpy.project.api.__all__``."""
 
-OBJECTS: tuple[str, ...] = ("Project", "Run", "RunSet", "Session", "HydroModPyConfig")
-"""The five objects the verbs take and return. ``hydromodpy.project.api`` imports them."""
+OBJECTS: tuple[str, ...] = ("Project", "Lab", "Run", "RunSet", "Session", "HydroModPyConfig")
+"""The six objects the verbs take and return. ``hydromodpy.project.api`` imports them."""
 
 # The frozen runs of a pre-release are read through these three names.
 KEPT_READERS: tuple[str, ...] = ("read", "index", "Catalog")

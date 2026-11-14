@@ -3,7 +3,7 @@
 Every backend (MODFLOW-NWT, MODFLOW 6, Boussinesq, a third-party plugin) meets
 this one contract, so the simulation runner stays solver-agnostic. Adapters
 conform structurally: there is no base class to inherit from. A backend writes
-the twelve attributes of the Protocol on its class and the five members the
+the thirteen attributes of the Protocol on its class and the five members the
 runner calls, ``validate``, ``build``, ``run``, ``cleanup`` and ``extract``.
 ``solvers`` in ``solver/base/registry.py`` refuses a class that lacks one,
 naming it.
@@ -50,12 +50,16 @@ is read, in ``config/cross_checks.py``.
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Protocol, runtime_checkable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
+
+if TYPE_CHECKING:
+    from hydromodpy.model.domain.cell_column import CellColumn
 
 GEOMETRIES: tuple[str, ...] = ("cells", "raster")
 """The members of ``Model.geometry`` a backend can build its grid on.
@@ -68,8 +72,8 @@ and also reads ``cells``.
 CATEGORIES: tuple[str, ...] = ("distributed", "integrated", "lumped")
 """How a backend resolves space: per cell, per cell with an integrated store, or one store."""
 
-NULLABLE_ATTRIBUTES: tuple[str, ...] = ("options", "native_step")
-"""The two attributes a backend may set to ``None``. Their presence is checked on the class."""
+NULLABLE_ATTRIBUTES: tuple[str, ...] = ("options", "native_step", "cell_column")
+"""The three attributes a backend may set to ``None``. Their presence is checked on the class."""
 
 RERUN_MEMBERS: tuple[str, ...] = ("rerun",)
 """The members a backend carries if and only if its ``mutable`` is not empty.
@@ -181,6 +185,15 @@ class SolverAdapter(Protocol):
     """The step the solver advances at, as a pandas frequency alias.
 
     ``None`` means it advances at the step of ``Model.time``.
+    """
+
+    cell_column: ClassVar[Callable[..., CellColumn] | None]
+    """The rule that gives the top and the bottom of each cell, or ``None`` when the backend reads none.
+
+    A function of ``model/domain/cell_column.py``, called as ``cell_column(cell_mesh=...,
+    domain=..., top_sampling=..., channel_mask=...)`` by ``prepare_solver``. It puts the
+    result on ``Model.geometry.column``, which the backend reads instead of sampling the
+    DEM itself. Write it with ``staticmethod``, so an instance does not bind it.
     """
 
     mutable: ClassVar[frozenset[str]]

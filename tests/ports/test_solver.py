@@ -1433,6 +1433,7 @@ class ProbeFlowAdapter:
     options: ClassVar = ProbeOptions
     category: ClassVar[str] = "distributed"
     native_step: ClassVar = None
+    cell_column: ClassVar = None
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 

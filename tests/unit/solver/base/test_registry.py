@@ -140,7 +140,7 @@ def test_wrong_declaration(members: dict[str, object], named: str) -> None:
     assert "wrong" not in solvers.names("flow")
 
 
-@pytest.mark.parametrize("attribute", ["options", "native_step"])
+@pytest.mark.parametrize("attribute", ["options", "native_step", "cell_column"])
 def test_nullable_attribute(attribute: str) -> None:
     solvers.register(fake_adapter("nullable", **{attribute: None}))
 

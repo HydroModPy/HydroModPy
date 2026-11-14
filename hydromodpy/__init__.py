@@ -1,6 +1,6 @@
 """Public entry points for HydroModPy.
 
-The top level holds the fifteen verbs of :mod:`hydromodpy.project.api`, the five
+The top level holds the fifteen verbs of :mod:`hydromodpy.project.api`, the six
 objects they take and return, the three readers ``read``, ``index`` and ``Catalog``
 that the frozen runs of a pre-release are read through, the categories of the exception
 hierarchy and ``__version__``. Nothing is imported until it is used, so ``import hydromodpy``

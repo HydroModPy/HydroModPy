@@ -126,18 +126,6 @@ def test_dead_scratch_leaves(tmp_path: Path) -> None:
     assert live.parent.is_dir() and written.is_file()
 
 
-def test_resumed_scratch_stays(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "p")
-    scratch = project / INTERNAL_DIRNAME / "scratch"
-    key = f"resumed.p{_dead_pid()}"
-    _write(scratch / key / "work.npz", 11)
-    (scratch / f"{key}.holder").write_text(str(os.getpid()), encoding="ascii")
-
-    plan = plan_gc(project, _policy(), now=datetime.now(UTC))
-
-    assert plan.dead_scratch == ()
-
-
 def test_scratch_folder_naming_no_run_stays(
     tmp_path: Path,
 ) -> None:

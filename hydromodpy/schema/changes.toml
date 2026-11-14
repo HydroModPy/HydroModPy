@@ -1062,3 +1062,17 @@ since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "hmp export --regen figures skips a figure that figures/index.json records from a figure of a pre-release, with the command that draws it now, and draws the other entries. It used to redraw it from its old options."
+
+[[bug]]
+id = "project_run_reused_a_model_phase_built_otherwise"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
+quantities = ["heads@modflow6", "fluxes@modflow6", "heads@modflow_nwt", "fluxes@modflow_nwt", "heads@boussinesq", "fluxes@boussinesq", "heads@linear_reservoir", "fluxes@linear_reservoir", "mesh@regular", "mesh@triangle", "mesh@voronoi", "mesh@catchment", "metrics"]
+text = "A second Project.simulate on one project reused the catchment, the data and the mesh of the run before, even when its set changed a section they are built from, such as geographic, data or mesh, and a changed simulation.time kept the time grid of the project. Such a run sealed the model of the run before under its own configuration. On example 00 (Aber), simulate(set={\"geographic.catchment.buff_area\": \"30% of sqrt(area)\"}) after a first run sealed 980 cells, it now seals the 1 548 cells of the same run made in one go, with the same values and solution key. A plain simulate after it is back to 980 cells, and a simulate that ends the year on 2017-06-30 seals the values of the same run made in one go."
+
+[[bug]]
+id = "lake_switched_on_kept_the_mesh_before"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
+quantities = ["heads@modflow6", "fluxes@modflow6", "mesh@triangle", "mesh@voronoi", "metrics"]
+text = "A change that switched a lake, a cutoff wall or a flow barrier on or off, or moved its line, kept the mesh built before it, in a second Project.simulate and in the lab. Such a run sealed the mesh of the run before under its own configuration, with the same solution key as a run made in one go. On the island of the tests, a lake switched on after a run without it sealed 130 cells, it now seals the 477 cells of the same run made in one go. Switching on a stream boundary rebuilds a mesh read from a file too."

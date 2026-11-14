@@ -28,6 +28,7 @@ from hydromodpy.model.boundaries.boundary_condition_registry import (
     BoundaryConditionBundle,
     boundary_condition_bundle_from_flow,
 )
+from hydromodpy.model.domain.cell_column import CellColumn
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.geometry import CatchmentGeometry, RasterGeometry
 from hydromodpy.model.flow import Flow
@@ -64,7 +65,9 @@ class Geometry:
     its routing is conditioned on. ``catchment`` says where the catchment
     closes. ``channel_exits`` is the generated river network A read on the
     cells, which a backend turns into pinned receivers with its active columns
-    and its lakes. A member the run does not have is ``None``.
+    and its lakes. ``column`` is the top and the bottom of every cell, which the
+    rule the backend declares in ``cell_column`` reads from the domain once, before
+    the solve. A member the run does not have is ``None``.
     """
 
     cells: PlanarCellMesh | None
@@ -72,6 +75,7 @@ class Geometry:
     raster: RasterGeometry | None = None
     catchment: CatchmentGeometry | None = None
     channel_exits: ChannelExits | None = None
+    column: CellColumn | None = None
 
 
 @dataclass(frozen=True, slots=True, eq=False)

@@ -10,12 +10,12 @@ from __future__ import annotations
 import os
 import re
 import sys
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
-from hydromodpy.core.state.layout import INTERNAL_DIRNAME, internal_dir
+from hydromodpy.core.state.layout import internal_dir
 
 SCRATCH_ROOT_ENV = "HMP_SCRATCH_ROOT"
 """Machine scratch root that replaces the scratch inside the project (``$SLURM_TMPDIR``).
@@ -41,9 +41,6 @@ environment. A thread takes it from the thread that starts it through
 PREPROCESSING_DIRNAME = "_preprocessing"
 
 _RUN_SCRATCH_SUFFIX = re.compile(r"\.p(\d+)$")
-_RUN_SCRATCH_KEY = re.compile(r"[A-Za-z0-9_-]+\.p\d+")
-#: Beside a run folder a resume took over, names the process now working in it.
-_RUN_SCRATCH_HOLDER_SUFFIX = ".holder"
 _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 _ERROR_ACCESS_DENIED = 5
 _STILL_ACTIVE = 259
@@ -151,10 +148,6 @@ else:
         return True
 
 
-def _holder_path(root: Path, key: str) -> Path:
-    return root / f"{key}{_RUN_SCRATCH_HOLDER_SUFFIX}"
-
-
 def run_scratch_stem(name: str) -> str | None:
     """Return the run name of a run scratch folder ``<name>.p<pid>``, or ``None``."""
     match = _RUN_SCRATCH_SUFFIX.search(name)
@@ -162,31 +155,17 @@ def run_scratch_stem(name: str) -> str | None:
 
 
 def run_scratch_pids(root: Path, key: str) -> set[int]:
-    """Return the process named by a run folder and the one that took it over, if any."""
-    pids: set[int] = set()
+    """Return the process a run folder is named after, as a set of at most one pid."""
     match = _RUN_SCRATCH_SUFFIX.search(key)
-    if match is not None:
-        pids.add(int(match.group(1)))
-    try:
-        text = _holder_path(root, key).read_text(encoding="ascii").strip()
-    except FileNotFoundError:
-        return pids
-    if text.isdigit():
-        pids.add(int(text))
-    return pids
-
-
-def _held_by_another_process(root: Path, key: str) -> bool:
-    return any(pid != os.getpid() and process_is_alive(pid) for pid in run_scratch_pids(root, key))
+    return set() if match is None else {int(match.group(1))}
 
 
 def sweep_dead_run_scratch(project_root: Path) -> list[Path]:
     """Remove the scratch folders of runs whose process no longer runs.
 
     A run sweeps its own folder when it ends. One that was killed cannot, so the
-    next run of the project removes the folders named after a dead process,
-    unless a live resume took the folder over (:func:`run_scratch`). Return the
-    folders that are gone.
+    next run of the project removes the folders named after a dead process.
+    Return the folders that are gone.
     """
     import shutil
 
@@ -201,37 +180,8 @@ def sweep_dead_run_scratch(project_root: Path) -> list[Path]:
             continue
         shutil.rmtree(child, ignore_errors=True)
         if not child.exists():
-            _holder_path(root, child.name).unlink(missing_ok=True)
             removed.append(child)
-    for holder in root.glob(f"*{_RUN_SCRATCH_HOLDER_SUFFIX}"):
-        key = holder.name[: -len(_RUN_SCRATCH_HOLDER_SUFFIX)]
-        if not (root / key).exists() and not _held_by_another_process(root, key):
-            holder.unlink(missing_ok=True)
     return removed
-
-
-def run_scratch_of(paths: Iterable[str]) -> str | None:
-    """Return the run folder that project-relative POSIX paths live in, or None.
-
-    The artifacts a run journals under its scratch name the folder it worked in,
-    which is how a resume finds the folder of the run it continues.
-    """
-    for path in paths:
-        parts = PurePosixPath(path).parts
-        if (
-            len(parts) > 2
-            and parts[:2] == (INTERNAL_DIRNAME, "scratch")
-            and _RUN_SCRATCH_KEY.fullmatch(parts[2])
-        ):
-            return parts[2]
-    return None
-
-
-def _can_take_over(project_root: Path, key: str | None) -> bool:
-    if key is None or _RUN_SCRATCH_KEY.fullmatch(key) is None:
-        return False
-    root = scratch_root_for(project_root)
-    return (root / key).is_dir() and not _held_by_another_process(root, key)
 
 
 @contextmanager
@@ -250,7 +200,7 @@ def inherit_run_scratch(key: str) -> Iterator[str]:
 
 
 @contextmanager
-def run_scratch(project_root: Path, label: str, *, resumes: str | None = None) -> Iterator[str]:
+def run_scratch(project_root: Path, label: str) -> Iterator[str]:
     """Give the run this context starts its own folder under ``.hmp/scratch/``.
 
     The outermost call names the folder after ``label`` and this process and
@@ -258,35 +208,19 @@ def run_scratch(project_root: Path, label: str, *, resumes: str | None = None) -
     promotions of a calibration session) read it and work in the same folder.
     On entry the outermost call also removes the folders of runs that were
     killed. On exit it removes the run's folder when nothing is left in it.
-
-    A resume passes the folder of the run it continues as ``resumes``
-    (:func:`run_scratch_of`). The outermost call then works in that folder and
-    records this process as its holder, so the sweep of this run and of any
-    other keeps what the killed run left for the resume to reuse. A folder
-    that is gone, or that a live process still works in, is not taken over.
     """
     inherited = active_run_scratch()
     owner = inherited is None
-    takes_over = owner and _can_take_over(project_root, resumes)
-    if inherited is not None:
-        key = inherited
-    elif takes_over and resumes is not None:
-        key = resumes
-    else:
-        key = _run_scratch_name(label)
+    key = _run_scratch_name(label) if inherited is None else inherited
     token = RUN_SCRATCH.set(key) if owner else None
     root = scratch_root_for(project_root)
     try:
-        if takes_over:
-            _holder_path(root, key).write_text(str(os.getpid()), encoding="ascii")
         if owner:
             sweep_dead_run_scratch(project_root)
         yield key
     finally:
         if token is not None:
             RUN_SCRATCH.reset(token)
-        if takes_over:
-            _holder_path(root, key).unlink(missing_ok=True)
         if owner:
             for folder in (root / key, root):
                 try:
@@ -305,7 +239,6 @@ __all__ = (
     "preprocessing_dir",
     "process_is_alive",
     "run_scratch",
-    "run_scratch_of",
     "run_scratch_pids",
     "run_scratch_stem",
     "scratch_dir_for",

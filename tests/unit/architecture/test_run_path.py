@@ -473,6 +473,7 @@ REGISTRY_READERS = frozenset(
         "calibration/metrics/solver_extract.py",  # finds the trial's single flow run
         "calibration/runners/sandbox.py",  # lists the scratch directories a trial clears
         "calibration/runners/kept_solves.py",  # a promotion records each run's SolverRun
+        "project/lab.py",  # shows each run's SolverRun and keeps the runs solve(built) solved
     )
 )
 """Every module allowed to name the registry. ``core/state/run_state.py`` only declares the field."""

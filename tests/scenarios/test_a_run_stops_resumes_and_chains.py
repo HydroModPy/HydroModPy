@@ -34,8 +34,8 @@ from hydromodpy.results.storage.final_state import read_final_state
 from hydromodpy.results.storage.prior_state import prior_state_at
 from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.workflow.record.journal import journal_path
-from tests.scenarios.factory import island_files, write_project
-from tests.scenarios.launcher import link_binaries
+from tests.scenarios.factory import TRANSIENT, island_files, write_project
+from tests.scenarios.launcher import link_binaries, play_script
 
 NEEDS = ("mf6", "libmf6.so")
 SIGINT_EXIT = 130
@@ -248,3 +248,34 @@ def test_a_window_stopped_by_its_flag_resumes_by_its_name_and_replays_from_its_s
     replayed = [entry for entry in read_inputs(replay).inputs if entry.variable == "initial_state"]
     assert [(row.path, row.sha256) for row in replayed] == [(rows[0].path, rows[0].sha256)]
     assert _same_bits(_heads(replay), _heads(second))
+
+
+WINDOWED = """
+import hydromodpy as hmp
+
+hmp.run("island.toml", until_step="run_solver", name="w", no_display=True)
+hmp.run("island.toml", name="w", no_display=True)
+"""
+
+
+def test_a_run_played_in_two_windows_by_the_verb_solves_once(
+    tmp_path: Path, scenario_env, scenario_cache
+) -> None:
+    island = TRANSIENT.replace("@NAME@", "island").replace("@SOLVER@", "modflow6")
+    island = island.replace("@TRANSPORT_PROCESS@", "")
+    played = play_script(
+        "windows_by_the_verb",
+        {"island.toml": island},
+        WINDOWED,
+        tmp_path / "play",
+        scenario_env,
+        scenario_cache,
+        needs=NEEDS,
+    )
+    assert played.returncode == 0, _tail(played.log)
+
+    assert sorted(path.name for path in (played.root / "runs").iterdir()) == ["w"]
+    assert (played.root / "runs" / "w" / "manifest.json").is_file()
+    profile = json.loads((played.root / "runs" / "w" / "profile.json").read_text("utf-8"))
+    solves = [line for line in profile["lines"] if line["kind"] == "solve"]
+    assert len(solves) == 1, solves

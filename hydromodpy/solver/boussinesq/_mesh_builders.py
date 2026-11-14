@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.catchment.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.mesh.io.bundle import CatchmentMeshBundle
+from hydromodpy.model.domain.cell_column import CellColumn
 
 if TYPE_CHECKING:
     from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
@@ -49,7 +49,7 @@ def family_edge_indices(
 def mesh_arrays_from_cell_mesh(
     cell_mesh: PlanarCellMesh,
     *,
-    domain: object,
+    column: CellColumn,
     hydraulic_conductivity_m_s,
     storage_coefficient,
     source_path: Path | None = None,
@@ -58,19 +58,10 @@ def mesh_arrays_from_cell_mesh(
 
     The cells, edges, areas and lengths are those of ``cell_mesh.geometry``, the
     edges in the order of its edge table; the river edges are the faces of the
-    ``rivers`` family. The top and the bottom are sampled at ``cell_mesh.centers``;
-    a cell whose center falls on no data takes the mean of its finite corners.
-    The cell centroid of the metric terms is the mean of the cell vertices.
+    ``rivers`` family. The top and the bottom are those of ``column``, sampled at
+    ``cell_mesh.centers`` by ``centre_column``. The cell centroid of the metric terms
+    is the mean of the cell vertices.
     """
-    if domain is None:
-        raise ValueError("Boussinesq runtime mesh construction requires a domain")
-    surface_topo = getattr(domain, "surface_topo", None)
-    substratum = getattr(domain, "substratum", None)
-    if surface_topo is None:
-        raise ValueError("domain.surface_topo is required for runtime mesh construction")
-    if substratum is None:
-        raise ValueError("domain.substratum is required for runtime mesh construction")
-
     mesh = cell_mesh.mesh
     n_cells = int(mesh.n_cells)
     conductivity = _one_value_per_cell(hydraulic_conductivity_m_s, n_cells)
@@ -85,12 +76,7 @@ def mesh_arrays_from_cell_mesh(
     triangles = np.asarray(mesh.flat_connectivity, dtype=int)
     node_x = np.asarray(mesh.vertices[:, 0], dtype=float)
     node_y = np.asarray(mesh.vertices[:, 1], dtype=float)
-    top = _sampled_at_centers(
-        PreparedSurfaceSampler.from_surface(surface_topo), cell_mesh, triangles
-    )
-    bottom = _sampled_at_centers(
-        PreparedSurfaceSampler.from_surface(substratum), cell_mesh, triangles
-    )
+    top, bottom = column.top, column.bottom
     _check_vertical_geometry(top, bottom)
 
     corners = mesh.vertices[triangles]
@@ -145,24 +131,6 @@ def _one_value_per_cell(values, n_cells: int) -> np.ndarray:
     if flat.size != n_cells:
         raise ValueError("Boussinesq cell values must contain exactly one value per cell")
     return flat
-
-
-def _sampled_at_centers(
-    sampler: PreparedSurfaceSampler, cell_mesh: PlanarCellMesh, triangles: np.ndarray
-) -> np.ndarray:
-    """One surface value per cell: at its center, else the mean of its finite corners."""
-    centers = cell_mesh.centers
-    values = np.asarray(sampler.sample(centers[:, 0], centers[:, 1]), dtype=float).reshape(-1)
-    missing = np.flatnonzero(~np.isfinite(values))
-    if missing.size == 0:
-        return values
-    vertices = cell_mesh.mesh.vertices
-    corners = triangles[missing]
-    at_corners = sampler.sample(vertices[corners, 0], vertices[corners, 1]).reshape(corners.shape)
-    for row, cell in enumerate(missing.tolist()):
-        finite = at_corners[row][np.isfinite(at_corners[row])]
-        values[cell] = float(np.nanmean(finite)) if finite.size else np.nan
-    return values
 
 
 def _check_vertical_geometry(top: np.ndarray, bottom: np.ndarray) -> None:

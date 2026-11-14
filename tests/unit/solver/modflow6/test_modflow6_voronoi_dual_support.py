@@ -35,9 +35,9 @@ from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.modflow6.builders.boundary_conditions import build_side_boundary_chd_spd
-from hydromodpy.solver.modflow_grid.discretization_spatial import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from tests._helpers.cell_meshes import TEST_CRS_WKT
+from tests._helpers.discretize import discretize
 from tests._helpers.dual_of_triangles import dual_of_the_triangles
 from tests._helpers.mesh_cases import grid_over, mesh_request
 from tests._helpers.mf6_toy_models import toy_model
@@ -149,7 +149,7 @@ def _grid_context(engine: str):
     cell_mesh = triangles if engine == "triangle" else dual
     domain = Domain(config=DomainConfig(), surface_topo=_surface(20.0, "surface_topo"))
     domain.substratum = _surface(0.0, "substratum")
-    ctx = build_spatial_discretization(
+    ctx = discretize(
         domain=domain,
         vertical_config=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
         sgrid_config=SolverSGridConfig(),

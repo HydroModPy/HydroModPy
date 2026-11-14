@@ -235,7 +235,15 @@ class BuildMeshStep:
         "spatial_support_registry",
     )
     writes: ClassVar[tuple[str, ...]] = ("ctx",)
-    config_sections: ClassVar[tuple[str, ...]] = ("domain.supports", "mesh")
+    # A mesh read from a file follows the rivers when a stream boundary is on,
+    # and the faces follow the contacts of the zones a flow parameter asks for.
+    config_sections: ClassVar[tuple[str, ...]] = (
+        "domain.supports",
+        "mesh",
+        "flow.bc.stream.enabled",
+        "flow.param.*.field.kind",
+        "flow.param.*.field.field_spatial_id",
+    )
 
     def depends_on(self) -> tuple[str, ...]:
         return ("load_data",)

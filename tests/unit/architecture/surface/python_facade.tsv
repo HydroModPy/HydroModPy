@@ -14,6 +14,7 @@ HydroModPyConfig	class
 HydroModPyError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 ImportConflictError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 JobUsageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+Lab	class	(source: str | Path | dict | HydroModPyConfig | Run, *, base: str | Path | None = None, environment: Environment | None = None) -> None
 MeshError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 MigrationFailedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 NothingThereError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None

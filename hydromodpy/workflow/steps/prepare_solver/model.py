@@ -2,8 +2,8 @@
 
 The setup and data steps fill a ``Flow``. Once the mesh, the domain, the time
 grid and the data are in place, this step reads them once, picks the rasters of
-the river network, reads the earlier run a hotstart names, and puts the result
-on ``setup.model``. A solver adapter reads that ``Model`` and nothing else, so
+the river network, builds the top and the bottom of every cell, reads the earlier
+run a hotstart names, and puts the result on ``setup.model``. A solver adapter reads that ``Model`` and nothing else, so
 everything a backend needs is decided here, before the solve.
 
 Window ``k`` of a chain is built from the ``Model`` of the whole simulation, because
@@ -37,6 +37,7 @@ from hydromodpy.core.time.window import ChainWindow
 from hydromodpy.mesh.cells.zonal_stats import rasterize_cell_ids
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
+from hydromodpy.model.domain.cell_column import CellColumn, zonal_channel_mask
 from hydromodpy.model.domain.geometry import (
     CatchmentGeometry,
     ChannelRasters,
@@ -55,6 +56,7 @@ from hydromodpy.model.model import (
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.results.storage.prior_state import read_prior_state
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.workflow.steps.prepare_solver.restart import WindowSource, resolve_restart_source
 
 if TYPE_CHECKING:
@@ -107,6 +109,7 @@ def step_build_model(
             None if raster is None else raster.channel,
             traces_bound=bool(getattr(setup, "sfr_reach_traces", None)),
         ),
+        column=_cell_column(ctx, raster),
     )
     window = getattr(setup, "chain_window", None)
     whole_grid = getattr(setup, "whole_time_grid", None)
@@ -285,6 +288,36 @@ def _raster_geometry(geographic: object | None) -> RasterGeometry | None:
     if geographic is None:
         return None
     return RasterGeometry.from_geographic(geographic, channel=channel_rasters_for_run(geographic))
+
+
+def _cell_column(ctx: WorkflowContext, raster: RasterGeometry | None) -> CellColumn | None:
+    """The top and the bottom of every cell, by the rule the flow backend declares.
+
+    ``None`` when the run has no cell mesh or no domain, or when the backend declares
+    no rule (``cell_column`` is ``None``), or when the options name an ``exchange_mesh``
+    bundle that stands in for the column. The zonal channel mask is read here, so the
+    backend gets the column and never samples the DEM itself.
+    """
+    setup = ctx.setup
+    if setup.cell_mesh is None or setup.domain is None:
+        return None
+    name = ctx.cfg.solver.backend_name
+    backend = solvers.get("flow", name)
+    if backend.cell_column is None:
+        return None
+    options = None if backend.options is None else ctx.cfg.solver.options_of(name)
+    if getattr(options, "exchange_mesh", None) is not None:
+        return None
+    sgrid = getattr(options, "sgrid", None)
+    top_sampling = None if sgrid is None else sgrid.top_sampling
+    return backend.cell_column(
+        cell_mesh=setup.cell_mesh,
+        domain=setup.domain,
+        top_sampling=top_sampling,
+        channel_mask=zonal_channel_mask(
+            raster=raster, surface=setup.domain.surface_topo, top_sampling=top_sampling
+        ),
+    )
 
 
 def _channel_exits(

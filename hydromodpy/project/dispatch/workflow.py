@@ -620,7 +620,6 @@ def run_single_simulation(
     from hydromodpy.core.state.names import check_name
     from hydromodpy.core.state.scratch import run_scratch
     from hydromodpy.project.facade import Project
-    from hydromodpy.workflow.record.resume import scratch_of_resumed_run
 
     root = Path(base).expanduser().resolve()
     if cfg is None:
@@ -660,8 +659,7 @@ def run_single_simulation(
             and source_run is None
         )
         project_root = Path(cfg.workspace.project_root)
-        resumes = scratch_of_resumed_run(project_root, request.resume) if request.resume else None
-        with run_scratch(project_root, run_name or "run", resumes=resumes):
+        with run_scratch(project_root, run_name or "run"):
             result = project._runner.execute(
                 request,
                 lineage=lineage,
@@ -715,9 +713,7 @@ def completed_run_view(outcome: RunOutcome) -> Run | None:
     from hydromodpy.results.catalog.indexer import index_after_run
 
     index_after_run(outcome.project_root)
-    return run_view_of(
-        outcome.run_dir, project_root=outcome.project_root, sim_id=str(outcome.sim_id)
-    )
+    return run_view_of(outcome.run_dir)
 
 
 def draft_of_a_file_or_config(

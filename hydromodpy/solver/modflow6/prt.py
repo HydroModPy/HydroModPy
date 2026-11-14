@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, ClassVar
@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
 from hydromodpy.core.time.window import SIMULATION_TIME_UNIT
 from hydromodpy.core.units.quantities import SECONDS_PER_DAY
+from hydromodpy.model.domain.cell_column import CellColumn
 from hydromodpy.model.model import Model
 from hydromodpy.model.transport.transport_config import Modflow6PrtParametersConfig
 from hydromodpy.results.field_registry import FACE_FLOW
@@ -488,6 +489,7 @@ class Modflow6PrtTransportAdapter:
     options: ClassVar[type[BaseModel] | None] = Modflow6PrtParametersConfig
     category: ClassVar[str] = "distributed"
     native_step: ClassVar[str | None] = None
+    cell_column: ClassVar[Callable[..., CellColumn] | None] = None
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow6"),)
 

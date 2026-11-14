@@ -63,7 +63,7 @@ How a run reaches a backend
    run folder. An adapter that cannot produce a requested observable raises
    ``ObservableNotAvailableError``.
 
-What a backend can do is declared on its adapter class, in the twelve attributes of
+What a backend can do is declared on its adapter class, in the thirteen attributes of
 ``base/README.md``. ``writes`` lists what it stores, ``supports`` the traits of the ``Model``
 it honours and ``category`` how it resolves space.
 

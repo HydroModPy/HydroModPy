@@ -22,7 +22,7 @@ import os
 import tomllib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from hydromodpy.config.hydromodpy_config import (
     ROOT_CONFIG,
@@ -88,6 +88,7 @@ def load(
     *,
     changes: Mapping[str, Any] | None = None,
     source_path: str | os.PathLike[str] | None = None,
+    draft: bool = False,
 ) -> HydroModPyConfig:
     """Return the validated configuration of *source*.
 
@@ -108,6 +109,10 @@ def load(
         The file a mapping was read from, when there is one: it names the run
         when the document writes no ``[simulation] name``, it tells a sealed run
         configuration, and it locates an error.
+    draft
+        Read a mapping or JSON text as a draft, built one section at a time: it
+        goes through the same migration and refusals, and a rule that reads a
+        section it does not write waits.
 
     Raises
     ------
@@ -117,11 +122,16 @@ def load(
     """
     if isinstance(source, HydroModPyConfig):
         return source.with_changes(changes) if changes else source
+    context = "draft" if draft else "request"
     if isinstance(source, Mapping):
-        return _load_document(dict(source), base, changes=changes, source_path=source_path)
+        return _load_document(
+            dict(source), base, changes=changes, source_path=source_path, context=context
+        )
     if isinstance(source, str) and is_json_text(source):
         document = json_object(source, where="A JSON configuration")
-        return _load_document(document, base, changes=changes, source_path=source_path)
+        return _load_document(
+            document, base, changes=changes, source_path=source_path, context=context
+        )
     if isinstance(source, (str, os.PathLike)):
         return _load_file(Path(source), base, changes=changes)
     raise TypeError(
@@ -221,6 +231,7 @@ def _load_document(
     *,
     changes: Mapping[str, Any] | None,
     source_path: str | os.PathLike[str] | None,
+    context: Literal["request", "draft"],
 ) -> HydroModPyConfig:
     """Validate a document in memory against *base*, with its migration and its refusals."""
     if base is None:
@@ -229,7 +240,7 @@ def _load_document(
     folder = Path(base).expanduser().resolve()
     named = None if source_path is None else Path(source_path).expanduser().resolve()
     merged = _migrated(copy.deepcopy(document), changes, root=ROOT_CONFIG)
-    cfg = HydroModPyConfig._from_payload(merged, base=folder, context="request", source_path=named)
+    cfg = HydroModPyConfig._from_payload(merged, base=folder, context=context, source_path=named)
     return cfg if named is None else _named(cfg, named)
 
 

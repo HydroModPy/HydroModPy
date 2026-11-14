@@ -8,6 +8,7 @@ import numpy as np
 
 from hydromodpy.core.exceptions import SolverError
 from hydromodpy.core.state.run_state import RunState
+from hydromodpy.model.domain.cell_column import centre_column
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.model import Geometry, Model, ModelTime, model_from_flow
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
@@ -57,9 +58,12 @@ def adapter_call(
     ``settings`` are the other options of that table. The slot puts the run in
     ``tmp_path / name``.
     """
+    column = None
+    if cell_mesh is not None and getattr(domain, "substratum", None) is not None:
+        column = centre_column(cell_mesh=cell_mesh, domain=domain)
     model = model_from_flow(
         flow,
-        geometry=Geometry(cells=cell_mesh, domain=domain),
+        geometry=Geometry(cells=cell_mesh, domain=domain, column=column),
         time=ModelTime.from_flow(flow, time_grid),
         options=default_options(),
     )

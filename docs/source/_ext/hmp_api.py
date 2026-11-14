@@ -408,7 +408,7 @@ class RelationsDirective(SphinxDirective):
         b, doc = H.current_builder(), self.env.docname
         produced = A.get("produced_by", {})
         by_name = {c["name"]: c for c in classes("result")}
-        order = ["Catalog", "Run", "RunSet", "Project"]
+        order = ["Catalog", "Run", "RunSet", "Project", "Lab"]
         order += [n for n in by_name if n not in order]
         rows = []
         for name in order:
@@ -1086,6 +1086,9 @@ rebuilt with `hmp catalog reindex`. The objects below are the ways Python looks 
 
 `hmp.open` gives what a path stands for: a `Project`, a `Run`, a `Session` or a `Workspace`. A `Run`
 reads the folder it names, and the seal in it says what the run is; the index only finds it.
+
+A `Lab` is the exception: it holds a `Project` and builds and tries a model in memory, step by step.
+It writes no run folder while you work, and `lab.run` keeps the result as a run like any other.
 
 ## What `Run.read` returns
 

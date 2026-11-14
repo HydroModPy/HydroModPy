@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from typing import Any
 
+from hydromodpy.core.version import __version__
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.record.checks import CalibratedBy, Checks, Validity
@@ -30,7 +31,7 @@ CASE_ID = "J0014010-base"
 FINGERPRINT = "abcd1234abcd1234"
 CONFIG_HASH = "c0ffee" * 10 + "c0ff"
 MESH_HASH = "mesh0001"
-VERSION = "2.0.0a5"
+VERSION = __version__
 NOW = datetime(2026, 10, 15, 8, 2, 11, tzinfo=UTC)
 WINDOW = DateWindow(start=date(2016, 1, 1), end=date(2020, 12, 31))
 

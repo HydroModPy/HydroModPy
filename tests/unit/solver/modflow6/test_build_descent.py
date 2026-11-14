@@ -27,7 +27,9 @@ from hydromodpy.catchment.drainage.descent import descent_basin
 from hydromodpy.catchment.terrain.port import D8_WBT_OFFSETS
 from hydromodpy.mesh.cells.zonal_stats import rasterize_cell_ids
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
+from hydromodpy.model.domain.cell_column import zonal_channel_mask
 from hydromodpy.model.domain.geometry import ChannelRasters, channel_rasters_for_run
+from hydromodpy.model.domain.top_sampling_config import TopSamplingConfig
 from hydromodpy.model.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow6.builders import sfr as sfr_builder
@@ -42,7 +44,6 @@ from hydromodpy.solver.modflow_common.flow_directions import (
     build_solver_mesh_descent,
     channel_exits_for_build,
 )
-from hydromodpy.solver.modflow_grid.sgrid_config import TopSamplingConfig
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.mf6_toy_models import geometry_of
@@ -204,17 +205,12 @@ def read_exits_on(mesh: SolverMesh, rasters: ChannelRasters) -> ChannelExits:
     return exits_on(mesh, tree)
 
 
-def zonal_model(geographic, support, **top_sampling) -> SimpleNamespace:
-    return SimpleNamespace(
-        modflow_config=SimpleNamespace(
-            sgrid=SimpleNamespace(top_sampling=TopSamplingConfig(mode="zonal", **top_sampling))
-        ),
-        inputs=make_model(
-            geometry=geometry_of(
-                geographic, domain=SimpleNamespace(surface_topo=SimpleNamespace(support=support))
-            )
-        ),
-    )
+def zonal_mask_arguments(geographic, support, **top_sampling) -> dict:
+    return {
+        "raster": geometry_of(geographic).raster,
+        "surface": SimpleNamespace(support=support),
+        "top_sampling": TopSamplingConfig(mode="zonal", **top_sampling),
+    }
 
 
 def valley_with_lake() -> object:
@@ -448,7 +444,7 @@ def test_zonal_mask_holds_stream_pixels(tmp_path) -> None:
     )
     geographic = SimpleNamespace(river_stream_link_id_tif=str(path), river_streams_tif=None)
 
-    mask = build._resolve_channel_mask_for_zonal(zonal_model(geographic, support))
+    mask = zonal_channel_mask(**zonal_mask_arguments(geographic, support))
 
     assert mask is not None
     assert int(mask.sum()) == 6
@@ -465,7 +461,7 @@ def test_zonal_mask_falls_back_to_streams_full(tmp_path) -> None:
         river_stream_link_id_tif=None, river_streams_tif=None, correcflow_path=str(tmp_path)
     )
 
-    mask = build._resolve_channel_mask_for_zonal(zonal_model(geographic, support))
+    mask = zonal_channel_mask(**zonal_mask_arguments(geographic, support))
 
     assert int(mask.sum()) == 4
 
@@ -481,9 +477,11 @@ def test_zonal_mask_reads_projection_raster(tmp_path) -> None:
         write_raster(tmp_path / name, data, origin=(0.0, 50.0), pixel_m=CELL_M, age_s=age)
     support = SimpleNamespace(xmin=0.0, xmax=50.0, ymin=0.0, ymax=50.0, nrows=5, ncols=5, crs=None)
     geographic = SimpleNamespace(correcflow_path=str(tmp_path))
-    model = zonal_model(geographic, support, channel_source="streams_raster", channel_buffer_px=0)
+    arguments = zonal_mask_arguments(
+        geographic, support, channel_source="streams_raster", channel_buffer_px=0
+    )
 
-    mask = build._resolve_channel_mask_for_zonal(model)
+    mask = zonal_channel_mask(**arguments)
 
     assert mask is not None
     assert np.argwhere(mask).tolist() == [[3, 1], [3, 2], [3, 3]]

@@ -88,7 +88,6 @@ from hydromodpy.project.state import (
 from hydromodpy.results.retention import DEFAULT_KEEP_VERSIONS, DEFAULT_TRIAL_FIELDS_DAYS
 from hydromodpy.results.storage.run_log import project_log
 from hydromodpy.results.validity_rules import CALIBRATED_LABELS
-from hydromodpy.workflow.record.resume import scratch_of_resumed_run
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -689,8 +688,7 @@ class Project:
         """Enter the scratch folder of the run ``name`` (or the case ``resume``) names."""
         label = name or resume or self._cfg.simulation.name or "run"
         project_root = Path(self._cfg.workspace.project_root)
-        resumes = scratch_of_resumed_run(project_root, resume) if resume is not None else None
-        return run_scratch(project_root, label, resumes=resumes)
+        return run_scratch(project_root, label)
 
     def _execute(
         self,

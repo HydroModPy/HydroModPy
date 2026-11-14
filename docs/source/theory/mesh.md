@@ -649,7 +649,7 @@ hydromodpy.results.run.field_envelope
 hydromodpy.model.domain.layering
 hydromodpy.core.fields.vertical_column
 hydromodpy.solver.modflow_grid.discretization_spatial
-hydromodpy.solver.modflow_grid.top_sampling
+hydromodpy.model.domain.cell_column
 hydromodpy.solver.modflow6.builders.solver_options
 ```
 
@@ -657,10 +657,10 @@ hydromodpy.solver.modflow6.builders.solver_options
 
 | What | Where |
 |---|---|
-| The surfaces, the plan, the top, the layers | `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`, `resolve_domain_surfaces`), `hydromodpy/model/domain/layering.py` (`layer_proportions`, `layer_stack`, `pinch_out`) |
+| The surfaces, the plan, the top, the layers | `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`), `hydromodpy/model/domain/cell_column.py` (`modflow_column`, `resolve_domain_surfaces`), `hydromodpy/model/domain/layering.py` (`layer_proportions`, `layer_stack`, `pinch_out`) |
 | The keys of the layers, the base rasters | `hydromodpy/model/domain/layers_config.py`, `hydromodpy/data/variables/user_rasters.py`, `hydromodpy/model/domain/build.py` (`read_layer_base_sources`) |
 | The top active layer of a column | `hydromodpy/core/fields/vertical_column.py` (`top_active_layer`), `hydromodpy/solver/modflow_grid/solver_mesh.py` (`SolverMesh.top_active_layer`) |
-| The keys of the top | `hydromodpy/solver/modflow_grid/sgrid_config.py` |
+| The keys of the top | `hydromodpy/model/domain/top_sampling_config.py`, `hydromodpy/solver/modflow_grid/sgrid_config.py` |
 | The keys of the mesh | `hydromodpy/mesh/mesh_config.py` (`MeshConfig`) |
 | The engines and their registry | `hydromodpy/mesh/engines/` (`regular`, `triangle`, `voronoi`), `hydromodpy/mesh/registry.py` |
 | The request and the planner | `hydromodpy/mesh/request.py`, `hydromodpy/mesh/planning/plan.py` (`plan_mesh_request`) |
@@ -671,8 +671,8 @@ hydromodpy.solver.modflow6.builders.solver_options
 | The size of a triangle | `hydromodpy/mesh/engines/triangle/gmsh_triangulation.py` (`MESH_SIZE_PER_CELL_SIZE`) |
 | The catchment fraction and the weighted totals | `hydromodpy/mesh/cells/in_polygons.py` (`cell_area_fraction`, `watershed_cell_mask`), `hydromodpy/solver/modflow_common/catchment_basin.py` (`run_basin`), `hydromodpy/catchment/preprocess/delineated_catchment.py` (`catchment_outline`), `hydromodpy/results/derive/views.py` (`catchment_weights`, `budget_over`, `catchment_mean`) |
 | The centroid sample | `hydromodpy/catchment/surface_sampling.py` (`PreparedSurfaceSampler.sample`) |
-| The zonal top | `hydromodpy/mesh/cells/zonal_stats.py` (`zonal_top`), `hydromodpy/solver/modflow_grid/top_sampling.py` (`zonal_top_flat`, `zonal_structured_top`, `bottom_under_lowered_top`, `cells_cover_pixels`) |
-| The channel mask | `hydromodpy/solver/modflow6/build.py` (`_resolve_channel_mask_for_zonal`) |
+| The zonal top | `hydromodpy/mesh/cells/zonal_stats.py` (`zonal_top`), `hydromodpy/model/domain/cell_column.py` (`zonal_top_flat`, `zonal_structured_top`, `bottom_under_lowered_top`, `cells_cover_pixels`) |
+| The channel mask | `hydromodpy/model/domain/cell_column.py` (`zonal_channel_mask`) |
 | The Voronoi tessellation | `hydromodpy/mesh/engines/voronoi/tessellation.py` (`voronoi_planar_mesh`) |
 | The angle of a connection | `hydromodpy/mesh/planar/quality.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`, callable on any planar `HydroMesh`) |
 | The XT3D decision | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`) |

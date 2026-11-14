@@ -95,8 +95,8 @@ def built_workspace(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return root
 
 
-def test_the_step_declares_the_tree_it_wrote(built_workspace: Path) -> None:
-    """``artifacts()`` names the geographic tree, no manifest left behind."""
+def test_the_step_declares_the_terrain_it_stored(built_workspace: Path) -> None:
+    """The declaration is the terrain of the product store, which outlives the scratch."""
     from hydromodpy.workflow.steps.setup import BuildGeographicStep
 
     step = BuildGeographicStep()
@@ -105,32 +105,8 @@ def test_the_step_declares_the_tree_it_wrote(built_workspace: Path) -> None:
 
     assert declared, "the geographic step declares nothing"
     assert all(Path(item).is_file() for item in declared)
-    names = {Path(item).name for item in declared}
-    assert "_geographic_cache_manifest.json" not in names
-    assert "dem_breach.tif" in names, "the conditioned DEM is not declared"
-    assert {"watershed.shp", "watershed.shx", "watershed.dbf"} <= names
-
-
-def test_the_step_declares_every_file_a_rebuild_reads(built_workspace: Path) -> None:
-    """The declaration is the geographic tree itself, unnamed files included.
-
-    ``watershed_buff.shp`` is named by no public attribute of either runtime
-    and was missing from the old manifest, so a rebuild read a file the
-    declaration did not cover. The tree lists it from its folder attribute.
-    """
-    from hydromodpy.catchment.preprocess.geographic_tree import geographic_artifact_paths
-    from hydromodpy.workflow.steps.setup import BuildGeographicStep
-
-    step = BuildGeographicStep()
-    state = step.run(_state_for(built_workspace / "project.toml"))
-    geographic = state.get("ctx").setup.geographic
-
-    declared = {Path(item) for item in step.artifacts(state)}
-    tree = {Path(item) for item in geographic_artifact_paths(geographic)}
-    assert declared == tree
-    names = {path.name for path in declared}
-    assert "watershed_buff.shp" in names
-    assert {"watershed.shp", "watershed.shx", "watershed.dbf"} <= names
+    assert "terrain.json" in {Path(item).name for item in declared}
+    assert not any("_preprocessing" in item for item in declared)
 
 
 def test_a_rebuild_does_not_condition_again(

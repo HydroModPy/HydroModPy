@@ -541,6 +541,9 @@ def _in_memory_runner(
         run_calibration_programmatic,
     )
     from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.project.runner import refuse_a_draft
+
+    refuse_a_draft(proj._cfg)
 
     def run(cfg: CalibrationConfig):
         _preflight_in_memory(proj, cfg)

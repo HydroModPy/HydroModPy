@@ -145,7 +145,7 @@ them from a clone with your distribution installed. The suites of the terrain, m
 every source the registry serves, as :doc:`how-to/add-a-data-source` explains,
 and the suite of the export port holds every format of ``export_formats`` to
 what its declarations say, as :doc:`how-to/add-an-exporter` explains. The suite of the solver port,
-``tests/ports/test_solver.py``, checks the twelve attributes of every backend the
+``tests/ports/test_solver.py``, checks the thirteen attributes of every backend the
 registry serves, and builds, solves and extracts every flow on every mesh engine it accepts.
 
 Changing a contract
@@ -243,13 +243,13 @@ keep working.
 Design patterns
 ---------------
 
-SolverAdapter: a Protocol and twelve attributes per backend
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SolverAdapter: a Protocol and thirteen attributes per backend
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``hydromodpy/solver/base/adapter_protocol.py`` defines the Protocol. An adapter
-class carries twelve attributes (``name``, ``process_type``, ``accepted_meshes``,
+class carries thirteen attributes (``name``, ``process_type``, ``accepted_meshes``,
 ``geometry``, ``writes``, ``reads``, ``supports``, ``options``, ``category``,
-``native_step``, ``mutable`` and ``requires``) and five members the runner calls:
+``native_step``, ``cell_column``, ``mutable`` and ``requires``) and five members the runner calls:
 ``validate(model, options, slot)``, ``build(model, options, slot, ctx)``,
 ``run(solver_run)``, ``cleanup(solver_run)`` and ``extract(solver_run, store, retention)``.
 Three members are optional. ``rerun(previous, model, slot)`` is present if and only if

@@ -79,8 +79,8 @@ def _check_backend(cls: type) -> None:
     """Refuse a backend whose attributes have the wrong type or leave their vocabulary.
 
     The member check of the registry has already refused an absent attribute.
-    ``options`` and ``native_step`` may be ``None``, so their presence is
-    checked here, on the class.
+    ``options``, ``native_step`` and ``cell_column`` may be ``None``, so their
+    presence is checked here, on the class.
     """
     # Imported here, at the first registration, so importing the registry
     # stays as light as before: model.supports pulls the whole Model.
@@ -124,6 +124,9 @@ def _check_backend(cls: type) -> None:
     options = getattr(cls, "options", None)
     if options is not None and not (isinstance(options, type) and issubclass(options, BaseModel)):
         problems.append(f"options is {options!r}, a Pydantic model class or None")
+    cell_column = getattr(cls, "cell_column", None)
+    if cell_column is not None and not callable(cell_column):
+        problems.append(f"cell_column is {cell_column!r}, a function or None")
     native_step = getattr(cls, "native_step", None)
     if native_step is not None:
         try:

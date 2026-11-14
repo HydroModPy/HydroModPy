@@ -23,6 +23,7 @@ from hydromodpy.mesh.io.bundle import (
     load_catchment_mesh_bundle,
 )
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.model.domain.cell_column import centre_column
 from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
 from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
@@ -98,7 +99,7 @@ def _from_cell_mesh(case: str) -> BoussinesqMesh:
     )
     return BoussinesqMesh.from_cell_mesh(
         cell_mesh,
-        domain=domain,
+        column=centre_column(cell_mesh=cell_mesh, domain=domain),
         hydraulic_conductivity_m_s=np.full(cell_mesh.n_cells, K_M_S),
         storage_coefficient=np.full(cell_mesh.n_cells, SY),
     )
@@ -277,7 +278,7 @@ def test_cell_without_center_value_takes_its_corners() -> None:
 
     mesh = BoussinesqMesh.from_cell_mesh(
         cell_mesh,
-        domain=domain,
+        column=centre_column(cell_mesh=cell_mesh, domain=domain),
         hydraulic_conductivity_m_s=np.full(cell_mesh.n_cells, K_M_S),
         storage_coefficient=np.full(cell_mesh.n_cells, SY),
     )
@@ -406,7 +407,7 @@ def test_cell_mesh_refusals(cell_mesh: PlanarCellMesh, domain, message: str) -> 
     with pytest.raises(ValueError, match=message):
         BoussinesqMesh.from_cell_mesh(
             cell_mesh,
-            domain=domain,
+            column=centre_column(cell_mesh=cell_mesh, domain=domain),
             hydraulic_conductivity_m_s=np.full(cell_mesh.n_cells, K_M_S),
             storage_coefficient=np.full(cell_mesh.n_cells, SY),
         )
@@ -418,7 +419,7 @@ def test_refuses_cell_values_of_the_wrong_size() -> None:
     with pytest.raises(ValueError, match="exactly one value per cell"):
         BoussinesqMesh.from_cell_mesh(
             cell_mesh,
-            domain=_runtime_domain(cell_mesh),
+            column=centre_column(cell_mesh=cell_mesh, domain=_runtime_domain(cell_mesh)),
             hydraulic_conductivity_m_s=np.full(cell_mesh.n_cells - 1, K_M_S),
             storage_coefficient=np.full(cell_mesh.n_cells, SY),
         )

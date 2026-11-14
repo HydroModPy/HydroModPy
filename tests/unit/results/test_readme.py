@@ -22,7 +22,7 @@ from hydromodpy.results.session.phase import FrozenValue, PhaseDescriptor
 from hydromodpy.results.storage.run_profile import Profile, ProfileLine
 from hydromodpy.results.validity_rules import LabelResult, Reason, label_for, run_quantities
 from hydromodpy.schema.lineage import Lineage, Replay, ReplayDifference
-from tests._helpers.run_records import NOW, make_record
+from tests._helpers.run_records import NOW, VERSION, make_record
 from tests._helpers.session_documents import best_trial, session_descriptor, trial_line
 
 LABEL = LabelResult(
@@ -59,7 +59,7 @@ def test_run_readme(tmp_path):
     assert "gauge `J0014010`, hubeau:J0014010" in text
     assert re.search(r"outlet WGS84: lon -1\.\d+, lat 48\.\d+", text)
     assert "2016-01-01 to 2020-12-31, 1827 day." in text
-    assert "HydroModPy 2.0.0a5, solver `modflow6`, mesh engine `voronoi`" in text
+    assert f"HydroModPy {VERSION}, solver `modflow6`, mesh engine `voronoi`" in text
     assert "code reproducible: no" in text
     assert "water budget 0.8 % (accepted up to 2 %)" in text
     assert "**calibrated** under rules 3." in text

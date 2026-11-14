@@ -8,7 +8,7 @@ read back by ``extractors/flow.py``.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, ClassVar
 
 import pandas as pd
@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.domain.cell_column import CellColumn, modflow_column
 from hydromodpy.results.field_registry import CONNECTION_CELLS, FACE_FLOW
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
@@ -91,6 +92,7 @@ class ModflowNwtFlowAdapter:
     options: ClassVar[type[BaseModel] | None] = ModflowConfig
     category: ClassVar[str] = "distributed"
     native_step: ClassVar[str | None] = None
+    cell_column: ClassVar[Callable[..., CellColumn] | None] = staticmethod(modflow_column)
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 

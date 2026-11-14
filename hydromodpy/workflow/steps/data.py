@@ -625,7 +625,25 @@ class LoadDataStep:
     name = "load_data"
     reads: ClassVar[tuple[str, ...]] = ("ctx", "run_dir")
     writes: ClassVar[tuple[str, ...]] = ("ctx",)
-    config_sections: ClassVar[tuple[str, ...]] = ("data",)
+    # The forcings are read over the simulation window, and averaged over the
+    # catchment under a lumped mesh engine. The lakes, their walls and the
+    # barriers bound here are cut into the mesh, so their presence and their
+    # lines are read here. The rest of the flow section is bound again by
+    # ``rebind_flow_if_stale``.
+    config_sections: ClassVar[tuple[str, ...]] = (
+        "data",
+        "simulation.time",
+        "mesh.engine",
+        "flow.sinks_sources.lakes.*.enabled",
+        "flow.sinks_sources.lakes.*.cutoff_wall.auto",
+        "flow.sinks_sources.lakes.*.cutoff_wall.line",
+        "flow.sinks_sources.lakes.*.cutoff_wall.line_path",
+        "flow.sinks_sources.lakes.*.cutoff_wall.snap_tolerance",
+        "flow.sinks_sources.flow_barriers.*.enabled",
+        "flow.sinks_sources.flow_barriers.*.auto",
+        "flow.sinks_sources.flow_barriers.*.line",
+        "flow.sinks_sources.flow_barriers.*.line_path",
+    )
 
     def depends_on(self) -> tuple[str, ...]:
         return ("build_geographic",)

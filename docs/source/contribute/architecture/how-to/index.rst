@@ -35,7 +35,7 @@ Extend the code
       :link-type: doc
 
       Bind a ``<process_type>_<name>`` key to an adapter class that declares its
-      twelve attributes, and to an output extractor.
+      thirteen attributes, and to an output extractor.
 
    .. grid-item-card:: Add a process
       :link: add-a-process

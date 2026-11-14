@@ -196,28 +196,6 @@ def _blueprint_mismatch(
 __all__ = ("ResumePlan", "ResumePlanner", "StepInvalidation")
 
 
-def scratch_of_resumed_run(project_root: Path, run_name: str) -> str | None:
-    """Return the scratch folder the completed steps of ``run_name`` journalled, or None.
-
-    A run journals its preprocessing under the project folder
-    ``.hmp/scratch/<run>.p<pid>/``. The resume works in that folder again, or
-    the sweep of killed runs would delete what the resume is meant to reuse.
-    The journal is read from the run directory (``runs/<name>``, the latest
-    version for a bare name), never from the index.
-    """
-    from hydromodpy.core.state.scratch import run_scratch_of
-    from hydromodpy.results.storage.attempt import run_dir_for_name
-
-    run_dir = run_dir_for_name(Path(project_root), run_name)
-    if run_dir is None:
-        return None
-    rows = WorkflowJournal(run_dir).list_steps(run_name)
-    completed = sorted(
-        (row for row in rows if row.status == "completed"), key=lambda row: row.step_order
-    )
-    return run_scratch_of(uri for row in completed for uri in row.artifact_uris)
-
-
 def resolve_resume_step_index(
     run_dir: Path,
     workspace: Path,

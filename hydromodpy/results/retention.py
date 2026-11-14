@@ -26,7 +26,7 @@ A plan has nine categories:
   :data:`TRASH_RETENTION_DAYS`. Removed, each leaving a tombstone, so its
   name is never given out again.
 - ``dead_scratch``: the run scratch ``.hmp/scratch/<name>.p<pid>/`` whose
-  process and resume holder are gone, or older than a day with no live run or
+  process is gone, or older than a day with no live run or
   session of that name, and ``.hmp/`` inside a sealed run. Removed. Any other
   folder of ``.hmp/scratch/`` (``_preprocessing/`` kept on request) stays.
 - ``sealed_attempts``: what ``attempts/<n>/`` of a sealed run holds beside its

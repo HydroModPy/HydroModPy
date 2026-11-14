@@ -11,6 +11,7 @@ of a key. Register them through the ``isolated_solvers`` fixture of
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from typing import Any, ClassVar
 
@@ -39,6 +40,7 @@ class FakeAdapter:
     options: ClassVar[type[BaseModel] | None] = None
     category: ClassVar[str] = "distributed"
     native_step: ClassVar[str | None] = None
+    cell_column: ClassVar[Callable[..., Any] | None] = None
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 

@@ -16,6 +16,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.model.domain.cell_column import CellColumn
 from hydromodpy.model.model import Geometry, Model, ModelTime, Properties
 from hydromodpy.model.properties.field_param import FieldParam
 from hydromodpy.model.properties.property_table import resolve_required_flow_properties
@@ -47,7 +48,11 @@ def _profiles() -> dict[str, FieldParam]:
 def _model(regime: str = "transient", *, profiles: dict | None = None, **overrides) -> Model:
     """A model on a 2 x 2 cell mesh whose per-cell overrides are ``overrides``."""
     return make_model(
-        geometry=Geometry(cells=_cell_mesh(), domain=SimpleNamespace(zones={})),
+        geometry=Geometry(
+            cells=_cell_mesh(),
+            domain=SimpleNamespace(zones={}),
+            column=CellColumn(top=np.full(4, 10.0), bottom=np.zeros(4)),
+        ),
         properties=Properties(
             profiles=_profiles() if profiles is None else profiles, overrides=overrides
         ),

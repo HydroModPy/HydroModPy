@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import io
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import redirect_stdout
 from dataclasses import replace
 from pathlib import Path
@@ -35,6 +35,7 @@ from hydromodpy.core.budget.flux import first_finite_layer, seepage_mask
 from hydromodpy.core.exceptions import ConfigError, SolverDivergedError, SolverInputError
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.domain.cell_column import CellColumn
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.transport.transport_config import ModpathParametersConfig
 from hydromodpy.results.field_registry import FACE_FLOW
@@ -475,6 +476,7 @@ class ModpathTransportAdapter:
     options: ClassVar[type[BaseModel] | None] = ModpathParametersConfig
     category: ClassVar[str] = "distributed"
     native_step: ClassVar[str | None] = None
+    cell_column: ClassVar[Callable[..., CellColumn] | None] = None
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow_nwt"),)
 

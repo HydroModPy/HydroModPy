@@ -54,7 +54,7 @@ How a preprocess run goes
 ``SyntheticGeographic`` with the same public attributes. The runtime object that others read is
 ``CatchmentDelineation``, and ``BuildGeographicStep`` in ``workflow/steps/setup.py`` is the caller.
 ``preprocessing_cleanup.py`` removes the tree once the run holds what it needs, and
-``geographic_tree.py`` lists the files a resume must find.
+``geographic_tree.py`` lists the sidecar suffixes of a shapefile.
 
 From a catchment to a mesh
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

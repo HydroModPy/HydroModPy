@@ -9,7 +9,7 @@ read back by ``extractors/flow.py``.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, ClassVar
@@ -30,6 +30,7 @@ from hydromodpy.core.exceptions import (
     SolverDivergedError,
 )
 from hydromodpy.mesh.cells.in_polygons import watershed_cell_mask
+from hydromodpy.model.domain.cell_column import CellColumn, centre_column
 from hydromodpy.model.domain.layers_config import LAYERS, asks_for_layers
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
@@ -141,6 +142,7 @@ class BoussinesqFlowAdapter:
     options: ClassVar[type[BaseModel] | None] = BoussinesqOptions
     category: ClassVar[str] = "integrated"
     native_step: ClassVar[str | None] = None
+    cell_column: ClassVar[Callable[..., CellColumn] | None] = staticmethod(centre_column)
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 

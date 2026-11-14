@@ -21,6 +21,7 @@ After the staircase <../get-started/staircase/next>
 :caption: Do a task
 
 Use your own files <../how-to/use-your-own-files>
+Work in the lab <../how-to/work-in-the-lab>
 Calibrate on a network and a discharge <../get-started/calibrate-k>
 Write calibration phases <../how-to/write-calibration-phases>
 Long transient runs in windows <../how-to/long-transient-runs-in-windows>

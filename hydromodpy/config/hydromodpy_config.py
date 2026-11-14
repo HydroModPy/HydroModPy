@@ -111,7 +111,7 @@ from hydromodpy.solver.base.solver_config import SolverConfig
 logger = get_logger(__name__)
 
 WorkflowMode = Literal["simulation", "calibration", "overview"]
-ValidationContext = Literal["toml", "request", "api", "snapshot"]
+ValidationContext = Literal["toml", "request", "api", "snapshot", "draft"]
 Verbosity = Literal["quiet", "normal", "verbose", "debug"]
 
 RETIRED_WORKFLOW_MODES: dict[str, str] = {
@@ -456,6 +456,7 @@ class HydroModPyConfig(HydroModelBase):
     )
 
     _read_as_sealed: bool = PrivateAttr(default=False)
+    _read_as_draft: bool = PrivateAttr(default=False)
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
         "testbed": TESTBED_REFUSAL,
@@ -472,6 +473,15 @@ class HydroModPyConfig(HydroModelBase):
         would stop.
         """
         return self._read_as_sealed
+
+    @property
+    def read_as_draft(self) -> bool:
+        """True when this config was read as a draft, built one section at a time.
+
+        A rule that reads several sections runs once each of them is written, and
+        a missing ``[simulation]`` is not refused. No run starts from a draft.
+        """
+        return self._read_as_draft
 
     @field_validator("edition")
     @classmethod
@@ -558,6 +568,8 @@ class HydroModPyConfig(HydroModelBase):
         sealed = self._read_as_sealed or context.get("validation_context") == "snapshot"
         if sealed:
             self._read_as_sealed = True
+        if context.get("validation_context") == "draft":
+            self._read_as_draft = True
         try:
             apply_site_gauge(self.data, self.site)
         except ConfigError as exc:
@@ -635,6 +647,7 @@ class HydroModPyConfig(HydroModelBase):
         *,
         base_dir: str | Path,
         sealed: bool = False,
+        draft: bool = False,
     ) -> HydroModPyConfig:
         """Load and validate configuration from a Python mapping.
 
@@ -646,13 +659,15 @@ class HydroModPyConfig(HydroModelBase):
         ``sealed`` reads the frozen config of a run already on disk: a check that
         refuses what a run cannot be scored on, or what its flow solver would
         ignore, only warns there, and ``read_as_sealed`` is true on the result.
+        ``draft`` reads a configuration built one section at a time, and
+        ``read_as_draft`` is true on the result.
         """
         base = Path(base_dir).expanduser().resolve()
         if sealed:
             return cls._from_payload(payload, base=base, context="snapshot")
         from hydromodpy.config.loading import load
 
-        return load(payload, base)
+        return load(payload, base, draft=draft)
 
     @classmethod
     def _from_payload(
@@ -685,7 +700,7 @@ class HydroModPyConfig(HydroModelBase):
             # protocol is expanded: it compares the stages the run froze with the
             # ones it writes, and a stage frozen under an old key would differ.
             migrate_sealed_config_doc(document)
-        in_a_file = context in ("toml", "request")
+        in_a_file = context in ("toml", "request", "draft")
         forced_root = resolve_project_root(base) if in_a_file else None
         resolved = resolve_document(
             cls,

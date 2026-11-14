@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.catchment.terrain.port import CappedBreach
+from hydromodpy.model.domain.cell_column import modflow_column
 from hydromodpy.model.domain.geometry import CatchmentGeometry, ChannelRasters, RasterGeometry
 from hydromodpy.model.initial.state import (
     CyclicStart,
@@ -286,9 +287,11 @@ def _island_model(**members) -> Model:
     domain = _build_domain_from_dem(dem)
     geographic = _DummyGeographic(dem)
     geographic.crs_proj = "EPSG:2154"
+    cells = regular_cell_mesh_of_surface(domain.surface_topo, nrow=4, ncol=5)
     geometry = Geometry(
-        cells=regular_cell_mesh_of_surface(domain.surface_topo, nrow=4, ncol=5),
+        cells=cells,
         domain=domain,
+        column=modflow_column(cell_mesh=cells, domain=domain, top_sampling=None, channel_mask=None),
         raster=RasterGeometry.from_geographic(geographic),
         catchment=CatchmentGeometry.from_geographic(geographic, crs="EPSG:2154"),
     )

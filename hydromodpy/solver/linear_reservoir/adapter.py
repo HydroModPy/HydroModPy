@@ -10,7 +10,7 @@ through the ``NativeSeries`` of the recharge binder.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, ClassVar
@@ -28,6 +28,7 @@ from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverInputE
 from hydromodpy.core.time.window import time_grid_start
 from hydromodpy.core.units.quantities import factor_to_m_per_s
 from hydromodpy.core.units.time import factor_to_seconds
+from hydromodpy.model.domain.cell_column import CellColumn
 from hydromodpy.model.forcing.steady_periods import steady_rate
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
@@ -270,6 +271,7 @@ class LinearReservoirFlowAdapter:
     options: ClassVar[type[BaseModel] | None] = LinearReservoirOptions
     category: ClassVar[str] = "lumped"
     native_step: ClassVar[str | None] = None
+    cell_column: ClassVar[Callable[..., CellColumn] | None] = None
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 

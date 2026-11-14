@@ -95,6 +95,7 @@ Minimal skeleton
        options: ClassVar[type[BaseModel] | None] = MysolverOptions
        category: ClassVar[str] = "distributed"
        native_step: ClassVar[str | None] = None
+       cell_column: ClassVar = None
        mutable: ClassVar[frozenset[str]] = frozenset()
        requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 

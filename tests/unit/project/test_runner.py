@@ -23,6 +23,7 @@ from hydromodpy.core.state.layout import (
     RUN_INTERNAL_CHECKPOINTS_DIRNAME,
 )
 from hydromodpy.project.launch.plan import PlanDraft
+from hydromodpy.project.run_overrides import override_changes
 from hydromodpy.project.runner import ProjectRunner
 from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.storage.run_log import run_log_path
@@ -45,6 +46,7 @@ def _declared_config(root: Path):
         workspace=WorkspaceConfig(project_root=str(root), root=str(root)),
         geographic=GeographicConfig(source_mode="synthetic"),
         domain={"depth_model": {"kind": "constant_thickness", "thickness": 50.0}},
+        mesh={"engine": "regular"},
     )
 
 
@@ -58,13 +60,14 @@ class _StubProject:
         self._config_path = root / "project.toml"
         # A real configuration: the runner copies it with the overrides folded in.
         self._cfg = _declared_config(root)
-        # The ready check reads all three fields.
+        # The ready check reads all three fields, and the configuration that built them.
         self._ctx = SimpleNamespace(
+            cfg=self._cfg,
             setup=SimpleNamespace(
                 workspace=SimpleNamespace(project_root=root) if model_phase_ready else None,
                 geographic="geo" if model_phase_ready else None,
                 domain="domain" if model_phase_ready else None,
-            )
+            ),
         )
 
     def _ensure_model_built(self) -> None:
@@ -114,6 +117,69 @@ def test_ready_project_skips_forward(tmp_path: Path) -> None:
     project = _StubProject(tmp_path, model_phase_ready=True)
 
     assert _dry_run(project, until_step=None).steps == STEP_NAMES[5:]
+
+
+@pytest.mark.parametrize(
+    ("changes", "moved"),
+    [
+        ({"geographic.domain_extent": "watershed"}, "build_geographic"),
+        (
+            {"simulation.time": {"start_datetime": "2020-01-01", "end_datetime": "2020-06-30"}},
+            "load_data",
+        ),
+        ({"mesh.cell_size": 50.0}, "build_mesh"),
+        ({"thickness": 20.0}, None),
+        ({"vka": 2.0}, None),
+    ],
+    ids=["terrain", "time window", "mesh", "domain thickness", "flow"],
+)
+def test_model_phase_is_reused_only_by_a_run_that_reads_it_alike(
+    tmp_path: Path, changes: dict, moved: str | None
+) -> None:
+    project = _StubProject(tmp_path, model_phase_ready=True)
+    cfg_run = project._cfg.with_changes(override_changes(project._cfg, changes))
+    rebuilt = STEP_NAMES if moved else STEP_NAMES[5:]
+
+    assert ProjectRunner(project)._first_step_reading_a_moved_section(cfg_run) == moved  # type: ignore[arg-type]
+    assert _dry_run(project, set=changes).steps == rebuilt
+    # A plain run after a changed one reads the declared configuration again.
+    project._ctx.cfg = cfg_run
+    assert _dry_run(project).steps == rebuilt
+
+
+@pytest.mark.parametrize(
+    ("step", "kept", "phase"),
+    [
+        ("build_geographic", (), "uninitialized"),
+        ("load_data", ("build_geographic",), "geographic"),
+        ("build_mesh", ("build_geographic", "load_data"), "data"),
+    ],
+)
+def test_a_moved_section_forgets_what_its_step_and_the_later_ones_built(
+    tmp_path: Path, step: str, kept: tuple[str, ...], phase: str
+) -> None:
+    from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.project.runner import SETUP_BUILT_BY_STEP
+
+    project = _StubProject(tmp_path)
+    project._ctx = WorkflowContext(cfg=project._cfg, config_path=tmp_path, raw_toml={})
+    for attributes in SETUP_BUILT_BY_STEP.values():
+        for attribute in attributes:
+            setattr(project._ctx.setup, attribute, "built")
+    project._ctx.setup.products = {"terrain": "t", "soil": "s", "mesh": "m"}
+    project._ctx.loaded_data.geology, project._data_loaded = "built", {"geology"}
+
+    ProjectRunner(project)._drop_model_phase_from(step)  # type: ignore[arg-type]
+
+    setup = project._ctx.setup
+    for name, attributes in SETUP_BUILT_BY_STEP.items():
+        built = {getattr(setup, attribute) for attribute in attributes}
+        assert built == {"built" if name in kept else None}
+    assert set(setup.products) == set(("terrain", "soil", "mesh")[: len(kept)])
+    assert (project._ctx.loaded_data.geology, project._data_loaded) == (
+        ("built", {"geology"}) if "load_data" in kept else (None, set())
+    )
+    assert project._phase == phase
 
 
 @pytest.mark.parametrize("bound", ["until_step", "from_step"])
