@@ -9,8 +9,9 @@ PRT follows the water. A run takes about 5 s.
 
 - `project.toml`: the model, its figures and its exports.
 - `py1_run_and_plot.py`: plays `project.toml` step by step in a `hmp.Lab` (mesh, wells, head, a
-  change of K), keeps the model as a run, draws an overview from that run, and writes the particle
-  tracks as a GeoPackage.
+  change of K) and keeps the model as a run. HydroModPy draws every figure: the mesh on the
+  relief before the solve, then two more the script asks the run for. The script also prints the
+  numbers of the water budget and writes the particle tracks as a GeoPackage.
 
 The DEM and the mapped streams are read from the shared `data/` folder of the workspace, by a
 `workspace:` name. The recharge and the pumping rates are written in `project.toml`.
@@ -27,8 +28,8 @@ hmp export aber_example_00 head --time 2017-07-15
 ```
 
 Run the file twice and nothing is computed the second time: the command names the first run and
-stops. The script reads that run back. Edit the file and the new run is `aber_example_00.v2`,
-beside the first one.
+stops. Edit the file and the new run is `aber_example_00.v2`, beside the first one. The script
+keeps a run of its own each time it is played, so it writes the next version too.
 
 ## What a run writes
 
@@ -41,7 +42,7 @@ beside the first one.
   the DEM, the head, the water-table depth and the seepage cells of January as GeoTIFF, the
   twelve months of the same three fields in `watertable_2017.nc`, the discharge and the budget
   as CSV. Every file opens in QGIS or a spreadsheet.
-- `summary/`: what the script draws and writes, outside the sealed run.
+- `summary/`: the figures the script asks for and the tracks it writes, outside the sealed run.
 
 The discharge is the drain flow routed to the outlet over the model top. Its basin is the 426
 cells of the catchment polygon.

@@ -43,6 +43,10 @@ CELL_MARKS = {"lake": "lake", "seepage": "seepage_mask"}
 DEEP = 2.0
 """A water table section is cut under the water table when the body under its lowest point
 is more than this many times thicker than the ground above that point."""
+UNDER = 0.1
+"""A cut section keeps under the lowest water table this share of the ground above it."""
+PROFILE = 2.0
+"""The land surface and the water table are this many times the data line width."""
 HEADINGS = (
     "west to east", "south-west to north-east", "south to north", "south-east to north-west",
     "east to west", "north-east to south-west", "north to south", "north-west to south-east",
@@ -294,20 +298,9 @@ def _marks(subject, panel, pieces, trace, water: bool) -> tuple[tuple[str, float
 
 # ----------------------------------------------------------------------- draw
 def _stepped(table: pd.DataFrame, column: str) -> tuple[np.ndarray, np.ndarray]:
+    """Return ``column`` along the line as one step per piece of cell, on any mesh."""
     x = table[["start", "end"]].to_numpy().ravel()
     return x, np.repeat(table[column].to_numpy(dtype=float), 2)
-
-
-def _profile(table: pd.DataFrame, column: str, smooth: bool) -> tuple[np.ndarray, np.ndarray]:
-    """Return ``column`` along the line: through the middle of each cell, or as steps."""
-    if not smooth:
-        return _stepped(table, column)
-    start, end = table["start"].to_numpy(), table["end"].to_numpy()
-    values = table[column].to_numpy(dtype=float)
-    return (
-        np.concatenate([start[:1], (start + end) / 2, end[-1:]]),
-        np.concatenate([values[:1], values, values[-1:]]),
-    )
 
 
 def _window(data: SectionData, land, water, base) -> tuple[float, float, float, float]:
@@ -315,8 +308,8 @@ def _window(data: SectionData, land, water, base) -> tuple[float, float, float, 
 
     The window asked wins. Else the whole model is drawn, unless the section shows a
     water table alone over a body more than ``DEEP`` times thicker than what lies above
-    its lowest point. The view then keeps as much aquifer under that point as there is
-    ground above it, since the model base would flatten the water table.
+    its lowest point. The view then keeps under that point the share ``UNDER`` of the
+    ground above it, so the land surface and the water table fill the frame.
     """
     if data.window is not None:
         return data.window
@@ -325,7 +318,7 @@ def _window(data: SectionData, land, water, base) -> tuple[float, float, float, 
     if water is not None and np.isfinite(water).any():
         above = high - float(np.nanmin(water))
         if float(np.nanmin(water)) - low > DEEP * above > 0:
-            low = float(np.nanmin(water)) - above
+            low = float(np.nanmin(water)) - UNDER * above
     pad = 0.04 * (high - low or 1.0)
     return start, low - pad, end, high + pad
 
@@ -336,11 +329,13 @@ def draw(ax: Any, data: SectionData, theme: Theme) -> None:
     Rectangles are ``(start, bottom)`` to ``(end, top)``, rasterised, with the
     norm rules of the map frame (``LogNorm``, ``TwoSlopeNorm`` centred on zero,
     categorical classes in a legend). Over them: the layer interfaces as thin
-    dashed lines, the land surface, the model base, then ``line``. When a cell is
-    coloured the lines are steps that follow the cells. When none is, the lines run
-    through the middle of each cell, a water table takes the ``water_table`` role,
-    the body under it is filled as the saturated zone and the ground above it as the
-    unsaturated zone. A dry column is unsaturated down to the base. Each mark is a
+    dashed lines, the land surface, the model base, then ``line``. Every line is one
+    step per piece of cell, so the section shows the cells it crosses on any mesh.
+    When no cell is coloured, a water table takes the ``water_table`` role, the body
+    under it is filled as the saturated zone and the ground above it as the unsaturated
+    zone, and the two profiles are ``PROFILE`` times thicker. The fills carry no legend
+    entry, and neither does a layer interface or a model base left under the window. A dry column
+    is unsaturated down to the base. Each mark is a
     span of the ``bounds`` role with its name in the legend, and a seepage cell is a
     point on the land surface. The left title says what is drawn, the right title
     the time, the way the line runs and the vertical exaggeration. The legend sits in
@@ -367,37 +362,39 @@ def draw(ax: Any, data: SectionData, theme: Theme) -> None:
     cells.set_rasterized(True)
     if colored:
         ax.add_collection(cells)
-    smooth = not colored
     n_layers = int(table["layer"].max())
     first, last = table[table["layer"] == 0], table[table["layer"] == n_layers]
-    (x, land), (_, base) = _profile(first, "top", smooth), _profile(last, "bottom", smooth)
+    (x, land), (_, base) = _stepped(first, "top"), _stepped(last, "bottom")
     water = None
     if data.line is not None:
-        water = _profile(data.line, "value", smooth)[1]
-    if data.water and not colored:
+        water = _stepped(data.line, "value")[1]
+    alone = data.water and not colored
+    left, low, right, high = _window(data, land, water if alone else None, base)
+    if alone:
         wet = np.fmin(np.where(np.isnan(water), base, water), land)
-        for low, high, role in ((base, wet, "saturated"), (wet, land, "unsaturated")):
-            ax.fill_between(
-                x, low, high, color=theme.roles[role], linewidth=0.0, zorder=1,
-                label=f"{role.capitalize()} zone",
-            )  # fmt: skip
+        for under, over, role in ((base, wet, "saturated"), (wet, land, "unsaturated")):
+            ax.fill_between(x, under, over, color=theme.roles[role], linewidth=0.0, zorder=1)
+    named = False
     for k in range(1, n_layers + 1):
-        inner = table[table["layer"] == k]
+        along, level = _stepped(table[table["layer"] == k], "top")
+        # A line left under the window takes no legend entry.
+        label = None if named or float(np.nanmax(level)) < low else "Layer interface"
+        named = named or label is not None
         ax.plot(
-            *_profile(inner, "top", smooth), color=theme.roles["layer_interface"],
-            linewidth=theme.line_width, linestyle="--",
-            label="Layer interface" if k == 1 else None, zorder=3,
+            along, level, color=theme.roles["layer_interface"], label=label,
+            linewidth=theme.line_width, linestyle="--", zorder=3,
         )  # fmt: skip
     ax.plot(
-        x, base, label="Model base", zorder=4,
+        x, base, label=None if float(np.nanmax(base)) < low else "Model base", zorder=4,
         color=theme.roles["layer_interface"], linewidth=theme.line_width * 1.4,
     )  # fmt: skip
-    ax.plot(x, land, label="Land surface", zorder=4, **static.line_style(theme, "ground"))
+    thick = theme.data_line_width * PROFILE
+    land_style = static.line_style(theme, "ground") | ({"linewidth": thick} if alone else {})
+    ax.plot(x, land, label="Land surface", zorder=4, **land_style)
     if data.line is not None and (data.water or colored):
-        ax.plot(
-            x, water, label=data.line_label, zorder=5,
-            **{**static.line_style(theme, "water_table"), "linewidth": theme.data_line_width * 1.3},
-        )  # fmt: skip
+        wide = thick if alone else theme.data_line_width * 1.3
+        water_style = static.line_style(theme, "water_table") | {"linewidth": wide}
+        ax.plot(x, water, label=data.line_label, zorder=5, **water_style)
     seeps = np.array([(start + end) / 2 for name, start, end in data.marks if name == "seepage"])
     if seeps.size:
         ground = first["top"].to_numpy()[np.searchsorted(first["start"].to_numpy(), seeps) - 1]
@@ -418,8 +415,7 @@ def draw(ax: Any, data: SectionData, theme: Theme) -> None:
                 start, color=theme.roles["bounds"], linewidth=theme.data_line_width * 1.5,
                 linestyle=":", label=text, zorder=6,
             )  # fmt: skip
-    start, low, end, high = _window(data, land, water if data.water and not colored else None, base)
-    ax.set_xlim(start, end)
+    ax.set_xlim(left, right)
     ax.set_ylim(low, high)
     ax.set_xlabel("Distance along the section (m)")
     ax.set_ylabel("Elevation (m)")
@@ -433,7 +429,7 @@ def draw(ax: Any, data: SectionData, theme: Theme) -> None:
         )  # fmt: skip
     box = ax.get_position()
     size = ax.figure.get_size_inches()
-    drawn_width = box.width * size[0] / max(end - start, 1e-9)
+    drawn_width = box.width * size[0] / max(right - left, 1e-9)
     drawn_height = box.height * size[1] / max(high - low, 1e-9)
     # The layout still moves after this, so the ratio is only given to two digits.
     ratio = float(f"{drawn_height / drawn_width:.2g}")

@@ -112,21 +112,23 @@ def test_a_water_table_alone_fills_the_saturated_and_the_unsaturated_zone(stored
     assert not data(stored_run, variable="topography").water
     ax = static.new_figure(THEME).axes[0]
     section.draw(ax, out, THEME)
-    assert ax.get_legend_handles_labels()[1][:2] == ["Saturated zone", "Unsaturated zone"]
-    drawn = {c.get_label(): c.get_paths()[0].vertices[:, 1] for c in ax.collections}
-    saturated, unsaturated = drawn["Saturated zone"], drawn["Unsaturated zone"]
+    # The two fills carry no legend entry, and the model base is under the frame.
+    assert ax.get_legend_handles_labels()[1] == ["Land surface", "Water table"]
+    saturated, unsaturated = (c.get_paths()[0].vertices[:, 1] for c in ax.collections)
     water = float(out.line["value"].iloc[0])
     assert (saturated.min(), saturated.max()) == pytest.approx((0.0, out.line["value"].max()))
     assert (unsaturated.min(), unsaturated.max()) == pytest.approx((water, 120.0))
     assert out.line["value"].is_monotonic_increasing
     assert len(ax.figure.axes) == 1  # no cell is coloured, so no colour bar
-    # The lines run through the middle of each cell, from one end of the line to the other.
+    # Each line is one step per piece of cell, and the two profiles are thick.
     table = ax.lines[-1]
-    np.testing.assert_allclose(table.get_xdata(), [0, 200, 650, 1150, 1500, 1600])
-    np.testing.assert_allclose(table.get_ydata()[1:-1], out.line["value"])
-    # 100 m of aquifer lie under a water table 18 m under the ground, so the view is cut.
-    above = 120.0 - water
-    assert ax.get_ylim()[0] == pytest.approx(water - above - 0.04 * 2 * above)
+    np.testing.assert_allclose(table.get_xdata(), out.line[["start", "end"]].to_numpy().ravel())
+    np.testing.assert_allclose(table.get_ydata(), np.repeat(out.line["value"].to_numpy(), 2))
+    assert table.get_linewidth() == pytest.approx(section.PROFILE * THEME.data_line_width)
+    # 100 m of aquifer lie under a water table 18 m under the ground, so the view is cut
+    # a little under the water table.
+    low = water - section.UNDER * (120.0 - water)
+    assert ax.get_ylim()[0] == pytest.approx(low - 0.04 * (120.0 - low))
     assert any("Model base at 0 to 0 m, under the frame" in t.get_text() for t in ax.texts)
     whole = data(stored_run, variable="watertable_elevation", bbox=(0.0, 0.0, 800.0, 130.0))
     ax = static.new_figure(THEME).axes[0]
