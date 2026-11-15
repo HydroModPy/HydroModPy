@@ -221,6 +221,20 @@
       "title": "Site",
       "x-hmp-profile": "user"
     },
+    "solution_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the attempt computes, the solution key of its request, told with its request id. Absent before then, and in an outcome written before this field existed.",
+      "title": "Solution Key",
+      "x-hmp-profile": "user"
+    },
     "started_at": {
       "description": "Entry of the attempt, UTC",
       "format": "date-time",

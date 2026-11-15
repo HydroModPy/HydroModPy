@@ -126,6 +126,9 @@ class FieldDescriptor:
         Name of the observed record that matches this variable.
     classes:
         Value and name of each class of a categorical variable.
+    stored_at:
+        The first step after which the run store holds the field, a name of
+        ``core.pipeline_steps.STEP_NAMES``. A figure cannot follow an earlier step.
     """
 
     public_name: str
@@ -147,6 +150,7 @@ class FieldDescriptor:
     log: bool | None = None
     observed: str | None = None
     classes: tuple[tuple[int, str], ...] = ()
+    stored_at: str = "extract"
 
     def __post_init__(self) -> None:
         if self.sign is not None and self.sign not in SIGNS:
@@ -693,6 +697,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         shape=SHAPE_FACE,
         cell_methods="area: mean",
         derived_by="core",
+        # Holds only for a flow backend that builds a cell column
+        # (workflow/steps/prepare_solver/prepare.py step_persist_topography).
+        stored_at="prepare_solver",
     ),
     "streambed_top": FieldDescriptor(
         public_name="streambed_top",

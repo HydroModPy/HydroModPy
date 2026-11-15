@@ -30,8 +30,12 @@ def config_double(*, persisted: bool) -> SimpleNamespace:
     return SimpleNamespace(
         domain=object(),
         site=None,
+        read_as_draft=False,
         simulation=SimpleNamespace(
-            name=None, if_exists="version", results=SimpleNamespace(persistence=persistence)
+            name=None,
+            if_exists="version",
+            time=None,
+            results=SimpleNamespace(persistence=persistence),
         ),
         model_dump=lambda **_kwargs: {},
     )

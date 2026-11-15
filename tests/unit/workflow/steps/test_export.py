@@ -536,7 +536,9 @@ def _seal_ctx(tmp_path: Path, *, strict: bool | None, replay_of: Path | None) ->
 def test_replay_seal_classes_the_values(
     tmp_path: Path, monkeypatch, strict: bool | None, expected: bool
 ) -> None:
-    store, seen = object(), {}
+    store, seen = SimpleNamespace(facts=SimpleNamespace(attempt=1, attempt_id="a")), {}
+    last = SimpleNamespace(attempt=3, attempt_id="c")
+    monkeypatch.setattr(export_module, "read_outcome", lambda run_dir: last)
     monkeypatch.setattr(export_module, "run_is_persisted", lambda ctx: True)
     monkeypatch.setattr(export_module, "run_store", lambda ctx: _store_context(store))
     monkeypatch.setattr(export_module, "step_after_seal", lambda ctx: [])
@@ -557,6 +559,7 @@ def test_replay_seal_classes_the_values(
         "replay_of": source,
         "strict": expected,
     }
+    assert (store.facts.attempt, store.facts.attempt_id) == (3, "c")
     assert advanced.step_index == 14
 
 

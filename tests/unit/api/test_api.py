@@ -256,7 +256,7 @@ def test_skipped_run_is_said(worker: dict, tmp_path: Path, monkeypatch: pytest.M
     worker["outcome"] = _outcome(identical_to="x")
 
     assert api.run(_toml(tmp_path, "simulation")).identical_to == "x"
-    assert said == [("x", "sid")]
+    assert said == [("x", "sid", Path("/p/runs/x"))]
 
 
 def test_dry_run_request_keeps_its_options(

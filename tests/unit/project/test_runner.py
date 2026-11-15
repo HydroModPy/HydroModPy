@@ -293,12 +293,28 @@ def test_partial_run_read_from_directory(tmp_path: Path, monkeypatch: pytest.Mon
     assert owner._run_history == [run]
 
 
-def test_partial_run_without_facts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    project = _project(tmp_path)
-    runner, owner, _ = _runner_of(project, monkeypatch, write_facts=False)
+def test_window_before_the_store_says_its_steps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hydromodpy.core.exceptions import NothingThereError
+    from hydromodpy.project.api import open as open_path
+    from hydromodpy.results.outcome import write_outcome
 
-    assert runner.run(until_step="extract") is None
-    assert owner._run_history == []
+    project = _project(tmp_path)
+    runner, owner, sealed = _runner_of(project, monkeypatch, write_facts=False)
+    outcome = read_outcome(sealed.run_dir)
+    write_outcome(sealed.run_dir, outcome.model_copy(update={"step": "setup_process"}))
+    before = sorted(sealed.run_dir.rglob("*"))
+
+    run = runner.run(until_step="setup_process")
+
+    assert run is not None and owner._run_history == [run]
+    assert (run.sim_id, run.status) == (sealed.sim_id, "partial")
+    assert run.steps == STEP_NAMES[: STEP_NAMES.index("setup_process") + 1]
+    assert open_path(sealed.run_dir).steps == run.steps
+    with pytest.raises(NothingThereError, match="before prepare_solver"):
+        run.read("head")
+    assert sorted(sealed.run_dir.rglob("*")) == before
 
 
 LAST_WORDS = "stress period 51: the solver is about to give up"
@@ -452,7 +468,7 @@ class _Claimed:
             runner_module, "request_id_of", lambda cfg, resolved, **kw: next(self.requests)
         )
         monkeypatch.setattr(runner_module, "solution_key_of", lambda cfg, rid, **kw: f"key:{rid}")
-        monkeypatch.setattr(runner_module, "solver_binaries", lambda cfg: {})
+        monkeypatch.setattr(runner_module, "solver_binaries", lambda cfg, **kw: {})
         monkeypatch.setattr(runner_module, "source_state_digests", lambda cfg, root: {})
         monkeypatch.setattr(runner_module, "zone_run_ids", lambda cfg, root: {})
         monkeypatch.setattr(

@@ -142,16 +142,21 @@ def test_mesh_summary_of_a_built_run(
 
 
 @pytest.mark.parametrize(
-    "members",
-    [{"resume": "r1"}, {"from_step": "extract"}, {"until_step": "run_solver"}],
-    ids=["resume", "from_step", "until_step"],
+    ("members", "looked_up"),
+    [
+        ({"resume": "r1"}, False),
+        ({"from_step": "extract"}, False),
+        ({"until_step": "run_solver"}, True),
+        ({}, True),
+    ],
+    ids=["resume", "from_step", "until_step", "plain"],
 )
-def test_partial_run_skips_identical_lookup(
-    members: dict[str, str], fake_project: type[_FakeProject], tmp_path: Path
+def test_identical_lookup_by_kind_of_run(
+    members: dict[str, str], looked_up: bool, fake_project: type[_FakeProject], tmp_path: Path
 ) -> None:
     wf.run_simulation(_request(**members), base=tmp_path)
 
-    assert fake_project.instances[0].executed[0]["skip_identical"] is False
+    assert fake_project.instances[0].executed[0]["skip_identical"] is looked_up
 
 
 def test_unnamed_run_skips_identical_lookup(

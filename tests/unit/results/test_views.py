@@ -137,3 +137,50 @@ def test_run_with_facts_opens_partial(tmp_path, member) -> None:
     assert run.figure("any") == "drawn"
     with pytest.raises(RunNotSealedError):
         getattr(run, member)() if member == "label" else getattr(run, member)
+
+
+@pytest.mark.parametrize(
+    ("status", "step", "done"),
+    [
+        ("completed", "setup_process", "setup_process"),
+        ("running", "run_solver", "prepare_solver"),
+        ("failed", "validate", None),
+        # a window stopped at prepare_solver that drew its figure there: no run_solver
+        ("completed", "prepare_solver", "prepare_solver"),
+    ],
+)
+def test_run_says_its_steps(tmp_path, status, step, done) -> None:
+    from hydromodpy.core.pipeline_steps import STEP_NAMES
+    from tests._helpers.sealed_runs import write_attempt
+
+    run_dir = write_attempt(tmp_path, "runs/essai", status=status, step=step)
+    run = Run(SIM_ID, directories({SIM_ID: run_dir}))
+
+    assert run.steps == (() if done is None else STEP_NAMES[: STEP_NAMES.index(done) + 1])
+    assert _sealed(tmp_path / "sealed").steps == STEP_NAMES
+
+
+def test_a_window_before_its_store_writes_nothing_on_close(tmp_path) -> None:
+    from hydromodpy.results.run.view import open_run_dir
+    from tests._helpers.sealed_runs import write_attempt
+
+    run_dir = write_attempt(
+        tmp_path, "runs/essai", status="completed", step="setup_process", sim_id=SIM_ID
+    )
+    before = sorted(run_dir.rglob("*"))
+    run = open_run_dir(run_dir)
+    run._catalog_handle.close()
+
+    assert sorted(run_dir.rglob("*")) == before
+    assert not list(run_dir.rglob("facts.json"))
+
+
+def test_a_run_partial_at_extract_without_facts_is_refused(tmp_path) -> None:
+    from hydromodpy.results.run.view import open_run_dir
+    from tests._helpers.sealed_runs import write_attempt
+
+    run_dir = write_attempt(
+        tmp_path, "runs/essai", status="completed", step="extract", sim_id=SIM_ID
+    )
+    with pytest.raises(RunNotSealedError):
+        open_run_dir(run_dir)

@@ -25,6 +25,7 @@ from __future__ import annotations
 import copy
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager, nullcontext
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -34,6 +35,7 @@ from hydromodpy.core.config_kit.written import log_experimental_keys
 from hydromodpy.core.exceptions import (
     CatalogError,
     ConfigError,
+    HydroModPyError,
     NothingThereError,
     ResumeError,
     SchemaVersionMismatchError,
@@ -45,7 +47,9 @@ from hydromodpy.project.run_overrides import override_changes
 from hydromodpy.results.catalog.registration import check_name_free
 from hydromodpy.results.record.manifest import is_sealed, read_seal
 from hydromodpy.results.storage.attempt import (
+    reached_before,
     record_request_id,
+    record_solution_key,
     refuse_resume_if_changed,
     run_dir_for_name,
     scratch_dir_for_attempt,
@@ -135,7 +139,8 @@ def pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Iterat
 def run_view_of(run_dir: Path) -> Run | None:
     """Return the view of a run directory, sealed or partial, that reads and draws.
 
-    A run that stopped before its seal is read through its facts. A run that wrote no
+    A run that stopped before its seal is read through its facts, or its outcome when
+    it stopped before ``prepare_solver``. A run that did not stop as asked and wrote no
     facts has nothing to read: ``None``.
     """
     from hydromodpy.project.facade import read_sealed_config
@@ -197,6 +202,16 @@ def resume_target(ref: str, workspace: Path) -> Path:
             "Reopen the session from the file that launched it: hmp run <file>.toml --resume."
         )
     return config_path
+
+
+def _reads_an_api(cfg_run: Any) -> bool:
+    """Whether a data source of *cfg_run* is a provider, which is neither a file, a url nor a constant."""
+    section = cfg_run.data
+    for name in () if section is None else type(section).model_fields:
+        for source in getattr(getattr(section, name), "sources", None) or ():
+            if getattr(source, "source", None) not in ("file", "url", "constant", "none"):
+                return True
+    return False
 
 
 def _refuse_resume_of_nothing(handle: AttemptHandle, resume: str, name: str) -> None:
@@ -274,10 +289,10 @@ class ProjectRunner:
         *request* is what to run, or the keywords of :meth:`request_of` make one. The
         index of the project is refreshed from the run directory, but the view reads
         the directory itself: a sealed run through its seal, a run that stopped
-        before its seal (``until_step``) through its store. An index handle opened
-        earlier in this process keeps the snapshot it opened on, so it may not hold
-        the run yet. A run that wrote no directory, or no facts to read, returns
-        ``None``.
+        before its seal (``until_step``) through its store, or through its
+        ``outcome.json`` when it stopped before ``prepare_solver``. An index handle
+        opened earlier in this process keeps the snapshot it opened on, so it may not
+        hold the run yet. A run that wrote no directory returns ``None``.
         """
         sealed = self.execute(
             request, lineage=lineage, calibrated_by=calibrated_by, launcher=launcher, **options
@@ -387,7 +402,8 @@ class ProjectRunner:
         ``frozen`` wins over the member of the request when given: a replay that
         checked its record runs unfrozen. ``skip_identical`` lets the attempt give back a
         completed run of the same solution key instead of computing: the caller says so for
-        a plain run, never for a resume, a window or a replay. ``window_source`` is the run
+        a plain run and a window that ends at ``until_step``, never for a resume, a window
+        that starts at ``from_step`` or a replay. ``window_source`` is the run
         window ``k - 1`` of a chain left, which window ``k > 1`` starts from: its state
         digest enters the request id and the run takes it as the input ``initial_state``.
         ``replay_of`` is the run or published copy a replay plays again: its inputs are
@@ -462,6 +478,16 @@ class ProjectRunner:
         else:
             pinned = None
         project._ctx.setup.locked_inputs = pinned
+        if claims and skip_identical and not request.force and request.until_step is not None:
+            partial = self._partial_run_reaching(
+                cfg_run, request.until_step, name=name, window_source=window_source
+            )
+            if partial is not None:
+                project._ctx.run_dir = None
+                project._ctx.setup.locked_inputs = None
+                return RunOutcome.read(
+                    partial, project_root=workspace_path, identical_to=partial.name
+                )
         bracket = (
             _attempt_bracket(
                 workspace_path, name, cfg_run, fresh=request.fresh, force=request.force
@@ -470,7 +496,6 @@ class ProjectRunner:
             else nullcontext(None)
         )
         identical: Path | None = None
-        sim_id: str | None = None
         try:
             with bracket as handle:
                 solution_key = None
@@ -487,7 +512,7 @@ class ProjectRunner:
                 if identical is not None:
                     handle.withdraw()
                 else:
-                    sim_id = self._execute_attempt(
+                    self._execute_attempt(
                         handle,
                         name=name,
                         steps=steps,
@@ -517,8 +542,10 @@ class ProjectRunner:
             return RunOutcome.read(
                 identical, project_root=workspace_path, identical_to=identical.name
             )
-        # The bracket has closed the outcome: what the directory says is final.
-        if handle is None or sim_id is None:
+        # The bracket has closed the outcome: what the directory says is final. A
+        # window that stops before prepare_solver opened no store, and its directory
+        # still says its steps.
+        if handle is None:
             return None
         return RunOutcome.read(handle.claim.run_dir, project_root=workspace_path)
 
@@ -558,16 +585,9 @@ class ProjectRunner:
             locked=ctx.setup.locked_inputs,
         )
         ctx.inputs = resolved
-        request_id = request_id_of(
-            cfg_run,
-            resolved,
-            search=False,
-            window_state=None
-            if window_source is None
-            else window_input_entry(project_root, window_source).sha256,
-            source_states=source_state_digests(cfg_run, project_root),
-        )
+        request_id, key = self._identity_of(cfg_run, resolved, window_source, fetch=True)
         record_request_id(handle.run_dir, request_id)
+        record_solution_key(handle.run_dir, key)
         # Starting over keeps config.toml and request.json: they are already this attempt's.
         # A resume the caller asked for never starts over: it is refused when an input, a key
         # or the state of a window changed since the stop, and names the sections of the
@@ -584,7 +604,6 @@ class ProjectRunner:
             except ResumeError:
                 handle.withdraw()
                 raise
-        key = solution_key_of(cfg_run, request_id, binaries=solver_binaries(cfg_run))
         if skip_identical and not request.force:
             identical = completed_identical_run(project_root, name, key)
             if identical is not None:
@@ -597,6 +616,55 @@ class ProjectRunner:
                 handle.withdraw()
                 raise
         return key, None
+
+    def _identity_of(
+        self, cfg_run: Any, resolved: Any, window_source: WindowSource | None, *, fetch: bool
+    ) -> tuple[str, str]:
+        """Return the request id and the solution key of the run of *cfg_run*."""
+        project_root = Path(cfg_run.workspace.project_root)
+        request_id = request_id_of(
+            cfg_run,
+            resolved,
+            search=False,
+            window_state=None
+            if window_source is None
+            else window_input_entry(project_root, window_source).sha256,
+            source_states=source_state_digests(cfg_run, project_root),
+        )
+        binaries = solver_binaries(cfg_run, fetch=fetch)
+        return request_id, solution_key_of(cfg_run, request_id, binaries=binaries)
+
+    def _partial_run_reaching(
+        self, cfg_run: Any, until_step: str, *, name: str, window_source: WindowSource | None
+    ) -> Path | None:
+        """Return the partial run of *name* that answers a window ending at *until_step*, or None.
+
+        It reads the run and claims nothing. The answer is the latest version of the
+        name when its last attempt reached the step with the solution key this request
+        has, and when the files an API gave it are still in the cache as it read them.
+        A key that needs the network is not told, and a source that is an API leaves
+        files whose digests only a seal records, so such a window is played.
+        """
+        from hydromodpy.data.loading.inputs import resolve_inputs
+
+        if _reads_an_api(cfg_run):
+            return None
+        ctx = self._project._ctx
+        project_root = Path(cfg_run.workspace.project_root)
+        run_dir = run_dir_for_name(project_root, name)
+        if run_dir is None:
+            return None
+        try:
+            resolved = resolve_inputs(
+                cfg_run,
+                bounds=replace(ctx.bounds, allowed_hosts=frozenset()),
+                data_dir=Path(cfg_run.workspace.data_path),
+                locked=ctx.setup.locked_inputs,
+            )
+        except (HydroModPyError, OSError):
+            return None
+        key = self._identity_of(cfg_run, resolved, window_source, fetch=False)[1]
+        return run_dir if reached_before(run_dir, until_step, key) else None
 
     def _write_claim_documents(
         self, handle: AttemptHandle, request: RunRequest, cfg_run: Any, project_root: Path

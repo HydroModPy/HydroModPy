@@ -79,15 +79,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, TypeAlias
 
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.exceptions import CommandUsageError, ConfigError, NothingThereError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.old_members import refuse_old_member
+from hydromodpy.core.pipeline_steps import STEP_NAMES
 from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.results.annotations import add_note, add_tag, read_annotations, remove_tag
 from hydromodpy.results.catalog.constants import SIMULATIONS_FROM
 from hydromodpy.results.errors import RunNotFoundError, RunNotSealedError
 from hydromodpy.results.ledger import Ledger
-from hydromodpy.results.outcome import effective_status
+from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.publication import deliveries_of
 from hydromodpy.results.record.label import label_of
 from hydromodpy.results.record.manifest import is_sealed
@@ -107,7 +109,7 @@ from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     RUN_OUTCOME_FILENAME,
 )
-from hydromodpy.results.storage.run_facts import read_facts
+from hydromodpy.results.storage.run_facts import RunFacts, read_facts
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.validity_rules import LabelResult
 
@@ -343,7 +345,10 @@ def open_run_dir(
 
     A run that wrote its facts but is not sealed yet opens as a partial run: it reads
     and draws what its store holds, and :attr:`Run.record`, :attr:`Run.checks`,
-    :attr:`Run.inputs` and :meth:`Run.label` refuse until the seal. A sealed run
+    :attr:`Run.inputs` and :meth:`Run.label` refuse until the seal. A window that
+    stopped before ``prepare_solver`` wrote no facts and no store: it opens on its
+    ``outcome.json`` as a partial run with no variables, which says its
+    :attr:`Run.steps`. A sealed run
     reads its row from its seal, its tables and fields from its
     directory, so a run copied out of its project or a project never indexed
     reads the same. *read_config* is the function that validates a sealed
@@ -351,19 +356,50 @@ def open_run_dir(
     refused and the raw mapping stays on :attr:`Run.config_snapshot`. *render* is
     the function that draws a figure; without one, :meth:`Run.figure` is refused. Raises
     :class:`~hydromodpy.results.errors.RunNotSealedError` for a directory with
-    neither ``manifest.json`` nor facts: such a run is read from its ``outcome.json``.
+    neither ``manifest.json`` nor facts that did not stop as asked: such a run is
+    read from its ``outcome.json``.
     """
     directory = Path(run_dir).expanduser().resolve()
     if not directory.is_dir():
         raise FileNotFoundError(f"{directory} is not a run directory")
-    if not is_sealed(directory) and read_facts(directory) is None:
+    located = project_root_of(directory)
+    workspace = None if located is None else located[0]
+    if is_sealed(directory) or read_facts(directory) is not None:
+        store = RunStore.open(directory, workspace=workspace)
+    else:
+        # The store is built on the outcome and writes nothing: prepare_solver opens it.
+        store = RunStore(
+            directory,
+            _facts_of_outcome(directory),
+            persistence=PersistenceConfig(),
+            workspace=workspace,
+            read_only=True,
+        )
+    return Run(store.sim_id, store, read_config=read_config, render=render)  # type: ignore[arg-type]
+
+
+def _facts_of_outcome(directory: Path) -> RunFacts:
+    """Return the facts a window that stopped before its store says in its outcome."""
+    outcome = read_outcome(directory)
+    before_store = (
+        outcome is not None and outcome.step in STEP_NAMES[: STEP_NAMES.index("prepare_solver")]
+    )
+    if not before_store or outcome.sim_id is None or effective_status(directory) != "partial":
         raise RunNotSealedError(
             f"{directory} has no {RUN_MANIFEST_FILENAME} and wrote no facts: the run never "
             f"completed and has nothing to read alone. Read its {RUN_OUTCOME_FILENAME}, or open its project."
         )
-    located = project_root_of(directory)
-    store = RunStore.open(directory, workspace=None if located is None else located[0])
-    return Run(store.sim_id, store, read_config=read_config, render=render)  # type: ignore[arg-type]
+    return RunFacts(
+        sim_id=outcome.sim_id,
+        name=directory.name,
+        case_id=outcome.case_id,
+        project=outcome.project or "",
+        attempt=outcome.attempt,
+        attempt_id=outcome.attempt_id,
+        created_at=outcome.started_at,
+        started_at=outcome.started_at,
+        request_id=outcome.request_id,
+    )
 
 
 RUN_SHOWS: Final[tuple[str, ...]] = ("table", "field", "series", "profile", "figure", "report")
@@ -869,6 +905,17 @@ class Run(
     def status(self) -> str | None:
         """Run status stored in the catalog."""
         return self._load_row().get("status")
+
+    @property
+    def steps(self) -> tuple[str, ...]:
+        """Pipeline steps this run has done, in order: all of them once it is sealed."""
+        if is_sealed(self.dir):
+            return STEP_NAMES
+        outcome = read_outcome(self.dir)
+        if outcome is None or outcome.step not in STEP_NAMES:
+            return ()
+        done = STEP_NAMES.index(outcome.step) + int(outcome.status == "completed")
+        return STEP_NAMES[:done]
 
     @property
     def config_snapshot(self) -> dict | None:

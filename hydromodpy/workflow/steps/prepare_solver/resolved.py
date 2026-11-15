@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any, Final
 from pydantic import BaseModel
 
 from hydromodpy.config.config_migration import migrate_sealed_config_doc
+from hydromodpy.config.data_types import with_declared_types_only
 from hydromodpy.core.config_kit.introspect import child_of
 from hydromodpy.core.toml_io.paths import assign, portable_declared_path
 from hydromodpy.core.toml_io.writer import dumps
@@ -331,10 +332,7 @@ def portable_config_payload(
             workspace.pop(key, None)
         if not workspace:
             payload.pop("workspace")
-    data = payload.get("data")
-    if isinstance(data, dict) and "types" in data:
-        data["types"] = [name for name in data["types"] if name in data]
-    return _relativise(payload, root)
+    return _relativise(with_declared_types_only(payload), root)
 
 
 def _resolved_payload(config: Any, project_root: Path) -> dict[str, Any]:

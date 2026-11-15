@@ -54,7 +54,9 @@ from hydromodpy.results.storage.attempt import (
     close_attempt_of_process,
     close_sealed_attempt,
     finish_attempt,
+    reached_before,
     record_request_id,
+    record_solution_key,
     refuse_resume_if_changed,
     request_stop,
     scheduler_job_id_from_env,
@@ -414,6 +416,38 @@ def test_withdrawn_retry_restores_request(tmp_path: Path, request_b: str) -> Non
 
     assert _tree(first.run_dir) == before
     assert not (first.run_dir / "attempts").exists()
+
+
+@pytest.mark.parametrize(
+    ("attempts", "key", "until", "reached"),
+    [
+        pytest.param([("completed", "run_solver")], "k1", "prepare_solver", True, id="past"),
+        pytest.param([("completed", "run_solver")], "k1", "run_solver", True, id="at the step"),
+        pytest.param([("completed", "prepare_solver")], "k1", "run_solver", False, id="short"),
+        pytest.param([("completed", "run_solver")], "k2", "run_solver", False, id="other key"),
+        pytest.param([("failed", "run_solver")], "k1", "run_solver", False, id="failed"),
+        pytest.param(
+            [("completed", "run_solver"), ("failed", "load_data")],
+            "k1",
+            "run_solver",
+            False,
+            id="failed after completed",
+        ),
+    ],
+)
+def test_reached_before(
+    tmp_path: Path, attempts: list[tuple[str, str]], key: str, until: str, reached: bool
+) -> None:
+    project = make_project(tmp_path / "demo")
+    for status, step in attempts:
+        claim = claim_run_directory(project, "case", case_id="case", project="demo")
+        record_solution_key(claim.run_dir, "k1")
+        finish_attempt(claim.run_dir, status=status, step=step, error=None)
+
+    before = sorted(path.name for path in claim.run_dir.rglob("*"))
+
+    assert reached_before(claim.run_dir, until, key) is reached
+    assert sorted(path.name for path in claim.run_dir.rglob("*")) == before
 
 
 def test_withdrawn_reserved_directory(

@@ -1,7 +1,7 @@
-"""A run seals its values, replays them, and a run of a pre-release is read, replayed and classed.
+"""A run seals its values, replays them, and the frozen run is read, replayed and classed.
 
 One project folder, the transient island of ``factory.py`` played by MODFLOW 6,
-then a copy of the frozen ``demo`` run of a pre-release. Four steps:
+then a copy of the frozen ``demo`` run of the release. Four steps:
 
 1. ``hmp run island.toml``: the seal is version 4, profile ``run``, carries the
    value rule ``values/1`` with one digest per array and per quantity column,
@@ -13,9 +13,9 @@ then a copy of the frozen ``demo`` run of a pre-release. Four steps:
    and the values reproduce to the double.
 3. ``hmp.compare`` reads the source and the replay side by side.
 4. A copy of ``tests/regression/frozen_runs/v2.0.0/current``: ``hmp.open``
-   reads ``runs/demo``, a version 3 seal, and ``hmp replay runs/demo`` writes a
-   version 4 run whose lineage is a replay. Its class is measured on the stored
-   values, since a version 3 seal keeps no value digest, and it is ``bit``.
+   reads ``runs/demo``, a version 4 seal, and ``hmp replay runs/demo`` writes a
+   run whose lineage is a replay. Its class is measured on the ``float64``
+   basis, since the frozen seal keeps its value digests, and it is ``bit``.
 """
 
 from __future__ import annotations
@@ -106,13 +106,13 @@ def test_a_run_replays_and_is_classed(
     assert compared.tables["runs"]["run"].tolist() == ["island", "island.v2"]
     assert set(compared.tables) >= {"runs", "parameters", "scores", "budget"}
 
-    # 4. A run sealed by a pre-release is read, replayed and classed.
+    # 4. The frozen run of the release is read, replayed and classed.
     frozen = tmp_path / "frozen"
     shutil.copytree(FROZEN, frozen)
     project = frozen / "projects" / "example"
     demo = project / "runs" / "demo"
     on_disk = json.loads((demo / "manifest.json").read_text(encoding="utf-8"))
-    assert on_disk["manifest_version"] == 3
+    assert on_disk["manifest_version"] == 4
     opened = hmp.open(demo)
     assert opened.name == "demo"
     assert isinstance(read_seal(demo), RunSeal)
@@ -124,13 +124,11 @@ def test_a_run_replays_and_is_classed(
     assert played_seal.lineage.kind == "replay"
     played = played_seal.lineage.replay
     assert played is not None
-    assert played.basis == "stored"
-    assert played.source_version == "2.0.0rc1"
-    # Measured on the stored values of both directories, every table included and
-    # the wall-clock row of metrics left out: the frozen demo is exact, so its
-    # replay reproduces it. The two final_state arrays and the open water mask are
-    # what a pre-release did not write; they are listed and do not make a deviation.
+    assert played.source_version == on_disk["identity"]["hydromodpy_version"]
+    assert played.basis == "float64", played.model_dump(mode="json", by_alias=True)
+    # The frozen seal carries its value digests, so the class is measured on the
+    # float64 values: the frozen demo is exact, and its replay reproduces it.
     assert played.class_ == "bit", played.model_dump(mode="json", by_alias=True)
     assert played.differs == {}
     assert played.removed == []
-    assert played.added == ["fields/mesh/open_water", "final_state/head", "final_state/lake_stage"]
+    assert played.added == []

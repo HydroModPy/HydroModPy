@@ -33,6 +33,7 @@ from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.stopwatch import measured
 from hydromodpy.core.state.portable import display_path
+from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.contract import RUN_SOLVER_DIRNAME
 from hydromodpy.results.storage.kept import renders
 from hydromodpy.results.storage.scratch import clear_scratch, drop_empty_scratch
@@ -374,7 +375,9 @@ class SealStep:
     and the figures after them (``DisplayStep``). The outcome is not touched
     here: the attempt protocol around the pipeline flips ``outcome.json`` to
     ``completed`` and removes ``<run>/.hmp/`` when it finds the seal, also
-    when an export or a figure raised after it.
+    when an export or a figure raised after it. The seal names the attempt that
+    writes it, the one ``outcome.json`` names, also when ``prepare_solver`` ran in
+    an earlier attempt of the run.
     """
 
     name = "seal"
@@ -411,6 +414,10 @@ class SealStep:
         else:
             replay_of = state.get("replay_of")
             with run_store(ctx) as store:
+                outcome = read_outcome(ctx.run_dir)
+                assert outcome is not None
+                store.facts.attempt = outcome.attempt
+                store.facts.attempt_id = outcome.attempt_id
                 if replay_of is None:
                     record = seal_completed(store)
                 else:

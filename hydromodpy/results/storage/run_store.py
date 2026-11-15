@@ -33,7 +33,7 @@ import pandas as pd
 import pyarrow as pa
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.exceptions import DataContractViolation, NothingThereError
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import (
@@ -149,6 +149,7 @@ class RunStore:
         *,
         persistence: PersistenceConfig,
         workspace: Path | None,
+        read_only: bool = False,
     ) -> None:
         self._run_dir = run_dir
         self._facts = facts
@@ -157,6 +158,7 @@ class RunStore:
         self._open_zarr_handles: list[SimulationZarr] = []
         self._closed = False
         self._sealed = False
+        self._read_only = read_only
 
     @classmethod
     def open(
@@ -340,9 +342,18 @@ class RunStore:
     # -- Zarr ------------------------------------------------------------------
 
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
-        """Open the field store of the run, creating an empty one when it has none."""
+        """Open the field store of the run, creating an empty one when it has none.
+
+        A run that wrote no facts stopped before ``prepare_solver``, which creates
+        its field store with its grid, so it is refused and nothing is created.
+        """
         self._check_sim(sim_id)
         fields = self.fields_path
+        if not fields.exists() and not self._sealed and read_facts(self._run_dir) is None:
+            raise NothingThereError(
+                f"Run {self._run_dir.name} stopped before prepare_solver and has no fields yet. "
+                "Resume it with until_step='prepare_solver' or later to read them."
+            )
         if not fields.exists():
             fields.parent.mkdir(parents=True, exist_ok=True)
             SimulationZarr.create(fields, n_cells=0, n_layers=1).close()
@@ -1163,7 +1174,8 @@ class RunStore:
     def close(self) -> None:
         """Close the open field stores and write the facts back.
 
-        A sealed run keeps its seal as its facts: nothing is written back.
+        A sealed run keeps its seal as its facts, and a read-only store has none to keep:
+        nothing is written back.
         """
         if self._closed:
             return
@@ -1173,7 +1185,7 @@ class RunStore:
                 handle.close()
             except Exception:
                 logger.warning("Could not close SimulationZarr handle", exc_info=True)
-        if not self._sealed:
+        if not (self._sealed or self._read_only):
             write_facts(self._run_dir, self._facts)
         self._closed = True
 

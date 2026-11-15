@@ -357,7 +357,7 @@ def run(
         # the readers that list runs.
         index_after_run(outcome.project_root)
     if outcome.identical_to is not None:
-        report_identical_run(outcome.identical_to, str(outcome.sim_id))
+        report_identical_run(outcome.identical_to, str(outcome.sim_id), outcome.run_dir)
     return outcome
 
 

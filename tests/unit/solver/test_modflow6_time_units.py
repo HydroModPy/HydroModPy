@@ -390,7 +390,8 @@ def test_mass_balance_storage(tmp_path, monkeypatch):
     )
     # Volumes in m3 over one day, so the factor to m3/s is 1/86400.
     inc = np.array(
-        [(0, 0, 1.0, 174240.0, 174240.0, 0.0, 0.01, 864.0, 86400.0, 0.0, 43200.0)], dtype=dtype
+        [(0, 0, 1.0, 174240.0, 172800.0, 1440.0, 0.01, 864.0, 86400.0, 0.0, 43200.0)],
+        dtype=dtype,
     )
 
     class FakeListBudget:
@@ -411,8 +412,9 @@ def test_mass_balance_storage(tmp_path, monkeypatch):
     assert rec["storage_in"] == pytest.approx(1.01)
     assert rec["storage_out"] == pytest.approx(0.5)
     assert rec["total_in"] == pytest.approx(2.0166667, rel=1e-6)
-    # PERCENT_DISCREPANCY has no unit and is not scaled.
-    assert rec["percent_error"] == pytest.approx(0.01)
+    # The listing column PERCENT_DISCREPANCY (0.01 here) is not read, because it is
+    # printed with two decimals. The error is 100 * (in - out) / ((in + out) / 2).
+    assert rec["percent_error"] == pytest.approx(100.0 * 1440.0 / 173520.0)
 
 
 # Files written beside the budget file, the model name and the discharge in m3/s.

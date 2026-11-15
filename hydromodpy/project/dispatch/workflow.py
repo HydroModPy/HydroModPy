@@ -347,9 +347,17 @@ def completed_identical_run(project_root: Path, name: str, key: str | None) -> P
     return None
 
 
-def identical_run_message(name: str | None, sim_id: str) -> str:
-    """The line that says an identical completed run made this one unnecessary."""
+def identical_run_message(name: str | None, sim_id: str, run_dir: Path | None = None) -> str:
+    """The line that says an identical completed run made this one unnecessary.
+
+    A partial run given back says the step it reached instead, read from its
+    ``outcome.json`` in *run_dir*.
+    """
+    from hydromodpy.results.outcome import effective_status, read_outcome
+
     label = name or sim_id[:8]
+    if run_dir is not None and effective_status(run_dir) == "partial":
+        return f"Run '{label}' already reached {read_outcome(run_dir).step}; nothing to do."
     return f"Config identical to completed run '{label}' [{sim_id[:8]}]; nothing to do."
 
 
@@ -596,8 +604,12 @@ def run_single_simulation(
     that one answers is not computed: its claim is undone and the outcome of the
     completed run comes back with ``identical_to`` naming it, unless ``force`` is set.
     ``if_exists = "fail"`` is checked after that, so an identical run is still given
-    back. Resume and partial runs always proceed, and so does a replay: it is
-    identical to the run it replays by construction.
+    back. A window that ends at ``until_step`` is given back the same way, and also
+    the partial run of its name whose last attempt has the same solution key and
+    stopped at that step or past it, read before anything is claimed, so a script
+    played by windows and played again computes nothing. A resume and a window that starts at ``from_step`` always
+    proceed, and so does a replay: it is identical to the run it replays by
+    construction.
 
     The index is never opened here: the outcome comes from the run directory, and the
     caller indexes it afterwards. ``replay_of`` names the run or published copy a
@@ -650,12 +662,11 @@ def run_single_simulation(
         frozen = request.frozen
         if source_run is not None:
             frozen = False
-        plain_run = (
+        skippable = (
             not request.force
             and bool(run_name)
             and request.resume is None
             and request.from_step is None
-            and request.until_step is None
             and source_run is None
         )
         project_root = Path(cfg.workspace.project_root)
@@ -665,7 +676,7 @@ def run_single_simulation(
                 lineage=lineage,
                 calibrated_by=calibrated_by,
                 frozen=frozen,
-                skip_identical=plain_run,
+                skip_identical=skippable,
                 window_source=window_source,
                 replay_of=source_run,
                 strict=strict,
@@ -673,9 +684,10 @@ def run_single_simulation(
         if result is None:
             return None
         if result.identical_to is not None:
-            # A run given back is already sealed: the document's destinations
-            # still receive it, because deliver_to is not part of the request id.
-            if replay_of is None and _delivery_asked(cfg.export):
+            # A sealed run given back still reaches the document's destinations,
+            # because deliver_to is not part of the request id. A partial one has
+            # nothing to deliver.
+            if replay_of is None and result.status == "completed" and _delivery_asked(cfg.export):
                 return _delivered(result, cfg.export, environment)
             return result
         mesh_summary = mesh_summary_of(project)

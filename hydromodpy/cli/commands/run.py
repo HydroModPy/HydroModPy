@@ -701,8 +701,8 @@ def _case_name(request: RunRequest, raw_toml: Mapping[str, Any], config_path: Pa
     return str(declared) if declared else run_name_of_file(config_path)
 
 
-def _identical_of(summary: Any) -> tuple[str | None, str] | None:
-    """Return the name and the id of the completed work *summary* gave back, or None.
+def _identical_of(summary: Any) -> tuple[str | None, str, Path | None] | None:
+    """Return the name, the id and the folder of the work *summary* gave back, or None.
 
     A simulation says it by ``skipped``. A calibration gives back the report of the
     session, whose ``extra.identical_to`` names the session folder.
@@ -710,11 +710,11 @@ def _identical_of(summary: Any) -> tuple[str | None, str] | None:
     if not isinstance(summary, Mapping):
         return None
     if summary.get("skipped"):
-        return summary.get("name"), str(summary.get("sim_id") or "")
+        return summary.get("name"), str(summary.get("sim_id") or ""), Path(summary["run_dir"])
     extra = summary.get("extra")
     folder = extra.get("identical_to") if isinstance(extra, Mapping) else None
     if folder:
-        return str(folder), str(summary.get("session_id") or "")
+        return str(folder), str(summary.get("session_id") or ""), None
     return None
 
 

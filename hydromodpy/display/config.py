@@ -16,7 +16,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.display.presets import PRESETS
-from hydromodpy.display.request import FigureRequest, check_stems, expand, named
+from hydromodpy.display.request import FigureRequest, check_stems, check_when, expand, named
 
 DEFAULT_THEME = "default"
 
@@ -105,4 +105,5 @@ class DisplayConfig(HydroModelBase):
             expand(preset, known)
         for figure in self.figure:
             expand(figure, known)
+            check_when(figure, known)
         return self

@@ -316,39 +316,58 @@ def test_a_valley_river_feeds_its_lake(
 
 
 LAKE_ON = "flow.sinks_sources.lakes.reservoir.enabled"
+DAM_ON = "flow.sinks_sources.flow_barriers.dam.enabled"
+DAM_HEAD = "[flow.sinks_sources.flow_barriers.dam]"
 
-TOGGLE_SCRIPT = f"""
+TOGGLE_SCRIPT = """
 import json
 import hydromodpy as hmp
 
-on = {{"{LAKE_ON}": True}}
+change = json.load(open("change.json"))
 project = hmp.Project("step/project.toml")
-dry = project.simulate(name="dry")
-wet = project.simulate(name="wet", set=on)
+before = project.simulate(name="before")
+after = project.simulate(name="after", set=change)
 project.close()
-one = hmp.run("file/project.toml", name="wet", set=on)
+one = hmp.run("file/project.toml", name="after", set=change)
 with hmp.Lab("step/project.toml") as lab:
     lab.advance("build_mesh")
-    stale = lab.set(on)
+    stale = lab.set(change)
     lab_cells = lab.advance("build_mesh").mesh.n_cells
-seen = {{"dry": dry.n_cells, "wet": wet.n_cells, "one": hmp.open(one.run_dir).n_cells,
-        "stale": list(stale), "lab": lab_cells}}
+seen = {"before": before.n_cells, "after": after.n_cells, "one": hmp.open(one.run_dir).n_cells,
+        "stale": list(stale), "lab": lab_cells}
 open("seen.json", "w").write(json.dumps(seen))
 """
 
 
-def test_a_lake_switched_on_between_two_runs_is_meshed(
-    tmp_path: Path, scenario_env: dict[str, str], scenario_cache: Path
+LAKE_OFF = ("bedleak = 1.0e-6", "enabled = false\nbedleak = 1.0e-6")
+DAM_OFF = (DAM_HEAD, DAM_HEAD + "\nenabled = false")
+
+
+@pytest.mark.parametrize(
+    ("start", "change"),
+    [
+        pytest.param((LAKE_OFF,), {LAKE_ON: True}, id="lake"),
+        pytest.param((LAKE_OFF, DAM_OFF), {DAM_ON: True}, id="barrier"),
+        pytest.param((DAM_OFF,), {DAM_ON: True}, id="barrier-with-lake-on"),
+    ],
+)
+def test_a_lake_or_barrier_changed_between_two_runs_is_meshed(
+    tmp_path: Path,
+    scenario_env: dict[str, str],
+    scenario_cache: Path,
+    start: tuple[tuple[str, str], ...],
+    change: dict[str, object],
 ) -> None:
-    """A lake switched on by a change gives the mesh and the key of a run that has it."""
+    """A lake or a barrier changed by a run gives the mesh and the key of a run that has it."""
     binaries = tmp_path / "binaries"
     _write_binary_inputs(binaries)
     files = lake_island_files(three_months=True, deep_abacus=True, binary_dir=str(binaries))
-    text = files.pop("project.toml").replace(
-        "bedleak = 1.0e-6", "enabled = false\nbedleak = 1.0e-6"
-    )
+    text = files.pop("project.toml")
+    for old, new in start:
+        text = text.replace(old, new)
     both = {f"{folder}/{path}": body for folder in ("step", "file") for path, body in files.items()}
     both |= {"step/project.toml": text, "file/project.toml": text}
+    both["change.json"] = json.dumps(change)
 
     played = play_script(
         "lake_toggle",
@@ -362,10 +381,12 @@ def test_a_lake_switched_on_between_two_runs_is_meshed(
 
     assert played.returncode == 0, played.log.read_text(encoding="utf-8")[-3000:]
     seen = json.loads((played.root / "seen.json").read_text(encoding="utf-8"))
-    assert seen["wet"] == seen["one"] == seen["lab"] > seen["dry"]
+    assert seen["after"] == seen["one"] == seen["lab"] != seen["before"]
     assert seen["stale"] == ["load_data", "build_mesh"]
     keys = {
-        folder: json.loads((played.root / folder / "runs" / "wet" / "manifest.json").read_text())
+        folder: json.loads((played.root / folder / "runs" / "after" / "manifest.json").read_text())
         for folder in ("step", "file")
     }
     assert keys["step"]["identity"]["solution_key"] == keys["file"]["identity"]["solution_key"]
+    before = json.loads((played.root / "step" / "runs" / "before" / "manifest.json").read_text())
+    assert before["identity"]["solution_key"] != keys["step"]["identity"]["solution_key"]

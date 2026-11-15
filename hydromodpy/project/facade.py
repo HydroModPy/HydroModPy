@@ -790,8 +790,10 @@ class Project:
         Returns
         -------
         Run or PlanDraft or None
-            The persisted run view, or its ``PlanDraft`` for a dry run. ``None`` when the
-            run keeps nothing to read: a window that stops before ``setup_process``.
+            The persisted run view, or its ``PlanDraft`` for a dry run. A window that
+            stops before ``prepare_solver`` gives a partial run with no variables, which
+            says its ``steps``. ``None`` when the run claims no directory: a window that
+            stops before ``setup_process``.
 
         Raises
         ------

@@ -163,7 +163,9 @@ def in_memory_project(root: Path) -> SimpleNamespace:
     ctx = SimpleNamespace(
         setup=SimpleNamespace(workspace=workspace), config_path=root / "project.toml"
     )
-    config = SimpleNamespace(model_dump=lambda **kwargs: {"workflow": {"mode": "simulation"}})
+    config = SimpleNamespace(
+        model_dump=lambda **kwargs: {"workflow": {"mode": "simulation"}}, read_as_draft=False
+    )
     return SimpleNamespace(
         _config_path=None,
         _ctx=ctx,
@@ -292,7 +294,7 @@ def test_embedded_phases_go_to_staged_runner(monkeypatch, tmp_path):
     config = write_toml(tmp_path / "staged.toml", STAGED_TOML)
     calls = patch_runners(monkeypatch)
     project = SimpleNamespace(
-        _cfg=SimpleNamespace(calibration=staged_config()),
+        _cfg=SimpleNamespace(calibration=staged_config(), read_as_draft=False),
         _config_path=config,
         _environment=None,
     )
@@ -390,7 +392,7 @@ def test_dry_run_of_an_in_memory_project(monkeypatch, tmp_path, source, expected
         "hydromodpy.calibration.runners.document.describe_dry_run", lambda *a, **kw: "plan"
     )
     embedded = SimpleNamespace(
-        _cfg=SimpleNamespace(calibration=SimpleNamespace(phases=None)),
+        _cfg=SimpleNamespace(calibration=SimpleNamespace(phases=None), read_as_draft=False),
         _config_path=None if source is None else tmp_path / source,
     )
     if source is None:

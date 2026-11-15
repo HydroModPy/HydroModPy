@@ -15,13 +15,16 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
 
 from hydromodpy.core.state.scratch import SCRATCH_ROOT_ENV
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY, FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.model.domain.cell_column import CellColumn
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
@@ -32,6 +35,7 @@ from hydromodpy.workflow.steps.data_description import (
 )
 from hydromodpy.workflow.steps.prepare_solver.prepare import (
     step_persist_params,
+    step_persist_topography,
     step_write_provenance,
 )
 from tests._helpers.run_stores import open_run_store
@@ -300,3 +304,32 @@ def test_provenance_reuses_the_load_digest(tmp_path: Path) -> None:
     assert [row["source_sha256"] for row in rows] == ["0" * 64]
     assert rows[0]["variable"] == "recharge:recharge"
     assert [entry.sha256 for entry in inputs] == ["0" * 64], "the input carries the same digest"
+
+
+GROUND = np.array([12.0, 11.5, 10.25, 9.0])
+
+
+@pytest.mark.parametrize(
+    ("column", "stored"),
+    [
+        (CellColumn(top=GROUND, bottom=GROUND - 20.0), GROUND),
+        (None, None),
+    ],
+    ids=["a backend with a column writes its ground", "a backend without one writes nothing"],
+)
+def test_ground_is_stored_before_the_solve(tmp_path: Path, column, stored) -> None:
+    store = open_run_store(tmp_path / "demo", "run", n_cells=GROUND.size)
+    model = SimpleNamespace(geometry=SimpleNamespace(column=column))
+
+    step_persist_topography(model, store.sim_id, store=store)
+
+    fields = store.open_zarr(store.sim_id)
+    try:
+        mesh = fields.root.get("mesh")
+        got = None if mesh is None or "topography" not in mesh else mesh["topography"][:]
+    finally:
+        fields.close()
+    if stored is None:
+        assert got is None
+    else:
+        assert np.asarray(got).tobytes() == stored.tobytes()

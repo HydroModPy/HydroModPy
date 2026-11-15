@@ -34,7 +34,7 @@ from pydantic.json_schema import SkipJsonSchema, WithJsonSchema
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
-from hydromodpy.core.pipeline_steps import FIGURE_STEPS
+from hydromodpy.core.pipeline_steps import FIGURE_STEPS, STEP_NAMES
 from hydromodpy.core.time.instant import instant
 from hydromodpy.core.units.kinds import LAYER_REDUCTIONS
 from hydromodpy.results.field_registry import (
@@ -160,7 +160,7 @@ ENGINES = {STATIC: FORMATS, INTERACTIVE: ("html",)}
 
 END, SESSION, AFTER = "end", "session", "after:"
 WHEN = (END, SESSION, AFTER)
-"""When a figure is drawn. ``after:`` takes a step of ``FIGURE_STEPS``."""
+"""When a figure is drawn. ``after:`` takes a step of ``FIGURE_STEPS`` that stores its data."""
 
 AGAINST_OBSERVED = "observed"
 DRAW_KEYWORDS = ("station", "time", "variable")
@@ -901,6 +901,42 @@ def required_variables(
         for overlay in panel.overlays or ():
             names.update(OVERLAY_FIELDS[overlay])
     return tuple(sorted(names))
+
+
+def first_figure_step(request: FigureRequest, presets: Mapping[str, FigureRequest]) -> str:
+    """Return the first step after which the run store holds what a request draws."""
+    names = required_variables(request, presets, terms=False)
+    figure = expand(request, presets)
+    # What no registered variable describes (a special, a draw function, an overlay such as
+    # pathlines or stations) is read from results written at extract. The overlays a frame
+    # draws by itself are geographic and stand there from the start.
+    framed = {name for frame in FRAMES.values() for name in frame.overlays}
+    unlisted = (
+        figure.special is not None
+        or figure.draw is not None
+        or any(
+            not OVERLAY_FIELDS[overlay] and overlay not in framed
+            for panel in figure.panels
+            for overlay in panel.overlays or ()
+        )
+    )
+    steps = ["extract"] if unlisted or not names else []
+    steps += [
+        FIELD_REGISTRY[name].stored_at if name in FIELD_REGISTRY else "extract" for name in names
+    ]
+    return max(steps, key=STEP_NAMES.index)
+
+
+def check_when(request: FigureRequest, presets: Mapping[str, FigureRequest]) -> None:
+    """Refuse a request drawn after a step whose run store does not hold its data yet."""
+    if not request.when.startswith(AFTER):
+        return
+    first = first_figure_step(request, presets)
+    if STEP_NAMES.index(request.when[len(AFTER) :]) < STEP_NAMES.index(first):
+        raise ValueError(
+            f"Figure {file_stem(request)!r} has when = {request.when!r}, but its data is "
+            f"stored at {first}. Write when = '{AFTER}{first}' or a later step."
+        )
 
 
 def replay_request(figure: ResolvedFigure) -> FigureRequest:

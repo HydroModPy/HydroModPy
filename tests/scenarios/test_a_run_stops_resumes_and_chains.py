@@ -7,7 +7,9 @@ windows of six months and compares each window with the year played in one piece
 Both hold to the bit: a resume plays the stopped step again from its start, and
 a window starts from the final state of the one before in double precision. The
 third stops window 2 of a chain, resumes it by its name without a file, then
-replays the sealed window from the configuration it froze.
+replays the sealed window from the configuration it froze. The fourth plays a
+script of three windows twice: the second pass gives back the run at each window,
+and the seal and ``outcome.json`` name the same attempt.
 """
 
 from __future__ import annotations
@@ -251,27 +253,39 @@ def test_a_window_stopped_by_its_flag_resumes_by_its_name_and_replays_from_its_s
 
 
 WINDOWED = """
+import json
+
 import hydromodpy as hmp
 
-hmp.run("island.toml", until_step="run_solver", name="w", no_display=True)
-hmp.run("island.toml", name="w", no_display=True)
+given = []
+for _ in range(2):
+    for until in @UNTILS@:
+        outcome = hmp.run("island.toml", until_step=until, name="w", no_display=True)
+        given.append([outcome.name, outcome.identical_to])
+with open("given.json", "w", encoding="utf-8") as handle:
+    json.dump(given, handle)
 """
 
 
-def test_a_run_played_in_two_windows_by_the_verb_solves_once(
-    tmp_path: Path, scenario_env, scenario_cache
-) -> None:
+def _windows_played_twice(tmp_path: Path, scenario_env, scenario_cache, untils: str):
     island = TRANSIENT.replace("@NAME@", "island").replace("@SOLVER@", "modflow6")
     island = island.replace("@TRANSPORT_PROCESS@", "")
-    played = play_script(
+    return play_script(
         "windows_by_the_verb",
         {"island.toml": island},
-        WINDOWED,
+        WINDOWED.replace("@UNTILS@", untils),
         tmp_path / "play",
         scenario_env,
         scenario_cache,
         needs=NEEDS,
     )
+
+
+def test_a_script_of_windows_played_twice_solves_once_and_counts_its_windows(
+    tmp_path: Path, scenario_env, scenario_cache
+) -> None:
+    untils = '("prepare_solver", "run_solver", None)'
+    played = _windows_played_twice(tmp_path, scenario_env, scenario_cache, untils)
     assert played.returncode == 0, _tail(played.log)
 
     assert sorted(path.name for path in (played.root / "runs").iterdir()) == ["w"]
@@ -279,3 +293,85 @@ def test_a_run_played_in_two_windows_by_the_verb_solves_once(
     profile = json.loads((played.root / "runs" / "w" / "profile.json").read_text("utf-8"))
     solves = [line for line in profile["lines"] if line["kind"] == "solve"]
     assert len(solves) == 1, solves
+    given = json.loads((played.root / "given.json").read_text("utf-8"))
+    assert given == [["w", None]] * 3 + [["w", "w"]] * 3
+    sealed = read_manifest(played.root / "runs" / "w")["run"]["attempt"]
+    assert sealed == read_outcome(played.root / "runs" / "w").attempt == 3
+    assert sorted(path.name for path in (played.root / "runs" / "w" / "attempts").iterdir()) == [
+        "1",
+        "2",
+    ]
+
+
+def test_windows_not_sealed_played_again_give_back_the_partial_run(
+    tmp_path: Path, scenario_env, scenario_cache
+) -> None:
+    played = _windows_played_twice(
+        tmp_path, scenario_env, scenario_cache, '("prepare_solver", "run_solver")'
+    )
+    assert played.returncode == 0, _tail(played.log)
+
+    run = played.root / "runs" / "w"
+    assert sorted(path.name for path in run.parent.iterdir()) == ["w"]
+    assert not (run / "manifest.json").exists()
+    given = json.loads((played.root / "given.json").read_text("utf-8"))
+    assert given == [["w", None]] * 2 + [["w", "w"]] * 2
+    assert read_outcome(run).attempt == 2
+    assert sorted(path.name for path in (run / "attempts").iterdir()) == ["1"]
+
+
+DISPLAY_AT_PREPARE = """\
+[display]
+enabled = true
+
+[[display.figure]]
+variable = "topography"
+when = "after:prepare_solver"
+"""
+
+WINDOWS_WALKTHROUGH = """
+# [windows-walkthrough]
+import hydromodpy as hmp
+
+outcome = hmp.run("island.toml", until_step="prepare_solver", name="demo")
+first = hmp.open(outcome.run_dir)  # a partial run, not sealed yet
+steps = first.steps
+print(steps)  # the steps done so far
+ground = first.read("topography")  # the ground of every cell, read before the solve
+last = hmp.run("island.toml", name="demo")  # continues in place and seals
+again = hmp.run("island.toml", name="demo")  # unchanged, gives the run back
+# [/windows-walkthrough]
+import json
+
+report = {"steps": list(steps), "cells": int(ground.size), "sealed": list(hmp.open(last.run_dir).steps)}
+report["again"] = [again.name, again.identical_to]
+with open("walkthrough.json", "w", encoding="utf-8") as handle:
+    json.dump(report, handle)
+"""
+
+
+def test_a_run_read_before_the_solve_is_continued_in_place_and_sealed(
+    tmp_path: Path, scenario_env, scenario_cache
+) -> None:
+    island = TRANSIENT.replace("@NAME@", "island").replace("@SOLVER@", "modflow6")
+    island = island.replace("@TRANSPORT_PROCESS@", "")
+    island = island.replace("[display]\nenabled = false\n", DISPLAY_AT_PREPARE)
+    played = play_script(
+        "windows_walkthrough",
+        {"island.toml": island},
+        WINDOWS_WALKTHROUGH,
+        tmp_path / "play",
+        scenario_env,
+        scenario_cache,
+        needs=NEEDS,
+    )
+    assert played.returncode == 0, _tail(played.log)
+
+    report = json.loads((played.root / "walkthrough.json").read_text("utf-8"))
+    assert report["steps"][0] == "validate" and report["steps"][-1] == "prepare_solver"
+    assert "run_solver" not in report["steps"]
+    assert report["cells"] > 0 and "run_solver" in report["sealed"]
+    assert report["again"] == ["demo", "demo"]
+    run = played.root / "runs" / "demo"
+    assert [path.name for path in run.parent.iterdir()] == ["demo"]
+    assert read_manifest(run)["run"]["attempt"] == read_outcome(run).attempt

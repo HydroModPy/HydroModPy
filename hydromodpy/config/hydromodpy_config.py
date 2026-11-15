@@ -56,6 +56,7 @@ from hydromodpy.config.config_migration import (
     migrate_sealed_config_doc,
 )
 from hydromodpy.config.cross_checks import check_against_the_solver
+from hydromodpy.config.data_types import with_declared_types_only
 from hydromodpy.config.section_loader import (
     ANALYSIS_SECTION_REFUSAL,
     HYDROMETRY_SECTION_REFUSAL,
@@ -794,7 +795,9 @@ class HydroModPyConfig(HydroModelBase):
         trait it ignores is refused. A sealed one stays sealed and only warns.
         """
         validated = type(self).from_snapshot(
-            written_payload(self), changes=changes, sealed=self.read_as_sealed
+            with_declared_types_only(written_payload(self)),
+            changes=changes,
+            sealed=self.read_as_sealed,
         )
         touched = {parse(dotted).parts[0] for dotted in changes}
         return self.model_copy(update={name: getattr(validated, name) for name in touched})

@@ -126,8 +126,8 @@ def _display_config(state: PipelineState) -> DisplayConfig | None:
 def draw_after(state: PipelineState, step: str) -> list[Path]:
     """Draw the figures of ``when = "after:<step>"`` from the run as written so far.
 
-    Only a step of ``FIGURE_STEPS`` has its results on disk, so any other step returns
-    at once without opening the store. The run is not sealed yet, so a figure never
+    The run store is open from ``prepare_solver`` on, so a step before it, or one
+    out of ``FIGURE_STEPS``, returns at once without opening the store. The run is not sealed yet, so a figure never
     fails it: ``on_error`` is always ``warn``, and ``hmp show`` draws the figure again.
     """
     ctx = state.get("ctx")

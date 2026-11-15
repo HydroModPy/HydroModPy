@@ -820,8 +820,9 @@ class Modflow6OutputAdapter:
             raise
         except Exception:
             logger.warning(
-                "Could not write the surface elevation for sim %s; every map, "
-                "section and water-table depth of this run reads it.",
+                "Could not write the surface elevation for sim %s; the run keeps the ground "
+                "written before the solve, without a lake bed the solver carved, and every "
+                "map, section and water-table depth of this run reads it.",
                 sim_id,
                 exc_info=True,
             )

@@ -114,6 +114,14 @@ class Outcome(HydroModelBase):
             "Absent before then, and in an outcome written before this field existed."
         ),
     )
+    solution_key: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description=(
+            "What the attempt computes, the solution key of its request, told with its "
+            "request id. Absent before then, and in an outcome written before this field existed."
+        ),
+    )
     status: OutcomeStatus = Field(description="What the writer knew")
     exit_code: int | None = Field(default=None, description="Exit code of the process, at exit")
     signal: int | None = Field(default=None, description="Signal that ended the process, if one")

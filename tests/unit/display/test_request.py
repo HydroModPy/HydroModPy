@@ -87,7 +87,7 @@ def test_a_map_keeps_its_relief_and_scale_bar_around_the_overlays_written(
         ('variable = "head", type = "mapp"', "Known frames: map"),
         ('variable = "head", overlays = ["outlne"]', "Did you mean outline"),
         ('variable = "head", engine = "interactive", formats = ["png"]', "html"),
-        ('variable = "head", when = "after:solve"', "Known steps: extract"),
+        ('variable = "head", when = "after:solve"', "Known steps: prepare_solver"),
         ('variable = "head", station = "zone:basin"', "zone:catchment"),
         ('variable = "head", time = "yesterday"', "YYYY-MM-DD"),
         ('variable = "head", change = ["first"]', "two instants"),
@@ -195,3 +195,40 @@ def test_a_draw_function_takes_station_and_time_at_figure_level():
 def test_a_section_alone_is_drawn_at_double_width():
     figure = expand(FigureRequest(variable=["head"], type="section"), {})
     assert figure.width == "double"
+
+
+@pytest.mark.parametrize(
+    ("text", "refused"),
+    [
+        ('variable = "topography", when = "after:prepare_solver"', None),
+        ('variable = "topography", overlays = ["relief"], when = "after:prepare_solver"', None),
+        ('variable = "head", when = "after:prepare_solver"', "stored at extract"),
+        ('variable = "head", when = "after:run_solver"', "after:extract"),
+        ('variable = "topography", overlays = ["wells"], when = "after:prepare_solver"', "extract"),
+        ('variable = "head", when = "after:extract"', None),
+        ('preset = "hydrograph", when = "after:prepare_solver"', "extract"),
+        (
+            'variable = "topography", overlays = ["pathlines"], when = "after:prepare_solver"',
+            "extract",
+        ),
+        (
+            'variable = "topography", overlays = ["stations"], when = "after:prepare_solver"',
+            "extract",
+        ),
+    ],
+)
+def test_a_figure_follows_a_step_that_stores_its_data(text: str, refused: str | None) -> None:
+    from hydromodpy.display.config import DisplayConfig
+
+    if refused is None:
+        DisplayConfig(figure=[table(text)])
+        return
+    with pytest.raises(ValidationError, match=refused):
+        DisplayConfig(figure=[table(text)])
+
+
+def test_every_stored_at_is_a_step() -> None:
+    from hydromodpy.core.pipeline_steps import STEP_NAMES
+    from hydromodpy.results.field_registry import FIELD_REGISTRY
+
+    assert {field.stored_at for field in FIELD_REGISTRY.values()} <= set(STEP_NAMES)

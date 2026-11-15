@@ -846,4 +846,9 @@ class ModflowNwtOutputAdapter:
         except MeshError:
             raise
         except Exception:
-            logger.debug("Could not write surface elevation for sim %s", sim_id)
+            logger.warning(
+                "Could not write the surface elevation for sim %s; the run keeps the ground "
+                "written before the solve.",
+                sim_id,
+                exc_info=True,
+            )

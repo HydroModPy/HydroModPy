@@ -43,6 +43,7 @@ from hydromodpy.workflow.steps.data_description import (
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.model.domain.domain import Domain
+    from hydromodpy.model.model import Model
     from hydromodpy.results.storage.run_store import RunStore
 
 logger = get_logger(__name__)
@@ -147,6 +148,23 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: RunStore) -> 
     )
     store.write_view(sim_id, "mesh_cell_families", cell_family_rows(cell_mesh))
     store.write_view(sim_id, "mesh_face_families", face_family_rows(cell_mesh))
+
+
+def step_persist_topography(model: Model | None, sim_id: str, *, store: RunStore) -> None:
+    """Write the ground of every cell before the solve, when the flow backend builds a column.
+
+    A run stopped here then draws its grid on the relief. The solver extractor
+    writes the ground again after the solve, so a lake bed the solver carves is
+    the ground the run keeps. A backend with no column writes it only then.
+    """
+    column = None if model is None else model.geometry.column
+    if column is None or not store.save_zarr:
+        return
+    fields = store.open_zarr(sim_id)
+    try:
+        fields.write_topography(column.top, n_cells=column.top.size)
+    finally:
+        fields.close()
 
 
 def step_persist_geographic(ctx: WorkflowContext, sim_id: str, *, store: RunStore) -> None:

@@ -91,6 +91,7 @@ from typing import Literal
 from hydromodpy.core.exceptions import NothingThereError, ResumeError, WriteConflictError
 from hydromodpy.core.io.filesystem import check_project_root
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.pipeline_steps import STEP_NAMES
 from hydromodpy.core.runtime.interrupts import (
     STOP_FLAG_SCHEMA,
     StopRequested,
@@ -481,6 +482,16 @@ def record_request_id(run_dir: Path, request_id: str) -> Outcome:
     return outcome
 
 
+def record_solution_key(run_dir: Path, solution_key: str) -> Outcome:
+    """Write *solution_key* into the outcome of the attempt running in *run_dir*."""
+    previous = read_outcome(run_dir)
+    if previous is None:
+        raise FileNotFoundError(f"{run_dir} carries no {RUN_OUTCOME_FILENAME} to complete")
+    outcome = previous.model_copy(update={"solution_key": solution_key})
+    write_outcome(run_dir, outcome)
+    return outcome
+
+
 def start_over_if_changed(claim: RunClaim, request_id: str) -> RunClaim:
     """Start attempt ``k + 1`` over when attempt ``k`` asked for something else.
 
@@ -517,6 +528,21 @@ def start_over_if_changed(claim: RunClaim, request_id: str) -> RunClaim:
     if current is not None:
         write_outcome(claim.run_dir, current.model_copy(update={"sim_id": started.sim_id}))
     return started
+
+
+def reached_before(run_dir: Path, until_step: str, solution_key: str) -> bool:
+    """Return True when the last attempt of *run_dir* asked for *solution_key* and reached *until_step*.
+
+    Nothing is claimed or written. The run must be partial: its last attempt closed
+    ``completed`` with no seal, at *until_step* or a later step. Such a run has nothing
+    left to compute for a window that stops at the same step or before it.
+    """
+    if effective_status(run_dir) != "partial":
+        return False
+    last = readable(read_outcome, run_dir)
+    if last is None or last.solution_key != solution_key or last.step not in STEP_NAMES:
+        return False
+    return STEP_NAMES.index(last.step) >= STEP_NAMES.index(until_step)
 
 
 def refuse_resume_if_changed(
@@ -882,7 +908,9 @@ __all__ = [
     "finish_dead_attempt",
     "is_run_product",
     "latest_version_dir",
+    "reached_before",
     "record_request_id",
+    "record_solution_key",
     "refuse_resume_if_changed",
     "request_stop",
     "run_dir_for_name",

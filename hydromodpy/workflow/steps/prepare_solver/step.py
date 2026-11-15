@@ -30,6 +30,7 @@ from hydromodpy.workflow.steps.prepare_solver.forcings import step_persist_forci
 from hydromodpy.workflow.steps.prepare_solver.model import step_build_model
 from hydromodpy.workflow.steps.prepare_solver.prepare import (
     step_persist_params,
+    step_persist_topography,
     step_write_provenance,
 )
 
@@ -171,6 +172,7 @@ class PrepareSolverStep:
                     step_persist_params(
                         store, ctx.sim_id, model.properties.profiles, domain=model.geometry.domain
                     )
+                step_persist_topography(model, ctx.sim_id, store=store)
                 step_write_provenance(ctx, store=store)
                 step_persist_forcings(ctx, store=store)
         else:

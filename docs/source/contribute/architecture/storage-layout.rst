@@ -403,6 +403,11 @@ the trashed directories (by the relative directory they came from) and the lines
 claim atomic: when another process wins it, the version is computed again. The bare name is
 version 1 for life, runs and sessions share one version space, and a deleted name is never
 reassigned. A failed attempt does not take a version: the next attempt stays in ``runs/<case>/``.
+A run asked again with the same request takes none either: ``hmp.run`` without ``from_step``,
+``resume`` or ``force`` gives back the sealed run of the same solution key, and a window that ends
+at ``until_step`` also gives back the partial run whose last attempt recorded the same solution
+key and reached that step. A window given back counts no attempt. ``Project.simulate`` computes at
+each call.
 
 **Lineage is by identifiers.** ``manifest.lineage`` holds ``parent_sim_id``, ``session_id``,
 ``phase``, ``trial``, ``kind`` (``rerun``, ``promoted``, ``trial`` or ``version``), ``overrides``
@@ -616,7 +621,12 @@ to skip, resume or version.
    ``k`` move under ``attempts/<k>/``; the checkpoints, the partial store, the scratch and
    ``trials.jsonl`` stay. ``--fresh``, or a changed request id, moves the whole content under
    ``attempts/<k>/`` and starts over. An asked ``--resume`` never starts over: its checkpoint
-   refuses a configuration that moved and names the sections that did.
+   refuses a configuration that moved and names the sections that did. An attempt is one claim of
+   the run folder, so a retry after a failure or a stop and each window of a run played with
+   ``until_step`` count one each: ``attempts/`` keeps every attempt but the last, and
+   ``manifest.run.attempt`` names the last one, which wrote the seal, as ``outcome.json`` does.
+   ``started_at`` and ``created_at`` of the manifest come from the attempt that opened the store,
+   while ``attempt`` and ``attempt_id`` name the attempt that sealed it.
 6. **A parent writes the outcome of a child that died without writing it** (a native abort, an
    out-of-memory kill, a wall-time ``SIGKILL``): ``failed`` with ``exit_code``, ``signal``,
    ``log_tail`` and ``written_by = "launcher"`` or ``"trap"``.
@@ -800,7 +810,11 @@ an alpha is refused and must be run again.
 ``PlanarCellMesh`` the mesh step built. The solver extractors then check their grid against it and
 add only what the solved model owns (topography, layer thickness, streambed levels, ``grid_type``)
 through ``write_topography``; none of them rewrites vertices or connectivity, and a grid whose
-cell count differs from the stored one raises ``IncompatibleMeshError``. The arrays and attributes
+cell count differs from the stored one raises ``IncompatibleMeshError``. When the flow backend
+builds a cell column (MODFLOW 6, MODFLOW-NWT, Boussinesq without an exchange mesh),
+``prepare_solver`` already writes ``mesh/topography`` from that column, so a run stopped before the
+solve holds its ground. The extractor writes it again after the solve, which keeps the lake bed
+that MODFLOW 6 carves for a lake with ``dynamic_area``. The arrays and attributes
 of ``mesh/`` beyond the geometry are described in :mod:`hydromodpy.results.zarr_store.mesh_layout`.
 A family has one bit, so a mesh holds at most 31 families. A run whose mesh has no such family
 writes no table: an absent table is an empty one when the ``engine`` attribute is present. A run

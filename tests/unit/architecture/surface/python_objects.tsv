@@ -145,6 +145,7 @@ Run.site	property	str | None
 Run.solver	property	str | None
 Run.stations	method	(self, variable: str, *, source: str = 'simulated') -> list[str]
 Run.status	property	str | None
+Run.steps	property	tuple[str, ...]
 Run.table	method	(self, name: str) -> pd.DataFrame
 Run.tag	method	(self, *specs: str) -> Run
 Run.tags	property	list[str] | None

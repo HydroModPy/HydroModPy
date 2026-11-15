@@ -657,13 +657,13 @@ def held(source: Any, base: str | os.PathLike[str] | None) -> Any:
     return load(source, base) if is_document else source
 
 
-def report_identical_run(name: str | None, sim_id: str) -> None:
+def report_identical_run(name: str | None, sim_id: str, run_dir: Path | None = None) -> None:
     """Say on the log that a run was skipped for an identical completed one."""
     from hydromodpy.core.logging import get_logger
     from hydromodpy.project.dispatch.workflow import identical_run_message
 
     get_logger(__name__).warning(
-        "%s Pass force=True to run it again.", identical_run_message(name, sim_id)
+        "%s Pass force=True to run it again.", identical_run_message(name, sim_id, run_dir)
     )
 
 

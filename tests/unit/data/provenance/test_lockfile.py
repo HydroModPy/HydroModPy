@@ -312,10 +312,13 @@ def test_runner_hands_lock_to_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     )
     unpersisted = SimpleNamespace(
         simulation=SimpleNamespace(
-            results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=False))
+            time=None,
+            results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=False)),
         ),
         site=None,
+        read_as_draft=False,
     )
+    ctx.cfg = unpersisted
     project = SimpleNamespace(
         _ctx=ctx,
         _cfg=unpersisted,

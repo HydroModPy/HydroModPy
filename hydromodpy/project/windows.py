@@ -381,7 +381,10 @@ def run_windows(
         if outcome.identical_to is not None and index < indices[-1]:
             from hydromodpy.project.dispatch.workflow import identical_run_message
 
-            logger.info("%s", identical_run_message(outcome.identical_to, str(outcome.sim_id)))
+            logger.info(
+                "%s",
+                identical_run_message(outcome.identical_to, str(outcome.sim_id), outcome.run_dir),
+            )
     return outcome
 
 
