@@ -56,6 +56,7 @@ Lab.close	method	(self) -> None
 Lab.config	property	HydroModPyConfig
 Lab.force	method	(self, name: str, value: object) -> None
 Lab.project	property	Project
+Lab.read	method	(self, name: str, *, time: str | int = 'all') -> xr.DataArray
 Lab.release	method	(self, name: str) -> None
 Lab.run	method	(self, name: str | None = None, *, until_step: str | None = None) -> Run | None
 Lab.set	method	(self, changes: Mapping[str, Any] | None = None, /, **named: Any) -> tuple[str, ...]

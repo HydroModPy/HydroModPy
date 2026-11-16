@@ -40,8 +40,9 @@ from hydromodpy.results.exporters._tables import (
     geographic_features,
     table_rows,
 )
-from hydromodpy.results.exporters.export_spec import MESH_LAYERS, ExportKind
+from hydromodpy.results.exporters.export_spec import MESH_LAYERS, PATHLINES, ExportKind
 from hydromodpy.results.exporters.mesh_layers import available_mesh_layers
+from hydromodpy.results.run.particles import has_particle_tracks
 
 if TYPE_CHECKING:
     from hydromodpy.results.run.view import Run
@@ -69,7 +70,7 @@ OBSERVED_SERIES: tuple[str, ...] = tuple(series_name(name, OBSERVED) for name in
 
 # catchment/preprocess/store_ingestion.py (watershed layers), workflow/steps/
 # prepare_solver/forcings.py (reference networks), results/exporters/mesh_layers.py
-# (the layers of the cell mesh).
+# (the layers of the cell mesh), results/exporters/vector_layer.py (the pathlines).
 VECTOR_LAYERS: tuple[str, ...] = (
     "watershed",
     "watershed_contour",
@@ -78,8 +79,10 @@ VECTOR_LAYERS: tuple[str, ...] = (
     HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     *MESH_LAYERS,
+    PATHLINES,
 )
-"""Vector layers a run holds: the geographic ones it stores and the layers of its cell mesh."""
+"""Vector layers a run holds: the geographic ones it stores, the layers of its cell mesh
+and the pathlines of its particles."""
 
 # catchment/preprocess/store_ingestion.py (_RASTER_ATTRS).
 RASTER_LAYERS: tuple[str, ...] = ("watershed_dem", "watershed_fill")
@@ -153,7 +156,8 @@ def list_exportable(run: Run) -> dict[str, ExportKind]:
     the mesh quality fields its stored mesh can serve. The series are those of
     its ``timeseries`` table, a measurement named ``<variable>_obs``, the layers the files of its
     tables directory hold plus the mesh layers of a run that states its
-    mesh CRS, and ``budget`` when its ``budgets`` table has rows. A name two
+    mesh CRS and the pathlines of a run whose particles moved with a clock, and
+    ``budget`` when its ``budgets`` table has rows. A name two
     groups hold takes the kind of the first, the order ``Run.read``
     resolves a name in.
     """
@@ -172,6 +176,8 @@ def list_exportable(run: Run) -> dict[str, ExportKind]:
         names.setdefault(feature, ExportKind.vector)
     for layer in available_mesh_layers(store, sim_id):
         names.setdefault(layer, ExportKind.vector)
+    if has_particle_tracks(run, timed=True):
+        names.setdefault(PATHLINES, ExportKind.vector)
     for raster in _stored_rasters(store, sim_id):
         names.setdefault(raster, ExportKind.raster)
     if table_rows(store, sim_id, BUDGETS_TABLE):

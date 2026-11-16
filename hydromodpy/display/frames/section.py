@@ -33,7 +33,10 @@ from hydromodpy.display.subject import (
 from hydromodpy.display.theme import Theme, colormap
 from hydromodpy.results.run.view import Run
 
-FIELDS = ("variable", "time", "overlays", "line", "bbox", "scale", "share", "reduce", "change")
+FIELDS = (
+    "variable", "time", "overlays", "line", "bbox", "scale", "share", "reduce", "change",
+    "limits",
+)  # fmt: skip
 SECTION_COLUMNS = ("cell", "layer", "start", "end", "top", "bottom", "value")
 LINE_COLUMNS = ("cell", "start", "end", "value")
 SECTION_MARKS = ("lake", "barrier", "seepage")
@@ -158,6 +161,7 @@ def data(subject: Run, panel: PanelRequest) -> SectionData:
     return SectionData(
         table, name, label, scale, variables.ramp(name, Theme()) if layered else "", log,
         trace, line, line_label, _marks(subject, panel, pieces, trace, water), classes,
+        limits=panel.limits,
         water=water,
         caption=_caption(trace),
         period=period_text(subject, panel) if "time" in found.shape else "",

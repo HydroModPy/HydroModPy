@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
+from hydromodpy.core.summary import area_span, extent, one_line, summary
 from hydromodpy.mesh.planar.geometry import cell_areas, padded_rows
 
 if TYPE_CHECKING:
@@ -105,6 +106,38 @@ class Mesh:
     crs_source: Literal["mesh", "catalog"] | None = None
     """Where ``crs`` was read: the ``mesh/`` group, else the catalog, ``None`` when
     neither says."""
+
+    @property
+    def n_cells(self) -> int:
+        """Number of cells, by the name the mesh of a lab uses too."""
+        return len(self.face_node_connectivity)
+
+    def __repr__(self) -> str:
+        """Say what the mesh is and where its arrays are, in a few lines."""
+        cells = self.face_node_connectivity
+        title = f"Mesh: {len(cells)} cells, {len(self.z_interfaces) - 1} layer(s)"
+        if self.structured_shape is not None:
+            rows, columns = self.structured_shape
+            title += f", regular grid of {rows} rows by {columns} columns"
+        ground = self.topography
+        return summary(
+            title,
+            [
+                ("n_cells", len(cells)),
+                ("cell_centers()", f"array ({len(cells)}, 2), x and y of each cell centre in m"),
+                ("cell_areas()", area_span(self.cell_areas())),
+                ("extent", extent(self.vertices)),
+                ("vertices", f"array {self.vertices.shape}, the vertices in m"),
+                ("face_node_connectivity", f"array {cells.shape}, the vertices of each cell"),
+                ("z_interfaces", f"array {self.z_interfaces.shape}, the top then the bases in m"),
+                ("topography", "none" if ground is None else f"array {ground.shape}, in m"),
+                (
+                    "structured_shape",
+                    self.structured_shape or "None, the cells are not a regular grid",
+                ),
+                ("crs", one_line(self.crs)),
+            ],
+        )
 
     def cell_centers(self) -> np.ndarray:
         """Return the ``(n_faces, 2)`` centers the field arrays are indexed by.

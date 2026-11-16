@@ -54,8 +54,10 @@ MAP_COLUMNS = ("cell", "x", "y", "value")
 REACH_COLUMNS = (*MAP_COLUMNS, "x_down", "y_down")
 FIELDS = (
     "variable", "time", "layer", "overlays", "bbox", "contours", "scale", "share", "reduce",
-    "change", "against",
+    "change", "against", "line", "limits",
 )  # fmt: skip
+TRACE_Z = 6
+"""The trace of a section is drawn over the overlay lines and under their marks."""
 LABEL_WIDTH = 34
 SHARE_OF_PERIODS = "share of the periods"
 """What a frequency map of one run shows, after the name of its variable."""
@@ -75,8 +77,9 @@ class MapData:
     mesh order: ``cell`` the face index (int64), ``x`` and ``y`` the cell centre in
     m in the mesh CRS (float64), ``value`` in the display unit (float64, NaN where
     nothing is drawn). Cells outside ``panel.bbox`` are dropped. ``limits`` is the
-    colour norm, set by ``render`` for a shared norm across small multiples, else
-    None and taken from the values. ``classes`` holds value and name for a
+    colour norm: ``panel.limits``, else set by ``render`` for a shared norm across
+    small multiples, else None and taken from the values. ``trace`` is ``panel.line``,
+    the line of a section drawn dashed over the map. ``classes`` holds value and name for a
     categorical variable. A variable of the table ``sfr_reaches`` has one row per
     reach instead, with the columns of ``REACH_COLUMNS``: ``cell`` is the reach cell
     and ``x_down``, ``y_down`` the centre of the downstream reach cell (NaN at an
@@ -97,6 +100,7 @@ class MapData:
     limits: tuple[float, float] | None = None
     caption: str = ""
     blank_zero: bool = False
+    trace: tuple[tuple[float, float], ...] = ()
 
 
 # ----------------------------------------------------------------------- data
@@ -267,8 +271,10 @@ def data(subject: Run | Compared, panel: PanelRequest) -> MapData:
     ramp = Theme().ramps["share"] if frequency and not difference else variables.ramp(name, Theme())
     return MapData(
         table, mesh, name, label, scale, ramp, log, bool(contours), classes,
+        limits=panel.limits,
         caption=period_text(run, panel) if timed and not frequency else "",
         blank_zero=frequency and not difference,
+        trace=tuple(panel.line or ()),
     )  # fmt: skip
 
 
@@ -330,7 +336,9 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
     A categorical variable gets a legend of its class names in place of the colour bar,
     and the cells of its class 0, the absence, are left undrawn. The left title is the
     label with its unit, so the colour bar carries none, and the right title is the time
-    drawn. Isolines are drawn when ``data.contours`` is set.
+    drawn. Isolines are drawn when ``data.contours`` is set. Values beyond ``data.limits``
+    take the end colours, and the colour bar is pointed on that side. ``data.trace`` is
+    drawn as a dashed ink line.
     """
     table = data.table
     values = table["value"].to_numpy(dtype=float)
@@ -368,6 +376,11 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
     static.map_axes(ax, theme, extent=extent)
     if data.contours:
         _isolines(ax, data, theme)
+    if data.trace:
+        ax.plot(
+            *np.array(data.trace).T, color=theme.ink, linestyle="--",
+            linewidth=theme.data_line_width * 1.5, zorder=TRACE_Z,
+        )  # fmt: skip
     when = [data.caption]
     if not is_column(data.variable) and descriptor(data.variable).zarr_path.startswith(
         BUDGET_GROUP
@@ -380,7 +393,16 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
                 ax.fill([], [], color=cmap(i), label=name)
         static.legend(ax, theme, inside="best")
     else:
-        static.colorbar(ax.figure, artist, ax, theme, label="")
+        static.colorbar(ax.figure, artist, ax, theme, label="", extend=_beyond(data, values))
+
+
+def _beyond(data: MapData, values: np.ndarray) -> str:
+    """Say on which side the values leave ``data.limits``, as the ``extend`` of a colour bar."""
+    finite = values[np.isfinite(values)]
+    if data.limits is None or not finite.size:
+        return "neither"
+    under, over = finite.min() < data.limits[0], finite.max() > data.limits[1]
+    return "both" if under and over else "min" if under else "max" if over else "neither"
 
 
 # ---------------------------------------------------------------- interactive

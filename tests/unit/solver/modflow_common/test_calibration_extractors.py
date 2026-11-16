@@ -181,6 +181,22 @@ def test_saturated_thickness(head_folder, top, bottom, layer, expected) -> None:
     np.testing.assert_allclose(frame.to_numpy(), expected)
 
 
+@pytest.mark.parametrize(
+    ("layer", "expected"),
+    [
+        ([0, 0, 0], [[12.0, 8.0, NAN], [20.0, 4.0, 6.0]]),
+        ([1, 0, -1], [[-5.0, 8.0, NAN], [-5.0, 4.0, NAN]]),
+    ],
+)
+def test_the_water_table_is_the_head_of_the_layer_named_per_cell(head_folder, layer, expected):
+    frame = extractors.extract_water_table_by_cell_from_hds(
+        head_folder, "model", layer=np.array(layer)
+    )
+
+    np.testing.assert_allclose(frame.to_numpy(), expected)
+    assert list(frame.columns) == [0, 1, 2] and frame.index.name == "totim"
+
+
 def test_saturated_thickness_index(head_folder) -> None:
     index = pd.date_range("2020-01-01", periods=2, freq="D")
 

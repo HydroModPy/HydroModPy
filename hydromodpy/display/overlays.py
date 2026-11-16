@@ -20,7 +20,7 @@ from typing import Any
 import numpy as np
 import shapely
 from matplotlib.collections import LineCollection, PolyCollection
-from matplotlib.colors import LightSource, to_rgba
+from matplotlib.colors import LightSource
 from matplotlib.tri import CubicTriInterpolator, Triangulation
 from scipy import ndimage
 
@@ -44,10 +44,10 @@ RELIEF_STRENGTH = 1.1
 """Opacity of the shade per unit of difference to flat ground, black on the dark side."""
 RELIEF_MAX_ALPHA = 0.35
 """Largest opacity of the shade, so that the colour under it still reads."""
-MAX_PATHLINES = 250
+MAX_PATHLINES = 2000
 """Pathlines the overlay draws at most, evenly through the release order."""
-FILL_ALPHA = 0.5
-"""Opacity of the face of filled cells, so that what lies under them still shows."""
+RASTER_PATHLINES = 500
+"""Beyond this many pathlines the lines are rasterised, so a vector file stays light."""
 CASING = 2.2
 """Width of the white line under a network line, as a multiple of the line."""
 MIN_RELIEF_CELLS = 3
@@ -107,9 +107,9 @@ def _add_lines(
 
 
 def cells(
-    ax: Any, run: Run, theme: Theme, field: str, role: str, time: Instant, *, fill: bool = False
+    ax: Any, run: Run, theme: Theme, field: str, role: str, time: Instant, *, solid: bool = False
 ) -> None:
-    """Outline the cells where ``field`` is finite and not zero at ``time``, or fill them.
+    """Outline the cells where ``field`` is finite and not zero at ``time``, or fill them in ink.
 
     The collection carries the role as its label, for a figure that draws a legend.
     """
@@ -119,11 +119,11 @@ def cells(
     if not mask.any():
         logger.info("Overlay %s has no cell where %s is not zero.", role, field)
         return
-    color = line_style(theme, role)["color"]
+    color = theme.ink if solid else line_style(theme, role)["color"]
     ax.add_collection(
         PolyCollection(
             _polygons(mesh, mask),
-            facecolors=to_rgba(color, FILL_ALPHA) if fill else "none",
+            facecolors=color if solid else "none",
             edgecolors=color,
             label=role.capitalize(),
             linewidths=theme.line_width,
@@ -307,8 +307,8 @@ def wells(ax: Any, subject: Run, theme: Theme, time: Instant = "last") -> None:
 
 @quiet
 def seepage(ax: Any, subject: Run, theme: Theme, time: Instant = "last") -> None:
-    """Fill the cells where the water table reaches the land surface at the instant."""
-    cells(ax, subject, theme, "seepage_mask", "seepage", time, fill=True)
+    """Fill in ink the cells where the water table reaches the land surface at the instant."""
+    cells(ax, subject, theme, "seepage_mask", "seepage", time, solid=True)
 
 
 @quiet
@@ -316,7 +316,8 @@ def pathlines(ax: Any, subject: Run, theme: Theme) -> None:
     """Draw the paths of the tracked particles as thin lines, one in n beyond ``MAX_PATHLINES``."""
     paths, _ = reads.read_pathlines(subject)
     shown = paths[:: -(-len(paths) // MAX_PATHLINES)]
-    _add_lines(ax, shown, theme, "pathline", width=theme.line_width / 2, alpha=0.7)
+    raster = len(shown) > RASTER_PATHLINES
+    _add_lines(ax, shown, theme, "pathline", width=theme.line_width / 2, rasterized=raster)
 
 
 @quiet

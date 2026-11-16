@@ -16,8 +16,13 @@ with no error. This module makes those four unreachable:
   what was received, and the loop stops on the total a ``hits`` request
   announced, never on a short page. The old loop stopped on the first short
   page and truncated any box holding more than one page.
-- The ``GPKG`` output is a zip whose single member is literally named
-  ``%TYPENAME%.gpkg``. It is read in memory, whatever its name.
+- A page is asked as GeoJSON. The service served a GeoPackage until 2026-11-06 and
+  refused it on 2026-11-16 for the Topage 2026 layers, answering that the format is
+  not a permitted output of the layer. It still serves ``geojson``, ``SHAPEZIP`` and
+  ``csv``, and a Shapefile cuts the field names at ten characters. On the Canut box the
+  GeoJSON holds the same 143 reaches as the GeoPackage did, with the same geometry,
+  the same values and the same column types once read. A page whose CRS is not
+  EPSG:2154 is refused, since a GeoJSON without its ``crs`` member reads as WGS84.
 - A refusal arrives as an ``ows:ExceptionReport``, as a MapServer HTML page,
   or as a valid empty answer. The first two are recognized by their body,
   whatever the HTTP status; the third is what the ``hits`` total guards.
@@ -31,8 +36,6 @@ from __future__ import annotations
 
 import io
 import re
-import warnings
-import zipfile
 from typing import TYPE_CHECKING, Final
 
 from hydromodpy.core.exceptions import DataRequestError, DataSourceError
@@ -46,14 +49,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-# GDAL reads the bytes of a page under a /vsimem/ name with no .gpkg suffix and says so.
-warnings.filterwarnings(
-    "ignore",
-    message=".*non conformant file extension",
-    category=RuntimeWarning,
-    module=r"pyogrio\.raw",
-)
-
 SANDRE_WFS_URL: Final = "https://services.sandre.eaufrance.fr/geo/sandre"
 SANDRE_WFS_HOST: Final = "services.sandre.eaufrance.fr"
 
@@ -61,6 +56,9 @@ QUERY_CRS: Final = "EPSG:2154"
 """The CRS every box is sent in and every feature comes back in."""
 
 _QUERY_CRS_URN: Final = "urn:ogc:def:crs:EPSG::2154"
+
+PAGE_FORMAT: Final = "geojson"
+"""The ``OUTPUTFORMAT`` of a page of features, as the service names it."""
 
 REQUEST_TIMEOUT_S: Final = 300.0
 """Per request, in seconds. A ``hits`` count over the Brittany reaches took 17.5 s."""
@@ -214,7 +212,7 @@ def _get_page(
     count: int,
     client: HTTPClient,
 ) -> gpd.GeoDataFrame:
-    """Download one page of features and parse the GPKG payload."""
+    """Download one page of features and parse the GeoJSON payload."""
     import geopandas as gpd
 
     params = {
@@ -222,21 +220,21 @@ def _get_page(
         "STARTINDEX": str(start),
         "COUNT": str(count),
         "SORTBY": "gid",
-        "OUTPUTFORMAT": "application/x-gpkg",
+        "OUTPUTFORMAT": PAGE_FORMAT,
     }
     body = checked_body(_get(params, client=client), typename=typename)
-    if not body.startswith(b"PK"):
+    if not body.lstrip().startswith(b"{"):
         raise DataSourceError(
-            f"Sandre WFS answered a GPKG page of {typename!r} with something that is not "
-            f"a zip archive: {excerpt(body)}"
+            f"Sandre WFS answered a GeoJSON page of {typename!r} with something that is not "
+            f"a JSON object: {excerpt(body)}"
         )
-    with zipfile.ZipFile(io.BytesIO(body)) as archive:
-        members = archive.namelist()
-        if not members:
-            raise DataSourceError(f"Sandre WFS sent an empty zip for {typename!r}.")
-        # The member is literally named "%TYPENAME%.gpkg": take it whatever its name.
-        payload = archive.read(members[0])
-    return gpd.read_file(io.BytesIO(payload))
+    page = gpd.read_file(io.BytesIO(body))
+    if len(page) and page.crs != QUERY_CRS:
+        raise DataSourceError(
+            f"Sandre WFS sent a page of {typename!r} in {page.crs}, not in {QUERY_CRS} as "
+            "asked. Its features would be misplaced, so the page is refused."
+        )
+    return page
 
 
 def _get(params: dict[str, str], *, client: HTTPClient) -> requests.Response:

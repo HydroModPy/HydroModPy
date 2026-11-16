@@ -90,6 +90,7 @@ from hydromodpy.core.plugin_registry import check_registered_name
 from hydromodpy.core.site.config import SiteConfig
 from hydromodpy.core.state.names import fold_name
 from hydromodpy.core.state.result_dirs import is_sealed_run_config, resolve_project_root
+from hydromodpy.core.summary import one_line, summary
 from hydromodpy.core.toml_io.paths import assign, parse
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data.loading.config_schema import DataConfig
@@ -464,6 +465,12 @@ class HydroModPyConfig(HydroModelBase):
         "analysis": ANALYSIS_SECTION_REFUSAL,
         "hydrometry": HYDROMETRY_SECTION_REFUSAL,
     }
+
+    def __repr__(self) -> str:
+        """Name each section on one short line. Type a section to read it whole."""
+        rows = [(name, one_line(value)) for name, value in self if value is not None]
+        name = self.simulation.name if self.simulation is not None else None
+        return summary(f"HydroModPyConfig of {name!r}" if name else "HydroModPyConfig", rows)
 
     @property
     def read_as_sealed(self) -> bool:

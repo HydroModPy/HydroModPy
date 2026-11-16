@@ -133,15 +133,20 @@ BUILT_RAMPS: dict[str, tuple[str, float, float]] = {
     "hypsometric": ("terrain", 0.22, 1.0),
     "water_level": ("GnBu_r", 0.0, 0.85),
     "share": ("YlGnBu", 0.2, 1.0),
-    "water_depth": ("YlGnBu_r", 0.2, 1.0),
+    "water_depth": ("jet", 0.0, 1.0),
     "water_age": ("plasma_r", 0.12, 1.0),
 }
 """Ramps cut from a matplotlib ramp: the base ramp, then the first and last share kept.
 
 ``hypsometric`` is ``terrain`` without its sea blues, ``water_level`` is ``GnBu_r`` without
 its white end, ``share`` is ``YlGnBu`` without its palest yellow, and ``water_depth`` is
-``YlGnBu_r`` without its darkest blues, so a shallow water table reads blue and not black.
+the whole ``jet``, blue for a shallow water table and red for a deep one.
 ``water_age`` is ``plasma_r`` without its pale yellow, which is lost on a white ground.
+"""
+WASHED: dict[str, float] = {"water_depth": 0.5}
+"""Share of white mixed into a built ramp, which reads as the ramp half transparent on white.
+
+The filled seepage cells and the thin dark pathlines stay readable over a pale ``jet``.
 """
 
 
@@ -150,7 +155,9 @@ def colormap(name: str) -> Colormap:
     if name not in BUILT_RAMPS:
         return colormaps[name]
     base, low, high = BUILT_RAMPS[name]
-    return LinearSegmentedColormap.from_list(name, colormaps[base](np.linspace(low, high, 256)))
+    colors = colormaps[base](np.linspace(low, high, 256))
+    colors[:, :3] += (1.0 - colors[:, :3]) * WASHED.get(name, 0.0)
+    return LinearSegmentedColormap.from_list(name, colors)
 
 
 # Only the quantities whose usage wants its own ramp. Others use the scale ramp.

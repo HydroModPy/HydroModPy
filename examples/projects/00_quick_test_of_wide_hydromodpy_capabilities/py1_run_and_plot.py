@@ -1,7 +1,8 @@
-"""Play project.toml in the lab to watch the model take shape, try another K, then keep
-the model as a run. HydroModPy draws every figure: the mesh on the relief before the
-solve, the figures project.toml lists, and two more asked from Python. The particle
-tracks are then written for QGIS.
+"""Play project.toml in the lab to watch the model take shape: look at its objects, load
+the mesh in a variable, read its parameters and try another K. Then keep the model as a
+run. HydroModPy draws every figure: the mesh on the relief before the solve, the figures
+project.toml lists, and two more asked from Python. The files of [[export]] are then listed,
+the particle tracks for QGIS among them.
 
     python py1_run_and_plot.py
 """
@@ -9,11 +10,6 @@ tracks are then written for QGIS.
 # %% Setup
 
 from pathlib import Path
-
-import flopy
-import geopandas as gpd
-import numpy as np
-from shapely.geometry import LineString
 
 import hydromodpy as hmp
 
@@ -26,12 +22,36 @@ FIGURES.mkdir(parents=True, exist_ok=True)
 # A lab holds the model in memory and plays the steps of a run one at a time.
 lab = hmp.Lab(HERE / "project.toml")
 
-# %% The mesh and the wells
+# %% Look at the objects
 
-# `prepare_solver` freezes the model. Its `wells` map a name to a position and a rate.
+# `lab.state` keeps the objects of the engine by name. Each one prints a short summary,
+# so its name typed at the prompt says what it is and where its arrays are.
 state = lab.advance("prepare_solver")
-print(f"{state.mesh.n_cells} cells")
-for name, well in state.model.wells.items():
+print(state)
+
+# %% The mesh in a variable
+
+# The mesh says its cells, its area and its extent. The mesh of a lab and the mesh of a run
+# answer the same calls, on a regular grid and on triangles or polygons alike, and every
+# array has one row per cell.
+mesh = state.mesh
+print(mesh)
+centres, areas = mesh.cell_centers(), mesh.cell_areas()
+# Only a regular grid has a shape. It folds a value per cell into rows and columns.
+if mesh.structured_shape is not None:
+    ground = state.model.geometry.column.top.reshape(mesh.structured_shape)
+    print(f"ground in {ground.shape} rows and columns, {ground.min():.1f} to {ground.max():.1f} m")
+
+# %% The model and its parameters
+
+# `prepare_solver` freezes the model the solver reads. It prints its size, its periods,
+# its properties and its terms, and `properties` gives the value of each parameter.
+model = state.model
+print(model)
+print(model.properties)
+print("K written in the file:", lab.config.flow.param["K"].field.value, "m/s")
+# The wells map a name to a position and a rate.
+for name, well in model.wells.items():
     peak = -min(well.flux) * 86400
     print(f"{name}: x = {well.location.x:.0f} m, y = {well.location.y:.0f} m, {peak:.0f} m³/day")
 
@@ -48,22 +68,19 @@ print(
 
 # %% Solve and read the head
 
-
-# `solve` plays what is left up to the solver. The heads are in the raw MODFLOW 6 files.
-def january_head():
-    solved = next(run for name, run in lab.solve().items() if "prt" not in name)
-    heads = flopy.utils.HeadFile(str(next(Path(solved.output_dir).glob("*.hds")))).get_alldata()
-    return np.where(np.abs(heads[0]) < 1e20, heads[0], np.nan).ravel()
-
-
-print(f"mean head in January, K = 1e-5 m/s: {np.nanmean(january_head()):.3f} m")
+# `lab.read` solves what is stale, then reads a variable of the solve: one row per period,
+# one column per cell. Nothing is written to runs/.
+head = lab.read("head", time="first")
+print(f"mean head in January, K = 1e-5 m/s: {float(head.mean()):.3f} m")
+print(lab.read("discharge").to_series().round(4).to_string())
 
 # %% Change K
 
 # A new K makes the model stale, and only the two solver steps play again.
 lab.set(K=5e-5)
 print(lab.steps[["step", "status"]].query("status != 'built'").to_string(index=False))
-print(f"mean head in January, K = 5e-5 m/s: {np.nanmean(january_head()):.3f} m")
+head = lab.read("head", time="first")
+print(f"mean head in January, K = 5e-5 m/s: {float(head.mean()):.3f} m")
 
 # %% Keep the run
 
@@ -74,6 +91,15 @@ lab.set(K=1e-5)
 run = lab.run()
 print(run.name)
 lab.close()
+
+# %% Read the run
+
+# A sealed run gives the same things back from disk: its mesh, its parameters as a table,
+# and each stored variable as an array with named axes.
+print(run.mesh)
+print(run.parameters)
+depth = run.read("watertable_depth", time=0)
+print(f"water-table depth in January: {dict(depth.sizes)}, mean {float(depth.mean()):.2f} m")
 
 # %% The figures of the run
 
@@ -96,12 +122,14 @@ print(
         save=FIGURES / "section_through_wells_september.png",
     )
 )
-# The water-table depth of January with the well cells and the seepage cells.
+# The water-table depth of January with the well cells and the seepage cells,
+# its colours bounded at 10 m.
 print(
     run.figure(
         "watertable_depth",
         time="2017-01-15",
         overlays=["outline", "network", "wells", "seepage"],
+        limits=[0.0, 10.0],
         save=FIGURES / "watertable_depth_wells_and_seepage.png",
     )
 )
@@ -113,17 +141,13 @@ print(
 budget = run.figure("water_budget", data=True)["a"]
 print(budget.pivot(index="time", columns="variable", values="simulated").round(3).to_string())
 
-# %% The tracks for QGIS
+# %% The files for QGIS
 
-# [[export]] writes the fields, the series and the catchment layers, not the
-# tracks yet. They are one GeoDataFrame away, in the CRS of the project.
-# One row per position of a particle. Each track runs from the cell it was
-# released in, at the start of January, to where it leaves the aquifer.
-particles = run.read("particles").sort_values(["particle", "step"])
-tracks = particles.groupby("particle")[["x", "y"]].apply(lambda p: LineString(p.to_numpy()))
-travel = particles.groupby("particle")["time_days"].max() / 365.25
-crs = run.read("watershed").crs
-layer = gpd.GeoDataFrame({"travel_years": travel}, geometry=tracks.to_list(), crs=crs)
-gpkg = HERE / "summary" / f"{run.name}_particle_tracks.gpkg"
-layer.to_file(gpkg, driver="GPKG")
-print(gpkg)
+# The [[export]] blocks of project.toml wrote these files when the run was sealed. The
+# particle tracks are among them: one line per particle, from the cell it was released
+# in to where it leaves the aquifer, with its travel time in years.
+for path in run.exports:
+    print(path)
+# `run.export` takes the words of an [[export]] block. The tracks again, in longitude
+# and latitude.
+print(run.export("pathlines", file="pathlines_wgs84.gpkg", crs="EPSG:4326"))

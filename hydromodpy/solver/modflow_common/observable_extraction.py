@@ -40,6 +40,7 @@ from hydromodpy.solver.modflow_common.calibration_extractors import (
     extract_head_from_hds,
     extract_release_flux_by_cell_from_cbc,
     extract_saturated_thickness_by_cell_from_hds,
+    extract_water_table_by_cell_from_hds,
 )
 from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask
 
@@ -243,7 +244,7 @@ def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     mesh = getattr(model, "solver_mesh", None)
     if mesh is None:
         raise ObservableNotAvailableError(
-            "saturated_thickness needs a solver mesh on the run model."
+            "A value per cell of the aquifer needs a solver mesh on the run model."
         )
     top = np.asarray(mesh.top, dtype=float).reshape(-1)
     botm = np.asarray(mesh.botm, dtype=float)
@@ -289,7 +290,9 @@ def extract_common_modflow_observables(
         r for r in requests if r.name == "saturated_thickness" and r.support == "cells"
     ]
     xy_requests = [r for r in requests if r.name == "cell_xy" and r.support in ("cell", "cells")]
+    table_requests = [r for r in requests if r.name == "head" and r.support == "cells"]
     handled = {id(r) for r in head_requests + discharge_requests + discharge_cell_requests}
+    handled |= {id(r) for r in table_requests}
     handled |= {id(r) for r in release_requests + thickness_requests + area_requests}
     handled |= {id(r) for r in xy_requests}
     unserved = [r for r in requests if id(r) not in handled]
@@ -456,6 +459,14 @@ def extract_common_modflow_observables(
         )
         for request in thickness_requests:
             served[request.id] = field_observable(request, frame, units=_THICKNESS_UNITS)
+
+    if table_requests:
+        # The head of every cell is the water table: the top active cell of each column.
+        frame = extract_water_table_by_cell_from_hds(
+            output_dir, model_name, layer=_aquifer_bounds(model)[2], time_index=time_index
+        )
+        for request in table_requests:
+            served[request.id] = field_observable(request, frame, units=_HEAD_UNITS)
 
     return served, unserved
 

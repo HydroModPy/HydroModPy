@@ -22,6 +22,7 @@ from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
 from hydromodpy.core.fields.nodata import valid_cells
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.summary import one_line, summary
 from hydromodpy.model.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
@@ -96,6 +97,25 @@ class Domain:
         else:
             self.georeferencing = {}
         self._build_surfaces()
+
+    def __repr__(self) -> str:
+        """Say the domain in a few lines: its layers, its two surfaces and its zones."""
+
+        def span(surface: Surface | None) -> str:
+            if surface is None:
+                return "none"
+            low, high = np.nanmin(surface.values), np.nanmax(surface.values)
+            return f"array {surface.values.shape}, {low:.1f} to {high:.1f} m"
+
+        return summary(
+            f"Domain: {len(self.z_interfaces) - 1} layer(s), {self.georeferencing.get('crs')}",
+            [
+                ("surface_topo", span(self.surface_topo)),
+                ("substratum", span(self.substratum)),
+                ("z_interfaces", one_line(self.z_interfaces)),
+                ("zones", one_line(self.zones)),
+            ],
+        )
 
     @staticmethod
     def _coerce_config(

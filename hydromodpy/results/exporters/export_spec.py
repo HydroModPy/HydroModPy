@@ -79,6 +79,9 @@ MESH_LAYERS: tuple[str, ...] = ("mesh_cells", "mesh_seeds", "mesh_family_faces")
 
 In a GeoPackage they share one file, a layer each; a Shapefile holds one layer per file."""
 
+PATHLINES = "pathlines"
+"""The vector layer of the particle tracks: one line per particle that moved."""
+
 # The stem of a file that holds several names of one kind.
 _GROUP_STEM: dict[ExportKind, str] = {ExportKind.field: "fields", ExportKind.series: "series"}
 
@@ -801,6 +804,7 @@ def load_export_requests(data: Any) -> list[ExportRequest]:
 __all__ = [
     "EXPORT_ALL",
     "MESH_LAYERS",
+    "PATHLINES",
     "RETIRED_FORMATS",
     "STEP_DATE_TOKEN",
     "ExportKind",

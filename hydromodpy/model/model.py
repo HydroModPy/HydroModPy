@@ -21,6 +21,7 @@ from types import MappingProxyType
 from typing import Any
 
 from hydromodpy.catchment.drainage.channel_tree import ChannelExits
+from hydromodpy.core.summary import members, one_line, summary
 from hydromodpy.core.time.steady_initialization import single_period_mean_forcing_time_grid
 from hydromodpy.core.units.quantities import factor_to_m_per_s
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
@@ -77,6 +78,10 @@ class Geometry:
     channel_exits: ChannelExits | None = None
     column: CellColumn | None = None
 
+    def __repr__(self) -> str:
+        """Name each part on one short line. Type a part to read it whole."""
+        return summary("Geometry", members(self))
+
 
 @dataclass(frozen=True, slots=True, eq=False)
 class Properties:
@@ -98,9 +103,27 @@ class Properties:
         object.__setattr__(self, "profiles", _frozen(self.profiles))
         object.__setattr__(self, "overrides", _frozen(self.overrides))
 
+    def __repr__(self) -> str:
+        """Give the value of each property, one per line."""
+        rows = [(name, _property_text(profile)) for name, profile in self.profiles.items()]
+        rows += [(name, "one value per cell, set by with_properties") for name in self.overrides]
+        return summary("Properties", rows)
+
     def __reduce__(self) -> tuple[Any, ...]:
         """Pickle the two mappings as dicts, which the constructor makes read-only again."""
         return (Properties, (dict(self.profiles), dict(self.overrides)))
+
+
+def _property_text(profile: Any) -> str:
+    """Say one property in a few words: its value and unit, or how it varies."""
+    # A repr never raises, so a stand-in without these members still prints.
+    if getattr(profile, "kind", None) == "homogeneous":
+        text = f"{profile.value:g} {profile.unit}".removesuffix(" -")
+    else:
+        by_zone = getattr(profile, "values_by_key", None) or {}
+        text = f"{len(by_zone)} values by zone" if by_zone else one_line(profile)
+    varies = getattr(profile, "has_vertical_variation", False)
+    return f"{text}, with a vertical profile" if varies else text
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -186,6 +209,32 @@ class Model:
     initial: InitialState
     time: ModelTime
     options: ModelOptions
+
+    def __repr__(self) -> str:
+        """Say the model in a few lines: its size, its periods, its properties and its terms."""
+        cells, grid = self.geometry.cells, self.time.grid
+        steady = ", first period steady" if self.time.first_period_steady else ""
+        parts = ["no cell mesh" if cells is None else f"{cells.n_cells} cells"]
+        if hasattr(grid, "window"):
+            window = f"{grid.window.start:%Y-%m-%d} to {grid.window.end:%Y-%m-%d}"
+            parts.append(f"{grid.nper} periods from {window}")
+        profiles = self.properties.profiles.items()
+        return summary(
+            f"Model: {', '.join(parts)}, {self.time.regime}{steady}",
+            [
+                (
+                    "properties",
+                    ", ".join(f"{k} = {_property_text(v)}" for k, v in profiles) or "none",
+                ),
+                ("boundaries", ", ".join(self.boundaries.active_ids) or "none"),
+                ("active_sinks_sources", ", ".join(self.active_sinks_sources) or "none"),
+                ("recharge", one_line(self.recharge)),
+                ("wells", one_line(self.wells)),
+                ("lakes", one_line(self.lakes)),
+                ("sfr", one_line(self.sfr)),
+                ("flow_barriers", one_line(self.flow_barriers)),
+            ],
+        )
 
     def __post_init__(self) -> None:
         for name in ("wells", "lakes", "sfr", "flow_barriers"):

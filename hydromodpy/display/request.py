@@ -363,6 +363,11 @@ class PanelFields(HydroModelBase):
     line: list[tuple[float, float]] | None = Field(
         default=None, description="Trace of a section, points (x, y) in m in the mesh CRS."
     )
+    limits: tuple[float, float] | None = Field(
+        default=None,
+        description="Colour limits of a map or a section (low, high), in the unit drawn. "
+        "Unset, the range of the values.",
+    )
     contours: bool | None = Field(
         default=None, description="Draw isolines. Unset, the quantity decides."
     )
@@ -465,6 +470,13 @@ class PanelFields(HydroModelBase):
     def _bbox_order(cls, value: tuple[float, ...] | None) -> tuple[float, ...] | None:
         if value is not None and not (value[0] < value[2] and value[1] < value[3]):
             raise ValueError(f"bbox = {list(value)}: write [xmin, ymin, xmax, ymax].")
+        return value
+
+    @field_validator("limits")
+    @classmethod
+    def _limits_order(cls, value: tuple[float, float] | None) -> tuple[float, float] | None:
+        if value is not None and not value[0] < value[1]:
+            raise ValueError(f"limits = {list(value)}: write [low, high].")
         return value
 
     @field_validator("line")

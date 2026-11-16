@@ -14,8 +14,13 @@ import pytest
 
 import hydromodpy as hmp
 from hydromodpy.core.config_kit.written import written_payload
-from hydromodpy.core.exceptions import CommandUsageError, ConfigError
+from hydromodpy.core.exceptions import (
+    CommandUsageError,
+    ConfigError,
+    ObservableNotAvailableError,
+)
 from hydromodpy.core.state.scratch import scratch_root_for
+from hydromodpy.results.run.contracts import Mesh as RunMesh
 from tests.scenarios.factory import LAKE_WELL, TRANSIENT, write_project
 from tests.scenarios.launcher import isolated_env, link_binaries
 
@@ -85,6 +90,44 @@ def test_advance_fills_the_state_one_step_at_a_time(island: Path):
         status = dict(zip(fresh.steps.step, fresh.steps.status, strict=True))
         assert (status["build_mesh"], status["setup_process"]) == ("built", "pending")
         assert not (island.parent / "runs").exists()
+
+
+def test_every_object_of_the_state_prints_a_short_summary(lab, island: Path):
+    state = lab.state
+    shown = (state, state.config, state.geographic, state.domain, state.flow, state.data,
+             state.mesh, state.model, state.model.properties, state.model.geometry)  # fmt: skip
+    for value in shown:
+        text = repr(value)
+        assert len(text.splitlines()) <= 20 and len(text) <= 2500, type(value).__name__
+    assert repr(state).splitlines()[0] == "LabState" and "not built yet" not in repr(state)
+    assert f"{state.mesh.n_cells} quadrilateral cells, regular grid of" in repr(state.mesh)
+    assert "K = " in repr(state.model) and "\n  K " in repr(state.model.properties)
+    with hmp.Lab(island) as fresh:
+        assert repr(fresh.state).count("not built yet") == 7
+
+
+def test_the_lab_reads_a_variable_of_its_solve_and_solves_what_is_stale(lab):
+    head = lab.read("head")
+    assert head.dims == ("time", "cell") and head.attrs == {"units": "m"}
+    assert head.shape == (len(head.time), lab.state.mesh.n_cells) and len(head.time) > 1
+    first, last = lab.read("head", time=0), lab.read("head", time="last")
+    np.testing.assert_array_equal(first.values, head.values[:1])
+    np.testing.assert_array_equal(last.values, head.values[-1:])
+    flow = lab.read("discharge")
+    assert flow.dims == ("time",) and flow.attrs == {"units": "m3 s-1"}
+    lab.set(K=3e-5)
+    assert not np.allclose(lab.read("head").values, head.values, equal_nan=True)
+    assert lab.steps.status[lab.steps.step == "run_solver"].item() == "built"
+    with pytest.raises(ObservableNotAvailableError, match="cannot say 'watertable_depth'"):
+        lab.read("watertable_depth")
+
+
+def test_the_mesh_of_a_lab_answers_the_calls_of_the_mesh_of_a_run(lab):
+    mesh = lab.state.mesh
+    assert mesh.cell_centers() is mesh.centers and mesh.cell_centers().shape == (mesh.n_cells, 2)
+    np.testing.assert_array_equal(mesh.cell_areas(), mesh.geometry.areas)
+    for name in ("n_cells", "cell_centers", "cell_areas", "structured_shape"):
+        assert hasattr(RunMesh, name) and hasattr(type(mesh), name), name
 
 
 def test_a_solve_with_nothing_changed_plays_no_step(lab):
@@ -231,6 +274,7 @@ def test_the_lab_walks_from_a_file_to_a_kept_run(island: Path, tmp_path: Path):
     stale = lab.set(K=2e-5)  # a change returns the built steps it made stale
     assert stale == ()  # nothing was built after the mesh yet
     results = lab.solve()  # plays what is missing, up to run_solver
+    head = lab.read("head", time="last")  # a variable of the solve, one column per cell
     lab.set(K=3e-5)
     assert lab.steps.status[lab.steps.step == "run_solver"].item() == "stale"
     lab.force("model", lab.state.model)  # keep this model, whatever the file says
@@ -241,7 +285,7 @@ def test_the_lab_walks_from_a_file_to_a_kept_run(island: Path, tmp_path: Path):
     well = seen[WELL_CELL][0]["locals"]["well_id"]
     written = lab.write_config(tmp_path / "lab.toml")  # the file of what the lab holds
     # [/lab-walkthrough]
-    assert (cells, well, written.is_file()) == (cells, "W1", True)
+    assert (cells, well, written.is_file(), head.shape) == (cells, "W1", True, (1, cells))
     assert results and not (island.parent / "runs").exists()
     lab.close()
 

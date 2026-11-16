@@ -9,6 +9,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.colors import to_rgba
 from matplotlib.figure import Figure
 from shapely.geometry import LineString, MultiLineString, Point, Polygon
 
@@ -93,6 +94,7 @@ def test_what_each_one_draws(reads):
     assert all(c.get_rasterized() for c in ax.collections)
     assert [c.get_facecolor().size > 0 for c in ax.collections] == [False, False, False, True]
     assert [c.get_label() for c in ax.collections[1:]] == ["Lake", "Well", "Seepage"]
+    assert tuple(ax.collections[-1].get_facecolor()[0]) == to_rgba(THEME.ink)  # filled in ink
     ax = axes()
     overlays.relief(ax, None, THEME)
     assert ax.get_aspect() == 1.0

@@ -136,11 +136,14 @@ preset = "watershed_id_card"
 variable = "topography"
 overlays = ["mesh", "outline", "network", "outlet"]
 
-# January, the month the two wells pump the most.
+# January, the month the two wells pump the most. The seepage cells are black, the
+# pathlines show the water that feeds them, and the dashed line is the section below.
 [[display.figure]]
 variable = "watertable_depth"
 time = "2017-01-15"
-overlays = ["outline", "network"]
+overlays = ["seepage", "pathlines", "outline"]
+line = [[152700.0, 6858862.5], [152700.0, 6856762.5]]
+limits = [0.0, 10.0]
 
 [[display.figure]]
 variable = "seepage_mask"
@@ -212,3 +215,7 @@ variables = "discharge"
 # The water budget of every month, for the catchment and for the whole box: CSV.
 [[export]]
 variables = "budget"
+
+# The particle tracks, one line per particle with its travel time in years: GeoPackage.
+[[export]]
+variables = "pathlines"

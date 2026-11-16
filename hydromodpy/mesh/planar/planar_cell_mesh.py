@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Literal, get_args
 
 import numpy as np
 
+from hydromodpy.core.summary import area_span, extent, summary
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.geometry import DerivedGeometry, derive_geometry
 from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
@@ -263,10 +264,44 @@ class PlanarCellMesh:
             raise ValueError("cell_zone holds an index outside zone_names")
         object.__setattr__(self, "cell_zone", zones)
 
+    def __repr__(self) -> str:
+        """Say what the mesh is and where its arrays are, in a few lines."""
+        kinds = " and ".join(kind.value for kind in self.mesh.cell_types)
+        title = f"PlanarCellMesh: {self.n_cells} {kinds} cells"
+        if self.structured_shape is not None:
+            rows, columns = self.structured_shape
+            title += f", regular grid of {rows} rows by {columns} columns"
+        areas, corners = self.geometry.areas, self.connectivity_rows
+        padded = ", -1 where a cell has fewer" if self.mesh.cell_types[0].is_ragged else ""
+        return summary(
+            title,
+            [
+                ("n_cells", self.n_cells),
+                ("cell_centers()", f"array {self.centers.shape}, x and y of each cell centre in m"),
+                ("cell_areas()", area_span(areas)),
+                ("extent", extent(self.mesh.vertices)),
+                ("connectivity_rows", f"array {corners.shape}, the vertices of each cell{padded}"),
+                ("mesh.vertices", f"array {self.mesh.vertices.shape}, x and y of each vertex in m"),
+                (
+                    "structured_shape",
+                    self.structured_shape or "None, the cells are not a regular grid",
+                ),
+                ("zone_names", ", ".join(self.zone_names) or "none"),
+            ],
+        )
+
     @property
     def n_cells(self) -> int:
         """Number of cells."""
         return self.mesh.n_cells
+
+    def cell_centers(self) -> np.ndarray:
+        """Return the ``(n_cells, 2)`` centers, by the call the mesh of a run answers too."""
+        return self.centers
+
+    def cell_areas(self) -> np.ndarray:
+        """Return the ``(n_cells,)`` plan area of each cell in square meters, as a run mesh does."""
+        return self.geometry.areas
 
     def with_smoothed_catchment(self, outline: Polygon | None) -> PlanarCellMesh:
         """This mesh with the catchment outline the planner smoothed for it, geometry kept."""

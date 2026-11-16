@@ -404,11 +404,17 @@ def _cells(
 
 
 def _share_limits(loaded: list[tuple]) -> list[tuple]:
-    """Give every map of a ``share`` panel the colour limits of all of them."""
+    """Give every map of a ``share`` panel the colour limits of all of them.
+
+    A panel that writes its own ``limits`` keeps them.
+    """
     rows = [
         i
         for i, item in enumerate(loaded)
-        if item[1].share and hasattr(item[4], "limits") and "value" in item[4].table
+        if item[1].share
+        and item[1].limits is None
+        and hasattr(item[4], "limits")
+        and "value" in item[4].table
     ]
     values = []
     for i in rows:

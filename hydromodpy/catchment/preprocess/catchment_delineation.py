@@ -31,6 +31,7 @@ from hydromodpy.catchment.algorithms.surface_from_dem import build_surface_topo_
 from hydromodpy.catchment.delineation import resolve_delineation_backend
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.preprocess.pipeline import build_geographic_runtime_context
+from hydromodpy.core.summary import summary
 from hydromodpy.schema.job.inputset import InputState
 
 
@@ -146,6 +147,18 @@ class CatchmentDelineation:
         """
 
         self.processing(terrain)
+
+    def __repr__(self) -> str:
+        """Say the catchment in a few lines: its area, its outlet, its DEM and its files."""
+        return summary(
+            f"CatchmentDelineation: {self.catch_area:.3f} km2, {self.crs_proj}",
+            [
+                ("x_outlet, y_outlet", f"{self.x_outlet}, {self.y_outlet}"),
+                ("dem_data", f"array {self.dem_data.shape}, cells of {self.dem_res:g} m"),
+                ("watershed_shp", self.watershed_shp),
+                ("dem_path", self.dem_path),
+            ],
+        )
 
     @property
     def domain_extent(self) -> str:

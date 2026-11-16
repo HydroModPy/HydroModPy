@@ -6883,6 +6883,30 @@
           "title": "Line",
           "x-hmp-profile": "user"
         },
+        "limits": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Colour limits of a map or a section (low, high), in the unit drawn. Unset, the range of the values.",
+          "title": "Limits",
+          "x-hmp-profile": "user"
+        },
         "contours": {
           "anyOf": [
             {
@@ -7273,6 +7297,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^limits__append$": {
+          "type": "array"
+        },
+        "^limits__merge$": {
+          "type": "array"
         },
         "^line__append$": {
           "type": "array",
@@ -19373,6 +19403,30 @@
           "title": "Line",
           "x-hmp-profile": "user"
         },
+        "limits": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Colour limits of a map or a section (low, high), in the unit drawn. Unset, the range of the values.",
+          "title": "Limits",
+          "x-hmp-profile": "user"
+        },
         "contours": {
           "anyOf": [
             {
@@ -19628,6 +19682,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^limits__append$": {
+          "type": "array"
+        },
+        "^limits__merge$": {
+          "type": "array"
         },
         "^line__append$": {
           "type": "array",

@@ -1,8 +1,9 @@
-"""Export a geographic vector layer of a run (catchment, networks) to a GIS file.
+"""Export a vector layer of a run to a GIS file: a stored layer, or its pathlines.
 
 The layers a run stores as GeoParquet (``watershed``,
-``hydrographic_network_reference``...) are written as they are, in the CRS
-they were stored in, or reprojected into the one asked for.
+``hydrographic_network_reference``...) are written as they are. The pathlines are
+built from the particle tracks, one line per particle. Both keep the CRS they
+hold, or are reprojected into the one asked for.
 """
 
 from __future__ import annotations
@@ -53,9 +54,43 @@ def export_geographic_feature(
     """
     if fmt not in _DRIVERS:
         raise ValueError(f"A vector layer is written as {' or '.join(_DRIVERS)}, not {fmt!r}.")
-    output_path = Path(output_path)
+    frame = catalog.read_geographic_feature(sim_id, name)
+    return _write(frame, name, Path(output_path), fmt, crs, model_crs)
+
+
+def export_pathlines(
+    run: Any,
+    output_path: str | Path,
+    *,
+    fmt: str = "geopackage",
+    crs: str | None = None,
+    model_crs: str | None = None,
+) -> Path:
+    """Write one line per particle that moved, from its release to where it leaves the aquifer.
+
+    Each line carries ``travel_yr``, the time the water takes along it in years, a name
+    short enough for a Shapefile. The lines are
+    those of :func:`hydromodpy.results.run.particles.moving_tracks`, stated in ``model_crs``.
+    """
+    import geopandas as gpd
+    import shapely
+
+    from hydromodpy.results.exporters.export_spec import PATHLINES
+    from hydromodpy.results.run.particles import moving_tracks
+
+    if fmt not in _DRIVERS:
+        raise ValueError(f"A vector layer is written as {' or '.join(_DRIVERS)}, not {fmt!r}.")
+    tracks, years = moving_tracks(run)
+    lines = [shapely.LineString(track[:, :2]) for track in tracks]
+    frame = gpd.GeoDataFrame({"travel_yr": years}, geometry=lines, crs=model_crs)
+    return _write(frame, PATHLINES, Path(output_path), fmt, crs, model_crs)
+
+
+def _write(
+    gdf: Any, name: str, output_path: Path, fmt: str, crs: str | None, model_crs: str | None
+) -> Path:
+    """Write ``gdf`` as the layer ``name``, in its CRS or reprojected into ``crs``."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    gdf = catalog.read_geographic_feature(sim_id, name)
     if gdf.crs is None and model_crs is not None:
         gdf = gdf.set_crs(model_crs)
     if crs is not None:

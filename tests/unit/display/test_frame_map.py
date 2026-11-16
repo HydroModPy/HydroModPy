@@ -95,6 +95,17 @@ def test_a_log_scale_and_shared_limits(stored_run):
     assert drawn(shared)[1].collections[0].norm.vmax == 500.0
 
 
+def test_limits_point_the_colour_bar_and_a_line_is_drawn_dashed(stored_run):
+    trace = [(385000.0, 6814000.0), (385900.0, 6814900.0)]
+    out = data(stored_run, variable="head", limits=(0.0, 1.0), line=trace)
+    fig, ax = drawn(out)
+    cells = ax.collections[0]
+    assert (cells.norm.vmin, cells.norm.vmax, cells.colorbar.extend) == (0.0, 1.0, "max")
+    (line,) = ax.lines
+    assert line.get_linestyle() == "--" and list(zip(*line.get_data(), strict=True)) == trace
+    assert drawn(data(stored_run, variable="head"))[1].collections[0].colorbar.extend == "neither"
+
+
 def test_the_box_keeps_the_cells_inside(stored_run):
     out = data(stored_run, variable="head", bbox=(385000.0, 6814000.0, 385900.0, 6814900.0))
     assert out.table["cell"].tolist() == [0, 1, 4, 5]

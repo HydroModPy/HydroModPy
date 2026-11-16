@@ -35,6 +35,7 @@ from hydromodpy.core.exceptions import CommandUsageError, ConfigError, ConfigMis
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.run_state import LoadedDataContext
 from hydromodpy.core.state.scratch import inherit_run_scratch, scratch_root_for
+from hydromodpy.core.summary import members, summary
 from hydromodpy.core.toml_io.paths import assign
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.project import phases
@@ -43,6 +44,7 @@ from hydromodpy.project.run_overrides import override_changes
 
 if TYPE_CHECKING:
     import pandas as pd
+    import xarray as xr
 
     from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
@@ -80,6 +82,10 @@ class LabState:
     model: Model  # what the solver reads, frozen (prepare_solver)
     plan: SimulationPlan  # the solver runs and their order
     solves: Mapping[str, SolverRun]  # one solved run per run of the plan (run_solver)
+
+    def __repr__(self) -> str:
+        """Name each object on one short line. Type an object to read it whole."""
+        return summary("LabState", members(self, "not built yet"))
 
 
 class Lab:
@@ -319,6 +325,52 @@ class Lab:
         self._built = self._last
         return dict(self.state.solves)
 
+    def read(self, name: str, *, time: str | int = "all") -> xr.DataArray:
+        """Read ``name`` from the solve of the lab, solving first when the model is stale.
+
+        The solver answers from its own files, so nothing is written. ``head`` is the
+        water table of every cell, ``discharge`` the flow that leaves the catchment, and
+        ``saturated_thickness`` and ``release_flux`` hold one value per cell. ``time`` is
+        ``"all"``, ``"first"``, ``"last"`` or the index of a period. A name the backend
+        cannot say is refused with its reason. A run reads every stored variable.
+        """
+        import pandas as pd
+        import xarray as xr
+
+        from hydromodpy.core.contracts.observables import ObservableRequest
+        from hydromodpy.core.exceptions import ObservableNotAvailableError
+        from hydromodpy.solver.base.registry import solvers
+
+        solves = self.solve()
+        flow = next(run for run in self.state.plan.runs if run.process_type == "flow")
+        adapter = solvers.create(flow.process_type, flow.solver)
+        periods = pd.DatetimeIndex(self.state.model.time.grid.period_ends_exclusive)
+
+        def ask(support: str) -> Any:
+            request = ObservableRequest(
+                id=name,
+                name=name,
+                support=support,
+                times=(time,) if isinstance(time, int) else time,
+            )
+            return adapter.observables(solves[flow.id], [request], time_index=periods)[name]
+
+        try:
+            found = ask("cells")
+        except ObservableNotAvailableError:
+            try:
+                found = ask("domain")
+            except ObservableNotAvailableError as exc:
+                raise ObservableNotAvailableError(
+                    f"The solver of the lab cannot say {name!r} before a run is written. Keep "
+                    "the model with lab.run, then run.read reads every stored variable."
+                ) from exc
+        coords = {} if found.times is None else {"time": found.times}
+        dims = ("time", "cell")[: found.values.ndim]
+        return xr.DataArray(found.values, dims=dims, coords=coords, name=name).assign_attrs(
+            units=found.units
+        )
+
     def run(self, name: str | None = None, *, until_step: str | None = None) -> Run | None:
         """Keep the model of the lab as a sealed run of the project, as ``simulate`` does.
 
@@ -337,12 +389,8 @@ class Lab:
         solves = self._project._ctx.execution.solver_runs
         plan = self._project._ctx.execution.simulation_plan
         launcher = None
-        keeps_files = self.config.simulation.results.keep_solver_files
-        if (
-            not keeps_files
-            and self._built == self._last
-            and all(run.id in solves for run in plan.runs)
-        ):
+        solved = self._built == self._last and all(run.id in solves for run in plan.runs)
+        if solved and not self.config.simulation.results.keep_solver_files:
             # The solve of a lab is no calibration trial, so its id and cost are zero.
             solve = KeptSolve(trial_id=0, cost=0.0, folders=(), results=dict(solves))
             launcher = KeptSolveLauncher(solve)

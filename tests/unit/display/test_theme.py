@@ -36,6 +36,12 @@ def test_quantity_ramps_name_only_known_quantities() -> None:
         assert set(theme.quantity_ramps) <= set(QUANTITY_KINDS)
 
 
+def test_the_depth_ramp_is_a_jet_mixed_half_with_white() -> None:
+    shallow, deep = th.colormap("water_depth")([0.0, 1.0])[:, :3]
+    assert shallow[2] > shallow[0] and deep[0] > deep[2]  # blue to red
+    assert shallow.min() >= 0.5 and deep.min() >= 0.5
+
+
 def test_get_theme_refuses_an_unknown_name_and_lists_the_known_ones() -> None:
     assert th.get_theme("dark").name == "dark"
     with pytest.raises(ValueError, match=r"Known themes: dark, default, print"):

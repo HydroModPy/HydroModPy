@@ -35,6 +35,7 @@ from hydromodpy.results.exporters._tables import (
 )
 from hydromodpy.results.exporters.export_spec import (
     MESH_LAYERS,
+    PATHLINES,
     STEP_DATE_TOKEN,
     ExportKind,
     ExportRequest,
@@ -426,8 +427,16 @@ class ExportJob:
                 fmt=item.format,
                 crs=self.request.crs,
             )
-        from hydromodpy.results.exporters.vector_layer import export_geographic_feature
+        from hydromodpy.results.exporters.vector_layer import (
+            export_geographic_feature,
+            export_pathlines,
+        )
 
+        model_crs = self._once("model_crs", self.target.model_crs)
+        if item.variables[0] == PATHLINES:
+            return export_pathlines(
+                self.run, dest, fmt=item.format, crs=self.request.crs, model_crs=model_crs
+            )
         return export_geographic_feature(
             self.catalog,
             self.sim_id,
@@ -435,7 +444,7 @@ class ExportJob:
             dest,
             fmt=item.format,
             crs=self.request.crs,
-            model_crs=self._once("model_crs", self.target.model_crs),
+            model_crs=model_crs,
         )
 
     def _raster(self, item: PlannedFile, dest: Path) -> Path:

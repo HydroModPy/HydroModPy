@@ -93,6 +93,7 @@ def test_a_map_keeps_its_relief_and_scale_bar_around_the_overlays_written(
         ('variable = "head", change = ["first"]', "two instants"),
         ('variable = "head", layer = "mean"', "sum"),
         ('variable = "head", bbox = [10, 0, 0, 10]', "xmin, ymin"),
+        ('variable = "head", limits = [10, 0]', "low, high"),
         ('variable = "head", every = 5', "every"),
         ('variable = "head", when = "trial"', "session"),
         ('variable = "head", when = "after:build_mesh"', "extract"),

@@ -23,6 +23,7 @@ from collections.abc import Iterable, Mapping
 from numbers import Real
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.summary import one_line, summary
 from hydromodpy.core.units.quantities import (
     convert_payload_to_m_per_s,
     convert_to_m3_per_s,
@@ -150,6 +151,20 @@ class Flow:
             active_ids=(),
         )
         self.set_config(config)
+
+    def __repr__(self) -> str:
+        """Say the flow process in a few lines. Type a member to read it whole."""
+        steady = ", first period steady" if self.first_period_steady else ""
+        return summary(
+            f"Flow: {self.flow_regime}{steady}",
+            [
+                ("parameters", one_line(self.parameters)),
+                ("boundary_conditions", one_line(self.boundary_conditions)),
+                ("sinks_sources", one_line(self.sinks_sources)),
+                ("active_sinks_sources", ", ".join(self.active_sinks_sources) or "none"),
+                ("initial_conditions", one_line(self.initial_conditions)),
+            ],
+        )
 
     def set_config(self, config: FlowConfig) -> None:
         """

@@ -18,7 +18,7 @@ SAMPLES = {
     "bbox": (0.0, 0.0, 1.0, 1.0), "line": [(0.0, 0.0), (1.0, 1.0)], "contours": True,
     "observed": True, "scores": True, "scale": "log", "stack": True, "by": "month",
     "reference": ["zero"], "share": True, "reduce": "mean", "change": (0, 1),
-    "against": "observed", "cumulative": True,
+    "against": "observed", "cumulative": True, "limits": (0.0, 1.0),
 }  # fmt: skip
 IMPLEMENTED = list(FRAMES)
 ZONE, DOMAIN, WINDOW = "zone:catchment", "zone:domain", ["2001-02-01", "2001-03-01"]
@@ -28,7 +28,7 @@ EVERY = {"time": WINDOW, "layer": 1, "observed": True, "scale": "log", "reduce":
 BRANCHES = [
     ("section", {"variable": "head", "line": LINE},
      {"time": 0, "overlays": ["lake"], "line": LINE[::-1], "scale": "log", "reduce": "mean",
-      "change": (0, 3), "bbox": (0.0, 50.0, 800.0, 130.0)}),
+      "change": (0, 3), "bbox": (0.0, 50.0, 800.0, 130.0), "limits": (0.0, 50.0)}),
     ("distribution", {"variable": "head"}, {**EVERY, "station": DOMAIN, "cumulative": True}),
     ("distribution", {**SERIES, "variable": "discharge"}, {**EVERY, "against": "observed"}),
     ("xy", {**SERIES, "observed": True},
@@ -46,7 +46,8 @@ BRANCHES = [
     ("volume", {"variable": ["head"]}, {"time": 0, "layer": 1}),
     ("map", {"variable": ["head"]},
      {"time": 0, "layer": 1, "bbox": (X0, Y0, X0 + 600, Y0 + 600), "contours": False,
-      "scale": "log", "reduce": "mean", "change": (0, 3), "against": "observed"}),
+      "scale": "log", "reduce": "mean", "change": (0, 3), "against": "observed",
+      "line": LINE, "limits": (0.0, 50.0)}),
 ]  # fmt: skip
 RENDERED = {"share", "overlays"}
 

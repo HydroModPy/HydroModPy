@@ -96,11 +96,6 @@ rows:
   scope: terminate_as_interrupt
   class: process
   why: the SIGTERM handler of the main thread, set and given back around a launch
-- file: hydromodpy/data/common/clients/sandre_topage.py
-  site: filterwarnings
-  scope: <module>
-  class: import
-  why: a filter bounded by category, message and module, set once when the module is imported
 - file: hydromodpy/data/variables/hydrography/variable.py
   site: filterwarnings
   scope: <module>

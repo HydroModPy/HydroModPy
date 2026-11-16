@@ -36,12 +36,12 @@ def _write(path: Path, text: str) -> Path:
     return path
 
 
-def test_carrier_of_calibration(tmp_path) -> None:
+def test_the_chain_stops_at_the_file_that_writes_the_calibration(tmp_path) -> None:
     _write(tmp_path / "base.toml", "[calibration]\nmethod = 'grid'\n")
-    _write(tmp_path / "mid.toml", "base_config = 'base.toml'\n")
+    mid = _write(tmp_path / "mid.toml", "base_config = 'base.toml'\n")
     top = _write(tmp_path / "top.toml", f"base_config = '{tmp_path / 'mid.toml'}'\n")
 
-    assert session._carrier_of_calibration(top) == (tmp_path / "base.toml").resolve()
+    assert session._chain_to_calibration(top) == [top, mid, (tmp_path / "base.toml").resolve()]
 
 
 def test_chain_without_calibration(
@@ -49,7 +49,30 @@ def test_chain_without_calibration(
 ) -> None:
     top = _write(tmp_path / "top.toml", "base_config = 'missing.toml'\n")
 
-    assert session._carrier_of_calibration(top) == top
+    assert session._chain_to_calibration(top) == [top]
+
+
+# One row per layout of a site file on a shared calibration file: what each file writes
+# under [simulation] name, and the case the session takes.
+_CASE_NAMES = [
+    pytest.param("nancon_calibration", None, "nancon_calibration", id="the site file names it"),
+    pytest.param("nancon_calibration", "shared", "nancon_calibration", id="the top name wins"),
+    pytest.param(None, "shared", "shared", id="the carrier names it"),
+    pytest.param(None, None, "calibration", id="the stem of the carrier"),
+]
+
+
+@pytest.mark.parametrize(("site_name", "shared_name", "case"), _CASE_NAMES)
+def test_a_site_file_on_a_shared_calibration_names_its_case(
+    tmp_path, site_name, shared_name, case
+) -> None:
+    def named(name: str | None) -> str:
+        return f"[simulation]\nname = '{name}'\n" if name else ""
+
+    _write(tmp_path / "calibration.toml", named(shared_name) + "[calibration]\nmethod = 'grid'\n")
+    site = _write(tmp_path / "site.toml", "base_config = 'calibration.toml'\n" + named(site_name))
+
+    assert session.calibration_case_name(site) == case
 
 
 def test_session_identity(monkeypatch) -> None:

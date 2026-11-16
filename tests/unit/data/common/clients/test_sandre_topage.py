@@ -1,8 +1,8 @@
 """The Sandre WFS client answers what the server holds, or raises.
 
 Each test replays one behavior measured on the live service on 2026-09-27:
-short pages, an empty page mid-way, a refusal sent with HTTP 200, a zip whose
-member is named ``%TYPENAME%.gpkg``, missing text sent as ``''``. Only the
+short pages, an empty page mid-way, a refusal sent with HTTP 200, a page that is
+not GeoJSON or not in Lambert-93, missing text sent as ``''``. Only the
 transport is canned; the pages are real GeoPackages.
 """
 
@@ -64,28 +64,24 @@ def _hits(n: int) -> _Reply:
 
 
 def _page(tmp_path: Path, gids: list[int], **columns: list[object]) -> _Reply:
-    """A GPKG page zipped as the server zips it, member name included."""
+    """A GeoJSON page as the server writes it, its ``crs`` member included."""
     frame = gpd.GeoDataFrame(
         {"gid": gids, **columns},
         geometry=[LineString([(350000.0 + i, 6800000.0), (350010.0 + i, 6800010.0)]) for i in gids],
         crs="EPSG:2154",
     )
-    path = tmp_path / f"page_{gids[0] if gids else 'empty'}_{len(gids)}.gpkg"
-    frame.to_file(path, driver="GPKG")
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("%TYPENAME%.gpkg", path.read_bytes())
-    return _Reply(buffer.getvalue())
+    path = tmp_path / f"page_{gids[0]}_{len(gids)}.geojson"
+    frame.to_file(path, driver="GeoJSON")
+    return _Reply(path.read_bytes())
 
 
 def _empty_page(tmp_path: Path) -> _Reply:
-    frame = gpd.GeoDataFrame({"gid": []}, geometry=[], crs="EPSG:2154")
-    path = tmp_path / f"empty_{len(list(tmp_path.iterdir()))}.gpkg"
-    frame.to_file(path, driver="GPKG", geometry_type="LineString")
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("%TYPENAME%.gpkg", path.read_bytes())
-    return _Reply(buffer.getvalue())
+    del tmp_path  # the server sends the same body for every page with no feature
+    return _Reply(
+        b'{"type": "FeatureCollection", "name": "TronconHydrographique_FXX_Topage2026", '
+        b'"crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:EPSG::2154"}}, '
+        b'"features": []}'
+    )
 
 
 def test_empty_page_is_skipped(server: _Server, tmp_path: Path) -> None:
@@ -148,11 +144,28 @@ def test_mapserver_error_raises(server: _Server) -> None:
         sandre_topage.get_features(TYPENAME, BOX, page_size=10, client=HTTPClient())
 
 
-def test_non_zip_page_raises(server: _Server) -> None:
-    server.replies = [_hits(1), _Reply(b'{"type": "FeatureCollection", "features": []}')]
+def test_a_page_that_is_not_geojson_raises(server: _Server) -> None:
+    server.replies = [_hits(1), _Reply(b"PK\x03\x04 a zip, as the service sent until 2026-11")]
 
-    with pytest.raises(DataSourceError, match="not a zip"):
+    with pytest.raises(DataSourceError, match="not a JSON object"):
         sandre_topage.get_features(TYPENAME, BOX, page_size=10, client=HTTPClient())
+
+
+def test_a_page_in_another_crs_raises(server: _Server, tmp_path: Path) -> None:
+    # A GeoJSON without its crs member reads as WGS84, which would misplace every reach.
+    body = _page(tmp_path, [1]).content.replace(b'"crs"', b'"no_crs"')
+    server.replies = [_hits(1), _Reply(body)]
+
+    with pytest.raises(DataSourceError, match="not in EPSG:2154"):
+        sandre_topage.get_features(TYPENAME, BOX, page_size=10, client=HTTPClient())
+
+
+def test_the_pages_are_asked_as_geojson(server: _Server, tmp_path: Path) -> None:
+    server.replies = [_hits(1), _page(tmp_path, [1])]
+
+    frame = sandre_topage.get_features(TYPENAME, BOX, page_size=10, client=HTTPClient())
+
+    assert server.sent[1]["OUTPUTFORMAT"] == "geojson" and frame.crs == "EPSG:2154"
 
 
 def test_http_error_raises(server: _Server) -> None:

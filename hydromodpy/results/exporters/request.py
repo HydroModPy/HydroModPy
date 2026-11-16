@@ -46,6 +46,7 @@ from hydromodpy.results.exporters.destination import DELIVER_TO_KEY
 from hydromodpy.results.exporters.export_spec import (
     EXPORT_ALL,
     MESH_LAYERS,
+    PATHLINES,
     ExportRequest,
     plan_outputs,
 )
@@ -386,6 +387,8 @@ def _check_held(run: Any, label: str, names: Sequence[str], held: Mapping[str, A
 
         why = mesh_layer_reasons(run._catalog, run.sim_id)
         reasons += "".join(f"\n{name}: {why.get(name, 'not stored')}." for name in mesh_missing)
+    if PATHLINES in missing:
+        reasons += f"\n{PATHLINES}: the run tracked no particle that moved with a travel time."
     raise ExportError(
         f"run {label!r} holds no {', '.join(repr(name) for name in missing)}.{reasons}\n"
         f"It can export:\n{describe_exportable(dict(held))}"

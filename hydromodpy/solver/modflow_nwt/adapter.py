@@ -157,7 +157,9 @@ class ModflowNwtFlowAdapter:
         """
         del active  # nothing here depends on it: the answer is the backend's
         return (
-            servable("head", "read at any cell from the head file"),
+            servable(
+                "head", "read at any cell, or as the water table of every cell, from the head file"
+            ),
             servable("discharge", "integrated over the domain from the budget file"),
             servable("release_flux", "per-cell surface release, from the budget file"),
             servable("water_budget_percent_discrepancy", "reported by the listing file"),

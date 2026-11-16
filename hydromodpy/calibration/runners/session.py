@@ -40,11 +40,18 @@ def calibration_case_name(cfg_path: Path) -> str:
     """Return the name of the case a calibration file declares.
 
     The file that carries ``[calibration]`` is found along the ``base_config``
-    chain, starting at ``cfg_path``. Its own ``[simulation] name`` wins when it
-    writes one; otherwise its stem, folded into the letters of a name, is the case.
+    chain, starting at ``cfg_path``. The first file from ``cfg_path`` down to that
+    carrier that writes ``[simulation] name`` names the case, so a site file on top
+    of a shared calibration names its own case. When none writes one, the stem of
+    the carrier, folded into the letters of a name, is the case.
     """
-    carrier = _carrier_of_calibration(Path(cfg_path).expanduser().resolve())
-    return case_named_by(_own_document(carrier), carrier.stem)
+    chain = _chain_to_calibration(Path(cfg_path).expanduser().resolve())
+    for path in chain:
+        simulation = _own_document(path).get("simulation")
+        name = simulation.get("name") if isinstance(simulation, Mapping) else None
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+    return fold_name(chain[-1].stem)
 
 
 def case_named_by(document: Mapping[str, Any], stem: str) -> str:
@@ -67,15 +74,18 @@ def _own_document(path: Path) -> dict[str, Any]:
         return tomllib.load(handle)
 
 
-def _carrier_of_calibration(path: Path) -> Path:
-    """Return the first file of the base_config chain that writes ``[calibration]``."""
+def _chain_to_calibration(path: Path) -> list[Path]:
+    """Return the base_config chain from *path* down to the file that writes ``[calibration]``.
+
+    A chain that never writes the section is *path* alone.
+    """
     current = path
-    seen: set[Path] = set()
-    while current not in seen:
-        seen.add(current)
+    chain: list[Path] = []
+    while current not in chain:
+        chain.append(current)
         own = _own_document(current)
         if "calibration" in own:
-            return current
+            return chain
         base = own.get("base_config")
         if not isinstance(base, str) or not base:
             break
@@ -83,7 +93,7 @@ def _carrier_of_calibration(path: Path) -> Path:
         current = (candidate if candidate.is_absolute() else current.parent / candidate).resolve()
         if not current.is_file():
             break
-    return path
+    return [path]
 
 
 def project_root_for(cfg_path: Path, workspace: Path | str | None) -> Path:

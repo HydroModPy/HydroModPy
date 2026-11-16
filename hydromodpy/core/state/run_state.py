@@ -31,7 +31,7 @@ matching context.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -168,6 +168,12 @@ class LoadedDataContext:
     crossings: Any = None
     # Data-plan types covered by the last completed load; None = never loaded.
     loaded_plan_types: tuple[str, ...] | None = None
+
+    def __repr__(self) -> str:
+        """Name the data families loaded so far. Type one to read it whole."""
+        families = [item.name for item in fields(self) if item.name != "loaded_plan_types"]
+        loaded = [name for name in families if getattr(self, name) is not None]
+        return f"LoadedDataContext: {', '.join(loaded) or 'nothing loaded'}"
 
 
 @dataclass

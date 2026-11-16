@@ -534,6 +534,59 @@ def extract_head_from_hds(
     return out
 
 
+def extract_water_table_by_cell_from_hds(
+    output_dir: Path,
+    model_name: str,
+    *,
+    layer: np.ndarray,
+    time_index: pd.DatetimeIndex | None = None,
+) -> pd.DataFrame:
+    """Return the water table by stress period and cell, in meters.
+
+    One row per stress period: the head at its last saved step.
+
+    The water table is the head of the top active cell of each column, the
+    layer ``layer`` names per cell; a cell where it is -1 (a closed column)
+    has no water table and reads ``NaN``.
+
+    MODFLOW writes a large sentinel into dry and no-flow cells; those become
+    ``NaN`` here, as in :func:`extract_head_from_hds`, rather than a value that
+    would read as a real head.
+    """
+
+    import flopy.utils.binaryfile as bf
+
+    hds_path = output_dir / f"{model_name}.hds"
+    if not hds_path.exists():
+        raise ObservableNotAvailableError(
+            f"HDS file not found for model {model_name!r} in {output_dir}"
+        )
+
+    layer_m = np.asarray(layer, dtype=np.int64).reshape(-1)
+    n_cells = int(layer_m.size)
+    hf = bf.HeadFile(str(hds_path))
+    try:
+        times = _period_end_times(hf)
+        heads = np.full((len(times), n_cells), np.nan, dtype="float64")
+        for step, totim in enumerate(times):
+            snapshot = np.asarray(hf.get_data(totim=totim), dtype=float).reshape(-1)
+            if snapshot.size < n_cells or snapshot.size % n_cells:
+                raise ValueError(
+                    f"head snapshot holds {snapshot.size} values, not a whole number of "
+                    f"layers of the {n_cells} cells of the mesh."
+                )
+            heads[step] = values_at_layer(snapshot.reshape(-1, n_cells), layer_m)
+    finally:
+        hf.close()
+
+    heads[np.abs(heads) > 1e6] = np.nan
+    if time_index is not None and len(time_index) == len(times):
+        index: pd.Index = time_index
+    else:
+        index = pd.Index(times, name="totim")
+    return pd.DataFrame(heads, index=index, columns=np.arange(n_cells))
+
+
 def extract_saturated_thickness_by_cell_from_hds(
     output_dir: Path,
     model_name: str,
@@ -545,26 +598,13 @@ def extract_saturated_thickness_by_cell_from_hds(
 ) -> pd.DataFrame:
     """Return saturated thickness by stress period and cell, in meters.
 
-    One row per stress period: the thickness at its last saved step.
-
-    The water table is the head of the top active cell of each column, the
-    layer ``layer`` names per cell; a cell where it is -1 (a closed column)
-    has no water table and reads ``NaN``. ``bottom`` is the base of the whole
-    aquifer, ``botm[-1]``, not the bottom of the top layer: what the method
-    calibrates is the transmissivity of the aquifer, not of its top slice.
-
-    MODFLOW writes a large sentinel into dry and no-flow cells; those become
-    ``NaN`` here, as in :func:`extract_head_from_hds`, rather than a full or
-    zero thickness that would read as a real value.
+    One row per stress period: the thickness at its last saved step, under the
+    water table of :func:`extract_water_table_by_cell_from_hds`. ``bottom`` is
+    the base of the whole aquifer, ``botm[-1]``, not the bottom of the top
+    layer: what the method calibrates is the transmissivity of the aquifer, not
+    of its top slice. A cell without a water table reads ``NaN``, rather than a
+    full or zero thickness that would read as a real value.
     """
-
-    import flopy.utils.binaryfile as bf
-
-    hds_path = output_dir / f"{model_name}.hds"
-    if not hds_path.exists():
-        raise ObservableNotAvailableError(
-            f"HDS file not found for model {model_name!r} in {output_dir}"
-        )
 
     top_m = np.asarray(top, dtype=float).reshape(-1)
     bottom_m = np.asarray(bottom, dtype=float).reshape(-1)
@@ -576,29 +616,13 @@ def extract_saturated_thickness_by_cell_from_hds(
     if layer_m.size != n_cells:
         raise ValueError(f"top holds {n_cells} cells but layer holds {layer_m.size}.")
 
-    hf = bf.HeadFile(str(hds_path))
-    try:
-        times = _period_end_times(hf)
-        heads = np.full((len(times), n_cells), np.nan, dtype="float64")
-        for step, totim in enumerate(times):
-            snapshot = np.asarray(hf.get_data(totim=totim), dtype=float).reshape(-1)
-            if snapshot.size < n_cells or snapshot.size % n_cells:
-                raise ValueError(
-                    f"head snapshot holds {snapshot.size} values, not a whole number of "
-                    f"layers of the {n_cells} cells declared by top."
-                )
-            heads[step] = values_at_layer(snapshot.reshape(-1, n_cells), layer_m)
-    finally:
-        hf.close()
-
-    heads[np.abs(heads) > 1e6] = np.nan
-    thickness = saturated_thickness_from_head_history(heads, top_m=top_m, bottom_m=bottom_m)
-
-    if time_index is not None and len(time_index) == len(times):
-        index: pd.Index = time_index
-    else:
-        index = pd.Index(times, name="totim")
-    return pd.DataFrame(thickness, index=index, columns=np.arange(n_cells))
+    table = extract_water_table_by_cell_from_hds(
+        output_dir, model_name, layer=layer_m, time_index=time_index
+    )
+    thickness = saturated_thickness_from_head_history(
+        table.to_numpy(), top_m=top_m, bottom_m=bottom_m
+    )
+    return pd.DataFrame(thickness, index=table.index, columns=table.columns)
 
 
 __all__ = [
@@ -607,4 +631,5 @@ __all__ = [
     "extract_head_from_hds",
     "extract_release_flux_by_cell_from_cbc",
     "extract_saturated_thickness_by_cell_from_hds",
+    "extract_water_table_by_cell_from_hds",
 ]

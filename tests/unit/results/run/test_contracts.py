@@ -65,6 +65,17 @@ def irregular_mesh():
     return vertices, faces
 
 
+def test_a_mesh_prints_a_short_summary_regular_or_not():
+    vertices, faces = lambert_grid(2, 3)
+    grid = repr(Mesh(vertices, faces, np.zeros((2, 6)), structured_shape=(2, 3), crs="EPSG:2154"))
+    assert grid.splitlines()[0] == "Mesh: 6 cells, 1 layer(s), regular grid of 2 rows by 3 columns"
+    assert len(grid.splitlines()) == 11 and "cell_centers()" in grid and "'EPSG:2154'" in grid
+    assert "0.03 km2 in all" in grid and "x 385050 to 385275 m, y 6814050 to 6814200 m" in grid
+    polygons = repr(Mesh(*irregular_mesh(), np.array([1.0, 0.0])))
+    assert polygons.splitlines()[0] == "Mesh: 6 cells, 1 layer(s)"
+    assert "None, the cells are not a regular grid" in polygons
+
+
 def test_stored_face_centres_win_over_the_corner_mean():
     vertices, faces = irregular_mesh()
     mean = Mesh(vertices, faces, np.array([1.0, 0.0])).cell_centers()
