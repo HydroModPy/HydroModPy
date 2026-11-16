@@ -271,7 +271,9 @@ def write_json_durable(target: str | Path, payload: Any) -> Path:
 
 
 def _fsync_file(path: Path) -> None:
-    fd = os.open(path, os.O_RDONLY)
+    # Opened for writing: Windows refuses to flush a handle without write access
+    # (OSError, bad file descriptor), which stopped a run there when it wrote its outcome.
+    fd = os.open(path, os.O_RDWR)
     try:
         os.fsync(fd)
     finally:

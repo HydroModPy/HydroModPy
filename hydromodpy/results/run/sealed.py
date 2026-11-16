@@ -137,6 +137,31 @@ def metrics_frame(record: RunRecord | None) -> pd.DataFrame:
     return _metrics_table([] if record is None else record.metrics)
 
 
+CALIBRATION_TABLE = "calibration"
+"""The table of what the promoting session scored a run on, read from its seal."""
+
+
+def calibration_frame(record: RunRecord | None) -> pd.DataFrame | None:
+    """Return the cost a session promoted a run on and the parts of that cost, by name.
+
+    The first row is ``cost``, the others the parts of the seal in their order,
+    such as ``network.D_so``. ``attrs`` carries the name of the cost, the session,
+    the phase and the trial. None for a run no session promoted.
+    """
+    by = None if record is None else record.checks.calibrated_by
+    if by is None:
+        return None
+    rows = [("cost", by.cost), *by.components.items()]
+    frame = pd.DataFrame(rows, columns=["name", "value"])
+    frame.attrs = {
+        "metric": by.metric,
+        "session_id": by.session_id,
+        "phase": by.phase,
+        "trial": by.trial,
+    }
+    return frame
+
+
 def metrics_of(run: Run) -> pd.DataFrame:
     """Return every metric row of *run*, long form, as :func:`metrics_frame` does.
 
@@ -292,6 +317,7 @@ def _rule_words(key: tuple[str | None, ...], *, with_station: bool) -> str:
 
 
 __all__ = [
+    "CALIBRATION_TABLE",
     "FORCE_RANKING",
     "HEADLINE_RULE",
     "INDEX_RULE",
@@ -300,6 +326,7 @@ __all__ = [
     "WINDOW_COLUMNS",
     "MixedWindowsError",
     "RuleColumns",
+    "calibration_frame",
     "check_one_rule",
     "headline_metrics",
     "lineage_of",

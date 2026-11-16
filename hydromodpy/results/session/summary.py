@@ -20,12 +20,15 @@ from pathlib import Path
 
 from hydromodpy.results.record.checks import stop_line
 from hydromodpy.results.session.descriptor import BestCase, scored_samples_text
-from hydromodpy.results.session.journal import on_bound
+from hydromodpy.results.session.journal import TrialParam, on_bound
 from hydromodpy.results.session.view import Session
 from hydromodpy.results.storage.contract import REPORT_INDEX_FILENAME, RUN_REPORT_DIRNAME
 
 DEFAULT_VARIABLE = "discharge"
 """The calibrated variable of a session whose configuration names none."""
+
+NETWORK_VARIABLE = "network"
+"""What an output of support ``network`` calibrates: it reads a map and names no variable."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +56,8 @@ class SessionSummary:
     stop: str | None
     bounds_reached: tuple[str, ...]
     calibrated_variable: str
+    """The variables the search was scored on, joined by a comma."""
+
     report: Path | None
     profile: tuple[SummaryProfileLine, ...]
     project: str = ""
@@ -62,6 +67,68 @@ class SessionSummary:
     started_at: str | None = None
     ended_at: str | None = None
     duration_s: float | None = None
+    best_parameters: tuple[str, ...] = ()
+    """The value of each parameter at the best trial, as ``K = 0.000124 m/s``."""
+
+
+def calibrated_variables(config: Mapping[str, object]) -> tuple[str, ...]:
+    """Return the variables a session was scored on, in the order its outputs declare them.
+
+    An output names its variable, and one of support ``network`` reads
+    :data:`NETWORK_VARIABLE`. A configuration with no output reads its
+    ``[calibration] variable``, or :data:`DEFAULT_VARIABLE`.
+    """
+    calibration = config.get("calibration")
+    if not isinstance(calibration, Mapping):
+        return (DEFAULT_VARIABLE,)
+    outputs = calibration.get("outputs")
+    named = [
+        NETWORK_VARIABLE if output.get("support") == NETWORK_VARIABLE else output.get("variable")
+        for output in (outputs.values() if isinstance(outputs, Mapping) else ())
+        if isinstance(output, Mapping)
+    ]
+    variables = tuple(dict.fromkeys(str(name) for name in named if name))
+    return variables or (str(calibration.get("variable", DEFAULT_VARIABLE)),)
+
+
+NO_UNIT = ("-", "1")
+"""How a journal writes the unit of a number without one."""
+
+
+def _best_parameters(session: Session) -> tuple[str, ...]:
+    """Return the value each parameter took at the best trial of the phase that moved it.
+
+    A staged search moves one set of parameters per phase, so the best trial of
+    the session holds those of its last phase only. A single search has one best
+    trial, which holds them all.
+    """
+    trials = session.trials
+    best = session.descriptor.best
+    chosen = [
+        trials[(trials["phase"] == phase.name) & (trials["trial"] == phase.best.trial)]
+        for phase in session.phases
+        if phase.best is not None
+    ]
+    if not chosen and best is not None:
+        chosen = [trials[trials["trial"] == best.trial]]
+    found: dict[str, str] = {}
+    for rows in chosen:
+        if not rows.empty:
+            for name, payload in (rows.iloc[0]["parameters"] or {}).items():
+                found[name] = _parameter_text(name, payload)
+    return tuple(found.values())
+
+
+def _parameter_text(name: str, payload: object) -> str:
+    """Return one journaled parameter as its name, its value and its unit."""
+    if isinstance(payload, TrialParam):
+        payload = payload.model_dump(exclude_defaults=True)
+    value, units = (
+        (payload.get("value"), payload.get("units"))
+        if isinstance(payload, Mapping)
+        else (payload, None)
+    )
+    return f"{name} = {float(value):.6g}" + ("" if not units or units in NO_UNIT else f" {units}")
 
 
 def session_summary(session: Session) -> SessionSummary:
@@ -77,12 +144,6 @@ def session_summary(session: Session) -> SessionSummary:
         if not rows.empty:
             payloads = rows.iloc[0]["parameters"] or {}
             reached = tuple(sorted(name for name, payload in payloads.items() if on_bound(payload)))
-    calibration = session.config.get("calibration")
-    variable = (
-        str(calibration.get("variable", DEFAULT_VARIABLE))
-        if isinstance(calibration, dict)
-        else DEFAULT_VARIABLE
-    )
     page = session.dir / RUN_REPORT_DIRNAME / REPORT_INDEX_FILENAME
     profile = session.profile()
     started, ended = descriptor.started_at, descriptor.ended_at
@@ -99,7 +160,7 @@ def session_summary(session: Session) -> SessionSummary:
         if descriptor.stop_state is None
         else stop_line(descriptor.stop_state, descriptor.stopping_rule),
         bounds_reached=reached,
-        calibrated_variable=variable,
+        calibrated_variable=", ".join(calibrated_variables(session.config)),
         report=page if page.is_file() else None,
         profile=tuple(
             SummaryProfileLine(row.kind, row.name, int(row.lines), float(row.duration_s))
@@ -112,6 +173,7 @@ def session_summary(session: Session) -> SessionSummary:
         started_at=started.isoformat(),
         ended_at=None if ended is None else ended.isoformat(),
         duration_s=None if ended is None else (ended - started).total_seconds(),
+        best_parameters=_best_parameters(session),
     )
 
 
@@ -139,6 +201,8 @@ def summary_rows(summary: SessionSummary) -> list[tuple[str, str]]:
             # A cost of 0.08 on an NSE reads as a poor score; the label says it is 1 - NSE.
             cost += f" ({summary.cost_label})"
         rows.append(("best trial", f"{summary.best_trial}, cost {cost}"))
+    if summary.best_parameters:
+        rows.append(("best parameters", ", ".join(summary.best_parameters)))
     if summary.cost_name:
         rows.append(("cost name", summary.cost_name))
     if summary.best_sim_id:
@@ -183,8 +247,10 @@ def _scored_on(session: Session) -> str | None:
 
 __all__ = (
     "DEFAULT_VARIABLE",
+    "NETWORK_VARIABLE",
     "SessionSummary",
     "SummaryProfileLine",
+    "calibrated_variables",
     "session_summary",
     "summary_rows",
 )

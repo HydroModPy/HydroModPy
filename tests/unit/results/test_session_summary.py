@@ -8,14 +8,19 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.results.session.journal import BOUND_TOLERANCE, append_trial, on_bound
-from hydromodpy.results.session.summary import SessionSummary, summary_rows
+from hydromodpy.results.session.summary import (
+    SessionSummary,
+    calibrated_variables,
+    session_summary,
+    summary_rows,
+)
 from hydromodpy.results.session.view import Session
 from tests._helpers.sealed_runs import make_project, write_session_dir
 from tests._helpers.session_documents import trial_line
 
 pytestmark = pytest.mark.fast
 
-BOUNDED = {"value": 1e-7, "bounds": (1e-7, 1e-4)}
+BOUNDED = {"value": 1e-7, "bounds": (1e-7, 1e-4), "units": "m/s"}
 
 
 @pytest.mark.parametrize(
@@ -76,6 +81,11 @@ def _session(tmp_path: Path, *, trials: int = 3, best: int | None = 3, **fields)
         ({"trials_by_status": {}}, "trials", "none"),
         ({"best_cost": None}, "best trial", "3, cost not scored"),
         ({"cost_label": "1 - nse"}, "best trial", "3, cost 0.08 (1 - nse)"),
+        (
+            {"best_parameters": ("K = 1e-07 m/s", "Sy = 0.02")},
+            "best parameters",
+            "K = 1e-07 m/s, Sy = 0.02",
+        ),
     ],
 )
 def test_a_row_reads_its_field(changes: dict, label: str, text: str) -> None:
@@ -95,3 +105,43 @@ def test_a_row_reads_its_field(changes: dict, label: str, text: str) -> None:
         profile=(),
     )
     assert dict(summary_rows(replace(base, **changes)))[label] == text
+
+
+def test_the_summary_gives_the_best_value_of_each_parameter_with_its_unit(tmp_path: Path) -> None:
+    summary = session_summary(_session(tmp_path))
+
+    assert summary.best_parameters == ("K = 1e-07 m/s",)
+    assert "best parameters" not in dict(summary_rows(replace(summary, best_parameters=())))
+
+
+NETWORK_OUTPUT = {"support": "network"}
+GAUGE_OUTPUT = {"support": "boundary", "variable": "discharge"}
+
+
+@pytest.mark.parametrize(
+    ("calibration", "expected"),
+    [
+        (None, ("discharge",)),
+        ({}, ("discharge",)),
+        ({"variable": "lake_level"}, ("lake_level",)),
+        ({"outputs": {"streams": NETWORK_OUTPUT}}, ("network",)),
+        # An output is read before the single variable, and a variable is named once.
+        (
+            {
+                "variable": "lake_level",
+                "outputs": {
+                    "streams": NETWORK_OUTPUT,
+                    "gauge": GAUGE_OUTPUT,
+                    "again": GAUGE_OUTPUT,
+                },
+            },
+            ("network", "discharge"),
+        ),
+    ],
+)
+def test_the_calibrated_variables_are_those_of_the_outputs(
+    calibration: dict | None, expected: tuple[str, ...]
+) -> None:
+    config = {} if calibration is None else {"calibration": calibration}
+
+    assert calibrated_variables(config) == expected

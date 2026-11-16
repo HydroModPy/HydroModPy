@@ -82,6 +82,9 @@ OVERLAY_FIELDS: dict[str, tuple[str, ...]] = {
 }
 """Context layers a map or a section may draw, and the registered fields each one reads."""
 
+NETWORK_CELL_FIELDS = ("simulated_active_network", "network_agreement", "downslope_distance")
+"""Fields whose cells are the stream network: the mapped reaches drawn over them hide them."""
+
 Instant = str | int
 """One instant: an ISO date, ``"first"``, ``"last"`` or a period index (negative from the end)."""
 
@@ -768,13 +771,21 @@ def _resolved_panel(panel: PanelRequest, where: str) -> PanelRequest:
             raise ValueError(f"{where}: a table panel takes 'table.column' names, not {name!r}.")
         elif name != BUDGET:
             shape_of(name)
-    return resolved.model_copy(update={"overlays": _overlays(FRAMES[frame], resolved.overlays)})
+    overlays = _overlays(FRAMES[frame], resolved.overlays, resolved.variable or ())
+    return resolved.model_copy(update={"overlays": overlays})
 
 
-def _overlays(frame: Frame, listed: Sequence[str] | None) -> list[str]:
-    """Return the overlays a panel draws: its own list around the ones the frame keeps."""
+def _overlays(
+    frame: Frame, listed: Sequence[str] | None, variables: Sequence[str] = ()
+) -> list[str]:
+    """Return the overlays a panel draws: its own list around the ones the frame keeps.
+
+    A panel that lists none draws those of the frame, without the mapped reaches when
+    its variable is one of :data:`NETWORK_CELL_FIELDS`.
+    """
     if listed is None:
-        return list(frame.overlays)
+        covered = {"network"} if set(variables) & set(NETWORK_CELL_FIELDS) else set()
+        return [name for name in frame.overlays if name not in covered]
     under = list(takewhile(lambda name: name in frame.kept, frame.overlays))
     over = [name for name in frame.kept if name not in under]
     return [*under, *(name for name in listed if name not in frame.kept), *over]

@@ -7,6 +7,10 @@ the stream figures. The criterion graph takes 0.5 s to build and the masks of 36
 steps 0.03 s once it exists, so the graph is held on the run object, and a
 reader that asks for one step at a time still builds it once.
 
+The mapped network is the map in the cost of the sealed output: the permanent
+map under ``map.calibrate_on = "permanent"``, the complete map otherwise. A map
+of the agreement therefore shows the cells the calibration counted.
+
 A flowing cell of the simulated network is the one its stack keeps: seepage above
 the threshold, closed downstream on the criterion graph, and above the visible
 flow of the sealed output. The agreement and the distance follow the comparison
@@ -47,6 +51,7 @@ from hydromodpy.results.derive.stream_network.routing_surface import (
 )
 from hydromodpy.results.derive.stream_network.run_extent import (
     FLOW_FIELD,
+    MINIMAL_ROLE,
     flow_geometry_from_run,
     unavailable_reason_for_flow,
 )
@@ -98,8 +103,10 @@ def flow_geometry_of(run: Any) -> FlowGeometry:
 
     def build() -> FlowGeometry:
         settings = _settings_of(run)
+        permanent = settings.scores_permanent_map and run.has_hydrographic_network(MINIMAL_ROLE)
         geometry = flow_geometry_from_run(
             run,
+            role=MINIMAL_ROLE if permanent else None,
             tau_specific_ratio=settings.tau_specific_ratio,
             diagonal_neighbors=settings.diagonal_neighbors,
             observed_rasterization=settings.observed_rasterization,

@@ -441,6 +441,26 @@ def test_calibration_routing(
     assert calibration_runners == calls
 
 
+def test_a_file_calibration_draws_its_session_figures(
+    monkeypatch: pytest.MonkeyPatch, calibration_runners: list[str], tmp_path: Path
+) -> None:
+    # The same file gives the same figures by hmp run and by hmp calibrate. The
+    # session report stays with hmp calibrate.
+    import hydromodpy.project.calibrate as calibrate
+
+    _phases_loader(monkeypatch, [])
+    asked: list[tuple[dict, bool]] = []
+    monkeypatch.setattr(
+        calibrate,
+        "write_session_reports",
+        lambda result, *, report: asked.append((result.to_dict(), report)) or result,
+    )
+
+    wf.run_calibration(_file_request(), base=tmp_path)
+
+    assert asked == [({"kind": "flat"}, False)]
+
+
 def test_undeclared_phase_refused(
     monkeypatch: pytest.MonkeyPatch, calibration_runners: list[str], tmp_path: Path
 ) -> None:

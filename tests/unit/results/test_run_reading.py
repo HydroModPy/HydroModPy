@@ -19,6 +19,7 @@ from hydromodpy.results.run.view import Run
 from hydromodpy.results.session.view import Session
 from hydromodpy.results.storage.parquet_io import write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
+from tests._helpers.run_records import make_calibrated_by, make_checks, make_record
 
 pytestmark = pytest.mark.fast
 
@@ -135,6 +136,34 @@ def test_a_missing_table_is_refused(tmp_path: Path) -> None:
     run = _FakeRun(catalog=_FakeCatalog(tmp_path / "tables.parquet", has_timeseries=True))
     with pytest.raises(NothingThereError, match="no table 'budget'.*metrics, timeseries"):
         run.table("budget")
+
+
+def test_the_calibration_table_of_a_promoted_run(monkeypatch, tmp_path: Path) -> None:
+    by = make_calibrated_by(
+        metric="distance_gap", cost=2.05, phase="steady", components={"network.D_so": 203.0}
+    )
+    records = iter(
+        [make_record(checks=make_checks(calibrated_by=by))] * 2
+        + [make_record(checks=make_checks(calibrated_by=None))]
+    )
+    monkeypatch.setattr("hydromodpy.results.run.view.is_sealed", lambda directory: True)
+    monkeypatch.setattr(_FakeRun, "_record", lambda self: next(records), raising=False)
+    run = _FakeRun(catalog=_FakeCatalog(tmp_path / "tables.parquet", has_timeseries=True))
+
+    table = run.table("calibration")
+
+    assert table.to_dict("list") == {"name": ["cost", "network.D_so"], "value": [2.05, 203.0]}
+    assert table.attrs == {
+        "metric": "distance_gap",
+        "session_id": "s",
+        "phase": "steady",
+        "trial": 3,
+    }
+    with pytest.raises(NothingThereError, match="metrics, calibration, timeseries"):
+        run.table("budget")
+    # A run no session promoted holds no such table.
+    with pytest.raises(NothingThereError, match="no table 'calibration'.*metrics, timeseries"):
+        run.table("calibration")
 
 
 def _renderer(calls: list):

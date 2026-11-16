@@ -41,6 +41,7 @@ from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.core.units.quantities import parse_to_m
 from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
 from hydromodpy.results.derive.time_alignment import NO_TIME_AXIS, run_period_edges
+from hydromodpy.results.errors import RunNotSealedError
 from hydromodpy.results.run.sealed import search_of
 
 if TYPE_CHECKING:
@@ -102,6 +103,13 @@ class NetworkCriterionSettings:
     clip_map_to_catchment: bool = STREAM_CRITERION_DEFAULTS.clip_map_to_catchment
     """Whether the map was cut to the catchment, with no cut end taken for a head."""
 
+    scores_permanent_map: bool = False
+    """Whether the cost reads the permanent map: ``map.calibrate_on = "permanent"``.
+
+    False reads the complete map, the only one when the output declares no
+    permanent map.
+    """
+
     timestep: int = -1
     """The state a single-state output reads: ``-1`` for ``last``, ``0`` for ``first``.
 
@@ -142,6 +150,8 @@ class NetworkCriterionSettings:
             )
         else:
             source = f"criterion settings: calibration output {self.output!r}"
+        if self.scores_permanent_map:
+            source += ", scored on the permanent map"
         if self.window is not None:
             start, end = self.window
             source += f", window {_date_or_open(start)} to {_date_or_open(end)}"
@@ -188,10 +198,10 @@ def network_criterion_settings(sim: Run, *, output: str | None = None) -> Networ
     """Return the settings the run's network output was scored with.
 
     ``output`` names the calibration output to read. Left None, the run's only
-    network output is read, or its first one when it sealed several, and the
-    note says so. A run that sealed none reads the defaults. A named output the
-    run does not hold is refused, and so is a sealed value no trial could have
-    read.
+    network output is read. When it sealed several, the one the phase of the run
+    scores is read, or the first one for a run tied to no phase, and the note
+    says so. A run that sealed none reads the defaults. A named output the run
+    does not hold is refused, and so is a sealed value no trial could have read.
     """
     outputs = network_outputs_of_run(sim)
     if output is not None and output not in outputs:
@@ -202,27 +212,45 @@ def network_criterion_settings(sim: Run, *, output: str | None = None) -> Networ
         )
     if not outputs:
         return NetworkCriterionSettings(output=None)
-    name = next(iter(outputs)) if output is None else output
-    window, phase = _window_of_run(sim)
+    calibration = _calibration_section(sim)
+    phase = _phase_of_run(sim)
+    name = output or _output_of_phase(calibration, phase, outputs) or next(iter(outputs))
+    window, window_phase = _window_of_phase(calibration, phase)
     return _settings_of_output(
         sim,
         name,
         outputs[name],
         n_outputs=len(outputs),
         window=window,
-        window_phase=phase,
+        window_phase=window_phase,
     )
 
 
-def _window_of_run(sim: Run) -> tuple[WindowBounds | None, str | None]:
+def _output_of_phase(
+    calibration: Mapping[str, Any], name: str | None, outputs: Mapping[str, Any]
+) -> str | None:
+    """Return the first network output the blocks of the phase ``name`` score, or None."""
+    phase = _sealed_phase(calibration, name) if name is not None else None
+    if phase is None:
+        return None
+    scored = set(phase.get("objective_blocks") or ())
+    for block in calibration.get("objective_blocks") or ():
+        if isinstance(block, Mapping) and block.get("name") in scored:
+            for used in block.get("uses_outputs") or ():
+                if used in outputs:
+                    return str(used)
+    return None
+
+
+def _window_of_phase(
+    calibration: Mapping[str, Any], name: str | None
+) -> tuple[WindowBounds | None, str | None]:
     """Return the scoring window the run was scored with, and its phase.
 
     A phase declaring a ``window`` replaces the calibration's for every
     block it scores, exactly as the staged runner builds that phase. A phase
     declaring none, or a run tied to no phase, reads the calibration's.
     """
-    calibration = _calibration_section(sim)
-    name = _phase_of_run(sim)
     phase = _sealed_phase(calibration, name) if name is not None else None
     if phase is not None and phase.get("window") is not None:
         where = f"calibration.phases.{name}.window"
@@ -241,9 +269,18 @@ def _sealed_phase(calibration: Mapping[str, Any], name: str) -> Mapping[str, Any
 def _phase_of_run(sim: Run) -> str | None:
     """Return the phase of the calibration session the run's trial belongs to.
 
-    None when the run belongs to no session, to several, or to a session that
-    ran no phase. Only the session rows say which phase a run was scored in.
+    The seal of a promoted run names its phase. A session of several phases keeps
+    one row, so its row names one phase for every run. Any other run reads the
+    session rows, and gets None when it belongs to no session, to several, or to
+    a session that ran no phase.
     """
+    try:
+        promoted = sim.checks.calibrated_by
+    except (RunNotSealedError, AttributeError):
+        # A run that never sealed, or a run-shaped view without a seal.
+        promoted = None
+    if promoted is not None and promoted.phase:
+        return str(promoted.phase)
     try:
         trials = calibration_trials(sim)
     except (ValueError, AttributeError):
@@ -312,6 +349,9 @@ def _settings_of_output(
         heads_snap_radius_m=float(radius_m),
         heads_min_drained_area_km2=area_km2,
         clip_map_to_catchment=bool(drawn.get("clip_to_catchment", defaults.clip_map_to_catchment)),
+        scores_permanent_map=(
+            drawn.get("permanent") is not None and drawn.get("calibrate_on") == "permanent"
+        ),
         timestep=timestep,
         extent=_extent_rules(model.get("extent"), where=where),
         n_network_outputs=n_outputs,

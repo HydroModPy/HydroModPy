@@ -22,7 +22,7 @@ from hydromodpy.results.session.phase import FrozenValue, PhaseDescriptor
 from hydromodpy.results.storage.run_profile import Profile, ProfileLine
 from hydromodpy.results.validity_rules import LabelResult, Reason, label_for, run_quantities
 from hydromodpy.schema.lineage import Lineage, Replay, ReplayDifference
-from tests._helpers.run_records import NOW, VERSION, make_record
+from tests._helpers.run_records import NOW, VERSION, make_checks, make_record
 from tests._helpers.session_documents import best_trial, session_descriptor, trial_line
 
 LABEL = LabelResult(
@@ -210,6 +210,18 @@ def test_label_rendered(tmp_path):
     text = render_run_readme(record, None, result, manifest_sha256="0" * 64)
     assert "**exploratory** under rules 3." in text
     assert "known issues: mf6_computation_top" in text
+
+
+def test_the_score_section_gives_the_calibration_cost() -> None:
+    plain = make_record(checks=make_checks(calibrated_by=None))
+
+    promoted, unpromoted = (
+        render_run_readme(record, None, LABEL, manifest_sha256="0" * 64)
+        for record in (make_record(), plain)
+    )
+
+    assert "Calibration cost nse 0.84 at trial 7." in promoted
+    assert "Calibration cost" not in unpromoted
 
 
 def _line(kind, name, seconds, *, attempt=1, reused="no", key=None, rss=None) -> ProfileLine:

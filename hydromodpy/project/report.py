@@ -47,7 +47,12 @@ from hydromodpy.results.method import label_text, method_text
 from hydromodpy.results.record.label import label_of
 from hydromodpy.results.record.manifest import is_sealed, read_seal
 from hydromodpy.results.run.view import Run, open_run_dir
-from hydromodpy.results.session.summary import session_summary, summary_rows
+from hydromodpy.results.session.summary import (
+    NETWORK_VARIABLE,
+    calibrated_variables,
+    session_summary,
+    summary_rows,
+)
 from hydromodpy.results.session.view import Session
 from hydromodpy.results.storage.contract import (
     RUN_FIGURES_DIRNAME,
@@ -71,6 +76,7 @@ SESSION_FIGURES: tuple[str, ...] = (
 BEST_RUN_FIGURES: dict[str, tuple[str, ...]] = {
     "lake_level": ("lake_stage",),
     "discharge": ("hydrograph", "scatter_one_to_one"),
+    NETWORK_VARIABLE: ("network_agreement", "downslope_distance"),
 }
 """Figures of the promoted best run, by calibrated variable."""
 
@@ -203,7 +209,13 @@ def report_session(session_dir: str | Path, *, today: date | None = None) -> Pat
 
     skipped: list[str] = []
     drawn = _draw(session, SESSION_FIGURES, figures_dir, skipped)
-    names = BEST_RUN_FIGURES.get(summary.calibrated_variable, BEST_RUN_FIGURES["discharge"])
+    names = tuple(
+        dict.fromkeys(
+            name
+            for variable in calibrated_variables(session.config)
+            for name in BEST_RUN_FIGURES.get(variable, BEST_RUN_FIGURES["discharge"])
+        )
+    )
     cases, best_runs = _cases(session)
     best_figures: list[Path] = []
     for case_id, best in best_runs.items():

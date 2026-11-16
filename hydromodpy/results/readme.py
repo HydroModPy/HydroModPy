@@ -487,6 +487,12 @@ def _score_section(record: RunRecord) -> list[str]:
             f"NSE {_number(score.value)} on {score.window_start} to {score.window_end}, "
             f"{score.n_samples} samples, rule {score.metric_rule_version}."
         )
+    by = record.checks.calibrated_by
+    if by is not None and by.metric is not None and by.cost is not None:
+        lines.append(
+            f"Calibration cost {by.metric} {_number(by.cost)} at trial {by.trial}. "
+            "The table `calibration` of the run lists its parts."
+        )
     lines.append("")
     return lines
 

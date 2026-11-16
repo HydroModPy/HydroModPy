@@ -174,8 +174,12 @@ def run_calibration(
     of the same case and the same solution key is given back as its report instead of
     searching again, unless the request asks to ``force``, to resume or to run one
     ``phase``.
+
+    A search that ran draws the figures its ``[display]`` asks at the session, as
+    ``hmp calibrate`` does. The session report is left to ``hmp calibrate`` and to
+    ``hmp show SESSION --report``.
     """
-    from hydromodpy.project.calibrate import route_calibration
+    from hydromodpy.project.calibrate import route_calibration, write_session_reports
 
     root = Path(base).expanduser().resolve()
     path = _source_path(request, root)
@@ -210,6 +214,7 @@ def run_calibration(
         from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
         result = run_calibration_cli(target, **runner_options)
+    write_session_reports(result, report=False)
     return _with_deliveries(result.to_dict(), export_requests, environment, project_root=root)
 
 

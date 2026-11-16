@@ -59,6 +59,15 @@ def test_a_preset_fills_only_its_holes() -> None:
     assert overlays == ["relief", "outline", "network", "outlet", "scale_bar"]
 
 
+@pytest.mark.parametrize("variable", rq.NETWORK_CELL_FIELDS)
+def test_a_map_of_the_network_cells_leaves_the_mapped_reaches_off(variable: str) -> None:
+    listed = rq.expand(ask(f'variable = "{variable}"'), PRESETS).panels[0].overlays
+    written = rq.expand(ask(f'variable = "{variable}", overlays = ["network"]'), PRESETS)
+
+    assert listed == ["relief", "outline", "outlet", "scale_bar"]
+    assert written.panels[0].overlays == ["relief", "network", "scale_bar"]
+
+
 @pytest.mark.parametrize(
     ("written", "drawn"),
     [

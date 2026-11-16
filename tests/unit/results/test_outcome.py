@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -103,6 +104,24 @@ def test_gc_keeps_unproven_silent_run(tmp_path):
 
     assert effective_status(run_dir, now=NOW + timedelta(days=2)) == "stale"
     assert plan.stale_runs == ()
+
+
+def test_a_durable_write_flushes_a_handle_that_can_write(tmp_path, monkeypatch):
+    # Windows flushes only a handle with write access, and refuses any other
+    # with a bad file descriptor. The first handle opened is the staged file.
+    flags = []
+    real_open = os.open
+
+    def spy(path, flag, *args, **kwargs):
+        flags.append(flag)
+        return real_open(path, flag, *args, **kwargs)
+
+    monkeypatch.setattr(json_io.os, "open", spy)
+
+    json_io.write_json_durable(tmp_path / "outcome.json", {"status": "running"})
+
+    assert flags[0] & (os.O_WRONLY | os.O_RDWR)
+    assert (tmp_path / "outcome.json").read_text(encoding="utf-8").strip().startswith("{")
 
 
 def test_death_is_proven_is_private():

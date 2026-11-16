@@ -117,6 +117,58 @@ def test_several_outputs_read_first() -> None:
     assert network_criterion_settings(run, output="second").tau_specific_ratio == 1.0e-2
 
 
+PERMANENT = {"complete": "data.hydrography", "permanent": "data.hydrography"}
+
+
+@pytest.mark.parametrize(
+    ("drawn", "expected"),
+    [
+        ({"complete": "data.hydrography"}, False),
+        ({**PERMANENT, "calibrate_on": "complete"}, False),
+        ({**PERMANENT, "calibrate_on": "permanent"}, True),
+    ],
+)
+def test_the_map_in_the_cost_is_read(drawn: dict, expected: bool) -> None:
+    run = run_with_outputs({"streams": network_output(map=drawn)})
+
+    settings = network_criterion_settings(run)
+
+    assert settings.scores_permanent_map is expected
+    assert ("scored on the permanent map" in settings.note()) is expected
+
+
+# A staged search keeps one session row, so only the seal of a promoted run says
+# which phase scored it. The output and the window are those of that phase.
+def test_a_promoted_run_reads_the_output_and_the_window_of_its_phase() -> None:
+    calibration = {
+        "outputs": {
+            "permanent": network_output(map={**PERMANENT, "calibrate_on": "permanent"}),
+            "full": network_output(),
+        },
+        "objective_blocks": [
+            {"name": "steady_net", "uses_outputs": ["permanent"]},
+            {"name": "transient_net", "uses_outputs": ["full"]},
+        ],
+        "phases": [
+            {"name": "steady", "objective_blocks": ["steady_net"]},
+            {
+                "name": "transient",
+                "objective_blocks": ["transient_net"],
+                "window": {"start": "2003-01-01"},
+            },
+        ],
+    }
+    trial = run_of_phase(calibration, phase="steady")
+    promoted = run_of_phase(calibration, phase="steady")
+    promoted.checks = SimpleNamespace(calibrated_by=SimpleNamespace(phase="transient"))
+
+    read = [network_criterion_settings(run) for run in (trial, promoted)]
+
+    assert [settings.output for settings in read] == ["permanent", "full"]
+    assert [settings.scores_permanent_map for settings in read] == [True, False]
+    assert [settings.window_phase for settings in read] == [None, "transient"]
+
+
 def test_sealed_scoring_window() -> None:
     run = run_with_outputs(
         {"streams": network_output()}, window={"start": "2002-01-01T00:00:00+01:00"}

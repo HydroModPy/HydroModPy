@@ -100,7 +100,7 @@ from hydromodpy.results.run.geographic import RunGeographicMixin
 from hydromodpy.results.run.hydrographic import RunHydrographicMixin
 from hydromodpy.results.run.periods import RunPeriods
 from hydromodpy.results.run.point import RunPointProvider
-from hydromodpy.results.run.sealed import read_record
+from hydromodpy.results.run.sealed import CALIBRATION_TABLE, calibration_frame, read_record
 from hydromodpy.results.run.timeseries import RunTimeseriesMixin
 from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,
@@ -722,15 +722,21 @@ class Run(
         """Return the sealed table *name* of this run.
 
         ``metrics`` is the score table of the seal and ``parameters`` the
-        parameter table. Any other name is a table of ``tables.parquet/`` in
-        the run directory. A name the run does not hold is refused with the
-        names it does hold.
+        parameter table. ``calibration`` is the cost the session that promoted
+        the run scored it on, with the parts of that cost, such as the two
+        distances of a network criterion. Any other name is a table of
+        ``tables.parquet/`` in the run directory. A name the run does not hold
+        is refused with the names it does hold.
         """
         from hydromodpy.results.run.tables import read_run_table
         from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 
         if name == "metrics":
             return self.metrics
+        calibration = calibration_frame(self._record() if is_sealed(self.dir) else None)
+        if name == CALIBRATION_TABLE and calibration is not None:
+            return calibration
+        sealed = ["metrics", *([CALIBRATION_TABLE] if calibration is not None else [])]
         folder = self._catalog.tables_dir_for(self.sim_id)
         held = sorted(
             path.name.removesuffix(PARQUET_FILE_SUFFIX)
@@ -738,7 +744,7 @@ class Run(
         )
         if name not in held:
             raise NothingThereError(
-                f"{self.dir.name} holds no table {name!r}. It holds: {', '.join(['metrics', *held])}."
+                f"{self.dir.name} holds no table {name!r}. It holds: {', '.join([*sealed, *held])}."
             )
         return read_run_table(self, name)
 

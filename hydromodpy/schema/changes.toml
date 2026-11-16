@@ -1076,3 +1076,10 @@ since = "2.0.0"
 versions = ">=2.0.0a1,<=2.0.0rc1"
 quantities = ["heads@modflow6", "fluxes@modflow6", "mesh@triangle", "mesh@voronoi", "metrics"]
 text = "A change that switched a lake, a cutoff wall or a flow barrier on or off, or moved its line, kept the mesh built before it, in a second Project.simulate and in the lab. Such a run sealed the mesh of the run before under its own configuration, with the same solution key as a run made in one go. On the island of the tests, a lake switched on after a run without it sealed 130 cells, it now seals the 477 cells of the same run made in one go. Switching on a stream boundary rebuilds a mesh read from a file too."
+
+[[bug]]
+id = "network_fields_read_the_complete_map"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
+quantities = ["fields@network_agreement", "fields@downslope_distance"]
+text = "The fields network_agreement and downslope_distance of a run compared the simulated network with the complete map, whatever map the calibration scored. They now read the map in the cost of the sealed output, the permanent one under map.calibrate_on = \"permanent\". On a run that sealed several network outputs they read the output and the window of the phase that promoted it, where they read the first output. On a 64.6 km2 catchment calibrated on the permanent map, the cells mapped only go from 966 to 128, the count of the best trial. No sealed number moves, the two fields are rebuilt when read."
