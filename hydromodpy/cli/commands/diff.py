@@ -35,7 +35,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog=(
             "Examples:\n"
-            "  hmp diff my_run.v2 my_run.v3\n"
+            "  hmp diff my_run_v2 my_run_v3\n"
             "  hmp diff k_low k_high --to ../k_study\n"
             "  hmp diff calage_nm calage_tpe --by site\n"
             "  hmp diff runs/coarse runs/fine --to ../mesh_study"
@@ -47,7 +47,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         nargs="+",
         metavar="REF",
         help=(
-            "A run directory, a run name under runs/ (base.v2), or a recipe (the latest run "
+            "A run directory, a run name under runs/ (base_v2), or a recipe (the latest run "
             "of each of its cases). The first run is the reference."
         ),
     )

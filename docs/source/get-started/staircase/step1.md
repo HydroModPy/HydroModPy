@@ -86,9 +86,9 @@ Three {toml}`[[export]] blocks|export` write four files, in `runs/nancon_step1_m
 
 | Block | Files |
 |---|---|
-| `variables = "watershed"` | `watershed.gpkg`, the catchment outline |
-| `variables = ["watertable_depth", "seepage_mask"]`, `time = "last"` | `watertable_depth_last.tif` and `seepage_mask_last.tif`, one GeoTIFF per variable. A steady run has one state, which `"last"` picks |
-| `variables = "budget"` | `budget.csv`, the water budget |
+| `variable = "watershed"` | `watershed.gpkg`, the catchment outline |
+| `variable = ["watertable_depth", "seepage_mask"]`, `time = "last"` | `watertable_depth_last.tif` and `seepage_mask_last.tif`, one GeoTIFF per variable. A steady run has one state, which `"last"` picks |
+| `variable = "budget"` | `budget.csv`, the water budget |
 
 The run also leaves a `RUN.txt` there, which is a note and not an export. Steps 2 to 4
 inherit these three blocks.

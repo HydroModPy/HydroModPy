@@ -96,14 +96,14 @@ def make_record(**overrides: Any) -> RunRecord:
     payload: dict[str, Any] = {
         "run": ManifestRun(
             sim_id=SIM_ID,
-            name="J0014010-base.v2",
+            name="J0014010-base_v2",
             name_stem=CASE_ID,
             version=2,
             status="completed",
             project="bretagne_k",
             case_id=CASE_ID,
             recipe="base",
-            rel_dir="runs/J0014010-base.v2",
+            rel_dir="runs/J0014010-base_v2",
             attempt=2,
             attempt_id=ATTEMPT_ID,
             solver="modflow6",

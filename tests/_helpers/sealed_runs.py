@@ -17,10 +17,10 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.names import split_stem_version
 from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.core.version import __version__
-from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.heartbeat import Heartbeat, write_heartbeat
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.metric_rule import DateWindow, PeriodWindow

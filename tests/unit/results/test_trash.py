@@ -381,16 +381,16 @@ def test_cli_ambiguous_name_is_refused(tmp_path, monkeypatch, capsys):
 
     project = _project(tmp_path)
     _make_run(project, "J0014010-base")
-    _make_run(project, "J0014010-base.v2")
+    _make_run(project, "J0014010-base_v2")
 
     code = _hmp(monkeypatch, "catalog", "delete", "J0014010-base", "-y", "-w", str(project))
 
     assert code == EXIT_AMBIGUOUS_REFERENCE
     err = capsys.readouterr().err
-    assert "runs/J0014010-base.v2" in err
+    assert "runs/J0014010-base_v2" in err
     assert (project / RUNS_DIRNAME / "J0014010-base").is_dir()
-    assert _hmp(monkeypatch, "catalog", "delete", "J0014010-base.v2", "-y", "-w", str(project)) == 0
-    assert not (project / RUNS_DIRNAME / "J0014010-base.v2").exists()
+    assert _hmp(monkeypatch, "catalog", "delete", "J0014010-base_v2", "-y", "-w", str(project)) == 0
+    assert not (project / RUNS_DIRNAME / "J0014010-base_v2").exists()
 
 
 def test_cli_delete_now_keeps_the_name_taken(tmp_path, monkeypatch):
@@ -398,14 +398,14 @@ def test_cli_delete_now_keeps_the_name_taken(tmp_path, monkeypatch):
 
     project = _project(tmp_path)
     _make_run(project, "x", sim_id=SIM_ID)
-    _make_run(project, "x.v2")
+    _make_run(project, "x_v2")
 
-    assert _hmp(monkeypatch, "catalog", "delete", "x.v2", "--now", "-y", "-w", str(project)) == 0
+    assert _hmp(monkeypatch, "catalog", "delete", "x_v2", "--now", "-y", "-w", str(project)) == 0
 
     assert list_trash(project) == []
     [tombstone] = read_tombstones(project)
-    assert tombstone.rel_dir == "runs/x.v2"
-    assert reserve_version_dirname(project, "run", "x").name == "x.v3"
+    assert tombstone.rel_dir == "runs/x_v2"
+    assert reserve_version_dirname(project, "run", "x").name == "x_v3"
 
 
 def test_cli_pinned_run_needs_force(tmp_path, monkeypatch, capsys):

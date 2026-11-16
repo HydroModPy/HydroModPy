@@ -86,6 +86,21 @@ rows:
   scope: LogManager._add_user_log
   class: process
   why: the console handler of the package logger, set when the process picks its verbosity
+- file: hydromodpy/core/logging.py
+  site: removeHandler
+  scope: hold_console
+  class: process
+  why: a calibration worker drops its console once at its start, the terminal is its parent's
+- file: hydromodpy/core/logging.py
+  site: addHandler
+  scope: hold_console
+  class: process
+  why: a calibration worker holds its console lines once at its start, for its parent to print
+- file: hydromodpy/core/logging.py
+  site: addHandler
+  scope: hold_console
+  class: process
+  why: a calibration worker holds the warnings of libraries too, on the root logger, at its start
 - file: hydromodpy/core/runtime/interrupts.py
   site: signal.signal
   scope: terminate_as_interrupt

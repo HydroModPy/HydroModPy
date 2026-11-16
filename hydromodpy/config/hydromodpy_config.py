@@ -388,7 +388,7 @@ class HydroModPyConfig(HydroModelBase):
         default_factory=list,
         description=(
             "The exports written at the end of a run, one [[export]] block per request, "
-            "in the order of the file. Each block says what (variables), when (time or "
+            "in the order of the file. Each block says what (variable), when (time or "
             "period) and where (folder or file); the format follows the data."
         ),
         json_schema_extra=field_metadata(

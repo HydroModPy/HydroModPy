@@ -139,9 +139,9 @@ A failed case keeps its folder. `--only failed` starts a new attempt in place: t
 attempt moves under `runs/<case>/attempts/<n>/`, and the new one resumes from what the
 first one left. A calibration reopens its session `sessions/<case>/` and keeps its
 trials. `--fresh` files the whole earlier attempt away and starts over; for a calibration
-it opens a new session, `sessions/<case>.v2/`. A case whose heartbeat is old may still be
+it opens a new session, `sessions/<case>_v2/`. A case whose heartbeat is old may still be
 running on another machine, so a stale case is only rerun with `--force`, when you know
-its process is dead. Without `--fresh`, a rerun never makes a `.v2`: a version is for a
+its process is dead. Without `--fresh`, a rerun never makes a `_v2`: a version is for a
 changed configuration, not for a second try.
 
 ## Read the results

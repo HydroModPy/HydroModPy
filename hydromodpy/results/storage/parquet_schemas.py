@@ -611,7 +611,7 @@ SIMULATION_SCHEMA: Final[pa.Schema] = pa.schema(
             "name",
             pa.string(),
             nullable=False,
-            metadata=_field_meta(description="Run name, with its .vN"),
+            metadata=_field_meta(description="Run name, with its _vN"),
         ),
         pa.field("name_stem", pa.string(), nullable=False),
         pa.field("version_int", pa.int32(), nullable=False),

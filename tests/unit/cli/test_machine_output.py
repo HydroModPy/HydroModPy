@@ -675,11 +675,11 @@ def test_dry_runs_change_nothing(project: Path, tmp_path: Path) -> None:
 
 def _replay_payload(**overrides: object) -> dict[str, object]:
     payload: dict[str, object] = {
-        "ref": "runs/probe.v2",
-        "source": "probe.v2",
+        "ref": "runs/probe_v2",
+        "source": "probe_v2",
         "sim_id": "0123456789abcdef",
         "name": "probe",
-        "rel_dir": "runs/probe.v3",
+        "rel_dir": "runs/probe_v3",
         "class": "bit",
         "basis": "float64",
         "differs": {},
@@ -703,7 +703,7 @@ def test_replay_print_reproduced(capsys) -> None:
 
     lines = capsys.readouterr().out.splitlines()
     assert lines == [
-        "replayed probe.v2 as runs/probe.v3  [01234567]",
+        "replayed probe_v2 as runs/probe_v3  [01234567]",
         "  values : bit, basis float64",
     ]
 

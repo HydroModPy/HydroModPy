@@ -19,7 +19,7 @@ REFUSALS = [
         SitesConfig, {"recipes": {"k2e-5": "k.toml"}}, "'k2e_5'", id="dash in a recipe name"
     ),
     pytest.param(
-        SitesConfig, {"recipes": {"base.v2": "project.toml"}}, r"\.v<N>", id="recipe like a version"
+        SitesConfig, {"recipes": {"base_v2": "project.toml"}}, "_v<N>", id="recipe like a version"
     ),
     pytest.param(SitesConfig, {"recipes": {"a b": "project.toml"}}, "recipe", id="space in a name"),
     pytest.param(SitesConfig, {"recipes": {"é": "project.toml"}}, "recipe", id="accent in a name"),
@@ -62,13 +62,25 @@ REFUSALS = [
         id="include and exclude overlap",
     ),
     pytest.param(SitesRunConfig, {"parallel": 0}, "parallel", id="zero budget"),
+    pytest.param(
+        SitesConfig,
+        {"export": [{"runs": "best", "variables": ["discharge"]}]},
+        "variables is now variable",
+        id="the plural key of a pre-release",
+    ),
+    pytest.param(
+        SitesConfig,
+        {"summary": {"variables": ["K"]}},
+        "variables is now variable",
+        id="the plural key of the summary",
+    ),
 ]
 
 VALID = [
     pytest.param({"summary": {"columns": ["checks.budget_pct", "metrics.nse"]}}, id="columns"),
     pytest.param({"export": [{"table": "by_site"}]}, id="export a table"),
     pytest.param(
-        {"export": [{"runs": "best", "variables": ["discharge"]}]}, id="export the best runs"
+        {"export": [{"runs": "best", "variable": ["discharge"]}]}, id="export the best runs"
     ),
 ]
 

@@ -524,7 +524,7 @@ SITE_PROJECT_REFUSALS = [
         id="simulation name",
     ),
     pytest.param(
-        '[[export]]\nvariables = "all"\ndeliver_to = "ftp://example.org/incoming/"\n',
+        '[[export]]\nvariable = "all"\ndeliver_to = "ftp://example.org/incoming/"\n',
         "4 cases: project.toml -> export.deliver_to: deliver_to is refused in a [sites] project",
         id="deliver_to",
     ),
@@ -543,7 +543,7 @@ def test_sites_project_refusals(tmp_path, extra, line_start):
 
 
 def test_export_without_deliver_to_planned(tmp_path):
-    project = write_sites_project(tmp_path, extra='[[export]]\nvariables = "all"\n')
+    project = write_sites_project(tmp_path, extra='[[export]]\nvariable = "all"\n')
 
     draft = expand_plan(project, project / "project.toml")
 
@@ -935,8 +935,8 @@ def test_run_or_session_marks_done(tmp_path: Path) -> None:
     assert not draft.errors, group_issues(draft.errors)
     assert _case(draft, "nancon-calib").kind == "calibration"
     assert not any(case.done for case in draft.cases)
-    _seal(project, "nancon-base.v2", "another computation")
-    _seal(project, "nancon-base.v3", _case(draft, "nancon-base").config_hash)
+    _seal(project, "nancon-base_v2", "another computation")
+    _seal(project, "nancon-base_v3", _case(draft, "nancon-base").config_hash)
     _seal(project, "couesnon-base", "another computation")
     now = datetime.now(UTC)
     for site, status in (("nancon", "completed"), ("couesnon", "partial")):
@@ -1300,10 +1300,10 @@ def test_case_is_done_by_a_run(tmp_path: Path, run: dict, asked: str | None, don
 
 
 def test_version_suffix_read_by_level(tmp_path: Path) -> None:
-    _sealed_run(tmp_path, "case.v2", kind="trial")
+    _sealed_run(tmp_path, "case_v2", kind="trial")
     assert case_is_done(tmp_path, "case", KEY, "simulation") is False
 
-    _sealed_run(tmp_path, "case.v3")
+    _sealed_run(tmp_path, "case_v3")
     assert case_is_done(tmp_path, "case", KEY, "simulation") is True
 
 

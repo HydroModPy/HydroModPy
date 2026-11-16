@@ -31,6 +31,7 @@ from hydromodpy.core.config_kit.field_param.config import (
     resolve_field_param_config_payload,
 )
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.core.tracking.input_file import input_file_role
 from hydromodpy.model.boundaries.boundary_condition_registry import (
@@ -42,7 +43,11 @@ from hydromodpy.model.boundaries.boundary_condition_registry import (
 from hydromodpy.model.boundaries.boundary_conditions import BCEntry, FlowBoundaryConditionConfig
 from hydromodpy.model.forcing.dated_forcing import CsvForcing
 from hydromodpy.model.initial_config import FlowInitialConditions, normalize_flow_initial_conditions
-from hydromodpy.model.properties.property_ids import default_unit_of, refusal_of_a_retired_id
+from hydromodpy.model.properties.property_ids import (
+    TRANSIENT_DEFAULTS,
+    default_unit_of,
+    refusal_of_a_retired_id,
+)
 from hydromodpy.model.sinks_sources.container import (
     ETP,
     RECHARGE,
@@ -93,6 +98,8 @@ __all__ = [
     "resolve_forcing_paths",
 ]
 
+
+logger = get_logger(__name__)
 
 FlowConfigT = TypeVar("FlowConfigT", bound=BaseModel)
 
@@ -176,6 +183,50 @@ def from_toml_section(
         payload,
         context={"base_dir": base_dir, "workspace_data_dir": workspace_data_dir},
     )
+
+
+def _with_the_storage_of_a_transient(payload: dict, default_regime: str) -> dict:
+    """Add Sy and Ss to a transient flow that declares parameters but not them, and say so.
+
+    A transient run stores water by both, and MODFLOW refuses to start without them. The
+    value each takes is ``TRANSIENT_DEFAULTS``, a homogeneous field the resolved config
+    writes like any other. A flow that declares no parameter at all is left alone: it
+    describes no aquifer yet.
+    """
+    raw_param = payload.get("param")
+    try:
+        regime = normalize_flow_regime(payload.get("flow_regime", default_regime))
+    except ValueError:
+        return payload  # the field validator names the bad regime
+    if regime != "transient" or not isinstance(raw_param, Mapping) or not raw_param:
+        return payload
+    added = {pid: value for pid, value in TRANSIENT_DEFAULTS.items() if pid not in raw_param}
+    if not added:
+        return payload
+    payload["param"] = {
+        **raw_param,
+        **{
+            pid: {"field": {"kind": "homogeneous", "unit": default_unit_of(pid), "value": value}}
+            for pid, value in added.items()
+        },
+    }
+    declared = payload.get("param_list")
+    if isinstance(declared, (list, tuple)):
+        payload["param_list"] = [*declared, *(pid for pid in added if pid not in declared)]
+    values = ", ".join(
+        f"{pid} = {value:g} ({default_unit_of(pid)})" for pid, value in added.items()
+    )
+    one = len(added) == 1
+    logger.warning(
+        "[flow] is transient and [flow.param] declares no %s. A transient run needs Sy and Ss "
+        "to store water, so %s switched on as %s: %s. Declare %s to set your own value.",
+        " and no ".join(added),
+        "it is" if one else "they are",
+        "a homogeneous field" if one else "homogeneous fields",
+        values,
+        " and ".join(f"[flow.param.{pid}.field]" for pid in added),
+    )
+    return payload
 
 
 _FAMILY_KEYS = frozenset({"dirichlet", "cauchy", "robin"})
@@ -626,7 +677,7 @@ class FlowConfig(HydroModelBase):
 
         if payload.get("param_values") is not None:
             raise ValueError("flow.param_values is no longer supported. Use flow.param.")
-        return payload
+        return _with_the_storage_of_a_transient(payload, cls.model_fields["flow_regime"].default)
 
     @field_validator("param_list", mode="before")
     @classmethod

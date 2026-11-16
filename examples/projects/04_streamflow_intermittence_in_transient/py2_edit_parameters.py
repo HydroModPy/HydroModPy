@@ -19,7 +19,7 @@ HERE = Path(__file__).resolve().parent
 # The model as project.toml describes it (one minute). An unchanged file is
 # not computed again: hmp.run returns the run of the last execution and logs a
 # warning that names it. Pass force=True to compute it again. Once the file
-# changes, the new run is nancon_intermittence_mf6.v2, next to the first: a
+# changes, the new run is nancon_intermittence_mf6_v2, next to the first: a
 # run is never overwritten.
 reference = hmp.run(HERE / "project.toml").open()
 

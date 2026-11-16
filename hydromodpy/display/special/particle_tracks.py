@@ -48,7 +48,8 @@ def _over_a_field(subject: Any, ax: Any, theme: Theme, name: str, time: str | in
     """Draw the map of ``name``, then the cells where the paths end and the thin dark lines."""
     paths, _ = read_pathlines(subject)
     instant = "last" if time is None else time
-    map_frame.draw(ax, map_frame.of_variable(subject, name, time), theme)
+    field = map_frame.of_variable(subject, name, time)
+    map_frame.draw(ax, field, theme)
     overlays.seepage(ax, subject, theme, instant)
     overlays.wells(ax, subject, theme, instant)
     overlays.pathlines(ax, subject, theme)
@@ -61,7 +62,8 @@ def _over_a_field(subject: Any, ax: Any, theme: Theme, name: str, time: str | in
         count.append(f"one in {-(-len(paths) // overlays.MAX_PATHLINES)} drawn")
     static.titles(ax, theme, ax.get_title(loc="left"), ", ".join(filter(None, count)))
     if ax.get_legend_handles_labels()[0]:
-        static.legend(ax, theme, inside="best")
+        corner = static.quiet_corner(ax, field.table["x"], field.table["y"])
+        static.legend(ax, theme, inside=corner)
 
 
 def draw(
@@ -126,4 +128,4 @@ def draw(
         ax, theme, f"Age of the water along the pathlines ({unit_text('yr')})", ", ".join(count)
     )
     if ax.get_legend_handles_labels()[0]:
-        static.legend(ax, theme, inside="best")
+        static.legend(ax, theme, inside=static.quiet_corner(ax, *mesh.centres.T))

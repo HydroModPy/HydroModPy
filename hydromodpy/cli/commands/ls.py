@@ -1,7 +1,7 @@
 """``hmp ls`` - list the runs of a project, or where its plan stands.
 
 By default it lists the sealed runs recorded in the project index. Each run shows its site, its label, its score and the ``overrides`` its seal
-records (what ``--set`` changed), so a ``.v2`` says how it differs.
+records (what ``--set`` changed), so a ``_v2`` says how it differs.
 ``--best METRIC`` ranks the runs by that metric, best first; ``--by site``
 groups them by site, and with ``--best`` keeps the best run of each site. The
 ranking rule is the one of ``hmp campaign collect``: scores computed on

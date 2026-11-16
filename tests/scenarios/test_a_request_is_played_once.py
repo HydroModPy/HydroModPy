@@ -158,11 +158,11 @@ def test_a_request_is_played_once(
         'flow.param.K.field.value="2e-5 m/s"',
     )
     assert changed.returncode == 0, changed.stderr[-3000:]
-    assert _runs(root) == ["island", "island.v2"]
-    assert (root / "runs" / "island.v2" / "manifest.json").is_file()
-    second = json.loads((root / "runs" / "island.v2" / "outcome.json").read_text("utf-8"))
+    assert _runs(root) == ["island", "island_v2"]
+    assert (root / "runs" / "island_v2" / "manifest.json").is_file()
+    second = json.loads((root / "runs" / "island_v2" / "outcome.json").read_text("utf-8"))
     assert second["request_id"] != outcome["request_id"]
-    played_set = json.loads((root / "runs" / "island.v2" / "request.json").read_text("utf-8"))
+    played_set = json.loads((root / "runs" / "island_v2" / "request.json").read_text("utf-8"))
     assert played_set["set"] == {"flow.param.K.field.value": "2e-5 m/s"}
 
     # 5. The claim comes before the inputs: a source that fails leaves its outcome.

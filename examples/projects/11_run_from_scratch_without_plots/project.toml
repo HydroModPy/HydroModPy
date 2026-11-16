@@ -97,11 +97,11 @@ enabled = false
 # The artifacts the run is for: one NetCDF of the gridded fields and the
 # catchment series as CSV, next to the Zarr and Parquet the catalog keeps.
 [[export]]
-variables = "all"
+variable = "all"
 format = "csv"
 
 
 [[export]]
-variables = ["head"]
+variable = ["head"]
 format = "netcdf"
 

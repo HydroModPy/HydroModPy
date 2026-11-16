@@ -243,4 +243,4 @@ def test_failed_calibration_reopens_or_starts_fresh(
     write_behaviour(project, {calibration_case: {"run": "session_die"}})
     run_plan(project, only=(calibration_case,), fresh=True)
     assert "--resume" not in seen(project, calibration_case)["flags"]
-    assert _sessions(project) == [calibration_case, f"{calibration_case}.v2"]
+    assert _sessions(project) == [calibration_case, f"{calibration_case}_v2"]

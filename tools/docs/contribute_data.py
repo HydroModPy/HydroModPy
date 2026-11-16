@@ -702,7 +702,7 @@ def storage_tree() -> dict[str, Any]:
         placeholder(
             "<run>/",
             2,
-            "One run, named after the run itself, with its ``.vN`` version suffix.",
+            "One run, named after the run itself, with its ``_vN`` version suffix.",
         ),
     ]
     for value in run_names:

@@ -1,4 +1,4 @@
-"""``reserve_version_dirname`` picks the next free ``<name>.vN`` directory of a project.
+"""``reserve_version_dirname`` picks the next free ``<name>_vN`` directory of a project.
 
 The version is read from the folders on disk, the trash and the tombstones, and
 ``mkdir`` makes the claim atomic. Runs and sessions share one version counter.
@@ -44,8 +44,8 @@ def test_the_next_run_of_a_live_name_is_the_next_version(tmp_path):
 
     third = reserve_version_dirname(tmp_path, "run", "nancon")
 
-    assert third.name == "nancon.v3"
-    assert _names(tmp_path / RUNS_DIRNAME) == ["nancon", "nancon.v2", "nancon.v3"]
+    assert third.name == "nancon_v3"
+    assert _names(tmp_path / RUNS_DIRNAME) == ["nancon", "nancon_v2", "nancon_v3"]
 
 
 def test_a_session_is_created_under_sessions(tmp_path):
@@ -59,7 +59,7 @@ def test_runs_and_sessions_share_one_version_space(tmp_path):
 
     unpaired = reserve_version_dirname(tmp_path, "run", "calibration")
 
-    assert unpaired.name == "calibration.v2"
+    assert unpaired.name == "calibration_v2"
 
 
 def test_a_promoted_run_takes_the_version_of_its_session(tmp_path):
@@ -69,9 +69,9 @@ def test_a_promoted_run_takes_the_version_of_its_session(tmp_path):
     run_first = reserve_version_dirname(tmp_path, "run", "calibration", pair_with=first)
     run_second = reserve_version_dirname(tmp_path, "run", "calibration", pair_with=second)
 
-    assert (first.name, second.name) == ("calibration", "calibration.v2")
+    assert (first.name, second.name) == ("calibration", "calibration_v2")
     assert run_first == tmp_path / RUNS_DIRNAME / "calibration"
-    assert run_second == tmp_path / RUNS_DIRNAME / "calibration.v2"
+    assert run_second == tmp_path / RUNS_DIRNAME / "calibration_v2"
     assert run_first.is_dir() and run_second.is_dir()
 
 
@@ -91,13 +91,13 @@ def test_pairing_refuses_a_directory_of_another_name(tmp_path):
 
 
 def test_the_highest_version_counts_not_the_number_of_directories(tmp_path):
-    (tmp_path / RUNS_DIRNAME / "nancon.v7").mkdir(parents=True)
+    (tmp_path / RUNS_DIRNAME / "nancon_v7").mkdir(parents=True)
 
-    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v8"
+    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon_v8"
 
 
 def test_another_stem_does_not_count(tmp_path):
-    for name in ("nancon_daily", "nancon_daily.v4", "nancon2"):
+    for name in ("nancon_daily", "nancon_daily_v4", "nancon2"):
         (tmp_path / RUNS_DIRNAME / name).mkdir(parents=True, exist_ok=True)
 
     assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon"
@@ -106,23 +106,23 @@ def test_another_stem_does_not_count(tmp_path):
 def test_a_trashed_version_counts_by_its_original_name(tmp_path):
     trash = tmp_path / TRASH_DIRNAME
     trash.mkdir()
-    (trash / trashed_dirname("runs/nancon.v3", AT)).mkdir()
+    (trash / trashed_dirname("runs/nancon_v3", AT)).mkdir()
 
-    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v4"
+    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon_v4"
 
 
 def test_a_tombstoned_version_counts(tmp_path):
     trash = tmp_path / TRASH_DIRNAME
     trash.mkdir()
     (trash / TOMBSTONES_FILENAME).write_text(
-        "sessions/nancon.v5,,2026-10-14T09:30:00Z\n", encoding="utf-8"
+        "sessions/nancon_v5,,2026-10-14T09:30:00Z\n", encoding="utf-8"
     )
 
-    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v6"
+    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon_v6"
 
 
 REFUSED_NAMES = [
-    pytest.param("nancon.v2", ValueError, "bare name 'nancon'", id="version suffix"),
+    pytest.param("nancon_v2", ValueError, "bare name 'nancon'", id="version suffix"),
     pytest.param("nancon amont", ConfigError, "nancon_amont", id="not a directory name"),
     pytest.param("a" * (MAX_NAME_LENGTH + 1), ConfigError, str(MAX_NAME_LENGTH), id="too long"),
 ]
@@ -157,5 +157,5 @@ def test_a_lost_mkdir_race_is_retried(tmp_path, monkeypatch):
 
     mine = reserve_version_dirname(tmp_path, "run", "nancon")
 
-    assert stolen == ["nancon.v2"]
-    assert mine.name == "nancon.v3"
+    assert stolen == ["nancon_v2"]
+    assert mine.name == "nancon_v3"

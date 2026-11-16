@@ -2,7 +2,7 @@
 
 A TOML ``[[export]]`` block, a ``run.export(...)`` call and ``hmp export``
 build the same :class:`ExportRequest`, so the words and the refusals are the
-same on the three surfaces. Only ``variables`` is required. The other keys say
+same on the three surfaces. Only ``variable`` is required. The other keys say
 when (``time`` or ``period``), in which format (``format``, or the extension of
 ``file``) and where (``folder``, ``file``). Left out, each takes the natural
 answer: the whole simulation, the natural format of each data, and the
@@ -58,7 +58,7 @@ from hydromodpy.schema.changes import prerelease_refusal
 from hydromodpy.schema.generated_views import VIEW_FILENAMES
 
 EXPORT_ALL = "all"
-"""The ``variables`` value that asks for everything a run holds."""
+"""The ``variable`` value that asks for everything a run holds."""
 
 STEP_DATE_TOKEN = "{date}"
 """Placeholder in a planned file name, filled with the date of each step written."""
@@ -185,7 +185,7 @@ def selector_token(selector: str | int) -> str:
 class ExportRequest(HydroModelBase):
     """One export: what to write, when, in which format, where.
 
-    Only ``variables`` is required. ``time`` names instants and ``period`` a
+    Only ``variable`` is required. ``time`` names instants and ``period`` a
     window; without either the whole simulation is written. ``format`` is
     optional: each data goes to its natural format (a field at one date to
     GeoTIFF, over several dates to NetCDF, a series or a table to CSV, a vector
@@ -193,7 +193,7 @@ class ExportRequest(HydroModelBase):
     names the format too.
     """
 
-    variables: Annotated[str | list[str], Profile.USER] = Field(
+    variable: Annotated[str | list[str], Profile.USER] = Field(
         description=(
             'What to export: a name, a list of names, or "all" for everything the run '
             "holds. One namespace covers the mesh fields (head, watertable_depth, "
@@ -227,7 +227,7 @@ class ExportRequest(HydroModelBase):
         description=(
             "The file format, a name the export registry serves. Left out, each data "
             "takes its natural format, or the one the extension of 'file' names. A "
-            'view format describes the whole run and takes variables = "all" only. '
+            'view format describes the whole run and takes variable = "all" only. '
             "The portable archive of a run is written by 'hmp publish --container tar'."
         ),
         json_schema_extra=_the_format_help,
@@ -269,7 +269,7 @@ class ExportRequest(HydroModelBase):
         ),
         json_schema_extra={"unit": "CRS unit"},
     )
-    layer: Annotated[int | None, Profile.DEV] = Field(
+    layer: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=0,
         description=(
@@ -294,12 +294,17 @@ class ExportRequest(HydroModelBase):
 
     @model_validator(mode="before")
     @classmethod
-    def _require_variables(cls, data: Any) -> Any:
-        """Say what to write when ``variables`` is missing, not only that it is."""
-        if isinstance(data, Mapping) and "variables" not in data:
+    def _require_variable(cls, data: Any) -> Any:
+        """Say what to write when ``variable`` is missing, not only that it is."""
+        if isinstance(data, Mapping) and "variables" in data:
             raise ValueError(
-                'variables is missing: name what to export, e.g. variables = "head", '
-                'variables = ["head", "discharge"], or variables = "all".'
+                "variables is now variable, the key [[display.figure]] writes too: write "
+                f"variable = {data['variables']!r}."
+            )
+        if isinstance(data, Mapping) and "variable" not in data:
+            raise ValueError(
+                'variable is missing: name what to export, e.g. variable = "head", '
+                'variable = ["head", "discharge"], or variable = "all".'
             )
         return data
 
@@ -331,20 +336,20 @@ class ExportRequest(HydroModelBase):
             )
         return value
 
-    @field_validator("variables")
+    @field_validator("variable")
     @classmethod
-    def _check_variables(cls, value: str | list[str]) -> str | list[str]:
+    def _check_variable(cls, value: str | list[str]) -> str | list[str]:
         names = [value] if isinstance(value, str) else list(value)
         if not names or any(not name for name in names):
             raise ValueError(
-                'variables is empty: name what to export, e.g. variables = "head", or '
-                'variables = "all".'
+                'variable is empty: name what to export, e.g. variable = "head", or '
+                'variable = "all".'
             )
         if isinstance(value, list) and EXPORT_ALL in value:
             if len(value) == 1:
                 return EXPORT_ALL
             raise ValueError(
-                f'variables = {value!r} mixes "all" with names. Write variables = "all" '
+                f'variable = {value!r} mixes "all" with names. Write variable = "all" '
                 "alone, or list the names."
             )
         return value
@@ -506,10 +511,9 @@ class ExportRequest(HydroModelBase):
 
     def _check_run_format(self, fmt: str) -> None:
         """A run format describes the whole run: every selector is refused."""
-        if self.variables != EXPORT_ALL:
+        if self.variable != EXPORT_ALL:
             raise ValueError(
-                f"format = {fmt!r} describes the whole run, not a variable. Write "
-                f'variables = "all".'
+                f'format = {fmt!r} describes the whole run, not a variable. Write variable = "all".'
             )
         given = [
             key
@@ -528,8 +532,8 @@ class ExportRequest(HydroModelBase):
         if fmt not in one_instant_formats():
             return
         reasons: list[str] = []
-        if self.variables == EXPORT_ALL:
-            reasons.append('variables = "all" writes one file per name')
+        if self.variable == EXPORT_ALL:
+            reasons.append('variable = "all" writes one file per name')
         elif (count := _count_files(self.names, fmt)) > 1:
             n_names = len(self.names)
             reasons.append(
@@ -549,14 +553,14 @@ class ExportRequest(HydroModelBase):
     @property
     def exports_all(self) -> bool:
         """True when the request asks for everything the run holds."""
-        return self.variables == EXPORT_ALL
+        return self.variable == EXPORT_ALL
 
     @property
     def names(self) -> list[str]:
         """The names the request lists, empty when it asks for ``"all"``."""
         if self.exports_all:
             return []
-        return [self.variables] if isinstance(self.variables, str) else list(self.variables)
+        return [self.variable] if isinstance(self.variable, str) else list(self.variable)
 
     @property
     def times(self) -> list[str | int]:
@@ -661,7 +665,7 @@ def plan_outputs(
     run_label
         The name of the run: the stem of a file that holds several variables.
     names
-        What ``variables = "all"`` stands for on this run. Ignored for a
+        What ``variable = "all"`` stands for on this run. Ignored for a
         request that lists its names. Without it, a data request for "all"
         plans nothing: the run decides what it holds.
 
@@ -792,7 +796,7 @@ def load_export_requests(data: Any) -> list[ExportRequest]:
     if isinstance(data, Mapping):
         told = (
             "[export] is written as a table. An export is a request, one block per "
-            'request: write [[export]] with variables = "...", and one block more for '
+            'request: write [[export]] with variable = "...", and one block more for '
             "each other export."
         )
         if data:

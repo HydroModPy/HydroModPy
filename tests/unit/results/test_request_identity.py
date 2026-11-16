@@ -37,7 +37,7 @@ DOCUMENT: dict[str, Any] = {
         },
     },
     "mesh": {"engine": "regular", "refinement_zone": [{"run": "spinup", "cell_size": 25}]},
-    "export": [{"variables": ["head"], "file": "head_last.tif"}],
+    "export": [{"variable": ["head"], "file": "head_last.tif"}],
 }
 INPUTS = {input_role("dem", 0): ("a" * 64, "raw"), input_role("recharge", 0): ("b" * 64, None)}
 EDITION = "2.0"

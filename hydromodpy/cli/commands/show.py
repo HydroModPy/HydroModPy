@@ -13,7 +13,7 @@ holds. A selector names another reading.
 - ``--report`` the report of a run or of a session.
 - ``--table NAME`` one sealed table.
 
-A reference is a run directory, a name in the project (``base.v2``), a session, an
+A reference is a run directory, a name in the project (``base_v2``), a session, an
 ``@``-selector, or ``.`` for the project. Without one, the project of ``-w`` or of
 the current directory is shown.
 """
@@ -55,13 +55,13 @@ REFUSED_REPORT_FILE = (
 
 _EPILOG = """\
 Examples:
-  hmp show base.v2
+  hmp show base_v2
   hmp show calage --format json
-  hmp show base.v2 --profile
-  hmp show base.v2 --figure watertable_depth_map --time 2002-10-15 --to map.png
+  hmp show base_v2 --profile
+  hmp show base_v2 --figure watertable_depth_map --time 2002-10-15 --to map.png
   hmp show run_a run_b --point --var head --cell 5000 --to point.csv
   hmp show . --rank nse -n 5
-  hmp show base.v2 --report --preset management
+  hmp show base_v2 --report --preset management
 """
 
 

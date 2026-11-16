@@ -199,7 +199,7 @@ def zone_runs(
     """The ``sim_id`` of the run each zone read, by the reference its table writes.
 
     The frozen configuration writes these ``sim_id`` in place of the run names,
-    so a replay reads the run the mesh came from, not a later ``.vN`` of it.
+    so a replay reads the run the mesh came from, not a later ``_vN`` of it.
     The planner leaves out a zone drawn by a threshold when the engine does not
     grade its cells, and then no run was read. Otherwise it keeps one zone per
     table, in order.

@@ -1023,7 +1023,7 @@ LIGHT_KEPT = [
     pytest.param(
         {"K": K_PATH, "f": "flow.sinks_sources.recharge.f"}, 1, id="a profile and a recharge factor"
     ),
-    pytest.param({"Ss": "flow.param.Ss.field.value"}, 1, id="an id param_list does not declare"),
+    pytest.param({"Kv": "flow.param.Kv.field.value"}, 1, id="an id param_list does not declare"),
     pytest.param({"K": K_PATH}, 0, id="an earliest step before prepare_solver"),
 ]
 

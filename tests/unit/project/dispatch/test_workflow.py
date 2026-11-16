@@ -229,7 +229,7 @@ def test_mesh_summary_needs_mesh_process() -> None:
 
 
 def _deliver_to_block() -> dict[str, Any]:
-    return {"variables": "all", "deliver_to": ["ftp://example.org/incoming/"]}
+    return {"variable": "all", "deliver_to": ["ftp://example.org/incoming/"]}
 
 
 def _preflight_spy(monkeypatch: pytest.MonkeyPatch) -> list[tuple[int, Any, Any]]:
@@ -382,7 +382,7 @@ _CALIBRATION_WITH_DELIVERY = (
     _CALIBRATION
     + """
 [[export]]
-variables = "all"
+variable = "all"
 deliver_to = "ftp://example.org/incoming/"
 """
 )
@@ -910,16 +910,16 @@ def test_newest_sealed_version_answers(monkeypatch: pytest.MonkeyPatch, tmp_path
     import hydromodpy.workflow.replay_checks as replay_checks
 
     runs = tmp_path / "runs"
-    for name in ("case", "case.v2", "case.v3", "other"):
+    for name in ("case", "case_v2", "case_v3", "other"):
         (runs / name).mkdir(parents=True)
     (runs / "stray.txt").write_text("x", encoding="utf-8")
-    sealed = {"case": "H", "case.v2": "H", "case.v3": "unsealed-or-other", "other": "H"}
+    sealed = {"case": "H", "case_v2": "H", "case_v3": "unsealed-or-other", "other": "H"}
     monkeypatch.setattr(sealing, "sealed_solution_key", lambda run_dir: sealed[run_dir.name])
     monkeypatch.setattr(replay_checks, "api_inputs_intact", lambda run_dir, root: True)
     monkeypatch.setattr(retention, "level_at", lambda run_dir: "result")
 
-    assert wf.completed_identical_run(tmp_path, "case", "H") == runs / "case.v2"
-    sealed["case.v2"] = sealed["case"] = "different"
+    assert wf.completed_identical_run(tmp_path, "case", "H") == runs / "case_v2"
+    sealed["case_v2"] = sealed["case"] = "different"
     assert wf.completed_identical_run(tmp_path, "case", "H") is None
     assert wf.completed_identical_run(tmp_path, "case", None) is None
 
@@ -931,16 +931,16 @@ def test_research_version_does_not_answer(monkeypatch: pytest.MonkeyPatch, tmp_p
     import hydromodpy.workflow.replay_checks as replay_checks
 
     runs = tmp_path / "runs"
-    for name in ("case", "case.v2"):
+    for name in ("case", "case_v2"):
         (runs / name).mkdir(parents=True)
     monkeypatch.setattr(sealing, "sealed_solution_key", lambda run_dir: "H")
     monkeypatch.setattr(replay_checks, "api_inputs_intact", lambda run_dir, root: True)
-    levels = {"case": "research", "case.v2": "result"}
+    levels = {"case": "research", "case_v2": "result"}
     monkeypatch.setattr(retention, "level_at", lambda run_dir: levels[run_dir.name])
 
-    assert wf.completed_identical_run(tmp_path, "case", "H") == runs / "case.v2"
+    assert wf.completed_identical_run(tmp_path, "case", "H") == runs / "case_v2"
 
-    levels.update({"case": "research", "case.v2": "research"})
+    levels.update({"case": "research", "case_v2": "research"})
     assert wf.completed_identical_run(tmp_path, "case", "H") is None
 
 

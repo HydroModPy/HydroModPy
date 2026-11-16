@@ -309,7 +309,7 @@ def completed_identical_run(project_root: Path, name: str, key: str | None) -> P
     computes, the solver binaries and the numeric packages. It is the
     ``identity.solution_key`` a run seals, so two runs of an unchanged file on
     unchanged data match. The run must carry the name ``name`` or be a
-    version of it (``name.v2``): every version is looked at, newest first,
+    version of it (``name_v2``): every version is looked at, newest first,
     because the user asks for this request and any sealed run of it
     answers, whichever version last ran it. Read from the manifests under
     ``runs/``, never from the index; a directory without a seal, or whose
@@ -319,7 +319,7 @@ def completed_identical_run(project_root: Path, name: str, key: str | None) -> P
     recorded: a provider that refreshed it leaves the run to compute again.
     """
     from hydromodpy.core.state.layout import runs_dir_for
-    from hydromodpy.results.catalog.registration import split_stem_version
+    from hydromodpy.core.state.names import split_stem_version
     from hydromodpy.results.retention import level_at
     from hydromodpy.results.storage.kept import at_least
     from hydromodpy.results.storage.sealing import sealed_solution_key

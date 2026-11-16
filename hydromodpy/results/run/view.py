@@ -600,7 +600,7 @@ class Run(
 
     def export(
         self,
-        variables: str | list[str],
+        variable: str | list[str],
         *,
         time: Any = None,
         period: tuple[Any, Any] | None = None,
@@ -614,7 +614,7 @@ class Run(
     ) -> list[Path]:
         """Export data of this run to files; return the files written.
 
-        The words of an ``[[export]]`` block: ``variables`` says what (a name,
+        The words of an ``[[export]]`` block: ``variable`` says what (a name,
         a list, or ``"all"``), ``time`` or ``period`` when, ``folder`` or
         ``file`` where. The format follows the data unless ``format`` or the
         extension of ``file`` names one: a field at one date goes to GeoTIFF,
@@ -637,7 +637,7 @@ class Run(
         from hydromodpy.results.exporters.request import export_run
 
         fields = {
-            "variables": variables,
+            "variable": variable,
             "time": time,
             "period": period,
             "format": format,

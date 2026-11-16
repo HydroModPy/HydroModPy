@@ -41,8 +41,8 @@ def with_overrides(run_dir: Path, overrides: dict) -> None:
 def project(tmp_path: Path) -> Path:
     root = make_project(tmp_path / "bretagne")
     seal_run(root, "J0014010-base", project="bretagne", site="J0014010", recipe="base", nse=0.62)
-    seal_run(root, "J0014010-base.v2", project="bretagne", site="J0014010", recipe="base", nse=0.81)
-    with_overrides(root / "runs" / "J0014010-base.v2", {"flow.param.K.field.value": 2e-5})
+    seal_run(root, "J0014010-base_v2", project="bretagne", site="J0014010", recipe="base", nse=0.81)
+    with_overrides(root / "runs" / "J0014010-base_v2", {"flow.param.K.field.value": 2e-5})
     seal_run(root, "J0170000-base", project="bretagne", site="J0170000", recipe="base", nse=0.55)
     rebuild_index(root)
     return root

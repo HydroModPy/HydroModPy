@@ -422,8 +422,11 @@ def test_only_a_row_that_rewrites_counts_as_a_migration(
         ("simulation.if_exists", False, False),
         ("geographic.catchment.buff_area", False, False),
         # A line of the tables under a key covers what lies below it, not the key.
-        ("export.variables", False, False),
-        ("export.variables.head", False, True),
+        ("flow.bc.dirichlet", False, False),
+        ("flow.bc.dirichlet.north", False, True),
+        # A moved key whose tables a pre-release wrote: the row covers both.
+        ("export.variables", True, False),
+        ("export.variables.head", True, True),
     ],
 )
 def test_a_path_finds_the_row_or_the_line_that_covers_it(path: str, row: bool, line: bool) -> None:

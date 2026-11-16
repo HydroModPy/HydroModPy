@@ -65,7 +65,7 @@ def _outcome(run_dir: Path, status: str, *, started_at: datetime, dead: bool = F
 
 
 def _versions(project: Path, stem: str, count: int) -> list[Path]:
-    names = [stem] + [f"{stem}.v{n}" for n in range(2, count + 1)]
+    names = [stem] + [f"{stem}_v{n}" for n in range(2, count + 1)]
     return [_make_run(project, name) for name in names]
 
 
@@ -92,7 +92,7 @@ def test_pinned_run_is_spared(monkeypatch, capsys, tmp_path) -> None:
 
     report = _gc(monkeypatch, capsys, project, "--keep-versions", "1", "-y")
 
-    assert report["projects"][str(project.resolve())]["plan"]["superseded_runs"] == ["runs/x.v2"]
+    assert report["projects"][str(project.resolve())]["plan"]["superseded_runs"] == ["runs/x_v2"]
     assert (project / RUNS_DIRNAME / "x").is_dir()
 
 

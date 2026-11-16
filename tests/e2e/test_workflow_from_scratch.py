@@ -248,7 +248,7 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
     from hydromodpy.results.exporters.request import export_run
 
     with hmp.open(project_dir).store as catalog:
-        written = export_run(catalog, sim_id, ExportRequest(variables="head", file="head.nc"))
+        written = export_run(catalog, sim_id, ExportRequest(variable="head", file="head.nc"))
 
     nc_out = project_dir / "runs" / "from_scratch_sim" / "exports" / "head.nc"
     assert written == [nc_out], "NetCDF file should be produced under the run"

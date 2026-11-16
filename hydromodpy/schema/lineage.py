@@ -14,8 +14,8 @@ Format
 ``session_id``, ``phase`` and ``trial`` name the calibration trial a promoted
 run is. ``kind`` says which relation holds. ``overrides`` is what ``--set``,
 ``--overlay`` or a keyword of ``Project.simulate`` changed against the file the
-run was launched from, as dotted paths to values, so a ``.v2`` says what differs
-from the ``.v1``. ``drift`` is what a rerun found moved against the configuration
+run was launched from, as dotted paths to values, so a ``_v2`` says what differs
+from the ``_v1``. ``drift`` is what a rerun found moved against the configuration
 its parent sealed: a default that changed since, with both values, by dotted path.
 """
 

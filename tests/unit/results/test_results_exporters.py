@@ -28,6 +28,7 @@ from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.results.exporters.geotiff import _resampling_for
+from hydromodpy.results.exporters.netcdf import export_netcdf
 from hydromodpy.results.exporters.request import export_run
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
@@ -143,12 +144,12 @@ def test_a_netcdf_for_qgis_names_one_layer(catalog_with_data):
     # dimension and ignores an array carrying a third one.
     catalog, sid, exports = catalog_with_data
     out = exports / "one.nc"
-    _export(catalog, sid, variables="head", file=out, layer=1)
+    _export(catalog, sid, variable="head", file=out, layer=1)
     ds = xr.open_dataset(out, decode_times=False)
     assert ds["head"].dims == ("time", "n_face")
     assert int(ds["layer"]) == 1
     whole = exports / "whole.nc"
-    _export(catalog, sid, variables="head", file=whole)
+    _export(catalog, sid, variable="head", file=whole)
     with xr.open_dataset(whole, decode_times=False) as every:
         np.testing.assert_array_equal(ds["head"].values, every["head"].sel(layer=1).values)
     ds.close()
@@ -157,7 +158,7 @@ def test_a_netcdf_for_qgis_names_one_layer(catalog_with_data):
 def test_a_geotiff_holds_its_nodata_value(catalog_with_data):
     catalog, sid, exports = catalog_with_data
     out = exports / "nodata.tif"
-    _export(catalog, sid, variables="head", file=out, time=0, layer=0, nodata=-1.0)
+    _export(catalog, sid, variable="head", file=out, time=0, layer=0, nodata=-1.0)
 
     with rasterio.open(str(out)) as src:
         assert src.nodata == -1.0
@@ -167,7 +168,7 @@ def test_a_geotiff_resolution_left_out_follows_the_mesh(catalog_with_data):
     catalog, sid, exports = catalog_with_data
     out = exports / "auto.tif"
 
-    assert _export(catalog, sid, variables="head", file=out, time=0, layer=0).exists()
+    assert _export(catalog, sid, variable="head", file=out, time=0, layer=0).exists()
 
 
 REFUSED_REQUESTS = [
@@ -190,7 +191,7 @@ REFUSED_REQUESTS = [
         {"file": "out.pq", "format": "parquet"}, ValidationError, "format", id="unknown format"
     ),
     pytest.param(
-        {"file": "missing.nc", "variables": "nonexistent_field"},
+        {"file": "missing.nc", "variable": "nonexistent_field"},
         ExportError,
         "no run can export 'nonexistent_field'",
         id="a name no run holds",
@@ -203,13 +204,13 @@ def test_an_unknown_format_is_refused_before_any_io(catalog_with_data):
 
     # The absolute file is refused too, so both errors are raised at construction.
     with pytest.raises(ValidationError):
-        ExportRequest(variables="head", format="parquet", file=exports / "out.pq")
+        ExportRequest(variable="head", format="parquet", file=exports / "out.pq")
 
 
 @pytest.mark.parametrize(("request_fields", "error", "message"), REFUSED_REQUESTS)
 def test_refused_requests(catalog_with_data, request_fields, error, message):
     catalog, sid, exports = catalog_with_data
-    fields = {"variables": "head"} | request_fields
+    fields = {"variable": "head"} | request_fields
     fields["file"] = exports / fields["file"]
 
     with pytest.raises(error, match=message):
@@ -221,18 +222,18 @@ def test_netcdf_crs_is_restated_the_way_mdal_reads_it(catalog_with_data):
     catalog.write_crs(sid, crs_wkt=CRS.from_epsg(2154).to_wkt(), epsg_code=2154)
 
     out = exports / "crs.nc"
-    _export(catalog, sid, variables="head", file=out)
+    _export(catalog, sid, variable="head", file=out)
 
     ds = xr.open_dataset(out, decode_times=False)
     try:
         # The CF grid mapping stays, and carries WKT2 as it should.
         assert ds["crs"].attrs["crs_wkt"].startswith("PROJCRS[")
-        # MDAL looks this variable up by name and parses WKT1 only: handed
-        # WKT2 it keeps no CRS at all and QGIS draws the mesh nowhere near
-        # the catchment.
-        mdal = ds["projected_coordinate_system"].attrs
-        assert mdal["epsg"] == 2154
-        assert mdal["wkt"].startswith("PROJCS[")
+        # MDAL follows the grid mapping of the nodes to this variable, reads
+        # epsg, then wkt as WKT1 only. Without them it keeps no CRS at all and
+        # QGIS draws the mesh nowhere near the catchment.
+        assert ds["node_x"].attrs["grid_mapping"] == "crs"
+        assert ds["crs"].attrs["epsg"] == 2154
+        assert ds["crs"].attrs["wkt"].startswith("PROJCS[")
     finally:
         ds.close()
 
@@ -240,7 +241,7 @@ def test_netcdf_crs_is_restated_the_way_mdal_reads_it(catalog_with_data):
 def test_a_failed_export_leaves_the_previous_file_alone(catalog_with_data, monkeypatch):
     catalog, sid, exports = catalog_with_data
     out = exports / "kept.nc"
-    _export(catalog, sid, variables="head", file=out)
+    _export(catalog, sid, variable="head", file=out)
     before = out.read_bytes()
 
     def fail_midway(self, path, *args, **kwargs):
@@ -249,7 +250,7 @@ def test_a_failed_export_leaves_the_previous_file_alone(catalog_with_data, monke
 
     monkeypatch.setattr(xr.Dataset, "to_netcdf", fail_midway)
     with pytest.raises(OSError):
-        _export(catalog, sid, variables="head", file=out)
+        _export(catalog, sid, variable="head", file=out)
 
     assert out.read_bytes() == before
     assert not (exports / "kept.nc.tmp").exists()
@@ -294,6 +295,33 @@ def catalog_on_lambert93(tmp_path):
     yield run, sid, run.exports, (x0, y0, x0 + 2 * step, y0 + 2 * step)
 
 
+def test_a_netcdf_of_one_layer_is_a_mesh_qgis_reads(catalog_on_lambert93):
+    # MDAL, what QGIS reads a mesh with, keeps a dataset on (time, n_face) or
+    # (n_face) only, and drops the whole mesh when one array is a byte.
+    catalog, sid, exports, _ = catalog_on_lambert93
+    out = exports / "qgis.nc"
+    _export(catalog, sid, variable="head", file=out)
+    with xr.open_dataset(out, decode_times=False, decode_coords=False) as ds:
+        assert ds["head"].dims == ("time", "n_face")
+        assert ds["head"].attrs["coordinates"] == "face_x face_y layer"
+        assert int(ds["layer"]) == 0
+        # A scalar xarray coordinate would be named on the nodes too, and MDAL
+        # then reads no face.
+        assert "coordinates" not in ds["node_x"].attrs
+
+    idomain = exports / "idomain.nc"
+    export_netcdf(
+        exports.parent / "fields.zarr",
+        sid,
+        ["idomain"],
+        idomain,
+        values={"idomain": np.ones((1, 4), dtype=np.int8)},
+    )
+    with xr.open_dataset(idomain, decode_times=False) as ds:
+        assert ds["idomain"].dims == ("n_face",)
+        assert ds["idomain"].dtype == np.int32
+
+
 def _lonlat_envelope(bounds: tuple[float, float, float, float]) -> tuple[float, ...]:
     """Lon/lat envelope of a Lambert-93 rectangle, corner by corner.
 
@@ -313,7 +341,7 @@ def _lonlat_envelope(bounds: tuple[float, float, float, float]) -> tuple[float, 
 def test_raster_keeps_the_native_grid(catalog_on_lambert93):
     catalog, sid, exports, bounds = catalog_on_lambert93
     out = exports / "native.tif"
-    _export(catalog, sid, variables="head", file=out, time=0, resolution=100.0)
+    _export(catalog, sid, variable="head", file=out, time=0, resolution=100.0)
 
     with rasterio.open(str(out)) as src:
         assert src.crs.to_epsg() == 2154
@@ -323,7 +351,7 @@ def test_raster_keeps_the_native_grid(catalog_on_lambert93):
 def test_raster_is_warped_to_another_crs(catalog_on_lambert93):
     catalog, sid, exports, bounds = catalog_on_lambert93
     out = exports / "wgs84.tif"
-    _export(catalog, sid, variables="head", file=out, time=0, resolution=100.0, crs="EPSG:4326")
+    _export(catalog, sid, variable="head", file=out, time=0, resolution=100.0, crs="EPSG:4326")
 
     lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
     with rasterio.open(str(out)) as src:
@@ -344,7 +372,7 @@ def test_raster_is_warped_to_another_crs(catalog_on_lambert93):
 def test_vector_is_reprojected(catalog_on_lambert93):
     catalog, sid, exports, bounds = catalog_on_lambert93
     out = exports / "cells_wgs84.gpkg"
-    _export(catalog, sid, variables="head", file=out, time=0, crs="EPSG:4326")
+    _export(catalog, sid, variable="head", file=out, time=0, crs="EPSG:4326")
 
     gdf = gpd.read_file(str(out))
     lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
@@ -356,7 +384,7 @@ def test_vector_is_reprojected(catalog_on_lambert93):
 def test_vector_keeps_the_native_geometries(catalog_on_lambert93):
     catalog, sid, exports, bounds = catalog_on_lambert93
     out = exports / "cells_native.gpkg"
-    _export(catalog, sid, variables="head", file=out, time=0)
+    _export(catalog, sid, variable="head", file=out, time=0)
 
     gdf = gpd.read_file(str(out))
     assert gdf.crs.to_epsg() == 2154

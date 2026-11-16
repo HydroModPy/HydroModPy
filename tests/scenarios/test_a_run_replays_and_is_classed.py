@@ -8,7 +8,7 @@ then a copy of the frozen ``demo`` run of the release. Four steps:
    seals the request id its outcome wrote and a solution key of its own,
    certifies ``products.json`` and ``final_state/``, and ``seal_problems``
    finds nothing to repair.
-2. ``hmp replay runs/island --strict``: ``runs/island.v2/`` is sealed, its
+2. ``hmp replay runs/island --strict``: ``runs/island_v2/`` is sealed, its
    lineage is a replay of the island, class ``bit`` on the ``float64`` basis,
    and the values reproduce to the double.
 3. ``hmp.compare`` reads the source and the replay side by side.
@@ -84,7 +84,7 @@ def test_a_run_replays_and_is_classed(
     # 2. The same run played again, refusing a value that does not reproduce.
     replayed = _hmp(root, scenario_env, "replay", "runs/island", "--strict")
     assert replayed.returncode == 0, _said(replayed)
-    replay_dir = root / "runs" / "island.v2"
+    replay_dir = root / "runs" / "island_v2"
     replay_seal = read_seal(replay_dir)
     assert replay_seal.manifest_version == 4
     assert replay_seal.lineage.kind == "replay"
@@ -102,8 +102,8 @@ def test_a_run_replays_and_is_classed(
     assert seal_problems(replay_dir) == []
 
     # 3. A replay is a run among the others: the comparison reads both.
-    compared = hmp.compare(["island", "island.v2"], workspace=root)
-    assert compared.tables["runs"]["run"].tolist() == ["island", "island.v2"]
+    compared = hmp.compare(["island", "island_v2"], workspace=root)
+    assert compared.tables["runs"]["run"].tolist() == ["island", "island_v2"]
     assert set(compared.tables) >= {"runs", "parameters", "scores", "budget"}
 
     # 4. The frozen run of the release is read, replayed and classed.
@@ -119,7 +119,7 @@ def test_a_run_replays_and_is_classed(
 
     demo_replay = _hmp(project, scenario_env, "replay", "runs/demo")
     assert demo_replay.returncode == 0, _said(demo_replay)
-    played_seal = read_seal(project / "runs" / "demo.v2")
+    played_seal = read_seal(project / "runs" / "demo_v2")
     assert played_seal.manifest_version == 4
     assert played_seal.lineage.kind == "replay"
     played = played_seal.lineage.replay

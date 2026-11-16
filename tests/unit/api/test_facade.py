@@ -255,7 +255,7 @@ def test_best_mixed_windows(tmp_path: Path) -> None:
     project = _campaign(tmp_path)
     _launched(project)
     other = DateWindow(start=date(2010, 1, 1), end=date(2014, 12, 31))
-    seal_run(project, "nancon-base.v2", site="nancon", recipe="base", nse=0.9, window=other)
+    seal_run(project, "nancon-base_v2", site="nancon", recipe="base", nse=0.9, window=other)
 
     with api.open(project) as proj:
         with pytest.raises(MixedWindowsError, match="different rules"):

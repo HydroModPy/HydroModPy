@@ -150,7 +150,7 @@ class RoutingSurface:
         The edge of the active mesh, and nothing else. The outlet is left out
         on purpose: sealing a cell does not make the surface drain through it,
         and seeding it hides the depression the outlet may itself sit in.
-        Measured on nancon_diagnostic.v2, where the outlet is cell 49905 at
+        Measured on nancon_diagnostic_v2, where the outlet is cell 49905 at
         106.42 m and interior to the mesh: adding it as a seed dropped fifteen
         cells from the answer, its own among them, and that one needs 4.07 m of
         fill before it spills to the edge of the domain.

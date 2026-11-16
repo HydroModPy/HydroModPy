@@ -5,7 +5,7 @@ An overview is a producer of the project: its panels go to
 ``runs/<overview>/report/``. ``<overview>`` is the ``[site] name`` of the
 configuration, else ``[overview] name``. An overview claims its directory
 through the attempt protocol, so a second overview of the same name is
-``runs/<overview>.v2/``: the directory of an overview is the latest version
+``runs/<overview>_v2/``: the directory of an overview is the latest version
 of its name.
 """
 

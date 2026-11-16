@@ -25,7 +25,7 @@ class Diagnostic:
     """One finding of a check, at one key of the document.
 
     ``path`` is the dotted key as the document spells it, ``flow.param.K.field``
-    or ``export[0].variables``, and ``""`` for the whole document. ``code`` is one
+    or ``export[0].variable``, and ``""`` for the whole document. ``code`` is one
     of the check codes, the keys of ``[check]`` in ``schema/phrases.toml``.
     ``detail`` is what the validator said about this case, in English, and
     ``help`` the description of the field at ``path`` when the model has one.

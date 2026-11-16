@@ -6,8 +6,8 @@ project root is::
 
     project.toml            configuration, and the marker of the root
     configs/                config variants (user-managed, never created)
-    runs/<case>[.vN]/       one directory per run; every artifact of a run lives in it
-    sessions/<case>[.vN]/   one directory per calibration session
+    runs/<case>[_vN]/       one directory per run; every artifact of a run lives in it
+    sessions/<case>[_vN]/   one directory per calibration session
         trials/<nnnn>/      a kept trial of the session, itself a run directory
     summary/                derived tables, figures and report of a project of N cases
     plan/<hash>/            the immutable plan of a [sites] project; plan/current names it

@@ -240,9 +240,9 @@ def store(tmp_path, monkeypatch):
 def test_requests_need_no_index(store) -> None:
     requests = load_export_requests(
         [
-            {"variables": "watershed"},
-            {"variables": "mesh_cell_area", "format": "geotiff"},
-            {"variables": "all", "format": "rocrate"},
+            {"variable": "watershed"},
+            {"variable": "mesh_cell_area", "format": "geotiff"},
+            {"variable": "all", "format": "rocrate"},
         ]
     )
 
@@ -319,7 +319,7 @@ def test_storage_term_is_listed(storage_run) -> None:
 
 def test_storage_term_to_netcdf(storage_run) -> None:
     catalog, sid, exports = storage_run
-    written = export_run(catalog, sid, ExportRequest(variables="storage_sy"))
+    written = export_run(catalog, sid, ExportRequest(variable="storage_sy"))
     assert written == [exports / "storage_sy.nc"]
     with xr.open_dataset(written[0]) as ds:
         assert ds["storage_sy"].attrs["units"] == "m3 s-1"
@@ -329,7 +329,7 @@ def test_storage_term_to_netcdf(storage_run) -> None:
 def test_storage_term_to_geotiff(storage_run) -> None:
     catalog, sid, exports = storage_run
     written = export_run(
-        catalog, sid, ExportRequest(variables="storage_sy", time="2000-02-15", format="geotiff")
+        catalog, sid, ExportRequest(variable="storage_sy", time="2000-02-15", format="geotiff")
     )
     assert written == [exports / "storage_sy_2000-02-15.tif"]
     with rasterio.open(written[0]) as src:
@@ -338,7 +338,7 @@ def test_storage_term_to_geotiff(storage_run) -> None:
 
 def test_all_includes_storage(storage_run) -> None:
     catalog, sid, _exports = storage_run
-    (written,) = export_run(catalog, sid, ExportRequest(variables="all"))
+    (written,) = export_run(catalog, sid, ExportRequest(variable="all"))
     with xr.open_dataset(written) as ds:
         assert {"head", "storage_sy"} <= set(ds.data_vars)
 
@@ -575,7 +575,7 @@ def _names(paths: list[Path]) -> list[str]:
 
 def test_field_at_one_date(dated_run) -> None:
     catalog, sid, exports = dated_run
-    written = export_run(catalog, sid, ExportRequest(variables="head", time="2000-02-15"))
+    written = export_run(catalog, sid, ExportRequest(variable="head", time="2000-02-15"))
     assert written == [exports / "head_2000-02-15.tif"]
     with rasterio.open(written[0]) as src:
         # 2000-02-15 falls in the February period, the second one.
@@ -585,7 +585,7 @@ def test_field_at_one_date(dated_run) -> None:
 
 def test_one_file_per_period(dated_run) -> None:
     catalog, sid, _exports = dated_run
-    written = export_run(catalog, sid, ExportRequest(variables="head", format="geotiff"))
+    written = export_run(catalog, sid, ExportRequest(variable="head", format="geotiff"))
     assert _names(written) == ["head_2000-01.tif", "head_2000-02.tif", "head_2000-03.tif"]
 
 
@@ -594,8 +594,8 @@ def test_file_name_taken_twice(
 ) -> None:
     catalog, sid, exports = dated_run
     requests = [
-        ExportRequest(variables=["head", "watertable_depth"]),
-        ExportRequest(variables="head", file="demo_fields.nc"),
+        ExportRequest(variable=["head", "watertable_depth"]),
+        ExportRequest(variable="head", file="demo_fields.nc"),
     ]
 
     with pytest.raises(ExportError, match=r"demo_fields\.nc is already written by an earlier"):
@@ -607,7 +607,7 @@ def test_file_name_taken_twice(
 def test_all_in_one_format(dated_run) -> None:
     catalog, sid, _exports = dated_run
     written = export_run(
-        catalog, sid, ExportRequest(variables="all", time="2000-03-01", format="geotiff")
+        catalog, sid, ExportRequest(variable="all", time="2000-03-01", format="geotiff")
     )
     assert _names(written) == [
         "head_2000-03-01.tif",
@@ -624,7 +624,7 @@ def test_shapefile_reprojected(dated_run) -> None:
         catalog,
         sid,
         ExportRequest(
-            variables="hydrographic_network_reference", format="shapefile", crs="EPSG:4326"
+            variable="hydrographic_network_reference", format="shapefile", crs="EPSG:4326"
         ),
     )
     assert written == [exports / "hydrographic_network_reference.shp"]
@@ -636,13 +636,13 @@ def test_shapefile_reprojected(dated_run) -> None:
 def test_dem_warped(dated_run) -> None:
     catalog, sid, exports = dated_run
     (dem,) = export_run(
-        catalog, sid, ExportRequest(variables="watershed_dem", file="dem_50m.tif", resolution=50)
+        catalog, sid, ExportRequest(variable="watershed_dem", file="dem_50m.tif", resolution=50)
     )
     assert dem == exports / "dem_50m.tif"
     with rasterio.open(dem) as src:
         assert src.res == (50.0, 50.0)
     (wgs84,) = export_run(
-        catalog, sid, ExportRequest(variables="watershed_dem", file="dem.tif", crs="EPSG:4326")
+        catalog, sid, ExportRequest(variable="watershed_dem", file="dem.tif", crs="EPSG:4326")
     )
     with rasterio.open(wgs84) as src:
         assert src.crs.to_epsg() == 4326
@@ -650,7 +650,7 @@ def test_dem_warped(dated_run) -> None:
 
 def test_budget_csv_names_periods(dated_run) -> None:
     catalog, sid, exports = dated_run
-    (written,) = export_run(catalog, sid, ExportRequest(variables="budget", time="2000-02-10"))
+    (written,) = export_run(catalog, sid, ExportRequest(variable="budget", time="2000-02-10"))
     assert written == exports / "budget_2000-02-10.csv"
     frame = pd.read_csv(written)
     assert list(frame.columns) == [
@@ -678,11 +678,11 @@ def test_metadata_view(dated_run) -> None:
     on the view the wheel ships.
     """
     catalog, sid, exports = dated_run
-    (view,) = export_run(catalog, sid, ExportRequest(variables="all", format="rocrate"))
+    (view,) = export_run(catalog, sid, ExportRequest(variable="all", format="rocrate"))
     assert view == catalog.run_dir_for(sid) / "ro-crate-metadata.json"
     assert view.is_file()
     (lineage,) = export_run(
-        catalog, sid, ExportRequest(variables="all", format="rocrate", folder="meta")
+        catalog, sid, ExportRequest(variable="all", format="rocrate", folder="meta")
     )
     assert lineage == exports / "meta" / "ro-crate-metadata.json"
     assert lineage.is_file()
@@ -701,7 +701,7 @@ def test_simulated_network(dated_run, monkeypatch) -> None:
     monkeypatch.setattr(job_module, "simulated_active_network_stack", stack)
 
     (tif,) = export_run(
-        catalog, sid, ExportRequest(variables="simulated_active_network", time="2000-02-15")
+        catalog, sid, ExportRequest(variable="simulated_active_network", time="2000-02-15")
     )
     assert tif == exports / "simulated_active_network_2000-02-15.tif"
     with rasterio.open(tif) as src:
@@ -711,13 +711,13 @@ def test_simulated_network(dated_run, monkeypatch) -> None:
     (gpkg,) = export_run(
         catalog,
         sid,
-        ExportRequest(variables="simulated_active_network", time="last", format="geopackage"),
+        ExportRequest(variable="simulated_active_network", time="last", format="geopackage"),
     )
     # Only the active cells are written: flowing[2] holds one inactive cell,
     # and a network export is not a raster of the whole domain.
     assert gpd.read_file(gpkg)["simulated_active_network"].tolist() == [1.0, 1.0, 1.0]
 
-    (nc,) = export_run(catalog, sid, ExportRequest(variables=["head", "simulated_active_network"]))
+    (nc,) = export_run(catalog, sid, ExportRequest(variable=["head", "simulated_active_network"]))
     with xr.open_dataset(nc) as ds:
         np.testing.assert_array_equal(ds["simulated_active_network"].values, list(flowing.values()))
         assert ds["simulated_active_network"].attrs["units"] == "1"
@@ -728,13 +728,13 @@ def test_simulated_network(dated_run, monkeypatch) -> None:
 def test_network_unavailable(dated_run) -> None:
     catalog, sid, _exports = dated_run
     with pytest.raises(ExportError, match="no per-cell release_flux"):
-        export_run(catalog, sid, ExportRequest(variables="simulated_active_network", time="last"))
+        export_run(catalog, sid, ExportRequest(variable="simulated_active_network", time="last"))
 
 
 @pytest.mark.parametrize("fmt", ["netcdf", "geotiff"])
 def test_two_dates_one_period(dated_run, fmt: str) -> None:
     catalog, sid, exports = dated_run
-    request = ExportRequest(variables="head", time=["2000-01-10", "2000-01-20"], format=fmt)
+    request = ExportRequest(variable="head", time=["2000-01-10", "2000-01-20"], format=fmt)
 
     with pytest.raises(TimeSelectionError, match="'2000-01-10' and '2000-01-20' read the same"):
         export_run(catalog, sid, request)
@@ -756,7 +756,7 @@ def test_selection_of_no_period(dated_run, monkeypatch) -> None:
     catalog, sid, _exports = dated_run
     monkeypatch.setattr(RunPeriods, "steps_for", lambda self, **_: ())
     with pytest.raises(ExportError, match="selects no stress period"):
-        export_run(catalog, sid, ExportRequest(variables="discharge", time="last"))
+        export_run(catalog, sid, ExportRequest(variable="discharge", time="last"))
 
 
 # The run is sealed by the run store (three monthly periods on four Lambert-93
@@ -768,14 +768,14 @@ def test_selection_of_no_period(dated_run, monkeypatch) -> None:
 # global attributes, a figure in its PNG text chunk, the Zarr store in its root
 # attributes and every Parquet table in its schema metadata.
 REQUESTS = {
-    "csv": {"variables": "discharge"},
-    "budget_csv": {"variables": "budget"},
-    "netcdf": {"variables": "head"},
-    "geotiff": {"variables": "head", "time": "2000-02-15"},
-    "geopackage_field": {"variables": "head", "time": "first", "format": "geopackage"},
-    "geopackage_layer": {"variables": "watershed"},
-    "shapefile": {"variables": "head", "time": "first", "format": "shapefile"},
-    "vtu": {"variables": "head", "time": "first", "format": "vtu"},
+    "csv": {"variable": "discharge"},
+    "budget_csv": {"variable": "budget"},
+    "netcdf": {"variable": "head"},
+    "geotiff": {"variable": "head", "time": "2000-02-15"},
+    "geopackage_field": {"variable": "head", "time": "first", "format": "geopackage"},
+    "geopackage_layer": {"variable": "watershed"},
+    "shapefile": {"variable": "head", "time": "first", "format": "shapefile"},
+    "vtu": {"variable": "head", "time": "first", "format": "vtu"},
 }
 
 
@@ -969,14 +969,14 @@ def _exports(catalog: Catalog, sid: str) -> Path:
 
 def test_shapefile_one_layer_per_file(catalog, new_run):
     written = export_run(
-        catalog, new_run, ExportRequest(variables=["mesh_cells", "mesh_seeds"], format="shapefile")
+        catalog, new_run, ExportRequest(variable=["mesh_cells", "mesh_seeds"], format="shapefile")
     )
 
     assert sorted(path.name for path in written) == ["mesh_cells.shp", "mesh_seeds.shp"]
 
 
 def test_mesh_cells_layer(catalog, new_run):
-    (path,) = export_run(catalog, new_run, ExportRequest(variables="mesh_cells"))
+    (path,) = export_run(catalog, new_run, ExportRequest(variable="mesh_cells"))
 
     cells = gpd.read_file(path, layer="mesh_cells")
 
@@ -1033,7 +1033,7 @@ def test_mesh_cells_basin(project):
 
     sid = _seal_mesh_run(project, "basin", _grid(), before_seal=write_descent)
     with Catalog(project) as catalog:
-        (path,) = export_run(catalog, sid, ExportRequest(variables="mesh_cells"))
+        (path,) = export_run(catalog, sid, ExportRequest(variable="mesh_cells"))
 
     cells = gpd.read_file(path, layer="mesh_cells")
     assert cells.index[cells["in_basin"]].tolist() == [4, 5, 8]
@@ -1041,7 +1041,7 @@ def test_mesh_cells_basin(project):
 
 
 def test_mesh_seeds_layer(catalog, new_run):
-    (path,) = export_run(catalog, new_run, ExportRequest(variables="mesh_seeds"))
+    (path,) = export_run(catalog, new_run, ExportRequest(variable="mesh_seeds"))
 
     seeds = gpd.read_file(path, layer="mesh_seeds")
     cell_mesh = _grid()
@@ -1057,7 +1057,7 @@ def test_mesh_seeds_layer(catalog, new_run):
 
 
 def test_family_face_layer(catalog, new_run):
-    (path,) = export_run(catalog, new_run, ExportRequest(variables="mesh_family_faces"))
+    (path,) = export_run(catalog, new_run, ExportRequest(variable="mesh_family_faces"))
 
     faces = gpd.read_file(path, layer="mesh_family_faces")
 
@@ -1074,7 +1074,7 @@ def test_ragged_mesh_cells(project):
     cell_mesh = dataclasses.replace(cell_mesh, crs_wkt=LAMBERT)
     sid = _seal_mesh_run(project, "ragged", cell_mesh)
     with Catalog(project) as catalog:
-        (path,) = export_run(catalog, sid, ExportRequest(variables="mesh_cells"))
+        (path,) = export_run(catalog, sid, ExportRequest(variable="mesh_cells"))
         cells = gpd.read_file(path, layer="mesh_cells")
 
     assert len(cells) == cell_mesh.n_cells
@@ -1091,7 +1091,7 @@ def test_mesh_without_crs(catalog, old_run):
     assert not set(MESH_LAYERS) & set(held)
     assert available_mesh_layers(catalog, old_run) == []
     with pytest.raises(ExportError, match=r"mesh_cells: the mesh of the run states no CRS"):
-        export_run(catalog, old_run, ExportRequest(variables="mesh_cells"))
+        export_run(catalog, old_run, ExportRequest(variable="mesh_cells"))
     with pytest.raises(ExportError, match="states no CRS"):
         export_mesh_layers(catalog, old_run, ["mesh_cells"], Path("unused.gpkg"))
 
@@ -1103,7 +1103,7 @@ def test_no_family_faces_layer(project):
         assert available_mesh_layers(catalog, sid) == ["mesh_cells", "mesh_seeds"]
         assert "no face on a line family" in mesh_layer_reasons(catalog, sid)["mesh_family_faces"]
         with pytest.raises(ExportError, match="mesh_family_faces: the mesh has no face on a line"):
-            export_run(catalog, sid, ExportRequest(variables="mesh_family_faces"))
+            export_run(catalog, sid, ExportRequest(variable="mesh_family_faces"))
 
 
 def test_all_writes_mesh_layers(catalog, new_run):
@@ -1113,7 +1113,7 @@ def test_all_writes_mesh_layers(catalog, new_run):
     written = export_run(
         catalog,
         new_run,
-        ExportRequest(variables="all", format="geopackage", folder=Path("everything")),
+        ExportRequest(variable="all", format="geopackage", folder=Path("everything")),
     )
 
     assert not [path for path in written if "mesh_cell_area" in path.name]
@@ -1126,7 +1126,7 @@ def test_quality_field_netcdf(catalog, new_run):
     assert names["mesh_cell_area"] is ExportKind.field
 
     (path,) = export_run(
-        catalog, new_run, ExportRequest(variables="mesh_cell_area", format="netcdf")
+        catalog, new_run, ExportRequest(variable="mesh_cell_area", format="netcdf")
     )
 
     with xr.open_dataset(path) as ds:

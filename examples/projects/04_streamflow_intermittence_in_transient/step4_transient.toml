@@ -70,9 +70,9 @@ reduce = "frequency"
 
 # The water table over the 36 months: one NetCDF chronicle.
 [[export__append]]
-variables = ["head", "watertable_depth"]
+variable = ["head", "watertable_depth"]
 
 # Simulated and gauged discharge over the run: CSV, the model monthly and
 # the gauge daily.
 [[export__append]]
-variables = ["discharge", "discharge_obs"]
+variable = ["discharge", "discharge_obs"]

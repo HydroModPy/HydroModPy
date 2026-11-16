@@ -45,7 +45,7 @@ _SEEPAGE = [
 @pytest.mark.parametrize(("drain", "mover", "expected"), _SEEPAGE)
 def test_the_seepage_is_the_drain_outflow_per_area_in_mm_per_day(drain, mover, expected) -> None:
     rows, unit, n_steps = _rows(
-        _root(drain, mover), "seepage", 1, reference="first", name="first.v1"
+        _root(drain, mover), "seepage", 1, reference="first", name="first_v1"
     )
 
     assert unit == "mm/d"
@@ -57,9 +57,9 @@ def test_a_run_without_a_drain_budget_is_refused_by_name() -> None:
     root = {"mesh": _MESH, "budget": {}}
 
     with pytest.raises(ConfigError, match="kept no drain budget"):
-        _rows(root, "seepage", 1, reference="first", name="first.v1")
+        _rows(root, "seepage", 1, reference="first", name="first_v1")
 
 
 def test_a_run_without_a_head_gives_no_water_table_depth() -> None:
     with pytest.raises(ConfigError, match="stores no head"):
-        _rows({"mesh": _MESH}, "watertable_depth", 1, reference="first", name="first.v1")
+        _rows({"mesh": _MESH}, "watertable_depth", 1, reference="first", name="first_v1")

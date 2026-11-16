@@ -385,13 +385,13 @@ def project(tmp_path: Path) -> Path:
 def test_resolve_references(project: Path) -> None:
     directory = _seal(project, "x-base", recipe="base")
     _seal(project, "y-base", recipe="base", site="y")
-    _seal(project, "y-base.v2", recipe="base", site="y", version=2)
+    _seal(project, "y-base_v2", recipe="base", site="y", version=2)
     _seal(project, "y-other", recipe="other", site="y")
     named = c.resolve_references([str(directory), "y-other", "base"], project_root=project)
     assert [[run.name for run in runs] for runs in named] == [
         ["x-base"],
         ["y-other"],
-        ["x-base", "y-base.v2"],
+        ["x-base", "y-base_v2"],
     ]
     only_a_directory = c.resolve_references([str(directory)], project_root=None)
     assert only_a_directory[0][0].name == "x-base"

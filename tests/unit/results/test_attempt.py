@@ -2,7 +2,7 @@
 
 A claim reserves ``runs/<name>`` for one attempt. A failed attempt is closed with its
 outcome and README and retried in place, a stopped one reads ``aborted``, and a name
-follows the version rule (``name``, ``name.v2``, ...) whatever the trash holds.
+follows the version rule (``name``, ``name_v2``, ...) whatever the trash holds.
 """
 
 from __future__ import annotations
@@ -355,7 +355,7 @@ def test_claim_created_flag(tmp_path: Path, before: str, created: bool, attempt:
 
     assert claim.created is created
     assert claim.attempt == attempt
-    assert claim.run_dir.name == ("case.v2" if before == "sealed" else "case")
+    assert claim.run_dir.name == ("case_v2" if before == "sealed" else "case")
 
 
 @pytest.mark.parametrize("before", ["nothing", "sealed"])
@@ -515,7 +515,7 @@ def test_request_id_in_running_outcome(tmp_path: Path) -> None:
         pytest.param("Case A", id="capital and space"),
         pytest.param("con", id="reserved on Windows"),
         pytest.param("c" * 41, id="forty-one characters"),
-        pytest.param("COM1.v2", id="a version of a refused stem"),
+        pytest.param("COM1_v2", id="a version of a refused stem"),
     ],
 )
 def test_name_refusals(tmp_path: Path, name: str) -> None:
@@ -800,7 +800,7 @@ def test_trashed_name_next_version(tmp_path: Path) -> None:
 
     taken = claim(project, "alpha")
 
-    assert taken.name == "alpha.v2"
+    assert taken.name == "alpha_v2"
     assert not (project / "runs" / "alpha").exists()
 
 
@@ -846,31 +846,31 @@ def test_fail_lets_an_unfinished_attempt_retry(tmp_path: Path) -> None:
 
 
 # A version is given by the disk at the reservation, never written by hand. A
-# name that carries ``.vN`` reaches only its live directory; the trash, a
+# name that carries ``_vN`` reaches only its live directory; the trash, a
 # tombstone or a void does not hand it out again.
 
 
 def test_a_collected_version_is_not_reassigned(tmp_path: Path) -> None:
     reserve_version_dirname(tmp_path, "run", "nancon")
-    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v2"
-    trash_run(tmp_path, "runs/nancon.v2", now=AT)
+    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon_v2"
+    trash_run(tmp_path, "runs/nancon_v2", now=AT)
     freed = gc_trash(tmp_path, older_than=timedelta(0), now=AT + timedelta(days=31))
 
-    assert [tombstone.rel_dir for tombstone in freed] == ["runs/nancon.v2"]
+    assert [tombstone.rel_dir for tombstone in freed] == ["runs/nancon_v2"]
     assert list_trash(tmp_path) == []
     assert live_runs(tmp_path) == ["nancon"]
-    assert [t.rel_dir for t in read_tombstones(tmp_path)] == ["runs/nancon.v2"]
-    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v3"
+    assert [t.rel_dir for t in read_tombstones(tmp_path)] == ["runs/nancon_v2"]
+    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon_v3"
 
 
 def test_trashed_version_not_reassigned(tmp_path: Path) -> None:
     reserve_version_dirname(tmp_path, "run", "nancon")
     reserve_version_dirname(tmp_path, "run", "nancon")
 
-    trash_run(tmp_path, "runs/nancon.v2", now=AT)
+    trash_run(tmp_path, "runs/nancon_v2", now=AT)
 
     assert live_runs(tmp_path) == ["nancon"]
-    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v3"
+    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon_v3"
 
 
 def test_collected_bare_name_not_reassigned(tmp_path: Path) -> None:
@@ -878,17 +878,17 @@ def test_collected_bare_name_not_reassigned(tmp_path: Path) -> None:
     trash_run(tmp_path, "runs/nancon", now=AT)
     gc_trash(tmp_path, older_than=timedelta(0), now=AT)
 
-    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v2"
+    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon_v2"
 
 
 def test_trashed_versioned_name_refused(tmp_path: Path) -> None:
     sealed_run(tmp_path, "a")
-    assert sealed_run(tmp_path, "a").name == "a.v2"
-    trash_run(tmp_path, "runs/a.v2", now=AT)
-    assert [entry.rel_dir for entry in list_trash(tmp_path)] == ["runs/a.v2"]
+    assert sealed_run(tmp_path, "a").name == "a_v2"
+    trash_run(tmp_path, "runs/a_v2", now=AT)
+    assert [entry.rel_dir for entry in list_trash(tmp_path)] == ["runs/a_v2"]
 
-    with pytest.raises(NameTakenError, match=r"trash:runs/a\.v2.*name the case 'a'"):
-        claim(tmp_path, "a.v2")
+    with pytest.raises(NameTakenError, match=r"trash:runs/a\_v2.*name the case 'a'"):
+        claim(tmp_path, "a_v2")
 
     assert live_runs(tmp_path) == ["a"]
 
@@ -897,12 +897,12 @@ def test_tombstone_versioned_name_refused(tmp_path: Path) -> None:
     sealed_run(tmp_path, "nancon")
     sealed_run(tmp_path, "nancon")
     trash_run(tmp_path, "runs/nancon", now=AT)
-    trash_run(tmp_path, "runs/nancon.v2", now=AT)
+    trash_run(tmp_path, "runs/nancon_v2", now=AT)
     gc_trash(tmp_path, older_than=timedelta(0), now=AT)
-    assert "runs/nancon.v2" in [t.rel_dir for t in read_tombstones(tmp_path)]
+    assert "runs/nancon_v2" in [t.rel_dir for t in read_tombstones(tmp_path)]
 
-    with pytest.raises(NameTakenError, match=r"tombstone:runs/nancon\.v2.*'nancon'"):
-        claim(tmp_path, "nancon.v2")
+    with pytest.raises(NameTakenError, match=r"tombstone:runs/nancon\_v2.*'nancon'"):
+        claim(tmp_path, "nancon_v2")
 
     assert live_runs(tmp_path) == []
 
@@ -912,7 +912,7 @@ def test_versioned_name_retries_directory(tmp_path: Path) -> None:
     second = claim_run(tmp_path, "a")
     finish_attempt(second.run_dir, status="failed", exit_code=1)
 
-    retry = claim(tmp_path, "a.v2")
+    retry = claim(tmp_path, "a_v2")
 
     assert retry.run_dir == second.run_dir
     assert retry.attempt == 2
@@ -921,19 +921,19 @@ def test_versioned_name_retries_directory(tmp_path: Path) -> None:
 def test_completed_versioned_name_next(tmp_path: Path) -> None:
     for _ in range(3):
         sealed_run(tmp_path, "a")
-    trash_run(tmp_path, "runs/a.v3", now=AT)
+    trash_run(tmp_path, "runs/a_v3", now=AT)
 
-    assert claim(tmp_path, "a.v2").name == "a.v4"
+    assert claim(tmp_path, "a_v2").name == "a_v4"
 
 
 def test_simulation_name_has_no_version() -> None:
-    with pytest.raises(ValidationError, match="write name = 'a'"):
-        SimulationConfig(name="a.v2")
+    with pytest.raises(ValidationError, match="Write name = 'a' to number the runs"):
+        SimulationConfig(name="a_v2")
 
     assert SimulationConfig(name="a.vintage").name == "a.vintage"
 
 
-# ``hmp catalog delete x --now`` once purged the live ``x.v2`` because a bare
+# ``hmp catalog delete x --now`` once purged the live ``x_v2`` because a bare
 # ``x`` meant "the latest version". Now ``x`` is ``runs/x`` exactly, a bare name
 # with other versions is refused with the list, and a trashed directory is
 # purged only by the trash verbs.
@@ -959,21 +959,21 @@ def project_with_runs(tmp_path: Path, *names: str) -> Path:
 
 
 def test_purge_bare_name_refused(tmp_path: Path, monkeypatch) -> None:
-    project = project_with_runs(tmp_path, "x", "x.v2")
+    project = project_with_runs(tmp_path, "x", "x_v2")
 
     code = hmp(monkeypatch, "catalog", "delete", "x", "--now", "-y", "-w", str(project))
 
     assert code == EXIT_AMBIGUOUS_REFERENCE
     assert (project / "runs" / "x").is_dir()
-    assert (project / "runs" / "x.v2").is_dir()
+    assert (project / "runs" / "x_v2").is_dir()
 
 
 def test_purge_by_full_path(tmp_path: Path, monkeypatch) -> None:
-    project = project_with_runs(tmp_path, "x", "x.v2")
+    project = project_with_runs(tmp_path, "x", "x_v2")
 
     code = hmp(monkeypatch, "catalog", "delete", "runs/x", "--now", "-y", "-w", str(project))
 
     assert code == 0
     assert not (project / "runs" / "x").exists()
-    assert (project / "runs" / "x.v2").is_dir()
+    assert (project / "runs" / "x_v2").is_dir()
     assert [tombstone.rel_dir for tombstone in read_tombstones(project)] == ["runs/x"]

@@ -20,7 +20,7 @@ from hydromodpy.results.identity import read_identity_from
 from tests.scenarios.factory import island_files
 from tests.scenarios.launcher import Scenario, play
 
-SESSION = "calage_sy.v2"
+SESSION = "calage_sy_v2"
 """The run of ``hmp run`` took the name, so the session of the calibration is its second version."""
 FIGURES = (
     ("preset", "watershed_id_card"),
@@ -46,7 +46,7 @@ COMMANDS = (
     ("run", "run", "project.toml"),
     ("research", "show", "calage_sy", "--report"),
     ("calibrate", "calibrate", "calib.toml"),
-    ("show", "show", "calage_sy.v2", "--format", "json"),
+    ("show", "show", "calage_sy_v2", "--format", "json"),
 )
 
 SCRIPT = f"""\

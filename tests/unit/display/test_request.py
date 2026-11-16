@@ -237,6 +237,15 @@ def test_a_figure_follows_a_step_that_stores_its_data(text: str, refused: str | 
         DisplayConfig(figure=[table(text)])
 
 
+def test_a_file_names_a_special_figure_by_its_preset() -> None:
+    # special stays out of every dump: the check passed the file and the run refused it.
+    from hydromodpy.display.config import DisplayConfig
+
+    with pytest.raises(ValidationError, match=r"write preset = 'root_search'"):
+        DisplayConfig(figure=[table('special = "root_search"')])
+    assert DisplayConfig(figure=[table('preset = "root_search"')]).figure[0].preset == "root_search"
+
+
 def test_every_stored_at_is_a_step() -> None:
     from hydromodpy.core.pipeline_steps import STEP_NAMES
     from hydromodpy.results.field_registry import FIELD_REGISTRY

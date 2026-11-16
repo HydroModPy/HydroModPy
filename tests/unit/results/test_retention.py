@@ -396,7 +396,7 @@ def test_project_weight(tmp_path: Path) -> None:
 
 def test_apply_frees_what_the_plan_announces(tmp_path: Path, arrived_long_ago: None) -> None:
     project = make_project(tmp_path / "p")
-    for name, size in (("x.v3", 30), ("x.v2", 20), ("x", 10)):
+    for name, size in (("x_v3", 30), ("x_v2", 20), ("x", 10)):
         _write(project / "runs" / name / "tables.parquet" / "part.parquet", size)
     _write(project / INTERNAL_DIRNAME / "scratch" / f"dead.p{_dead_pid()}" / "work", 40)
     seal_run(project, "sealed")
@@ -410,7 +410,7 @@ def test_apply_frees_what_the_plan_announces(tmp_path: Path, arrived_long_ago: N
     plan = plan_gc(project, policy, now=NOW)
     freed = apply_gc(plan, now=NOW)
 
-    assert plan.superseded_runs == ("runs/x", "runs/x.v2")
+    assert plan.superseded_runs == ("runs/x", "runs/x_v2")
     for category in (
         "superseded_runs",
         "dead_scratch",
@@ -422,7 +422,7 @@ def test_apply_frees_what_the_plan_announces(tmp_path: Path, arrived_long_ago: N
     assert freed["dead_scratch"] == 40
     assert freed["sealed_attempts"] == 50
     assert freed["old_trial_fields"] == 60
-    assert sorted(entry.rel_dir for entry in list_trash(project)) == ["runs/x", "runs/x.v2"]
+    assert sorted(entry.rel_dir for entry in list_trash(project)) == ["runs/x", "runs/x_v2"]
     assert not (project / plan.dead_scratch[0]).exists()
     assert not (project / "runs" / "sealed" / RUN_ATTEMPTS_DIRNAME / "1" / "logs").exists()
     trial = session / "trials" / "0002"

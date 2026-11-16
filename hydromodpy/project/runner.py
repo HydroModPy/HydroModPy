@@ -178,7 +178,7 @@ def resume_target(ref: str, workspace: Path) -> Path:
     """Return the frozen configuration a ``--resume REF`` continues.
 
     REF is a case name under ``runs/`` of *workspace* (a bare name is its
-    latest version, ``baseline.v2`` is that one). The file is the resolved
+    latest version, ``baseline_v2`` is that one). The file is the resolved
     configuration the run was executed with, ``runs/<name>/config.toml``.
     Raises :class:`NothingThereError` when the case or its frozen file is not
     there, and :class:`ConfigError` for a run that came out of a calibration,

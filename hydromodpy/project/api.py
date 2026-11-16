@@ -757,7 +757,7 @@ def stop(ref: Ref, *, workspace: PathLike | None = None) -> Path:
     ----------
     ref
         A run or a session: its directory, its name in ``workspace``
-        (``<name>[.vN]``, ``runs/<name>``, ``sessions/<case>[.vN]``; a bare name
+        (``<name>[_vN]``, ``runs/<name>``, ``sessions/<case>[_vN]``; a bare name
         is looked for among the runs first), or the object.
     workspace
         The project directory, or a folder inside it.
@@ -1096,18 +1096,18 @@ def show(
 @overload
 def export(
     ref: Ref,
-    variables: str | list[str] | None = None,
+    variable: str | list[str] | None = None,
     *,
     deliver: Literal[False] = False,
     **options: Any,
 ) -> list[Path]: ...
 @overload
 def export(
-    ref: Ref, variables: None = None, *, deliver: Literal[True], **options: Any
+    ref: Ref, variable: None = None, *, deliver: Literal[True], **options: Any
 ) -> tuple[PublishedLine, ...]: ...
 def export(
     ref: Ref,
-    variables: str | list[str] | None = None,
+    variable: str | list[str] | None = None,
     *,
     time: str | int | list[str | int] | None = None,
     period: tuple[str, str] | None = None,
@@ -1124,7 +1124,7 @@ def export(
 ) -> list[Path] | tuple[PublishedLine, ...]:
     """Export data of a run to files, or deliver what its ``[[export]]`` blocks name.
 
-    The words of an ``[[export]]`` block and of ``hmp export``: ``variables``
+    The words of an ``[[export]]`` block and of ``hmp export``: ``variable``
     says what (a name, a list, or ``"all"``), ``time`` or ``period`` when,
     ``folder`` or ``file`` where. The format follows the data unless ``format``
     or the extension of ``file`` names one. Files land in
@@ -1134,7 +1134,7 @@ def export(
     ----------
     ref
         The run: its directory, its name in ``workspace``, or the run.
-    variables
+    variable
         What to export.
     deliver
         Send what the ``[[export]]`` blocks of the run name, and take no other word.
@@ -1152,7 +1152,7 @@ def export(
     Raises
     ------
     hydromodpy.core.exceptions.ExportError
-        If ``variables`` is missing, or ``deliver`` comes with another word.
+        If ``variable`` is missing, or ``deliver`` comes with another word.
 
     Examples
     --------
@@ -1169,7 +1169,7 @@ def export(
             "a run named in workspace=, or a Run."
         )
     if deliver:
-        others = (variables, time, period, format, folder, file, crs, resolution, layer)
+        others = (variable, time, period, format, folder, file, crs, resolution, layer)
         if any(value is not None for value in others) or nodata != -9999.0:
             raise ExportError(
                 "deliver=True sends what the [[export]] blocks of the run name and takes "
@@ -1184,10 +1184,10 @@ def export(
             environment or Environment.default(),
             project_root=located[0] if located is not None else subject.dir,
         )
-    if variables is None:
+    if variable is None:
         raise ExportError(
-            'variables is missing: name what to export, e.g. variables = "head", '
-            'variables = ["head", "discharge"], or variables = "all". '
+            'variable is missing: name what to export, e.g. variable = "head", '
+            'variable = ["head", "discharge"], or variable = "all". '
             "deliver=True sends what the [[export]] blocks of the run name instead."
         )
     if environment is not None:
@@ -1198,7 +1198,7 @@ def export(
         if file is not None:
             environment.bounds.require_path(file, why="exporting to a file")
     return subject.export(
-        variables,
+        variable,
         time=time,
         period=period,
         format=format,

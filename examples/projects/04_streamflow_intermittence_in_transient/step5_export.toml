@@ -16,52 +16,52 @@ name = "nancon_step5_export"
 # The catchment and the mapped network: GeoPackage. Step 3 writes the same
 # for BD Topage, with the permanent reaches apart.
 [[export]]
-variables = ["watershed", "hydrographic_network_reference"]
+variable = ["watershed", "hydrographic_network_reference"]
 
 # The same catchment as a Shapefile.
 [[export]]
-variables = "watershed"
+variable = "watershed"
 format = "shapefile"
 
 # The DEM the catchment was cut from: GeoTIFF.
 [[export]]
-variables = "watershed_dem"
+variable = "watershed_dem"
 
 # The water table in October 2002: one GeoTIFF per variable.
 [[export]]
-variables = ["head", "watertable_depth", "seepage_mask"]
+variable = ["head", "watertable_depth", "seepage_mask"]
 time = "2002-10-15"
 
 # The simulated active network that month, as mesh cells in a GeoPackage.
 [[export]]
-variables = "simulated_active_network"
+variable = "simulated_active_network"
 time = "2002-10-15"
 format = "geopackage"
 
 # The whole record of the water table: one NetCDF chronicle.
 [[export]]
-variables = ["head", "watertable_depth"]
+variable = ["head", "watertable_depth"]
 file = "watertable_2000_2002.nc"
 
 # Simulated and gauged discharge over the two scored years: CSV.
 [[export]]
-variables = ["discharge", "discharge_obs"]
+variable = ["discharge", "discharge_obs"]
 period = ["2001-01-01", "2002-12-31"]
 
 # The monthly water budget: CSV.
 [[export]]
-variables = "budget"
+variable = "budget"
 
 # A web-map layer, reprojected; the extension gives the format.
 [[export]]
-variables = "watertable_depth"
+variable = "watertable_depth"
 time = "2002-10-15"
 file = "watertable_depth_wgs84.tif"
 crs = "EPSG:4326"
 
 # ParaView.
 [[export]]
-variables = "head"
+variable = "head"
 time = "2002-10-15"
 format = "vtu"
 

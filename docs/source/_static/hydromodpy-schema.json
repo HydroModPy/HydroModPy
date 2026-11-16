@@ -6017,9 +6017,9 @@
     },
     "ExportRequest": {
       "additionalProperties": false,
-      "description": "One export: what to write, when, in which format, where.\n\nOnly ``variables`` is required. ``time`` names instants and ``period`` a\nwindow; without either the whole simulation is written. ``format`` is\noptional: each data goes to its natural format (a field at one date to\nGeoTIFF, over several dates to NetCDF, a series or a table to CSV, a vector\nlayer to GeoPackage, a raster layer to GeoTIFF), and a ``file`` extension\nnames the format too.",
+      "description": "One export: what to write, when, in which format, where.\n\nOnly ``variable`` is required. ``time`` names instants and ``period`` a\nwindow; without either the whole simulation is written. ``format`` is\noptional: each data goes to its natural format (a field at one date to\nGeoTIFF, over several dates to NetCDF, a series or a table to CSV, a vector\nlayer to GeoPackage, a raster layer to GeoTIFF), and a ``file`` extension\nnames the format too.",
       "properties": {
-        "variables": {
+        "variable": {
           "anyOf": [
             {
               "type": "string"
@@ -6040,7 +6040,7 @@
             ],
             "all"
           ],
-          "title": "Variables",
+          "title": "Variable",
           "x-hmp-profile": "user"
         },
         "time": {
@@ -6107,7 +6107,7 @@
             }
           ],
           "default": null,
-          "description": "The file format, a name the export registry serves. Left out, each data takes its natural format, or the one the extension of 'file' names. A view format describes the whole run and takes variables = \"all\" only. The portable archive of a run is written by 'hmp publish --container tar'.",
+          "description": "The file format, a name the export registry serves. Left out, each data takes its natural format, or the one the extension of 'file' names. A view format describes the whole run and takes variable = \"all\" only. The portable archive of a run is written by 'hmp publish --container tar'.",
           "title": "Format",
           "value_docs": {
             "csv": "A CSV table (.csv): series and tables.",
@@ -6194,7 +6194,7 @@
           "description": "Model layer of a 3D field, counted from 0 at the top. Left out, every layer a format can hold: a NetCDF variable or a VTU cell array has one entry per layer. QGIS reads a NetCDF that names one layer.",
           "title": "Layer",
           "unit": "-",
-          "x-hmp-profile": "dev"
+          "x-hmp-profile": "user"
         },
         "nodata": {
           "default": -9999.0,
@@ -6275,13 +6275,13 @@
             ]
           }
         },
-        "^variables__append$": {
+        "^variable__append$": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "^variables__merge$": {
+        "^variable__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -21986,7 +21986,7 @@
             }
           ],
           "default": null,
-          "description": "The earlier run of this project whose field draws the zone, for watertable_depth and seepage: its name, with or without its .vN (the latest version without), or its full sim_id. The run must be sealed and hold the field. The mesh then depends on that run: its sim_id enters the mesh request and the product key.",
+          "description": "The earlier run of this project whose field draws the zone, for watertable_depth and seepage: its name, with or without its _vN (the latest version without), or its full sim_id. The run must be sealed and hold the field. The mesh then depends on that run: its sim_id enters the mesh request and the product key.",
           "examples": [
             "nancon_coarse"
           ],
@@ -22706,7 +22706,7 @@
       "properties": {
         "name": {
           "default": "",
-          "description": "Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug. It never carries a .vN suffix: the version is given by the disk when the run is reserved.",
+          "description": "Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug. It never carries a _vN suffix: the version is given by the disk when the run is reserved.",
           "examples": [
             "cheze_baseline"
           ],
@@ -22725,7 +22725,7 @@
         },
         "if_exists": {
           "default": "version",
-          "description": "What a run does when its name is already taken in this project. ``version`` (default) writes the run under the next free ``stem.vN`` and keeps every run addressable; ``fail`` stops before the run starts. A name is never reused, so a run is never replaced: delete the old one with hmp catalog delete.",
+          "description": "What a run does when its name is already taken in this project. ``version`` (default) writes the run under the next free ``stem_vN`` and keeps every run addressable; ``fail`` stops before the run starts. A name is never reused, so a run is never replaced: delete the old one with hmp catalog delete.",
           "enum": [
             "fail",
             "version"
@@ -22737,7 +22737,7 @@
           "type": "string",
           "value_docs": {
             "fail": "Refuse to start when the name is taken.",
-            "version": "Write the run under the next free <name>.vN."
+            "version": "Write the run under the next free <name>_vN."
           },
           "x-hmp-profile": "user"
         },
@@ -23437,18 +23437,25 @@
           "title": "Runs",
           "x-hmp-profile": "user"
         },
-        "variables": {
-          "description": "Variables exported from each run, with runs = 'best'.",
+        "variable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Variable, or a list of them, exported from each run, with runs = 'best'.",
           "examples": [
             [
               "discharge"
             ]
           ],
-          "items": {
-            "type": "string"
-          },
-          "title": "Variables",
-          "type": "array",
+          "title": "Variable",
           "x-hmp-profile": "user"
         },
         "format": {
@@ -23483,13 +23490,13 @@
           "const": true,
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
-        "^variables__append$": {
+        "^variable__append$": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "^variables__merge$": {
+        "^variable__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -23636,19 +23643,26 @@
           "type": "array",
           "x-hmp-profile": "user"
         },
-        "variables": {
-          "description": "Metrics or parameters the cohort figures map and distribute.",
+        "variable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Metric or parameter, or a list of them, the cohort figures map and distribute.",
           "examples": [
             [
               "K",
               "nse"
             ]
           ],
-          "items": {
-            "type": "string"
-          },
-          "title": "Variables",
-          "type": "array",
+          "title": "Variable",
           "x-hmp-profile": "user"
         },
         "best": {
@@ -23740,13 +23754,13 @@
             "type": "string"
           }
         },
-        "^variables__append$": {
+        "^variable__append$": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "^variables__merge$": {
+        "^variable__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -27582,7 +27596,7 @@
       "x-hmp-profile": "user"
     },
     "export": {
-      "description": "The exports written at the end of a run, one [[export]] block per request, in the order of the file. Each block says what (variables), when (time or period) and where (folder or file); the format follows the data.",
+      "description": "The exports written at the end of a run, one [[export]] block per request, in the order of the file. Each block says what (variable), when (time or period) and where (folder or file); the format follows the data.",
       "items": {
         "$ref": "#/$defs/ExportRequest"
       },

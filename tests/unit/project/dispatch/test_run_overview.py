@@ -2,7 +2,7 @@
 
 The overview writes its outcome first, then its panels and page in the run directory.
 The seal holds a record without solver tables (``manifest.json`` last, ``README.md``)
-and the outcome flips to ``completed``. A second overview of the site takes ``.v2``.
+and the outcome flips to ``completed``. A second overview of the site takes ``_v2``.
 An overview that fails leaves a failed outcome and no manifest.
 """
 
@@ -157,9 +157,9 @@ def test_second_overview_takes_next_version(project: Path, monkeypatch: pytest.M
 
     second = run_overview(request_of(project / "overview.toml"), base=project).to_dict()
 
-    assert second["run_dir"] == str(project / "runs" / "nancon.v2")
-    assert overview_run_dir(project, "nancon") == project / "runs" / "nancon.v2"
-    assert (project / "runs" / "nancon.v2" / "figures" / "location.png").is_file()
+    assert second["run_dir"] == str(project / "runs" / "nancon_v2")
+    assert overview_run_dir(project, "nancon") == project / "runs" / "nancon_v2"
+    assert (project / "runs" / "nancon_v2" / "figures" / "location.png").is_file()
 
 
 def test_failed_overview_has_no_manifest(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:

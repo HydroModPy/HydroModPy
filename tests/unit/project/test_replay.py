@@ -20,7 +20,7 @@ from hydromodpy.results.storage.contract import (
 )
 
 
-def _sealed_run(root: Path, name: str = "probe.v2") -> Path:
+def _sealed_run(root: Path, name: str = "probe_v2") -> Path:
     """Return ``root/runs/<name>``, holding the seal a replay reads."""
     run_dir = root / "runs" / name
     run_dir.mkdir(parents=True)
@@ -56,7 +56,7 @@ def test_config_toml_target(tmp_path: Path) -> None:
 
 def test_bare_name_target(tmp_path: Path) -> None:
     run_dir = _sealed_run(tmp_path)
-    target = replay_target("probe.v2", base=tmp_path)
+    target = replay_target("probe_v2", base=tmp_path)
     assert target.source == run_dir.resolve()
 
 
@@ -97,7 +97,7 @@ def test_copy_missing_manifest_refused(tmp_path: Path) -> None:
 
 def test_outside_runs_needs_project(tmp_path: Path) -> None:
     run_dir = _sealed_run(tmp_path)
-    moved = tmp_path / "kept" / "probe.v2"
+    moved = tmp_path / "kept" / "probe_v2"
     moved.parent.mkdir()
     run_dir.rename(moved)
     with pytest.raises(ConfigError, match="-w"):

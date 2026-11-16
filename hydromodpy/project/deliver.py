@@ -318,9 +318,9 @@ def _pairs_of(run_dir: Path, requests: Iterable[ExportRequest]) -> list[_Pair]:
         ]
         if not names:
             logger.warning(
-                "the export block variables = %r names deliver_to but wrote no file; "
+                "the export block variable = %r names deliver_to but wrote no file; "
                 "nothing is delivered for it.",
-                request.variables,
+                request.variable,
             )
             continue
         for name in names:

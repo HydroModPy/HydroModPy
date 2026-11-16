@@ -50,7 +50,7 @@ hmp export nancon_step5_export --list
 ```
 
 Run a file twice and nothing is computed the second time: the command names the first run
-and stops. Edit the file and the new run is `<name>.v2`, next to the first. `hmp run --force`
+and stops. Edit the file and the new run is `<name>_v2`, next to the first. `hmp run --force`
 computes an unchanged file again.
 
 Step 3 reads BD Topage and Hub'Eau. It needs network access on the first launch, and the
@@ -101,7 +101,7 @@ each promoted run. The API calibration has its own, dated 2019.
 - figures the scripts draw: `summary/figures/`
 
 `<name>` is the name of the run: the `[simulation] name` of the file you ran, for example
-`nancon_step5_export`. A second run of an edited file is `<name>.v2`.
+`nancon_step5_export`. A second run of an edited file is `<name>_v2`.
 
 The documentation walks through the six steps: <https://docs.hydromodpy.fr/>, Get started,
 The staircase.

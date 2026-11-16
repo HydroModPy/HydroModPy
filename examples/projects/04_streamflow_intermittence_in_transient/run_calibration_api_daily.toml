@@ -200,7 +200,7 @@ when = "session"
 # The catchment and both BD Topage maps, all reaches and the permanent ones:
 # GeoPackage.
 [[export]]
-variables = [
+variable = [
     "watershed",
     "hydrographic_network_reference",
     "hydrographic_network_reference_permanent",
@@ -209,14 +209,14 @@ variables = [
 # The water table and the seepage cells at the end of the dry summer of 2019:
 # one GeoTIFF each.
 [[export]]
-variables = ["watertable_depth", "seepage_mask"]
+variable = ["watertable_depth", "seepage_mask"]
 time = "2019-09-15"
 
 # Simulated and gauged discharge, day by day over the scored years: CSV.
 [[export]]
-variables = ["discharge", "discharge_obs"]
+variable = ["discharge", "discharge_obs"]
 period = ["2016-01-01", "2020-12-31"]
 
 # The daily water budget: CSV.
 [[export]]
-variables = "budget"
+variable = "budget"

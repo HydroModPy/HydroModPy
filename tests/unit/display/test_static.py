@@ -101,3 +101,30 @@ def test_save_checks_every_format_before_it_writes(tmp_path) -> None:
     with pytest.raises(ValueError, match="Known formats"):
         st.save(draw(), tmp_path / "f", THEME, formats=("png", "gif"))
     assert not list(tmp_path.iterdir())
+
+
+def _axes_on_the_unit_square():
+    fig = st.new_figure(THEME, width="single")
+    (ax,) = fig.axes
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 1.0)
+    return ax
+
+
+@pytest.mark.parametrize(
+    ("points", "corner"),
+    [
+        pytest.param([(0.1, 0.1), (0.2, 0.2), (0.9, 0.1)], "upper right", id="points below"),
+        pytest.param([(0.9, 0.9), (0.1, 0.1), (0.9, 0.1)], "upper left", id="only upper left free"),
+        pytest.param([(0.5, 0.5)], "upper right", id="a tie keeps the first corner"),
+        pytest.param(
+            [(0.9, 0.9), (0.85, 0.95), (0.1, 0.9), (0.9, 0.1), (0.1, 0.1), (0.15, 0.15)],
+            "upper left",
+            id="the fewest points",
+        ),
+    ],
+)
+def test_a_map_legend_takes_the_corner_with_the_fewest_cells(points, corner):
+    # loc="best" tested every cell of a 54,000-cell map and took two minutes.
+    x, y = zip(*points, strict=True)
+    assert st.quiet_corner(_axes_on_the_unit_square(), x, y) == corner

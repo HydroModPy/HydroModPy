@@ -132,19 +132,19 @@ reduce = "frequency"
 
 # The catchment and the mapped network: GeoPackage.
 [[export]]
-variables = ["watershed", "hydrographic_network_reference"]
+variable = ["watershed", "hydrographic_network_reference"]
 
 # The water table and the seepage cells at the end of the summer of 2019.
 [[export]]
-variables = ["watertable_depth", "seepage_mask"]
+variable = ["watertable_depth", "seepage_mask"]
 time = "2019-09-15"
 
 # Simulated and gauged discharge over the scored years: CSV.
 [[export]]
-variables = ["discharge", "discharge_obs"]
+variable = ["discharge", "discharge_obs"]
 period = ["2016-01-01", "2020-12-31"]
 
 # The daily water budget, the soil recharge and the water table evaporation
 # among its terms: CSV.
 [[export]]
-variables = "budget"
+variable = "budget"

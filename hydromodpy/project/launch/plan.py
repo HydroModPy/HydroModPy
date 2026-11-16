@@ -60,7 +60,7 @@ from hydromodpy.core.state.layout import (
     runs_dir_for,
     sessions_dir_for,
 )
-from hydromodpy.core.state.names import check_name, fold_name
+from hydromodpy.core.state.names import check_name, fold_name, split_stem_version
 from hydromodpy.core.toml_io.loader import (
     ChainFile,
     load_toml_with_base_config,
@@ -73,7 +73,6 @@ from hydromodpy.core.toml_io.paths import UnknownPathError, assign, lookup, pars
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.core.version import __version__
 from hydromodpy.core.workspace.workspace_toml import near_site_m as workspace_near_site_m
-from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.exporters.destination import DELIVER_TO_KEY
 from hydromodpy.results.outcome import effective_status
 from hydromodpy.results.plan_store import (

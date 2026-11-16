@@ -53,7 +53,7 @@ def test_a_keyword_is_shorthand_for_its_path(
 
 
 def test_an_unknown_keyword_names_what_this_project_offers(tmp_path: Path) -> None:
-    with pytest.raises(ConfigError, match=r"Unknown parameter 'porosity'.*K, Sy, first_clim"):
+    with pytest.raises(ConfigError, match=r"Unknown parameter 'porosity'.*K, Ss, Sy, first_clim"):
         override_changes(_config(tmp_path), {"porosity": 0.3})
 
 

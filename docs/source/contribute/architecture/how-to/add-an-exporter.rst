@@ -16,7 +16,7 @@ How a request reaches an exporter
 
 A user never names an exporter class. An ``[[export]]`` block, ``run.export(...)`` and
 ``hmp export`` all build one ``ExportRequest`` (``export_spec.py``): what
-(``variables``), when (``time``, ``period``), where (``folder``, ``file``), and
+(``variable``), when (``time``, ``period``), where (``folder``, ``file``), and
 optionally ``format``.
 
 1. ``Catalog.export(ref, request)`` (``results/catalog/reads.py``) resolves the run and

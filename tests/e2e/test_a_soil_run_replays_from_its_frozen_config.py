@@ -167,7 +167,7 @@ def test_a_soil_run_replays_from_its_frozen_config(tmp_path: Path) -> None:
 
     _ok(hmp("catalog", "rerun", RUN_NAME, "-w", str(project), cwd=tmp_path, env=env), "rerun")
 
-    replay = project / "runs" / f"{RUN_NAME}.v2"
+    replay = project / "runs" / f"{RUN_NAME}_v2"
     manifest = json.loads((replay / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["lineage"]["kind"] == "rerun"
     assert tomllib.loads((replay / "config.toml").read_text(encoding="utf-8")) == frozen

@@ -105,7 +105,7 @@ from hydromodpy.core.state.layout import (
     runs_dir_for,
     stop_flag_for,
 )
-from hydromodpy.core.state.names import check_name
+from hydromodpy.core.state.names import check_name, split_stem_version
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.state.scratch import (
     PREPROCESSING_DIRNAME,
@@ -118,7 +118,6 @@ from hydromodpy.results.catalog.registration import (
     live_version_dir,
     next_version_dirname,
     reserve_version_dirname,
-    split_stem_version,
 )
 from hydromodpy.results.outcome import (
     DEFAULT_STALE_AFTER_S,
@@ -225,7 +224,7 @@ def latest_version_dir(project_root: Path, name: str) -> Path | None:
 def run_dir_for_name(project_root: Path, name: str) -> Path | None:
     """Return the directory a run name refers to, or None.
 
-    A name that carries its version (``nancon.v2``) is that directory and no
+    A name that carries its version (``nancon_v2``) is that directory and no
     other; a bare name is its latest version. This is the one reading of a
     run name on the command line and in a configuration.
     """
@@ -259,7 +258,7 @@ def claim_run_directory(
 
     A claim that needs a new directory never takes a name the trash or a
     tombstone holds: it takes the next version. A name that carries its
-    version (``nancon.v2``) reaches only that live directory: a version is
+    version (``nancon_v2``) reaches only that live directory: a version is
     given by the disk, so one the trash, a tombstone or nobody holds is
     refused with
     :class:`~hydromodpy.results.catalog.registration.NameTakenError`, and a

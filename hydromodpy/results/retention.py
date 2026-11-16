@@ -6,7 +6,7 @@ The directories are the truth and the index is derived, so a collection that
 asks the index what to remove removes what the index believes. Here every
 decision reads the project tree: ``outcome.json`` and the heartbeat for the
 state of an attempt, ``annotations.json`` for the protected tag, the
-``.vN`` suffix for the versions of a name, ``trash/`` for what was deleted.
+``_vN`` suffix for the versions of a name, ``trash/`` for what was deleted.
 
 What
 ----
@@ -65,9 +65,9 @@ from hydromodpy.core.state.layout import (
     runs_dir_for,
     sessions_dir_for,
 )
+from hydromodpy.core.state.names import split_stem_version
 from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel
 from hydromodpy.core.state.scratch import process_is_alive, run_scratch_pids, run_scratch_stem
-from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.field_registry import CONNECTION_CELLS, FACE_FLOW
 from hydromodpy.results.outcome import (
     Outcome,

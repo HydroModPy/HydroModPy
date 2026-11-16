@@ -4,7 +4,9 @@ A name is the name of a folder: ``runs/<name>`` or the project folder. It holds
 lower case letters, digits, ``_`` and ``-``, forty characters at most, no
 doubled ``_``, and is not a name Windows reserves for a device. The trash writes
 ``/`` as ``__``, so a doubled ``_`` would read back as a path. A run name may end with its version,
-``.v<N>``, which the forty characters do not count. Lower case keeps two names
+``_v<N>``, which the forty characters do not count. The disk gives the version, so a name a
+person writes never ends like one, and a name the code folds ends in ``-v<N>`` instead. The
+version took a dot before, which a file name exported from the run then carried in its stem. Lower case keeps two names
 apart on a disk that ignores case, and a refusal beats a cut, because two long
 names with one prefix would fall into one folder.
 
@@ -29,7 +31,7 @@ from typing import Final, Literal
 from hydromodpy.core.exceptions import ConfigError
 
 MAX_NAME_LENGTH: Final[int] = 40
-"""The longest name, without the ``.v<N>`` of a run version."""
+"""The longest name, without the ``_v<N>`` of a run version."""
 
 RESERVED_NAMES: Final[frozenset[str]] = frozenset(
     {
@@ -47,7 +49,7 @@ NameKind = Literal["run", "project"]
 """What a name names: a run folder or a project folder."""
 
 _NAME_RE: Final[re.Pattern[str]] = re.compile(r"[a-z0-9_-]+")
-_VERSION_RE: Final[re.Pattern[str]] = re.compile(r"^(?P<stem>.+)\.v(?P<n>[1-9][0-9]*)$")
+_VERSION_RE: Final[re.Pattern[str]] = re.compile(r"^(?P<stem>.+)_v(?P<n>[1-9][0-9]*)$")
 _OUTSIDE_RE: Final[re.Pattern[str]] = re.compile(r"[^a-z0-9_-]+")
 _UNDERSCORES_RE: Final[re.Pattern[str]] = re.compile(r"_+")
 
@@ -61,13 +63,30 @@ def fold_name(text: str) -> str:
     """
     ascii_text = unicodedata.normalize("NFKD", str(text)).encode("ascii", "ignore").decode("ascii")
     folded = _OUTSIDE_RE.sub("_", ascii_text.strip().lower())
-    return _UNDERSCORES_RE.sub("_", folded).strip("_-")
+    folded = _UNDERSCORES_RE.sub("_", folded).strip("_-")
+    version = _VERSION_RE.match(folded)
+    if version is None:
+        return folded
+    return f"{version.group('stem')}-v{version.group('n')}"
+
+
+def split_stem_version(name: str) -> tuple[str, int | None]:
+    """Split ``baseline_v3`` into ``("baseline", 3)``. A bare name returns ``(name, None)``."""
+    match = _VERSION_RE.match(name)
+    if match is None:
+        return name, None
+    return match.group("stem"), int(match.group("n"))
+
+
+def versioned_name(stem: str, version: int) -> str:
+    """Return the directory name of *version* of *stem*: the bare name for the first one."""
+    return stem if version <= 1 else f"{stem}_v{version}"
 
 
 def check_name(name: str, *, what: NameKind) -> str:
     """Return *name* when it follows the rule of a *what* name, else refuse it.
 
-    A run name may carry its version, ``baseline.v2``; the rule reads the stem.
+    A run name may carry its version, ``baseline_v2``; the rule reads the stem.
     The refusal is a :class:`~hydromodpy.core.exceptions.ConfigError` (exit code
     14) whose sentence names the rule and proposes the folded name when there is
     one.
@@ -116,4 +135,12 @@ def _proposal(stem: str) -> str:
     return f" Write {folded!r}."
 
 
-__all__ = ["MAX_NAME_LENGTH", "RESERVED_NAMES", "NameKind", "check_name", "fold_name"]
+__all__ = [
+    "MAX_NAME_LENGTH",
+    "RESERVED_NAMES",
+    "NameKind",
+    "check_name",
+    "fold_name",
+    "split_stem_version",
+    "versioned_name",
+]

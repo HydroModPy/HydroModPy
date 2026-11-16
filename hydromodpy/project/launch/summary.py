@@ -403,7 +403,7 @@ def _figure_requests(
 ) -> tuple[list[str], list[str]]:
     """Return the cohort figures and the variables to draw, refused when unknown."""
     names = list(dict.fromkeys(summary.figures))
-    variables = list(dict.fromkeys(summary.variables)) or ["nse"]
+    variables = list(dict.fromkeys(summary.variable)) or ["nse"]
     if not names:
         return [], variables
     cohort = cohort_figure_names()
@@ -417,7 +417,7 @@ def _figure_requests(
     unknown = [variable for variable in variables if variable not in known]
     if unknown:
         raise SummaryError(
-            f"[sites.summary] variables: {', '.join(unknown)} is not a column of by_site; "
+            f"[sites.summary] variable: {', '.join(unknown)} is not a column of by_site; "
             "name a metric of metrics or a parameter of parameters."
         )
     return names, variables

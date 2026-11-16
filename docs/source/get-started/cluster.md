@@ -58,7 +58,7 @@ the script writes `failed` with the exit code, the signal and the end of the log
 `written_by = "trap"`. The log of a task is written under `jobs/<stamp>-slurm/logs/`, and
 the trap copies it to `runs/<case>/logs/job-<id>.out`.
 
-A task that Slurm resubmits, or a job submitted twice, never makes a `.v2`: the claim of an
+A task that Slurm resubmits, or a job submitted twice, never makes a `_v2`: the claim of an
 attempt is atomic, so the second worker on a case leaves, and a case that failed resumes in
 place.
 

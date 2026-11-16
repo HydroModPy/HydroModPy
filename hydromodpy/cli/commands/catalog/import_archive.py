@@ -33,7 +33,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         parents=[workspace_parser(), dry_run_parser(), format_parser(), verbosity_parser()],
         epilog=(
             "The run lands under runs/ with the next free version of its name,\n"
-            "read without its .vN: a published x.v2 becomes x in a project that has\n"
+            "read without its _vN: a published x_v2 becomes x in a project that has\n"
             "no x. Pass --name to give it the name other documents cite.\n"
             "\n"
             "A copy carries its inputs unless it was published with --without inputs,\n"
@@ -51,7 +51,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--name",
         default=None,
-        help="Name of the imported run (default: the published name without its .vN)",
+        help="Name of the imported run (default: the published name without its _vN)",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -106,8 +106,9 @@ def run(args: argparse.Namespace) -> None:
 
 def _next_commands(root: Path, rel_dir: str, *, workspace: str | None) -> list[str]:
     """Return the rerun of the imported run and the comparison of the two."""
+    from hydromodpy.core.state.names import split_stem_version
     from hydromodpy.core.state.result_dirs import parse_rel_dir
-    from hydromodpy.results.catalog.registration import next_version_dirname, split_stem_version
+    from hydromodpy.results.catalog.registration import next_version_dirname
 
     name = parse_rel_dir(rel_dir).name
     replay = next_version_dirname(root, split_stem_version(name)[0])

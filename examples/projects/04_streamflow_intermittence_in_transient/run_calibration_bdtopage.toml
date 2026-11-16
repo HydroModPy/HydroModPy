@@ -155,4 +155,4 @@ when = "session"
 # The four exports of project.toml, where the network is all BD Topage
 # reaches, plus the permanent reaches, the minimal map.
 [[export__append]]
-variables = "hydrographic_network_reference_permanent"
+variable = "hydrographic_network_reference_permanent"

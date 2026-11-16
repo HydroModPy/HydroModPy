@@ -29,7 +29,7 @@ Each window is one attempt on the same run folder, and the sealed run records th
 
 ## Play it again
 
-If I play the same calls again with no change, each window gives back the run already done. No new version such as `demo.v2` appears. This holds when I do not pass `from_step`, `resume` or `force`.
+If I play the same calls again with no change, each window gives back the run already done. No new version such as `demo_v2` appears. This holds when I do not pass `from_step`, `resume` or `force`.
 
 ## An example
 

@@ -770,6 +770,102 @@ def refuse_an_export_that_cannot_be_written(cfg: Any, *, sealed: bool) -> None:
                 return
 
 
+def _written_by_the_run(cfg: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """The stored names the solvers of the run write, and the names of those solvers.
+
+    A solver the registry does not know is left out: its own rule refuses it.
+    """
+    names = [str(cfg.solver.backend_name)]
+    written = list(solvers.get("flow", cfg.solver.backend_name).writes)
+    for process in getattr(cfg.simulation, "process", None) or ():
+        kind = getattr(process, "kind", None)
+        if kind in (None, "flow"):
+            continue
+        for name in getattr(process, "solvers", None) or ():
+            try:
+                written.extend(solvers.get(kind, name).writes)
+            except solvers.error:
+                continue
+            names.append(str(name))
+    return tuple(written), tuple(names)
+
+
+def warn_of_what_the_run_cannot_draw_or_export(cfg: Any, *, sealed: bool) -> list[str]:
+    """Name each figure and each export this run cannot make, before the solve.
+
+    A field no solver of the run writes (a concentration with no transport, the
+    particles with no tracking, a budget term the flow solver keeps none of), a layer
+    past the last one of the model, and a figure of a calibration session in a file
+    that calibrates nothing. The run skips each of them and says so again. A name
+    whose data depends on what the run loads, a series or a layer of the map, is
+    left to the run, which skips it when it holds none. A sealed document says
+    nothing: its run is made.
+    """
+    from fnmatch import fnmatch
+
+    from hydromodpy.display.presets import PRESETS
+    from hydromodpy.display.request import SESSION, SPECIALS, expand, file_stem, required_variables
+    from hydromodpy.results import field_registry
+    from hydromodpy.results.exporters.export_spec import PATHLINES
+
+    if sealed:
+        return []
+    written, solver_names = _written_by_the_run(cfg)
+    by_whom = f"no solver of this run writes it ({', '.join(solver_names)})"
+    layers = cfg.domain.layers.layer_count
+    mode = getattr(getattr(cfg, "workflow", None), "mode", None)
+    calibrates = mode == "calibration" or (mode is None and cfg.calibration is not None)
+
+    def unwritten(name: str) -> bool:
+        if name == PATHLINES:
+            return not any(item.startswith("particles/") for item in written)
+        if not field_registry.has(name):
+            return False
+        path = field_registry.get(name).zarr_path
+        if path.startswith("derived/"):
+            return False  # rebuilt on read from what the solver wrote
+        return not any(fnmatch(path, item) or fnmatch(f"{path}/", item) for item in written)
+
+    def past_the_layers(layer: object) -> str | None:
+        if isinstance(layer, int) and layer >= layers:
+            return f"layer {layer} is past the {layers} layer(s) of the model, 0 to {layers - 1}"
+        return None
+
+    said: list[str] = []
+    display = getattr(cfg, "display", None)
+    if display is not None and display.enabled:
+        presets = {**PRESETS, **display.presets}
+        for index, request in enumerate(display.figure):
+            where = f"display.figure[{index}] {file_stem(request)!r}"
+            figure = expand(request, presets)
+            if figure.special is not None and SPECIALS[figure.special].subject == SESSION:
+                if not calibrates and request.when != SESSION:
+                    said.append(
+                        f"{where} draws a calibration session and this file calibrates "
+                        "nothing, so the run does not draw it."
+                    )
+                continue
+            reasons = [
+                f"{name}: {by_whom}"
+                for name in required_variables(request, presets, terms=False)
+                if unwritten(name)
+            ]
+            reasons += [
+                reason
+                for panel in figure.panels
+                if (reason := past_the_layers(panel.layer)) is not None
+            ]
+            if reasons:
+                said.append(f"{where} is not drawn by the run: {'; '.join(reasons)}.")
+    for index, request in enumerate(getattr(cfg, "export", None) or ()):
+        reasons = [f"{name}: {by_whom}" for name in request.names if unwritten(name)]
+        if (reason := past_the_layers(request.layer)) is not None:
+            reasons.append(reason)
+        if reasons:
+            said.append(f"export[{index}] is not written by the run: {'; '.join(reasons)}.")
+    return said
+
+
 @dataclass(frozen=True)
 class CrossRule:
     """One rule that reads several validated sections together.
@@ -871,6 +967,13 @@ CROSS_RULES: dict[str, CrossRule] = {
             reads_the_time=True,
         ),
         CrossRule(refuse_an_export_that_cannot_be_written, _reads("export")),
+        # What the run would skip after the solve, said before it.
+        CrossRule(
+            warn_of_what_the_run_cannot_draw_or_export,
+            _reads(
+                "display", "export", "solver", "simulation", "domain", "workflow", "calibration"
+            ),
+        ),
     )
 }
 """The rules that read several sections of a validated document, in the order they run.
@@ -961,4 +1064,5 @@ __all__ = [
     "refuse_the_soil_forcing_a_file_doubles_or_leaves_out",
     "require_site_for_real_catchment",
     "run_cross_rules",
+    "warn_of_what_the_run_cannot_draw_or_export",
 ]

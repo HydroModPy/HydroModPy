@@ -16,11 +16,11 @@ from typing import TYPE_CHECKING, Any, Final
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.names import split_stem_version
 from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.results.catalog.constants import UnrankedMetricError, metric_sense
 from hydromodpy.results.catalog.listing import SEALED_SOLVE_METRIC, solve_seconds
-from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.run.ranking import (
     clean_cell,
     first_present,

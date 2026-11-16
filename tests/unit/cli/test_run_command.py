@@ -123,7 +123,7 @@ def test_live_case_is_refused(
     assert (after.attempt, after.attempt_id, after.pid) == (1, before.attempt_id, live_pid)
     assert after.written_by == "worker"
     assert not (run_dir / "attempts").exists()
-    assert [entry.name for entry in (tmp_path / "runs").iterdir()] == [CASE], "no .v2"
+    assert [entry.name for entry in (tmp_path / "runs").iterdir()] == [CASE], "no _v2"
 
 
 def test_index_built_after_the_worker(tmp_path: Path) -> None:

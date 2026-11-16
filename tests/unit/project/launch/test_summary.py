@@ -109,9 +109,9 @@ def _seal(
     overrides: dict | None = None,
     x_outlet: float = 350000.0,
 ) -> Path:
-    """Seal ``runs/<site>-<recipe>[.vN]`` and return its directory."""
+    """Seal ``runs/<site>-<recipe>[_vN]`` and return its directory."""
     case_id = f"{site}-{recipe}"
-    name = case_id if version == 1 else f"{case_id}.v{version}"
+    name = case_id if version == 1 else f"{case_id}_v{version}"
     cost_fields = (
         {}
         if objective is None
@@ -263,7 +263,7 @@ def test_latest_version_is_collected(tmp_path: Path) -> None:
     by_case = pd.read_parquet(root / "summary" / "by_case.parquet")
     assert len(by_case) == 1
     row = by_case.iloc[0]
-    assert row["rel_dir"] == "runs/J0014010-base.v2"
+    assert row["rel_dir"] == "runs/J0014010-base_v2"
     assert row["version"] == 2
     assert row["nse"] == pytest.approx(0.75)
     assert row["overrides"] == "flow.param.K.field.value=2e-05"
@@ -326,7 +326,7 @@ format = "parquet"
 
 [[sites.export]]
 runs = "best"
-variables = ["discharge"]
+variable = ["discharge"]
 format = "csv"
 """
     root = _project(tmp_path, exports=exports)
@@ -363,7 +363,7 @@ format = "csv"
 def test_cohort_figures(tmp_path: Path) -> None:
     root = _project(
         tmp_path,
-        summary_extra=('best = "any"\nfigures = ["map", "distribution"]\nvariables = ["K", "nse"]'),
+        summary_extra=('best = "any"\nfigures = ["map", "distribution"]\nvariable = ["K", "nse"]'),
     )
     _seal(root, "J0014010", "base", nse=0.81, k=2e-5)
     _seal(root, "J0170000", "base", nse=0.55, k=3e-6, x_outlet=360000.0)
@@ -433,7 +433,7 @@ def test_unreadable_manifest_stops(tmp_path: Path) -> None:
 def test_skipped_figure_is_named(tmp_path: Path) -> None:
     root = _project(
         tmp_path,
-        summary_extra='best = "any"\nfigures = ["distribution"]\nvariables = ["K", "kge"]',
+        summary_extra='best = "any"\nfigures = ["distribution"]\nvariable = ["K", "kge"]',
     )
     _seal(root, "J0014010", "base", nse=0.81, k=2e-5)
 
@@ -447,7 +447,7 @@ def test_skipped_figure_is_named(tmp_path: Path) -> None:
 
 def test_failed_collect_keeps_figures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = _project(
-        tmp_path, summary_extra='best = "any"\nfigures = ["distribution"]\nvariables = ["K"]'
+        tmp_path, summary_extra='best = "any"\nfigures = ["distribution"]\nvariable = ["K"]'
     )
     _seal(root, "J0014010", "base", nse=0.81, k=2e-5)
     first = collect_project(root)

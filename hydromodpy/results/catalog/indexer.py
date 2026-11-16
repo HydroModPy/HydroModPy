@@ -96,6 +96,7 @@ from hydromodpy.core.state.layout import (
     runs_dir_for,
     sessions_dir_for,
 )
+from hydromodpy.core.state.names import split_stem_version
 from hydromodpy.core.state.portable import encode_workspace_path
 from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel, trial_dir_rel
 from hydromodpy.core.version import __version__
@@ -120,7 +121,6 @@ from hydromodpy.results.catalog.index_schema import (
     create_index_schema,
     read_index_schema_version,
 )
-from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.catalog.views import ensure_views
 from hydromodpy.results.heartbeat import read_heartbeat
 from hydromodpy.results.outcome import Outcome, effective_status, read_outcome

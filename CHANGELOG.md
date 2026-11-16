@@ -31,6 +31,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - If you come from version 1, read `docs/source/get-started/from-v1.md`. The keys and commands that moved are listed in `docs/source/reference/changes.md`, "What changed in the TOML".
 - A file that does not say which calibration protocol it wants follows protocol 1.3.
 - A run written by an earlier version keeps its label. A [[bug]] row of hydromodpy/schema/changes.toml labels exploratory only the runs whose quantities it names.
+- `[[export]]`, `[[sites.export]]` and `[sites.summary]` name what they read with `variable`, the key `[[display.figure]]` writes, one name or a list. A file that writes `variables` still loads with a warning, and `hmp doctor --fix-config` rewrites it. `run.export` and `hydromodpy.export` take `variable=`.
+- A second run of one name is `<name>_v2`, not `<name>.v2`. A folder `<name>.vN` of an earlier build still opens under its name. `[simulation] name` cannot end in `_v<N>`, and a file `calib_v2.toml` names its run `calib-v2`.
 
 ### Added
 
@@ -205,6 +207,9 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `quicklook` refuses a per-cell field and names the call that draws it, `run.figure(name)`.
 
 ### Changed
+- The banner of a calibration protocol names its departures from the paper on one line, with the value of each, and `-v` says how each one departs. It took about forty lines.
+- A transient run whose `[flow.param]` declares no `Sy` or no `Ss` takes `Sy = 0.05` and `Ss = 1e-5 1/m` as homogeneous fields, with a warning that names them, where MODFLOW refused it. Declare `[flow.param.Sy.field]` and `[flow.param.Ss.field]` to set other values.
+- A NetCDF export opens in QGIS as a mesh with its CRS and every field. A model of one layer writes its fields without a `layer` dimension, so `ds["head"]` is `(time, n_face)` there. The `crs` variable carries `epsg` and `wkt` for MDAL, and `idomain` is a 32-bit integer, since MDAL dropped the whole mesh on a byte. QGIS also lists the file as rasters one row high: open the mesh. `layer` of `[[export]]` is a user key.
 - `hmp.run` with `until_step`, played again with the same request, gives back the sealed run with the same solution key, or the partial run that already reached that step, instead of opening a new version. The check reads the run and claims nothing, and `outcome.json` now records the solution key for it.
 - The seal names the attempt that wrote it, as `outcome.json` does, also when `prepare_solver` ran in an earlier attempt or window.
 - A run stopped at `prepare_solver` now stores the ground of every cell (`mesh/topography`) when the flow backend builds a cell column, so its grid draws on the relief before the solve. The extractor writes it again after the solve, so a lake bed carved by MODFLOW 6 is the ground the run keeps. The stored bytes of a completed run do not change.
@@ -896,6 +901,12 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Fixed
 
+- `Run completed: <run> [id] <time>` counts the time up to the line, the exports and the figures included. It gave the time up to the seal, so a promoted run that took its solve from its trial read 2 s under a promotion of 27 s. `hmp show` still gives the time up to the seal.
+- A figure or an export the run cannot make is named before the solve, by `hmp check` and `hmp run`: a field no solver of the run writes (a concentration with no transport, the particles with no tracking), a layer past the last one of the model, and a figure of a calibration session in a file that calibrates nothing. After the solve the run skips each of them with a warning. An export of a name the run holds none of failed the whole step after the seal and left the figures undrawn, and a figure that did not apply went out with no word.
+- `special` written in a `[[display.figure]]` table is refused with the `preset` to write. `hmp check` passed it and `hmp run` then found a figure with nothing to draw.
+- A calibration with `parallel` above 1 keeps its progress bar in one place. Each worker process wrote its warnings on the terminal itself, which cut the bar and printed it again under each line, once per worker. A worker now hands what it would print to the parent, which prints each warning once above the bar. A promotion of one run no longer shows a `Promoting calibrated runs` bar that stayed at 0/1, only the line of the run and its time.
+- The console says when a calibration writes its calibrated run, `Writing run <name> from trial <n>`, with its duration once done, and the files of the `[[export]]` blocks have their own `exports` line after `seal`. The promotion wrote its seal, its exports and its figures without a line, which read as a long seal and as exports written before the run was done. The order stays seal, exports, figures, since the exports and the figures read the sealed run.
+- A map with classes, such as `network_agreement`, draws in 4 s instead of 146 s on the 54,000 cells of the Nançon at 75 m. Its legend took matplotlib's `best` place, found by testing every cell, and now takes the corner of the map with the fewest cells. The maps of the particle tracks do the same. A calibration drew this figure for its promoted run.
 - On a project with a lake, a second `Project.simulate(set=...)`, `hmp.run(set=...)` or `lab.set` no longer fails on the data types the lake added (`lake_inflow`). A change keeps in `data.types` the types that have a section, as the seal does.
 - A second `Project.simulate` whose `set` moves a section the catchment, the data or the mesh are built from builds them again, where it reused those of the run before and sealed them under the new configuration. On example 00, `set={"geographic.catchment.buff_area": "30% of sqrt(area)"}` after a first run now seals the 1 548 cells of the same run made in one go, not 980. A moved `simulation.time` also lays out the time grid again.
 - A change that switches a lake, a cutoff wall or a flow barrier on or off, or moves its line, now builds the mesh again, in a second `Project.simulate` and in the lab. Such a run kept the mesh of the run before: on the island of the tests a lake switched on sealed 130 cells, not the 477 of the same run made in one go.

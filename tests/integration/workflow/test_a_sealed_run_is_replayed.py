@@ -230,7 +230,7 @@ def test_a_replay_of_an_unchanged_run_runs_and_is_never_skipped_as_identical(dem
 
     assert done.exit_code == 0, done.stderr
     assert "identical" not in done.stderr
-    replay = demo / "runs" / "probe.v2"
+    replay = demo / "runs" / "probe_v2"
     assert _key(replay) == _key(source)
     assert _replay_drift(source, replay) == []
 
@@ -241,7 +241,7 @@ def test_a_strict_replay_gives_the_same_numbers_and_says_bit(demo: Path) -> None
     done = _replay(demo, source, "--strict")
 
     assert done.exit_code == 0, done.stderr
-    replay = demo / "runs" / "probe.v2"
+    replay = demo / "runs" / "probe_v2"
     classed = _manifest(replay)["lineage"]["replay"]
     assert (classed["basis"], classed["class"]) == ("float64", "bit")
     assert _replay_drift(source, replay) == []
@@ -254,7 +254,7 @@ def test_hmp_run_frozen_on_a_sealed_run_names_the_replay_verb(demo: Path) -> Non
 
     assert refused.exit_code != 0
     assert "hmp replay" in refused.stderr
-    assert not (demo / "runs" / "probe.v2").exists()
+    assert not (demo / "runs" / "probe_v2").exists()
 
 
 @pytest.fixture
@@ -293,7 +293,7 @@ def test_a_copied_run_replays_into_a_project_and_never_into_itself(
     assert "-w" in refused.stderr
     done = _replay(demo, copy)
     assert done.exit_code == 0, done.stderr
-    assert _replay_drift(source, demo / "runs" / "probe.v2") == []
+    assert _replay_drift(source, demo / "runs" / "probe_v2") == []
     assert sorted(path.relative_to(copy) for path in copy.rglob("*")) == held
 
 
@@ -323,7 +323,7 @@ def test_a_run_promoted_by_a_calibration_replays_as_one_solve(tmp_path: Path) ->
     replayed = _replay(project, promoted)
     assert replayed.exit_code == 0, replayed.stderr
 
-    replay = project / "runs" / "calibration_dupuit.v2"
+    replay = project / "runs" / "calibration_dupuit_v2"
     assert [path.name for path in (project / "sessions").iterdir()] == ["calibration_dupuit"]
     assert _manifest(replay)["lineage"]["session_id"] is None
     assert _parameter(replay, "K") == _parameter(promoted, "K")
@@ -341,7 +341,7 @@ def test_a_default_that_moved_is_written_in_the_lineage_of_the_replay(
     done = _replay(demo, source)
 
     assert done.exit_code == 0, done.stderr
-    lineage = _manifest(demo / "runs" / "probe.v2")["lineage"]
+    lineage = _manifest(demo / "runs" / "probe_v2")["lineage"]
     assert lineage["drift"]["solver.drain_bed_thickness_m"] == {"sealed": 1.0, "effective": 2.0}
 
 
@@ -368,7 +368,7 @@ def test_a_default_engine_that_moved_is_named_too(
     done = _replay(demo, source)
 
     assert done.exit_code == 0, done.stderr
-    lineage = _manifest(demo / "runs" / "probe.v2")["lineage"]
+    lineage = _manifest(demo / "runs" / "probe_v2")["lineage"]
     assert lineage["drift"]["geographic.terrain_engine"] == {
         "sealed": "whitebox_workflows",
         "effective": "numpy_d8",
@@ -385,7 +385,7 @@ def test_an_edited_frozen_file_is_named_in_the_lineage_and_the_replay_deviates(
     done = _replay(demo, source)
 
     assert done.exit_code == 0, done.stderr
-    lineage = _manifest(demo / "runs" / "probe.v2")["lineage"]
+    lineage = _manifest(demo / "runs" / "probe_v2")["lineage"]
     assert lineage["drift"][K_PATH] == {"sealed": K, "effective": 0.0034}
     assert lineage["replay"]["class"] == "deviation"
 
@@ -429,7 +429,7 @@ def test_a_named_case_resumes_from_its_frozen_file(demo: Path) -> None:
 
     assert resumed.exit_code == 0, resumed.stderr
     assert _manifest(demo / "runs" / "killed")["run"]["status"] == "completed"
-    assert not (demo / "runs" / "killed.v2").exists()
+    assert not (demo / "runs" / "killed_v2").exists()
 
 
 def test_the_manifest_and_the_run_name_the_file_the_user_named(demo: Path) -> None:

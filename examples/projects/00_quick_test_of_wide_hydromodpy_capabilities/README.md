@@ -29,7 +29,7 @@ hmp export aber_example_00 head --time 2017-07-15
 ```
 
 Run the file twice and nothing is computed the second time: the command names the first run and
-stops. Edit the file and the new run is `aber_example_00.v2`, beside the first one. The script
+stops. Edit the file and the new run is `aber_example_00_v2`, beside the first one. The script
 keeps a run of its own each time it is played, so it writes the next version too.
 
 ## What a run writes

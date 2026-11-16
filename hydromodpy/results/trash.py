@@ -17,7 +17,7 @@ Format
 One trashed directory is named after the relative directory it came from,
 with ``/`` replaced by ``__``, then ``@`` and the UTC instant it was trashed::
 
-    trash/runs__baseline_daily.v2@20261014T093000/
+    trash/runs__baseline_daily_v2@20261014T093000/
     trash/sessions__calibration@20261014T093512/
     trash/sessions__calibration__trials__0004@20261015T080000/
 
@@ -35,7 +35,7 @@ tagged :data:`PROTECTED_TAG` are moved only when the caller forces it.
 ``rel_dir,sim_id,date``, with ``date`` the UTC instant of the gc in ISO 8601
 and ``sim_id`` empty when the directory carried no identity::
 
-    runs/baseline_daily.v2,9a4f0c1e-...,2026-11-14T09:30:00Z
+    runs/baseline_daily_v2,9a4f0c1e-...,2026-11-14T09:30:00Z
 
 The file is rewritten whole through a temporary file and ``os.replace``, and
 the tombstones are durable before any byte is removed: a crash during a gc

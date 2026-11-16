@@ -43,7 +43,7 @@ def test_two_processes_reserving_one_name_never_get_the_same_version(tmp_path):
         assert worker.exitcode == 0
 
     reserved = [name for names in results for name in names]
-    expected = {f"case.v{n}" for n in range(2, 2 + 2 * _RESERVATIONS_PER_PROCESS)}
+    expected = {f"case_v{n}" for n in range(2, 2 + 2 * _RESERVATIONS_PER_PROCESS)}
     assert len(reserved) == len(set(reserved)), "a version was given out twice"
     assert set(reserved) == expected
     assert _names(tmp_path / RUNS_DIRNAME) == sorted({"case", *expected})

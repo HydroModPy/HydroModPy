@@ -52,12 +52,9 @@ from hydromodpy.core.io.filesystem import rename_onto_empty_dir
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.state.layout import TRIALS_DIRNAME
+from hydromodpy.core.state.names import split_stem_version
 from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel, trial_dir_rel
-from hydromodpy.results.catalog.registration import (
-    VersionPairingError,
-    reserve_version_dirname,
-    split_stem_version,
-)
+from hydromodpy.results.catalog.registration import VersionPairingError, reserve_version_dirname
 from hydromodpy.results.metric_rule import PeriodWindow
 from hydromodpy.results.record.checks import CalibratedBy, CalibrationSessionStatus, StopState
 from hydromodpy.results.session.descriptor import (
@@ -351,7 +348,8 @@ def _promote_rows(
     count = 0
     best_sim_id: str | None = None
     best_rel_dir: str | None = None
-    for row in progress.track(rows, "Promoting calibrated runs"):
+    # A bar of one run stays at 0/1 until the end: the line of the run says more.
+    for row in progress.track(rows, "Promoting calibrated runs") if len(rows) > 1 else rows:
         number = int(row["trial"])
         is_best = number == best_number
         rel_dir = (
@@ -622,7 +620,13 @@ def _promote_one(
     spared = retention.spared_folders(number) if retention is not None else ()
     sim_id = str(uuid.uuid4())
     try:
-        with progress.suppressed():
+        # One line for the whole run, its duration at the end. The steps inside stay
+        # quiet, so the line is the only trace while the seal, the exports and the
+        # figures of the run are written.
+        with (
+            progress.phase(f"Writing run {run_dir.name} from trial {number}"),
+            progress.suppressed(),
+        ):
             promote_prepared_trial(
                 trial_ctx,
                 values,

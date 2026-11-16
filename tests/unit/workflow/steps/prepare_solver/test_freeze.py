@@ -183,7 +183,7 @@ def test_inferred_data_type_not_frozen(tmp_path: Path) -> None:
 
 
 # The frozen config names the run a refinement zone read by its sim_id, not by its name. A bare
-# name is the latest version, so after a ``.v2`` a replay would read it and draw another mesh.
+# name is the latest version, so after a ``_v2`` a replay would read it and draw another mesh.
 
 CELL = 100.0
 
@@ -314,7 +314,7 @@ def test_only_run_zones_rewritten(project: Path) -> None:
     cfg = _config(
         project,
         {"where": "height_above_stream", "below": 2.0, "cell_size": 25.0},
-        {**ZONE, "run": "coarse.v1"},
+        {**ZONE, "run": "coarse_v1"},
         {"path": "inputs/layer.gpkg", "cell_size": 30.0},
     )
     ctx = SimpleNamespace(
@@ -322,7 +322,7 @@ def test_only_run_zones_rewritten(project: Path) -> None:
     )
     ctx.run_dir.mkdir(parents=True)
 
-    document = frozen_config_document(ctx, project, zone_runs={"coarse.v1": sim_id})
+    document = frozen_config_document(ctx, project, zone_runs={"coarse_v1": sim_id})
 
     zones = tomllib.loads(document)["mesh"]["refinement_zone"]
     assert [zone.get("run") for zone in zones] == [None, sim_id, None]
@@ -357,7 +357,7 @@ def test_other_state_other_request_id(
 def test_claim_freezes_the_run_it_reads(project: Path) -> None:
     sim_id = _source_run(project, "coarse")
     cfg = _config(project, ZONE)
-    run_dir = project / "runs" / "production.v2"
+    run_dir = project / "runs" / "production_v2"
     run_dir.mkdir(parents=True)
     ctx = SimpleNamespace(cfg=cfg, run_dir=run_dir)
 

@@ -2,7 +2,7 @@
 
 A zone that reads ``watertable_depth`` or ``seepage`` names an earlier run of
 the project, the way ``[flow] restart_from`` does: a run name, with or
-without its ``.vN``, or a full ``sim_id``. The run must be sealed, so the
+without its ``_vN``, or a full ``sim_id``. The run must be sealed, so the
 mesh can record the ``sim_id`` it depends on. Its field is read in passes
 over time and reduced to its minimum and maximum per cell, with the mesh of
 that run, which is all the planner needs (:class:`RunFieldEnvelope`).
@@ -153,7 +153,7 @@ def _run_dir(project_root: Path, reference: str) -> Path:
         f"[[mesh.refinement_zone]] run = {reference!r} names no run under "
         f"{runs_dir_for(project_root)}: no run has that name and no run carries that sim_id. "
         "A frozen configuration names the run its mesh came from by sim_id, so a replay needs "
-        "that run to be still there. Otherwise give a run name, with or without its .vN, or a "
+        "that run to be still there. Otherwise give a run name, with or without its _vN, or a "
         "full sim_id, and run the first pass before the run whose mesh reads it."
     )
 

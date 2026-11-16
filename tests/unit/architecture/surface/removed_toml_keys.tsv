@@ -7,6 +7,7 @@ display.preset	2.0.0
 display.save	2.0.0
 display.show	2.0.0
 display.time	2.0.0
+export.variables	2.0.0
 flow.active_bc	2.0.0
 flow.active_sinks_sources	2.0.0
 flow.bc.forcing.mode	2.0.0
@@ -119,6 +120,8 @@ modflownwt.sgrid.top_sampling.min_thickness_m	2.0.0
 modflownwt.sgrid.top_sampling.mode	2.0.0
 modflownwt.sgrid.top_sampling.spike_guard_tol_m	2.0.0
 simulation.process.type	2.0.0
+sites.export.variables	2.0.0
+sites.summary.variables	2.0.0
 solver.backend.backend	2.0.0
 solver.backend.kind	2.0.0
 transport.active_bc	2.0.0

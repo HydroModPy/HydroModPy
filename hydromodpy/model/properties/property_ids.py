@@ -14,20 +14,25 @@ from hydromodpy.schema.changes import prerelease_refusal
 
 @dataclass(frozen=True)
 class FlowPropertyId:
-    """One hydraulic property: its id, its unit, the name it is written under."""
+    """One hydraulic property: its id, its unit, the name it is written under.
+
+    ``transient_default`` is the homogeneous value a transient run takes when the file
+    declares no table for the property, in ``unit``. None means the file must declare it.
+    """
 
     id: str
     unit: str
     output: str
     label: str
     conductivity: bool = False
+    transient_default: float | None = None
 
 
 FLOW_PROPERTY_IDS: tuple[FlowPropertyId, ...] = (
     FlowPropertyId("K", "m/s", "hk", "Hydraulic conductivity", conductivity=True),
     FlowPropertyId("Kv", "m/s", "kv", "Vertical hydraulic conductivity", conductivity=True),
-    FlowPropertyId("Sy", "-", "sy", "Specific yield"),
-    FlowPropertyId("Ss", "1/m", "ss", "Specific storage"),
+    FlowPropertyId("Sy", "-", "sy", "Specific yield", transient_default=0.05),
+    FlowPropertyId("Ss", "1/m", "ss", "Specific storage", transient_default=1e-5),
     FlowPropertyId(
         "K22",
         "m/s",
@@ -80,6 +85,15 @@ decides.
 
 CONDUCTIVITY_IDS: tuple[str, ...] = tuple(p.id for p in FLOW_PROPERTY_IDS if p.conductivity)
 
+TRANSIENT_DEFAULTS: dict[str, float] = {
+    p.id: p.transient_default for p in FLOW_PROPERTY_IDS if p.transient_default is not None
+}
+"""The storage a transient run cannot go without, and the value it takes when none is declared.
+
+Sy = 0.05 is the specific yield most examples of this repository use, and Ss = 1e-5 1/m the
+specific storage they all use.
+"""
+
 
 def default_unit_of(param_id: str) -> str:
     """Return the unit a number takes under *param_id*, ``-`` for a free id."""
@@ -108,6 +122,7 @@ def refusal_of_a_retired_id(param_id: str) -> str | None:
 __all__ = [
     "CONDUCTIVITY_IDS",
     "FLOW_PROPERTY_IDS",
+    "TRANSIENT_DEFAULTS",
     "FlowPropertyId",
     "default_unit_of",
     "refusal_of_a_retired_id",

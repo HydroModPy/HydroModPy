@@ -54,10 +54,10 @@ def test_a_default_resolution_with_too_many_pixels_asks_for_one(project):
     rebuild_index(project)
     with Catalog(project) as catalog:
         with pytest.raises(ValueError, match=r"resolution=") as raised:
-            export_run(catalog, sid, ExportRequest(variables="head", time="2000-01-15"))
+            export_run(catalog, sid, ExportRequest(variable="head", time="2000-01-15"))
         assert "smallest cell" in str(raised.value)
 
         written = export_run(
-            catalog, sid, ExportRequest(variables="head", time="2000-01-15", resolution=20_000.0)
+            catalog, sid, ExportRequest(variable="head", time="2000-01-15", resolution=20_000.0)
         )
         assert written[0].exists()

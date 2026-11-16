@@ -75,7 +75,7 @@ def _published_seal() -> RunSeal:
     return _demo_seal().model_copy(
         update={
             "run": _run(
-                name="demo.v2",
+                name="demo_v2",
                 name_stem="demo",
                 version=2,
                 description="Transient run of the Kerouer basin.",

@@ -11,7 +11,7 @@ from hydromodpy.results.record.manifest import InputEntry, TrackedInput
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from tests._helpers.run_records import make_record
 
-RUN_NAME = "J0014010-base.v2"
+RUN_NAME = "J0014010-base_v2"
 
 
 def make_project(tmp_path: Path, *, license: str | None = "etalab-2.0") -> Path:

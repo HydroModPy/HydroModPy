@@ -353,7 +353,7 @@ class ProjectSessions(Mapping[str, Session]):
 
     ``project.sessions["J0014010-calage"]`` is the session directory of that
     name, or, for a case calibrated more than once, its newest version
-    (``J0014010-calage.v3``). Iterating gives the directory names.
+    (``J0014010-calage_v3``). Iterating gives the directory names.
     """
 
     def __init__(self, project_root: Path) -> None:
@@ -363,9 +363,9 @@ class ProjectSessions(Mapping[str, Session]):
         return [directory.name for directory in list_session_dirs(self._root)]
 
     def __getitem__(self, name: str) -> Session:
+        from hydromodpy.core.state.names import split_stem_version
         from hydromodpy.project.facade import read_sealed_config
         from hydromodpy.project.show import render
-        from hydromodpy.results.catalog.registration import split_stem_version
 
         names = self._names()
         if name in names:

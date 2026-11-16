@@ -2,10 +2,10 @@
 
 One project folder, played in order:
 1. ``hmp run project.toml``, then again with ``--force``: two sealed runs,
-   ``basin`` and ``basin.v2``.
+   ``basin`` and ``basin_v2``.
 2. ``hmp ls`` lists both, ``hmp show basin`` reads the summary of the run,
    ``--profile`` where its time went, ``--figure discharge`` draws one figure.
-3. ``hmp diff basin basin.v2`` compares them, ``hmp export basin discharge``
+3. ``hmp diff basin basin_v2`` compares them, ``hmp export basin discharge``
    writes the series.
 4. ``hmp catalog ls``, a form that left in 2.0.0, exits 2 with the command that
    replaces it.
@@ -53,12 +53,12 @@ def test_the_read_verbs_play_a_basin(
     root = played.root
     again = _hmp(root, scenario_env, "run", "project.toml", "--force")
     assert again.returncode == 0, again.stderr[-3000:]
-    assert sorted(path.name for path in (root / "runs").iterdir()) == ["basin", "basin.v2"]
+    assert sorted(path.name for path in (root / "runs").iterdir()) == ["basin", "basin_v2"]
 
     # 2. The list, the summary, the profile and one figure.
     listed = _hmp(root, scenario_env, "ls", "--format", "json")
     assert listed.returncode == 0, listed.stderr[-3000:]
-    assert {"basin", "basin.v2"} <= {line["name"] for line in json.loads(listed.stdout)["data"]}
+    assert {"basin", "basin_v2"} <= {line["name"] for line in json.loads(listed.stdout)["data"]}
     shown = _hmp(root, scenario_env, "show", "basin")
     assert shown.returncode == 0, shown.stderr[-3000:]
     assert "basin" in shown.stdout
@@ -66,15 +66,15 @@ def test_the_read_verbs_play_a_basin(
     assert profile.returncode == 0, profile.stderr[-3000:]
     drawn = _hmp(root, scenario_env, "show", "basin", "--figure", "discharge")
     assert drawn.returncode == 0, drawn.stderr[-3000:]
-    # A name reads its latest version, so the figure lands under basin.v2.
-    assert list((root / "runs" / "basin.v2" / "figures").glob("discharge*"))
+    # A name reads its latest version, so the figure lands under basin_v2.
+    assert list((root / "runs" / "basin_v2" / "figures").glob("discharge*"))
 
     # 3. The comparison and the export.
-    compared = _hmp(root, scenario_env, "diff", "basin", "basin.v2")
+    compared = _hmp(root, scenario_env, "diff", "basin", "basin_v2")
     assert compared.returncode == 0, compared.stderr[-3000:]
     exported = _hmp(root, scenario_env, "export", "basin", "discharge")
     assert exported.returncode == 0, exported.stderr[-3000:]
-    assert list((root / "runs" / "basin.v2").rglob("*discharge*"))
+    assert list((root / "runs" / "basin_v2").rglob("*discharge*"))
 
     # 4. A form that left is refused with the one that replaces it.
     refused = _hmp(root, scenario_env, "catalog", "ls")

@@ -98,14 +98,14 @@ preset = "water_budget"
 
 # The catchment outline: GeoPackage.
 [[export]]
-variables = "watershed"
+variable = "watershed"
 
 # The water table and the seepage cells: one GeoTIFF each. "last" is the one
 # state of a steady run, and the last month of a transient one.
 [[export]]
-variables = ["watertable_depth", "seepage_mask"]
+variable = ["watertable_depth", "seepage_mask"]
 time = "last"
 
 # The water budget: CSV.
 [[export]]
-variables = "budget"
+variable = "budget"

@@ -28,7 +28,7 @@ HERE = Path(__file__).resolve().parent
 if len(sys.argv) > 1:
     folder = Path(sys.argv[1])
 else:
-    # Running an edited step 5 again writes a new run (.v2, .v3...). An
+    # Running an edited step 5 again writes a new run (_v2, _v3...). An
     # unchanged file is not computed again. Take the most recent exports folder.
     folder = max(
         (HERE / "runs").glob("nancon_step5_export*/exports"), key=lambda p: p.stat().st_mtime

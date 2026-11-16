@@ -1360,7 +1360,11 @@ def test_protocol_lines(
         "  option written as the recipe runs it: window = {'start': '2001-01-01', 'end': '2002-12-31'}"
         in verbose
     )
-    assert "  differs from the paper on map.drawn_by" in {line.split(":")[0] for line in normal}
+    [departs] = [line for line in normal if line.startswith("  differs from the paper on: ")]
+    # One line for every departure, with the value in force; the sentences are for -v.
+    assert "map.drawn_by = 'heads'" in departs
+    assert departs.endswith("(-v says how)")
+    assert "  differs from the paper on map.drawn_by" in {line.split(":")[0] for line in verbose}
     assert {
         "  stage 1",
         "  cite",

@@ -1,4 +1,4 @@
-"""Two workers on one case: one continues, the other stops with a sentence, no ``.v2``.
+"""Two workers on one case: one continues, the other stops with a sentence, no ``_v2``.
 
 The claim of an attempt is a ``mkdir`` the kernel serializes: ``runs/<case>``
 for a fresh case, ``attempts/<k>`` for a retry. Two real processes race on

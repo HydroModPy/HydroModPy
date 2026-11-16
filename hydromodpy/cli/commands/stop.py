@@ -25,15 +25,15 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
-        epilog="Examples:\n  hmp stop baseline\n  hmp stop sessions/calibration.v2",
+        epilog="Examples:\n  hmp stop baseline\n  hmp stop sessions/calibration_v2",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "ref",
         metavar="REF",
         help=(
-            "A running run, <name>[.vN] or runs/<name>[.vN] (a bare name is its "
-            "latest version), or a running calibration session, sessions/<case>[.vN]."
+            "A running run, <name>[_vN] or runs/<name>[_vN] (a bare name is its "
+            "latest version), or a running calibration session, sessions/<case>[_vN]."
         ),
     )
     parser.set_defaults(_handler=run)

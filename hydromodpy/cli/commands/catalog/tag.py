@@ -23,7 +23,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
-        epilog="Example:\n  hmp catalog tag baseline.v2 pinned paper --rm draft",
+        epilog="Example:\n  hmp catalog tag baseline_v2 pinned paper --rm draft",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_sim_ref(parser)

@@ -2,7 +2,7 @@
 
 A run owns one directory, ``runs/<name>`` or a kept trial
 ``sessions/<name>/trials/<nnnn>``, named after the run itself (``my_run``,
-``my_run.v2`` ...). Everything the run produced lives inside it:
+``my_run_v2`` ...). Everything the run produced lives inside it:
 ``fields.zarr``, ``tables.parquet/<view>.parquet``, ``config.toml``,
 ``figures/``. The layout is therefore readable without the index, and
 deleting a run is moving one directory to the trash.

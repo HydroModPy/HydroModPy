@@ -123,7 +123,7 @@ Once a run exists you can also ask for files without editing the TOML, for examp
 ## Key fields
 
 ```{hmp-params}
-export.variables
+export.variable
 export.time
 export.format
 export.file

@@ -176,17 +176,17 @@ when = "session"
 
 # The catchment and the mapped network: GeoPackage.
 [[export]]
-variables = ["watershed", "hydrographic_network_reference"]
+variable = ["watershed", "hydrographic_network_reference"]
 
 # The water table and the seepage cells of October 2002: one GeoTIFF each.
 [[export]]
-variables = ["watertable_depth", "seepage_mask"]
+variable = ["watertable_depth", "seepage_mask"]
 time = "2002-10-15"
 
 # Simulated and gauged discharge over the run: CSV.
 [[export]]
-variables = ["discharge", "discharge_obs"]
+variable = ["discharge", "discharge_obs"]
 
 # The water budget of every period: CSV.
 [[export]]
-variables = "budget"
+variable = "budget"

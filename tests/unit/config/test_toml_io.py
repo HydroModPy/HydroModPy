@@ -217,7 +217,7 @@ def test_user_template_has_no_export() -> None:
 
 def test_config_from_instances_keeps_its_exports() -> None:
     requests = load_export_requests(
-        [{"variables": ["head"], "time": ["last"], "format": "netcdf"}, {"variables": "all"}]
+        [{"variable": ["head"], "time": ["last"], "format": "netcdf"}, {"variable": "all"}]
     )
     text = generate_toml_from_instances(
         {"export": requests}, exclude_none=True, root=HydroModPyConfig

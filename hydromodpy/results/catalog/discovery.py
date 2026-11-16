@@ -2,7 +2,7 @@
 
 A reference names a result directory the way the project tree names it:
 
-- a run directory name: ``baseline.v2``, ``J0001-base``,
+- a run directory name: ``baseline_v2``, ``J0001-base``,
   ``calibration``. It is the directory ``runs/<name>`` and nothing else: the
   bare name is version 1, never "the latest version".
 - a relative directory: ``runs/<name>``, ``sessions/<name>`` or
@@ -28,6 +28,7 @@ from uuid import UUID
 
 from hydromodpy.core.exceptions import CatalogError, Category, NothingThereError
 from hydromodpy.core.state.layout import catalog_path_for, project_roots_under, runs_dir_for
+from hydromodpy.core.state.names import split_stem_version
 from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
 from hydromodpy.results.catalog.constants import (
     MESH_ENGINE_SQL,
@@ -36,7 +37,6 @@ from hydromodpy.results.catalog.constants import (
     metric_rank_sql,
     metric_sense,
 )
-from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 from hydromodpy.results.trash import TrashedEntry, list_trash
 
@@ -188,7 +188,7 @@ def resolve_rel_dir(
     A directory name or a relative directory is checked on disk, without the
     index. An id or a selector is answered by the index, opened read-only.
     With ``unambiguous``, a bare run name whose stem has other versions on
-    disk is refused with the list: a purge must name ``x.v2`` or ``x``
+    disk is refused with the list: a purge must name ``x_v2`` or ``x``
     knowing the other one exists. A hex-looking name that is also the prefix
     of another run's id is refused the same way.
 
@@ -252,8 +252,8 @@ def resolve_trashed(project_root: Path, ref: str) -> TrashedEntry:
     """Return the trash entry ``ref`` names.
 
     ``ref`` is the name the trash listing shows
-    (``runs__baseline_daily.v2@20261014T093000``), or the directory the entry
-    came from (``baseline_daily.v2``, ``sessions/calibration``). A directory
+    (``runs__baseline_daily_v2@20261014T093000``), or the directory the entry
+    came from (``baseline_daily_v2``, ``sessions/calibration``). A directory
     trashed several times is ambiguous and the entries are listed.
     """
     text = str(ref).strip()

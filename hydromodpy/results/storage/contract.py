@@ -40,7 +40,7 @@ produced it, under a name fixed by its class::
         candidates/                      TOML overlays of materialized candidates
         README.md  figures/  report/  logs/
 
-The run directory name is the human run name (with its ``.vN`` version
+The run directory name is the human run name (with its ``_vN`` version
 suffix), so the tree is readable without the index. The directory names of
 the project itself (``runs``, ``sessions``, ``plan``, ``trash``, ``.hmp`` ...)
 live in :mod:`hydromodpy.core.state.layout`; this module owns the names

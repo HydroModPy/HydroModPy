@@ -56,7 +56,13 @@ from hydromodpy.calibration.runners.sandbox import sandbox_of
 from hydromodpy.calibration.runners.trial import trial_pipeline_initializer
 from hydromodpy.catchment.stream_network.geometry import recharge_session
 from hydromodpy.core.exceptions import CalibrationError
-from hydromodpy.core.logging import current_verbosity, set_verbosity
+from hydromodpy.core.logging import (
+    HeldConsole,
+    current_verbosity,
+    hold_console,
+    print_held,
+    set_verbosity,
+)
 from hydromodpy.core.state.scratch import active_run_scratch, inherit_run_scratch
 
 if TYPE_CHECKING:
@@ -92,17 +98,22 @@ def _wall_clock_limit(trial_ctx: TrialContext | None) -> float:
     return float(override) if override is not None else DEFAULT_TRIAL_LIMIT_S
 
 
-def _serve(conn: Connection) -> None:
+def _serve(conn: Connection, *, hold: bool = False) -> None:
     """Build the evaluator from the state on ``conn``, then answer trials until the parent goes.
 
     An exception goes to the parent as the answer, and the worker ends: the parent
     cannot read the worker's stderr, and a failure here is a bug or a bad setup.
+    With ``hold``, a worker process holds what its console would print and sends it
+    with each answer.
     """
     try:
         evaluator_class, options, keeps_solves, verbosity, initializer, scratch_key = pickle.loads(
             conn.recv_bytes()
         )
         set_verbosity(verbosity)
+        # The terminal belongs to the live display of the parent: what this worker
+        # would print goes back with each answer, and the parent prints it.
+        held = hold_console() if hold else None
         if initializer is not None:
             # A fresh process holds no installed pipeline: run the installer
             # the parent carried, then build the evaluator on top of it.
@@ -111,7 +122,7 @@ def _serve(conn: Connection) -> None:
             getattr(module, func_name)()
         # The run scratch of the parent is a context variable, so it travels in the payload.
         with nullcontext() if scratch_key is None else inherit_run_scratch(scratch_key):
-            _answer_trials(conn, evaluator_class, options, keeps_solves)
+            _answer_trials(conn, evaluator_class, options, keeps_solves, held)
     except (EOFError, BrokenPipeError):
         return
     except Exception as exc:
@@ -119,7 +130,11 @@ def _serve(conn: Connection) -> None:
 
 
 def _answer_trials(
-    conn: Connection, evaluator_class: type, options: Mapping[str, Any], keeps_solves: bool
+    conn: Connection,
+    evaluator_class: type,
+    options: Mapping[str, Any],
+    keeps_solves: bool,
+    held: HeldConsole | None,
 ) -> None:
     """Build the evaluator on the installed pipeline, then answer one trial after another."""
     # Keeps every solve of this worker until the parent, which alone sees the
@@ -147,7 +162,7 @@ def _answer_trials(
             if retention is not None:
                 kept, _ = retention.take(request.trial_id)
                 retention.promoted(request.trial_id)
-            conn.send((outcome, rows, kept))
+            conn.send((outcome, rows, kept, held.drain() if held is not None else []))
 
 
 def _worker_main(conn: Connection) -> None:
@@ -160,7 +175,7 @@ def _worker_main(conn: Connection) -> None:
     threading.Thread(target=_die_with_the_parent, daemon=True).start()
     # libmf6 writes each time step on fd 1, which no Python redirect reaches.
     os.dup2(os.open(os.devnull, os.O_WRONLY), 1)
-    _serve(conn)
+    _serve(conn, hold=True)
 
 
 def _end_group(pid: int) -> None:
@@ -268,7 +283,8 @@ class TrialWorkerPool:
                 error=f"Trial {request.trial_id} did not end: {error}",
             )
         self._idle.put((process, conn))
-        outcome, self.trial_series_sink.rows, kept = answer
+        outcome, self.trial_series_sink.rows, kept, said = answer
+        print_held(said)
         if kept is not None:
             self._retention.adopt(kept)
         return outcome

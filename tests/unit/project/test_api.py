@@ -182,16 +182,16 @@ def test_spinup_from_mapping(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
 def test_replay_outcome(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     seal_run(project, "base")
-    seal_run(project, "base.v2")
-    played = SimpleNamespace(dir=(project / "runs" / "base.v2").resolve())
+    seal_run(project, "base_v2")
+    played = SimpleNamespace(dir=(project / "runs" / "base_v2").resolve())
     calls = _recorder(monkeypatch, "hydromodpy.project.replay.replay", played)
 
     outcome = api.replay("base", workspace=project, strict=True)
 
     assert isinstance(outcome, RunOutcome)
-    assert (outcome.name, outcome.project_root) == ("base.v2", project.resolve())
+    assert (outcome.name, outcome.project_root) == ("base_v2", project.resolve())
     (args, kwargs) = calls[0]
-    assert args[0] == (project / "runs" / "base.v2").resolve()
+    assert args[0] == (project / "runs" / "base_v2").resolve()
     assert (kwargs["strict"], kwargs["base"]) == (True, project.resolve())
 
 
@@ -326,13 +326,11 @@ def test_show_refuses_unknown_what() -> None:
 def test_export_a_run(monkeypatch: pytest.MonkeyPatch) -> None:
     exported: list = []
     run = _bare(Run)
-    monkeypatch.setattr(
-        Run, "export", lambda self, variables, **kw: exported.append(variables) or []
-    )
+    monkeypatch.setattr(Run, "export", lambda self, variable, **kw: exported.append(variable) or [])
 
     with pytest.raises(TypeError, match="export reads a run"):
         api.export(_bare(Session), "head")
-    with pytest.raises(ExportError, match="variables is missing"):
+    with pytest.raises(ExportError, match="variable is missing"):
         api.export(run)
     with pytest.raises(ExportError, match="no other word"):
         api.export(run, "head", deliver=True)  # type: ignore[call-overload]

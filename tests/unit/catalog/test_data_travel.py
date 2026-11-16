@@ -370,4 +370,4 @@ def test_catalog_import_command(tmp_path) -> None:
     assert f"as runs/{RUN_NAME}" in result.stdout
     assert "3 file(s) written" in result.stdout
     assert f"hmp catalog rerun {RUN_NAME} -w" in result.stdout
-    assert f"hmp diff {RUN_NAME} {RUN_NAME}.v2 -w" in result.stdout
+    assert f"hmp diff {RUN_NAME} {RUN_NAME}_v2 -w" in result.stdout

@@ -51,7 +51,7 @@ frozen resolved config (`config.toml`), the fields (`fields.zarr`), the tables
 (`tables.parquet`), the inputs it read (`inputs.json`), its figures, exports and report, a
 generated `README.md` and, written last, `manifest.json`. These are open formats: `xarray`,
 `zarr` and `pandas` read a run without HydroModPy. Running an unchanged file again does
-nothing; an edited file, or the same file with `--set`, makes `<name>.v2`. A run that failed
+nothing; an edited file, or the same file with `--set`, makes `<name>_v2`. A run that failed
 keeps its folder, with `outcome.json` saying why, and the next attempt resumes there.
 
 **Session.** The record of one calibration, `sessions/<name>/`: its frozen configuration,

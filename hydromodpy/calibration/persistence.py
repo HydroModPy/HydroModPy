@@ -1,6 +1,6 @@
 """The journal of one calibration session, written as the search goes.
 
-A session owns ``sessions/<case>[.vN]/`` at the project root. This module is
+A session owns ``sessions/<case>[_vN]/`` at the project root. This module is
 the only writer of what the search records there:
 
 - ``outcome.json``: the issue of the session (``running``, then ``completed``,

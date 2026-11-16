@@ -472,7 +472,7 @@ def test_second_promotion_next_version(tmp_path, recorder, monkeypatch):
 
     target = promote_trial_from_session(tmp_path, "calage", 1)
 
-    assert target == tmp_path / "runs" / "calage.v2"
+    assert target == tmp_path / "runs" / "calage_v2"
     assert read_session(persistence.directory).best.trial == 2, "the pointer did not move"
 
 

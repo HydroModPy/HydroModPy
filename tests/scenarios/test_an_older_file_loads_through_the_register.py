@@ -122,7 +122,7 @@ def test_a_run_sealed_by_a_pre_release_replays_with_no_drift(first_run, tmp_path
 
     assert replay.returncode == 0, (replay.stdout + replay.stderr)[-2000:]
     assert "ConfigKeyRenamedWarning" not in replay.stderr
-    replayed = project / "runs" / f"{RUN}.v2"
+    replayed = project / "runs" / f"{RUN}_v2"
     assert replayed.is_dir()
     # The version suffix of the name, the folder of the project, the lineage of a replay
     # and the request it keeps differ by construction.

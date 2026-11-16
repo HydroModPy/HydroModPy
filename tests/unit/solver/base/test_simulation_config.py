@@ -114,7 +114,7 @@ def test_if_exists_names_the_next_free_version() -> None:
     description = SimulationConfig.model_fields["if_exists"].description or ""
 
     assert "next free" in description
-    assert "stem.vN" in description
+    assert "stem_vN" in description
 
 
 REFUSALS = [

@@ -441,7 +441,7 @@ def resolve_references(refs: Sequence[str], *, project_root: Path | None) -> lis
             where = f" under {runs_dir}" if runs_dir else ""
             raise ComparisonReferenceError(
                 f"{ref!r} names no sealed run{where}: give a run directory, a run name such "
-                "as base.v2, or a recipe of the project."
+                "as base_v2, or a recipe of the project."
             )
         resolved.append(runs)
     return resolved

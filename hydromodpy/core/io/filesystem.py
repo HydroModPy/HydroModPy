@@ -7,7 +7,7 @@ folder, and the removal that waits for a reader to let go.
 The budget of a project tree. :data:`PROJECT_TREE_DEPTH` is the longest path a
 project writes below its root folder, measured on the six reference runs with
 names of 40 characters (``MAX_NAME_LENGTH`` of ``core/state/names.py``), the
-window suffix ``_w01`` and a version suffix ``.v9999``.
+window suffix ``_w01`` and a version suffix ``_v9999``.
 
 - A kept calibration trial reaches 158 characters, the deepest path.
 - A run reaches 146 characters.

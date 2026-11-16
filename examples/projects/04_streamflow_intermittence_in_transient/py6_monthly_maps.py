@@ -21,7 +21,7 @@ import hydromodpy as hmp
 HERE = Path(__file__).resolve().parent
 
 # The run of project.toml. An edited project.toml writes
-# nancon_intermittence_mf6.v2, .v3...: name the version to read it. The sheet
+# nancon_intermittence_mf6_v2, _v3...: name the version to read it. The sheet
 # and the GIF are derived, not sealed: they go to summary/figures/.
 run = hmp.open(HERE)["nancon_intermittence_mf6"]
 out = HERE / "summary" / "figures" / run.name

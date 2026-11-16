@@ -358,11 +358,39 @@ LEGEND_ROW_CHARS = 40
 """A legend whose labels hold more characters than this is set on two columns."""
 
 
+LEGEND_CORNERS = ("upper right", "upper left", "lower right", "lower left")
+"""The places a legend inside a map may take, the first one kept on a tie."""
+CORNER_SHARE = (0.4, 0.3)
+"""Width and height of the corner a legend inside a map covers, as shares of the axes."""
+
+
+def quiet_corner(ax: Any, x: Any, y: Any) -> str:
+    """Return the corner of the axes that covers the fewest of the points ``x``, ``y``.
+
+    The result is a legend location. matplotlib's ``loc="best"`` tests each place
+    against every path of the axes, which took two minutes on a map of 54,000 cells.
+    Counting the cell centres in four corners takes a millisecond.
+    """
+    (x0, x1), (y0, y1) = ax.get_xlim(), ax.get_ylim()
+    fx = (np.asarray(x, dtype=float) - x0) / (x1 - x0)
+    fy = (np.asarray(y, dtype=float) - y0) / (y1 - y0)
+    right, top = fx > 1.0 - CORNER_SHARE[0], fy > 1.0 - CORNER_SHARE[1]
+    left, bottom = fx < CORNER_SHARE[0], fy < CORNER_SHARE[1]
+    covered = {
+        "upper right": right & top,
+        "upper left": left & top,
+        "lower right": right & bottom,
+        "lower left": left & bottom,
+    }
+    return min(LEGEND_CORNERS, key=lambda corner: int(np.count_nonzero(covered[corner])))
+
+
 def legend(ax: Any, theme: Theme, *, inside: str | None = None) -> Any:
     """Put the legend in one row above the axes, right aligned, above the title when there is one.
 
-    ``inside`` is a matplotlib location, ``"best"`` included. The legend then sits in the
-    axes, in one column, on a face that lets the drawing show through.
+    ``inside`` is a matplotlib location. The legend then sits in the axes, in one column,
+    on a face that lets the drawing show through. A map passes :func:`quiet_corner`, never
+    ``"best"``, which tests every cell.
     """
     titled = any(ax.get_title(loc=loc) for loc in ("left", "center", "right"))
     lift = theme.title_size + theme.title_pad + 2.0 if titled else 2.0

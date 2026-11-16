@@ -92,7 +92,7 @@ def test_a_run_shared_with_its_data_replays_elsewhere_with_the_same_heads(tmp_pa
     diff = hmp(
         "diff",
         RUN_NAME,
-        f"{RUN_NAME}.v2",
+        f"{RUN_NAME}_v2",
         "-w",
         str(lab),
         "--format",
@@ -106,7 +106,7 @@ def test_a_run_shared_with_its_data_replays_elsewhere_with_the_same_heads(tmp_pa
     # Only the solve time differs, and a runtime number is no score.
     assert compared["metrics"] == [], compared["metrics"]
 
-    replay = lab / "runs" / f"{RUN_NAME}.v2"
+    replay = lab / "runs" / f"{RUN_NAME}_v2"
     manifest = json.loads((replay / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["lineage"]["kind"] == "rerun"
     np.testing.assert_allclose(

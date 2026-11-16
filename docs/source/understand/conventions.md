@@ -112,11 +112,13 @@ A reach keeps one number between the TOML and the results. Its `reach_id`, `<net
 its `station_id` in the `timeseries` table, and the table `sfr_reaches` gives its geometry and the
 reaches it drains into.
 
-A NetCDF variable or a VTU cell array keeps its name at any number of layers. A field with layers
-has a `layer` dimension in a NetCDF file and one component per layer in a VTU file, on every solver:
-`ds["drain"].isel(layer=0)` reads the top layer of a Boussinesq run as it does of a MODFLOW one.
-QGIS reads a NetCDF file with one layer asked for: `hmp export` with `--layer`, or `layer =` in
-`[[export]]`.
+A NetCDF variable or a VTU cell array keeps its name at any number of layers. A VTU file has one
+component per layer. In a NetCDF file a field of a model of several layers has a `layer` dimension,
+and a field of a model of one layer holds that layer alone, with the scalar variable `layer`
+naming it, because QGIS leaves out of a mesh any field with a third dimension. QGIS lists a NetCDF
+export three times, as a raster, a mesh and a vector. Open the mesh: a raster of a field on the
+cells is one row high. On a model of several layers QGIS reads a file with one layer asked for,
+`hmp export` with `--layer` or `layer =` in `[[export]]`.
 
 ## Units
 

@@ -66,7 +66,7 @@ def test_clean_results_to_trash(monkeypatch, capsys, tmp_path) -> None:
     ]
     assert list((project / "runs").iterdir()) == []
     assert not catalog_path_for(project).exists()
-    assert reserve_version_dirname(project, "run", "alpha").name == "alpha.v2"
+    assert reserve_version_dirname(project, "run", "alpha").name == "alpha_v2"
 
 
 def test_clean_results_dry_run(monkeypatch, capsys, tmp_path) -> None:

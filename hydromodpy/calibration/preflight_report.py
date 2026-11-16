@@ -42,8 +42,8 @@ def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
     Returns the lines a reader acts on, then the ones only ``-v`` prints: the
     stages, the references, and every reading of the paper this implementation
     makes. A value equal to the paper's, or written the way the recipe runs it
-    anyway, is not a departure. A departure no key brings back is named on one
-    line of the first list, and said in full in the second.
+    anyway, is not a departure. The departures are named on one line of the first
+    list with the value in force, and said in full in the second.
     """
     declared = getattr(getattr(cfg, "calibration", None), "protocol", None)
     if declared is None:
@@ -73,7 +73,10 @@ def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
     verbose.extend(f"  cite: {reference}" for reference in record["references"])
     # Where this run departs from the publication it cites. A reader comparing a
     # result to the literature needs this before the run, not after.
+    # One line names the departures and the value of each, so the banner of a run stays
+    # a few lines long. The sentence that says how each one departs is for -v.
     always: list[str] = []
+    departs: list[str] = []
     for item in deviations_in_force(
         cfg.calibration,
         getattr(cfg, "geographic", None),
@@ -90,11 +93,15 @@ def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
             always.append(item.key)
             verbose.append(f"  always differs from the paper on {item.key}: {told}")
         elif item.state == "departs":
-            normal.append(f"  differs from the paper on {item.key}: {told}{suffix}")
+            shown = item.key if item.value is None else f"{item.key} = {_rendered(item.value)}"
+            departs.append(f"{shown} (this file)" if item.written else shown)
+            verbose.append(f"  differs from the paper on {item.key}: {told}{suffix}")
         elif item.state == "reads_paper":
             verbose.append(f"  reads the paper on {item.key}: {told}")
         else:
             verbose.append(f"  as the paper on {item.key}: {told}{suffix}")
+    if departs:
+        normal.append(f"  differs from the paper on: {', '.join(departs)} (-v says how)")
     if always:
         normal.append(
             f"  always differs from the paper on: {', '.join(always)} (-v says how; no key "

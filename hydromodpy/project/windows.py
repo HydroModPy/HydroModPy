@@ -26,12 +26,12 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import runs_dir_for
+from hydromodpy.core.state.names import split_stem_version
 from hydromodpy.core.time.window import (
     ChainWindow,
     chain_windows,
     window_grid,
 )
-from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.record.record import read_inputs
@@ -122,7 +122,7 @@ def window_document(document: Mapping[str, Any], index: int) -> dict[str, Any]:
 
 
 def newest_sealed_run(project_root: Path, name: str) -> Path | None:
-    """The newest sealed version of the run ``name`` (``name``, ``name.v2``, ...), or ``None``."""
+    """The newest sealed version of the run ``name`` (``name``, ``name_v2``, ...), or ``None``."""
     runs = runs_dir_for(Path(project_root))
     if not runs.is_dir():
         return None

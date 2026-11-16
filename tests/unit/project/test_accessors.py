@@ -183,18 +183,18 @@ def test_data_list(loaded: set[str], variable: str | None, expected: list[str]) 
     assert list(df["variable"]) == expected
 
 
-@pytest.mark.parametrize("name", ["calage", "calage.v2"])
+@pytest.mark.parametrize("name", ["calage", "calage_v2"])
 def test_session_by_name(monkeypatch: pytest.MonkeyPatch, tmp_path, name: str) -> None:
     import hydromodpy.project.accessors as accessors
     from hydromodpy.project.facade import read_sealed_config
     from hydromodpy.project.show import render
 
     monkeypatch.setattr(
-        accessors, "list_session_dirs", lambda root: [tmp_path / "sessions" / "calage.v2"]
+        accessors, "list_session_dirs", lambda root: [tmp_path / "sessions" / "calage_v2"]
     )
     monkeypatch.setattr(
         accessors, "Session", lambda directory, **kwargs: SimpleNamespace(dir=directory, **kwargs)
     )
     session = accessors.ProjectSessions(tmp_path)[name]
-    assert session.dir == tmp_path / "sessions" / "calage.v2"
+    assert session.dir == tmp_path / "sessions" / "calage_v2"
     assert (session.read_config, session.render) == (read_sealed_config, render)

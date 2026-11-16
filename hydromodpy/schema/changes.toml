@@ -107,6 +107,27 @@ quantities = []
 text = "The seal of a run gives the sha256 of its field store fields.zarr, over the path and the content of every file, so hmp doctor reports a store changed since the seal. A seal written by a pre-release has no digest for the store, which still reads and is not checked."
 
 [[recipe]]
+id = "run_version_after_an_underscore"
+since = "2.0.0"
+effect = "layout"
+quantities = []
+text = "A second run of one name takes the folder <name>_v2, where it took <name>.v2, so a file exported from it, such as <name>_v2_fields.nc, has one dot, before its extension. A name a person writes never ends in _v<N>: [simulation] name = \"calib_v2\" is refused with what to write, and a file calib_v2.toml names its run calib-v2. A folder <name>.vN left by an earlier build still opens under its name and is no longer counted as a version of <name>."
+
+[[recipe]]
+id = "netcdf_export_is_a_mesh_qgis_reads"
+since = "2.0.0"
+effect = "layout"
+quantities = []
+text = "A NetCDF export of a model of one layer writes its fields without a layer dimension, with a scalar variable layer. It states its CRS on the variable crs as MDAL reads it (epsg, then wkt in WKT1), and writes idomain as a 32-bit integer. QGIS opened such a file as a mesh with no CRS, left out every field that had layers, and dropped the whole mesh once one field was a byte. A model of several layers keeps its layer dimension. No value changes."
+
+[[recipe]]
+id = "transient_storage_switched_on"
+since = "2.0.0"
+effect = "refusal"
+quantities = []
+text = "A transient [flow] that declares parameters but no Sy or no Ss takes Sy = 0.05 and Ss = 1e-5 1/m as homogeneous fields, with a warning that names the values, and its resolved config writes them. Such a file was refused when MODFLOW was built. A steady flow is unchanged."
+
+[[recipe]]
 id = "frozen_replay_is_never_skipped"
 since = "2.0.0"
 effect = "refusal"
@@ -1044,6 +1065,24 @@ since = "2.0.0"
 document = "config"
 old = "display.time"
 instead = "Write time in each [[display.figure]] that draws one instant, for example time = \"2002-10-15\"."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "export[*].variables"
+new = "export[*].variable"
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "sites.export[*].variables"
+new = "sites.export[*].variable"
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "sites.summary.variables"
+new = "sites.summary.variable"
 since = "2.0.0"
 
 [[default]]

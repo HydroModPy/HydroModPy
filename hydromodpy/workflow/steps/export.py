@@ -22,6 +22,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
     from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.results.exporters.export_spec import ExportRequest
     from hydromodpy.results.storage.run_store import RunStore
 
 logger = get_logger(__name__)
@@ -118,10 +120,13 @@ def step_after_seal(ctx: WorkflowContext) -> list[Path]:
         and ctx.sim_id is not None
         and renders(getattr(ctx, "level", None) or "result")
     ):
-        with measured("export", "data") as measure:
+        # Its own console line: written after the seal line, a slow export was read as
+        # a slow seal.
+        with progress.phase("exports"), measured("export", "data") as measure:
             try:
                 with sealed_run_store(ctx) as store:
-                    written.extend(export_data_requests(store, ctx.sim_id, data_requests))
+                    held = held_requests(ctx, store, data_requests)
+                    written.extend(export_data_requests(store, ctx.sim_id, held))
             except Exception as exc:  # noqa: BLE001 - the views still have their turn
                 failures.append(exc)
         record_measure(run_dir, measure, attempt=ctx.attempt)
@@ -138,33 +143,89 @@ def step_after_seal(ctx: WorkflowContext) -> list[Path]:
         raise ExportError(
             f"run {name} is sealed; write the exports again with hmp export {name}: {reasons}"
         ) from failures[0]
-    lines = _run_epilogue_lines(ctx, run_dir=run_dir)
-    progress.at_end(partial(_log_run_epilogue, lines))
+    progress.at_end(partial(_log_run_epilogue, _run_epilogue_lines(ctx, run_dir=run_dir)))
     return written
 
 
-def _run_epilogue_lines(ctx: WorkflowContext, *, run_dir: Path) -> tuple[str, ...]:
+def held_requests(
+    ctx: WorkflowContext, store: Any, requests: Sequence[ExportRequest]
+) -> list[ExportRequest]:
+    """Keep the names of each request the sealed run holds, and warn of the others.
+
+    A name the run holds none of, a concentration without a transport or the
+    measurement of a station the run has no record for, failed the whole step and
+    left the figures undrawn. It is skipped with a warning instead, and a request
+    left with no name is not written. ``hmp check`` names the ones it can tell before
+    the solve. ``all`` asks for what the run holds, so it is kept whole.
+    """
+    from hydromodpy.results.exporters.vocabulary import list_exportable
+    from hydromodpy.results.run.view import Run
+
+    held = list_exportable(Run(ctx.sim_id, store))
+    kept: list[ExportRequest] = []
+    for index, request in enumerate(ctx.cfg.export):
+        if request not in requests:
+            continue
+        missing = [name for name in request.names if name not in held]
+        if missing:
+            logger.warning(
+                "export[%d] skips %s: this run holds none of it. 'hmp export %s --list' "
+                "prints what it holds.",
+                index,
+                ", ".join(map(repr, missing)),
+                sealed_run_name(Path(ctx.run_dir)) or Path(ctx.run_dir).name,
+            )
+        names = [name for name in request.names if name in held]
+        if request.exports_all or names == request.names:
+            kept.append(request)
+        elif names:
+            kept.append(request.model_copy(update={"variable": names}))
+    return kept
+
+
+@dataclass(frozen=True)
+class _Epilogue:
+    """The last lines of a run, read from its seal, printed once its figures are drawn."""
+
+    name: str
+    sim_id: str
+    started_at: datetime | None
+    metric: str
+
+    def lines(self, now: datetime) -> tuple[str, str]:
+        """The recap and the next commands. The time runs to *now*, the figures included.
+
+        The seal keeps ``duration_s`` up to the seal, the figure ``hmp show`` reads. A
+        promoted run that took its solve from the trial sealed in 2 s and drew its figures
+        for 25 s more, so the recap said 2 s under a promotion of 27 s.
+        """
+        elapsed = (now - self.started_at).total_seconds() if self.started_at else None
+        duration = f" {elapsed:.0f}s" if elapsed is not None and elapsed >= 0 else ""
+        name = self.name
+        return (
+            f"Run completed: {name} [{self.sim_id[:8]}]{duration}{self.metric}",
+            f"next: hmp show {name} | hmp publish {name} --to <folder> | hmp export {name} --list",
+        )
+
+
+def _run_epilogue_lines(ctx: WorkflowContext, *, run_dir: Path) -> _Epilogue:
     """Best-effort self-teaching epilogue: identity card + next commands.
 
-    Read from ``manifest.json``, never from the index. The seal carries
-    ``duration_s`` from ``ended_at - started_at``, the figure ``hmp
-    show`` reads, and the epilogue says nothing of the duration when it has none.
+    Read from ``manifest.json``, never from the index. The epilogue says nothing of
+    the duration when the seal has no start.
     """
     from hydromodpy.results.record.label import read_sealed_manifest
 
-    sid = str(ctx.sim_id)
     try:
         manifest = read_sealed_manifest(run_dir)
     except (OSError, ValueError):
         manifest = None
-    name = manifest.run.name if manifest is not None else run_dir.name
-    run_duration_s = manifest.run.duration_s if manifest is not None else None
     score = manifest.score if manifest is not None else None
-    metric = f" nse={score.value:.2f}" if score is not None and score.value is not None else ""
-    duration = f" {run_duration_s:.0f}s" if run_duration_s else ""
-    return (
-        f"Run completed: {name} [{sid[:8]}]{duration}{metric}",
-        f"next: hmp show {name} | hmp publish {name} --to <folder> | hmp export {name} --list",
+    return _Epilogue(
+        name=manifest.run.name if manifest is not None else run_dir.name,
+        sim_id=str(ctx.sim_id),
+        started_at=manifest.run.started_at if manifest is not None else None,
+        metric=f" nse={score.value:.2f}" if score is not None and score.value is not None else "",
     )
 
 
@@ -181,8 +242,8 @@ def _announce_exports(written: Sequence[Path]) -> None:
         )
 
 
-def _log_run_epilogue(lines: tuple[str, ...]) -> None:
-    recap, next_commands = lines
+def _log_run_epilogue(epilogue: _Epilogue) -> None:
+    recap, next_commands = epilogue.lines(datetime.now(UTC))
     logger.info("%s", recap, extra=MILESTONE)
     logger.info("%s", next_commands, extra=HINT)
 

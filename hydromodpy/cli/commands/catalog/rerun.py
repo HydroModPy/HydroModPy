@@ -85,10 +85,11 @@ def run(args: argparse.Namespace) -> None:
     import tomllib
 
     from hydromodpy.core.exceptions import PipelineError
+    from hydromodpy.core.state.names import split_stem_version
     from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
     from hydromodpy.project.dispatch.rerun import rerun_config
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
-    from hydromodpy.results.catalog.registration import run_dir_holding, split_stem_version
+    from hydromodpy.results.catalog.registration import run_dir_holding
     from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
     from hydromodpy.results.trash import identity_of
 

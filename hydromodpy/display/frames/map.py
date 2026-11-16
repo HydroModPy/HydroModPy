@@ -391,7 +391,9 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
         for i, (value, name) in enumerate(data.classes):
             if value != 0 or "x_down" in table:
                 ax.fill([], [], color=cmap(i), label=name)
-        static.legend(ax, theme, inside="best")
+        drawn = np.isfinite(values)
+        corner = static.quiet_corner(ax, table["x"].to_numpy()[drawn], table["y"].to_numpy()[drawn])
+        static.legend(ax, theme, inside=corner)
     else:
         static.colorbar(ax.figure, artist, ax, theme, label="", extend=_beyond(data, values))
 

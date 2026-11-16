@@ -167,8 +167,8 @@ class ManifestRun(HydroModelBase):
     """Who this run is: name, version, case, attempt, solver, dates."""
 
     sim_id: str
-    name: str = Field(description="Run name, with its .vN")
-    name_stem: str = Field(description="Run name without its .vN")
+    name: str = Field(description="Run name, with its _vN")
+    name_stem: str = Field(description="Run name without its _vN")
     version: int = Field(ge=1, description="Version number, 1 for the bare name")
     status: RunStatus = Field(description="Always completed: a seal certifies a completed run")
     project: str

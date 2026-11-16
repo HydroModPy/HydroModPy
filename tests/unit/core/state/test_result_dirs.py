@@ -63,7 +63,7 @@ def test_root_defaults_to_the_start(tmp_path: Path) -> None:
     ("relative", "held", "answer"),
     [
         pytest.param("runs/first", "outcome.json", ".", id="a-run-of-a-flat-project"),
-        pytest.param("runs/first.v2", "manifest.json", ".", id="a-sealed-run"),
+        pytest.param("runs/first_v2", "manifest.json", ".", id="a-sealed-run"),
         pytest.param("sessions/case", "outcome.json", ".", id="a-session"),
         pytest.param("sessions/case/trials/0003", "outcome.json", ".", id="a-kept-trial"),
         pytest.param("runs/first", "notes.txt", "runs/first", id="a-folder-of-the-user"),

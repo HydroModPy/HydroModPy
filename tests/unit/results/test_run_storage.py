@@ -1580,7 +1580,7 @@ def test_export_ledger_replays(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr(Catalog, "__init__", refuse)
     requests = load_export_requests(
-        [{"variables": "watershed"}, {"variables": "mesh_cell_area", "format": "geotiff"}]
+        [{"variable": "watershed"}, {"variable": "mesh_cell_area", "format": "geotiff"}]
     )
     with RunStore.open(run_dir) as store:
         written = export_data_requests(store, sim_id, requests)

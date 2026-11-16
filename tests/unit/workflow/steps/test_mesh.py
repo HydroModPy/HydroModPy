@@ -193,7 +193,7 @@ def test_stored_mesh_carries_the_outline_too(tmp_path, graded_engine, inputs) ->
 
 
 # A zone that reads an earlier run writes run = "<name>", a bare name is the latest
-# version of that run. After a .v2 of the first run a replay would read the .v2 and
+# version of that run. After a _v2 of the first run a replay would read the _v2 and
 # draw another mesh, so the step keeps the sim_id each zone read.
 ZONE = {"where": "watertable_depth", "below": 0.5, "run": "coarse", "cell_size": 25.0}
 
@@ -226,7 +226,7 @@ def test_summary_carries_the_zone_runs(tmp_path: Path, monkeypatch) -> None:
 
 # The source of a replay holds mesh/ beside its seal. A replay reads it, its identity
 # compared to the request as the store's is. A miss builds again through the store.
-SEALED_RUN = "probe.v2"
+SEALED_RUN = "probe_v2"
 
 
 def _seal(tmp_path: Path, mesh_cfg: MeshConfig) -> tuple[Path, str]:
@@ -274,7 +274,7 @@ def test_replay_reads_the_sealed_mesh(tmp_path, cached_engine) -> None:
     mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
     sealed, key = _seal(tmp_path, mesh_cfg)
     replay = make_context(tmp_path / "replay_project", mesh_cfg)
-    replay.run_dir = tmp_path / "replay" / "runs" / "probe.v3"
+    replay.run_dir = tmp_path / "replay" / "runs" / "probe_v3"
     replay.run_dir.mkdir(parents=True)
 
     step_mesh(replay, sealed)

@@ -423,7 +423,7 @@ def list_session_dirs(project_root: str | Path) -> list[Path]:
 
 def latest_session_dir(project_root: str | Path, case_id: str) -> Path | None:
     """Return the session directory of *case_id* with the highest version, or None."""
-    from hydromodpy.results.catalog.registration import split_stem_version
+    from hydromodpy.core.state.names import split_stem_version
 
     best: tuple[int, Path] | None = None
     for directory in list_session_dirs(project_root):
@@ -456,7 +456,7 @@ def _read_phases_and_trials(session_dir: Path) -> bool:
 def resolve_session_dir(project_root: str | Path, reference: str | None) -> Path:
     """Return the session directory a reference names.
 
-    ``reference`` is ``<case>[.vN]`` or ``sessions/<case>[.vN]``, the exact
+    ``reference`` is ``<case>[_vN]`` or ``sessions/<case>[_vN]``, the exact
     name of one session. ``None`` selects the session that started last among
     those this code reads, whole: its descriptor, its phases and its journal.
     A session one of them refuses costs one warning. A reference that names no

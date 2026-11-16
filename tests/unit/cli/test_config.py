@@ -176,19 +176,19 @@ def test_template_writes_sites_only_when_asked(tmp_path) -> None:
 
 def test_resolve_prints_the_merged_chain(tmp_path) -> None:
     (tmp_path / "base.toml").write_text(
-        '[[export]]\nvariables = "head"\ntime = "last"\n\n[flow]\nflow_regime = "steady"\n',
+        '[[export]]\nvariable = "head"\ntime = "last"\n\n[flow]\nflow_regime = "steady"\n',
         encoding="utf-8",
     )
     child = tmp_path / "child.toml"
     child.write_text(
-        'base_config = "base.toml"\n\n[[export]]\nvariables = "budget"\n', encoding="utf-8"
+        'base_config = "base.toml"\n\n[[export]]\nvariable = "budget"\n', encoding="utf-8"
     )
 
     result = CliRunner().invoke(["config", "resolve", str(child)])
 
     assert result.exit_code == 0
     assert tomllib.loads(result.stdout) == {
-        "export": [{"variables": "budget"}],
+        "export": [{"variable": "budget"}],
         "flow": {"flow_regime": "steady"},
     }
 

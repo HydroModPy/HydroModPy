@@ -110,7 +110,7 @@ flow_regime = "transient"
 
 """
 
-TWO_EXPORTS = '[[export]]\nvariables = "discharge"\n\n[[export]]\nvariables = ["discharge"]\n'
+TWO_EXPORTS = '[[export]]\nvariable = "discharge"\n\n[[export]]\nvariable = ["discharge"]\n'
 
 REFUSALS = [
     pytest.param("not = [valid", "Invalid TOML syntax:", id="invalid toml"),
@@ -275,8 +275,8 @@ def test_breach_departure_announced(tmp_path) -> None:
     result = check_file(protocol_file(tmp_path, geographic='dem_correc_type = "breach"'))
 
     lines = result.stderr.splitlines()
-    line = next(line for line in lines if "differs from the paper on dem_correc_type" in line)
-    assert line.endswith("this file sets 'breach'")
+    line = next(line for line in lines if "differs from the paper on: " in line)
+    assert "dem_correc_type = 'breach' (this file)" in line
 
 
 def test_unwritten_dem_conditioning(tmp_path) -> None:

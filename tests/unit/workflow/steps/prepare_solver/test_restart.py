@@ -21,7 +21,7 @@ from tests.unit.workflow.steps.prepare_solver._helpers import sealed_run
 def test_name_sim_id_and_path_resolve_to_one_run(tmp_path: Path) -> None:
     project = make_project(tmp_path / "demo")
     sid = sealed_run(project, "spinup")
-    sealed_run(project, "spinup.v2")
+    sealed_run(project, "spinup_v2")
     expected = project / "runs" / "spinup" / FIELDS_STORE_NAME
 
     assert resolve_restart_source(project, "spinup").path != expected, "the bare name is v2"
@@ -48,10 +48,10 @@ def test_unsealed_run_without_store(tmp_path: Path) -> None:
 def test_table_form_finds_sim_id_first(tmp_path: Path) -> None:
     project = make_project(tmp_path / "demo")
     sid = sealed_run(project, "spinup")
-    sealed_run(project, "spinup.v2")
+    sealed_run(project, "spinup_v2")
 
     source = resolve_restart_source(
-        project, RestartReference(sim_id=sid, path="runs/spinup.v2/fields.zarr")
+        project, RestartReference(sim_id=sid, path="runs/spinup_v2/fields.zarr")
     )
 
     assert source.sim_id == sid

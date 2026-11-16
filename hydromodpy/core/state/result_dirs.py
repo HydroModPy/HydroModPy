@@ -54,7 +54,7 @@ def _trial_dirname(trial: int) -> str:
 class RelDir:
     """A result directory relative to the project root, parsed into its parts.
 
-    ``name`` is the run or session directory name with its ``.vN`` suffix;
+    ``name`` is the run or session directory name with its ``_vN`` suffix;
     this module does not read the version grammar. ``trial`` is set only for
     a kept trial, and ``case`` only for a kept trial of a session of several
     cases, which keeps one directory per case.

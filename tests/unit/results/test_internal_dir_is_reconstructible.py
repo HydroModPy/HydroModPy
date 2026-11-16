@@ -84,7 +84,7 @@ def project(tmp_path, monkeypatch) -> Path:
     """Two versions of a run, a failed attempt, a session with its kept trial, indexed once."""
     root = make_project(tmp_path / "demo")
     seal_run(root, "nancon_monthly", nse=0.71, parameters={"K": 1e-5})
-    seal_run(root, "nancon_monthly.v2", nse=0.64, parameters={"K": 2e-5})
+    seal_run(root, "nancon_monthly_v2", nse=0.64, parameters={"K": 2e-5})
     write_attempt(root, "runs/nancon_daily", status="failed")
     promoted = seal_run(root, "calibration", nse=0.8)
     seal_run(root, "calibration_t1", rel_dir="sessions/calibration/trials/0001")
@@ -119,11 +119,11 @@ def test_cases_named_by_directory(project, monkeypatch):
         "runs/calibration",
         "runs/nancon_daily",
         "runs/nancon_monthly",
-        "runs/nancon_monthly.v2",
+        "runs/nancon_monthly_v2",
         "sessions/calibration",
         "sessions/calibration/trials/0001",
     ]
     with Catalog(project) as catalog:
         versions = dict(catalog.backend.fetch_all("SELECT name, version_int FROM simulations"))
     assert versions["nancon_monthly"] == 1
-    assert versions["nancon_monthly.v2"] == 2
+    assert versions["nancon_monthly_v2"] == 2

@@ -36,15 +36,16 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import Names
 from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
 from hydromodpy.core.site.config import SITE_NAME_PATTERN
+from hydromodpy.core.state.names import split_stem_version
 from hydromodpy.core.toml_io.paths import parse as parse_dotted_path
 
 RECIPE_NAME_PATTERN = SITE_NAME_PATTERN
 """Grammar of a recipe name, the same as a site name."""
 
 _RECIPE_NAME_RE = re.compile(RECIPE_NAME_PATTERN)
-_VERSION_SUFFIX_RE = re.compile(r"\.v\d+$")
 
 PARALLEL_CEILING = 16
 """Highest ``[sites.run] parallel`` accepted without ``--force`` (16 runs held 14 GiB)."""
@@ -164,6 +165,16 @@ class SitesRunConfig(HydroModelBase):
     )
 
 
+def _refuse_variables(data: Any, where: str) -> Any:
+    """Refuse the key ``variables`` with the one that replaced it."""
+    if isinstance(data, Mapping) and "variables" in data:
+        raise ValueError(
+            f"{where} variables is now variable, the key [[display.figure]] and [[export]] "
+            f"write too: write variable = {data['variables']!r}."
+        )
+    return data
+
+
 class SitesSummaryConfig(HydroModelBase):
     """What ``summary/`` of a ``[sites]`` project tabulates and draws."""
 
@@ -193,9 +204,9 @@ class SitesSummaryConfig(HydroModelBase):
         ),
         examples=[["map", "distribution"]],
     )
-    variables: Annotated[list[str], Profile.USER] = Field(
+    variable: Annotated[Names, Profile.USER] = Field(
         default_factory=list,
-        description="Metrics or parameters the cohort figures map and distribute.",
+        description="Metric or parameter, or a list of them, the cohort figures map and distribute.",
         examples=[["K", "nse"]],
     )
     best: Annotated[Literal["calibrated", "any"], Profile.USER] = Field(
@@ -217,6 +228,11 @@ class SitesSummaryConfig(HydroModelBase):
         ),
         examples=[["checks.budget_pct", "checks.converged"]],
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _variables_is_now_variable(cls, data: Any) -> Any:
+        return _refuse_variables(data, "[sites.summary]")
 
     @field_validator("columns")
     @classmethod
@@ -272,9 +288,9 @@ class SitesExportRequest(HydroModelBase):
         default=None,
         description="Runs whose variables are exported: the best case of each site.",
     )
-    variables: Annotated[list[str], Profile.USER] = Field(
+    variable: Annotated[Names, Profile.USER] = Field(
         default_factory=list,
-        description="Variables exported from each run, with runs = 'best'.",
+        description="Variable, or a list of them, exported from each run, with runs = 'best'.",
         examples=[["discharge"]],
     )
     format: Annotated[str, Profile.USER] = Field(
@@ -290,12 +306,17 @@ class SitesExportRequest(HydroModelBase):
         ),
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _variables_is_now_variable(cls, data: Any) -> Any:
+        return _refuse_variables(data, "[[sites.export]]")
+
     @model_validator(mode="after")
     def _one_subject(self) -> SitesExportRequest:
         if (self.table is None) == (self.runs is None):
             raise ValueError("[[sites.export]] exports a table or runs: write one of the two.")
-        if self.table is not None and self.variables:
-            raise ValueError("[[sites.export]] variables go with runs, not with a table.")
+        if self.table is not None and self.variable:
+            raise ValueError("[[sites.export]] variable goes with runs, not with a table.")
         return self
 
 
@@ -379,9 +400,9 @@ class SitesConfig(HydroModelBase):
     @classmethod
     def _recipe_names(cls, value: dict[str, RecipeDecl]) -> dict[str, RecipeDecl]:
         for name in value:
-            if _VERSION_SUFFIX_RE.search(name):
+            if split_stem_version(name)[1] is not None:
                 raise ValueError(
-                    f"recipe {name!r}: a name never ends in .v<N>, the suffix that "
+                    f"recipe {name!r}: a name never ends in _v<N>, the suffix that "
                     "versions a run directory."
                 )
             if "-" in name:

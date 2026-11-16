@@ -45,7 +45,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("case", help="Case of the session, <case> or <case>.vN")
+    parser.add_argument("case", help="Case of the session, <case> or <case>_vN")
     parser.add_argument(
         "--keep",
         choices=KEEP_POLICIES,

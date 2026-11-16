@@ -28,10 +28,10 @@ unit = "m/s"
 value = 5e-5
 
 [[export]]
-variables = "watershed"
+variable = "watershed"
 
 [[export]]
-variables = ["watertable_depth", "seepage_mask"]
+variable = ["watertable_depth", "seepage_mask"]
 time = "last"
 ```
 
@@ -106,7 +106,7 @@ whatever their lengths. Three suffixes on a key change this rule for that key.
 |---|---|
 | a table the parent also has | both tables, merged key by key down to the leaves |
 | a number, a string, a boolean | the child's value |
-| a list of values, `variables = [...]` | the child's list, which **replaces** the parent's |
+| a list of values, `variable = [...]` | the child's list, which **replaces** the parent's |
 | `figure__append = [...]` | the parent's list, then the child's items |
 | `key__delete = true` | the parent's key or table removed, with all that is under it |
 | `[[x]]` blocks | the child's blocks, which **replace** the parent's, whatever their number |
@@ -133,7 +133,7 @@ value = 1e-4                    # kind and unit are inherited
 figure__append = [{ variable = "discharge", type = "distribution", cumulative = true }]
 
 [[export__append]]
-variables = "watershed_dem"
+variable = "watershed_dem"
 
 [data.hydrography]
 sources__delete = true          # drop the inherited list
@@ -234,8 +234,8 @@ is a distance, and `"10% of sqrt(area)"` is the rule of version 1 written out. A
 reads as that same rule, so `buff_area = 10` and `buff_area = "10% of sqrt(area)"` give the
 same distance. Some keys carry the unit in a sibling key, as in
 {toml}`flow.sinks_sources.lakes.<name>.bedleak_unit`.
-And a field that takes a list of values takes one value too: `variables = "budget"` and
-`variables = ["head", "budget"]` are both read by {toml}`export.variables`.
+And a field that takes a list of values takes one value too: `variable = "budget"` and
+`variable = ["head", "budget"]` are both read by {toml}`export.variable`.
 
 ### A bare number keeps the unit it always had
 
@@ -306,11 +306,11 @@ variable = "watertable_depth"
 time = "2002-10-15"
 
 [[export__append]]
-variables = "discharge"
+variable = "discharge"
 period = ["2001-01-01", "2002-12-31"]
 
 [[export__append]]
-variables = "watertable_depth"
+variable = "watertable_depth"
 time = "last"
 ```
 

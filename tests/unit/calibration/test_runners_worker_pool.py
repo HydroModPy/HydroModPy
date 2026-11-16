@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gc
 import json
+import logging
 import math
 import multiprocessing as mp
 import os
@@ -41,7 +42,7 @@ from hydromodpy.calibration.runners.worker_pool import (
     _serve,
 )
 from hydromodpy.core.exceptions import CalibrationError
-from hydromodpy.core.logging import current_verbosity
+from hydromodpy.core.logging import current_verbosity, get_logger
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 from hydromodpy.results.storage.run_profile import ProfileLine
@@ -49,7 +50,7 @@ from hydromodpy.solver.base.plan import RunSlot, SolverRun
 
 pytestmark = pytest.mark.allow_subprocess
 
-DIE, HANG, RAISE, HALF = -1.0, -2.0, -3.0, -4.0
+DIE, HANG, RAISE, HALF, WARN = -1.0, -2.0, -3.0, -4.0, -5.0
 
 
 class _Config(BaseModel):
@@ -81,6 +82,8 @@ class _Scripted:
             os._exit(7)
         if cost == RAISE:
             raise ValueError("the real reason")
+        if cost == WARN:
+            get_logger("hydromodpy.calibration").warning("the same warning")
         if cost == HALF:
             # The header of a message of 100 bytes and 6 of them, then the end of the pipe.
             [conn] = [item for item in gc.get_objects() if isinstance(item, Connection)]
@@ -286,6 +289,19 @@ def test_worker_exception_stops_search(tmp_path: Path) -> None:
     assert (after.status, after.cost) == ("completed", 0.25)
 
 
+def test_a_worker_hands_its_warnings_to_the_parent(tmp_path: Path, monkeypatch, capfd) -> None:
+    # A worker that printed on the shared terminal cut the live bar of the parent.
+    said: list = []
+    monkeypatch.setattr(worker_pool, "print_held", said.extend)
+    trial_ctx = _trial_ctx(tmp_path)
+    with _pool(trial_ctx) as pool:
+        first, second = _ask(pool, 1, WARN), _ask(pool, 2, WARN)
+
+    assert (first.status, second.status) == ("completed", "completed")
+    assert said == [("hydromodpy.calibration", logging.WARNING, "the same warning")]
+    assert "the same warning" not in capfd.readouterr().err
+
+
 def test_worker_setup_failure() -> None:
     conn = Mock(recv_bytes=Mock(return_value=b"not a state"))
 
@@ -406,7 +422,9 @@ def test_worker_sends_outcome(
     _serve(conn)
 
     conn.send.assert_called_once()
-    outcome, rows, kept = conn.send.call_args.args[0]
+    outcome, rows, kept, said = conn.send.call_args.args[0]
+    # Called in this process, the worker leaves the console of the test alone.
+    assert said == []
     assert (outcome.status, outcome.cost) == ("completed", 0.5)
     assert [(row["output"], row["station"], row["simulated"]) for row in rows] == [("o", "s", 0.5)]
     assert (kept is not None) is keeps_solves
@@ -436,7 +454,7 @@ def test_no_sink_no_rows(tmp_path: Path, monkeypatch) -> None:
 
     _serve(conn)
 
-    assert conn.send.call_args.args[0][1:] == ([], None)
+    assert conn.send.call_args.args[0][1:] == ([], None, [])
 
 
 def test_worker_main_posix(monkeypatch) -> None:
@@ -448,7 +466,9 @@ def test_worker_main_posix(monkeypatch) -> None:
     monkeypatch.setattr(
         worker_pool.os, "dup2", lambda fd, target: calls.append(("dup2", fd, target))
     )
-    monkeypatch.setattr(worker_pool, "_serve", lambda conn: calls.append(("serve", conn)))
+    monkeypatch.setattr(
+        worker_pool, "_serve", lambda conn, hold: calls.append(("serve", conn, hold))
+    )
     monkeypatch.setattr(
         worker_pool.threading,
         "Thread",
@@ -464,7 +484,7 @@ def test_worker_main_posix(monkeypatch) -> None:
         ("watch", worker_pool._die_with_the_parent, True),
         ("open", os.devnull),
         ("dup2", 7, 1),
-        ("serve", "conn"),
+        ("serve", "conn", True),
     ]
 
 
@@ -506,7 +526,7 @@ def test_worker_main_windows(monkeypatch) -> None:
     )
     monkeypatch.setattr(worker_pool.os, "open", lambda path, flags: 7)
     monkeypatch.setattr(worker_pool.os, "dup2", lambda fd, target: None)
-    monkeypatch.setattr(worker_pool, "_serve", lambda conn: None)
+    monkeypatch.setattr(worker_pool, "_serve", lambda conn, hold: None)
     monkeypatch.setattr(
         worker_pool.threading, "Thread", lambda target, daemon: SimpleNamespace(start=lambda: None)
     )

@@ -451,7 +451,7 @@ def test_collect_figure_not_drawn(tmp_path, capsys) -> None:
     root = _collect_project(tmp_path)
     (root / "project.toml").write_text(
         '[sites]\ntable = "sites.csv"\n\n[sites.summary]\nbest = "any"\nmetrics = ["nse", "kge"]\n'
-        'figures = ["distribution"]\nvariables = ["kge"]\n',
+        'figures = ["distribution"]\nvariable = ["kge"]\n',
         encoding="utf-8",
     )
     seal_run(root, "a-base", project="bretagne", site="a", recipe="base", nse=0.6)

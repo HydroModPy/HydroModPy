@@ -267,3 +267,44 @@ def test_a_csv_forcing_written_as_a_workspace_name_reads_the_forcing_folder(layo
     raw = {"lakes": {"lac0": {"rainfall": csv("workspace:rain.csv")}}}
     out = resolve_forcing_paths(raw, base_dir=base, workspace_data_dir=data)
     assert Path(out["lakes"]["lac0"]["rainfall"]["path_file"]) == data / "forcing" / "rain.csv"
+
+
+K_ONLY = {"param": {"K": {"field": {"kind": "homogeneous", "value": 1e-5}}}}
+SY = {"Sy": {"field": {"kind": "homogeneous", "value": 0.2}}}
+
+
+@pytest.mark.parametrize(
+    ("section", "params", "told"),
+    [
+        pytest.param(
+            {**K_ONLY, "param_list": ["K"]},
+            {"K": 1e-5, "Sy": 0.05, "Ss": 1e-5},
+            "declares no Sy and no Ss",
+            id="transient with K alone",
+        ),
+        pytest.param(
+            {"param": {**K_ONLY["param"], **SY}},
+            {"K": 1e-5, "Sy": 0.2, "Ss": 1e-5},
+            "declares no Ss",
+            id="transient with K and Sy",
+        ),
+        pytest.param(
+            {**K_ONLY, "flow_regime": "steady"}, {"K": 1e-5}, None, id="steady reads no storage"
+        ),
+        pytest.param({}, {}, None, id="no aquifer described"),
+    ],
+)
+def test_a_transient_switches_on_the_storage_it_needs(section, params, told, caplog) -> None:
+    caplog.set_level("WARNING")
+    cfg = build(section)
+
+    assert cfg.param_list == list(params)
+    assert {pid: float(param.field.value) for pid, param in cfg.param.items()} == params
+    warned = [r.getMessage() for r in caplog.records if "[flow] is transient" in r.getMessage()]
+    if told is None:
+        assert warned == []
+    else:
+        (message,) = warned
+        assert told in message
+        # The values the run takes are named, so the user can see and override them.
+        assert "Ss = 1e-05 (1/m)" in message

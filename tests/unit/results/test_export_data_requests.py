@@ -20,10 +20,10 @@ def recorded(monkeypatch, tmp_path) -> list[str]:
     seen: list[str] = []
 
     def fake_request(_store, _sim_id, request, _target, *, taken) -> list[Path]:
-        seen.append(request.variables)
-        if request.variables == "head":
+        seen.append(request.variable)
+        if request.variable == "head":
             raise ValueError("cannot write head")
-        return [tmp_path / f"{request.variables}.csv"]
+        return [tmp_path / f"{request.variable}.csv"]
 
     monkeypatch.setattr(request_module, "run_export_target", lambda _store, _sim_id: object())
     monkeypatch.setattr(request_module, "export_request", fake_request)
@@ -33,9 +33,9 @@ def recorded(monkeypatch, tmp_path) -> list[str]:
 def test_requests_in_file_order(recorded, tmp_path) -> None:
     requests = load_export_requests(
         [
-            {"variables": "discharge"},
-            {"variables": "all", "format": "rocrate"},
-            {"variables": "budget"},
+            {"variable": "discharge"},
+            {"variable": "all", "format": "rocrate"},
+            {"variable": "budget"},
         ]
     )
 
@@ -46,8 +46,8 @@ def test_requests_in_file_order(recorded, tmp_path) -> None:
 
 
 def test_failure_does_not_stop_the_next(recorded) -> None:
-    requests = load_export_requests([{"variables": "head"}, {"variables": "discharge"}])
+    requests = load_export_requests([{"variable": "head"}, {"variable": "discharge"}])
 
-    with pytest.raises(ExportError, match=r"export request 1 \(variables = head\)"):
+    with pytest.raises(ExportError, match=r"export request 1 \(variable = head\)"):
         request_module.export_data_requests(object(), "sim-1", requests)
     assert recorded == ["head", "discharge"]

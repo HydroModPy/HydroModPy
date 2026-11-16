@@ -132,12 +132,18 @@ def test_the_shipped_register_moves_the_solver_tables() -> None:
     assert set(accepted) <= set(moves)
 
 
+TWO_FORMS_ONE_PATH = {"export.variables"}
+"""A path the page writes for two forms. A pre-release wrote ``[export.variables]`` as a
+table of toggles under the table ``[export]``, which is refused, and ``variables`` of an
+``[[export]]`` block moves to ``variable``."""
+
+
 def test_a_pre_release_form_is_refused_and_no_row_moves_it() -> None:
     accepted = legacy_keys.accepted_old_names()
     forms = legacy_keys.prerelease_paths()
 
     assert {"calibration.optimizer_kwargs", "calibration.max_iter"} <= forms
-    assert not forms & set(accepted)
+    assert forms & set(accepted) == TWO_FORMS_ONE_PATH
     assert "calibration.optimizer_kwargs" not in accepted
 
 

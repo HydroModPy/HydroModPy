@@ -368,16 +368,18 @@ without ``--force``, so a task of an array always reads the plan it was given.
 Naming and identity
 -------------------
 
-The directory under ``runs/`` **is** the run name, with its ``.vN`` version suffix. Without
+The directory under ``runs/`` **is** the run name, with its ``_vN`` version suffix. Without
 ``[sites]`` the name is ``[simulation] name``, else the stem of the TOML file. A calibration case
 is named by the stem of the file that holds ``[calibration]``, unless that file writes
 ``[simulation] name`` itself; a name inherited through ``base_config`` never names a calibration.
 With ``[sites]`` the name is ``case_id = "<site>-<recipe>"``: site and recipe are each
-``[A-Za-z0-9_]+``, ``-`` is the separator and nothing else, and a recipe ending in ``.v<N>`` is
-refused.
+``[A-Za-z0-9_]+``, ``-`` is the separator and nothing else, and a recipe ending in ``_v<N>`` is
+refused. A name a person writes never ends in ``_v<N>``, and a name the code folds from a file
+stem ends in ``-v<N>`` instead (``calib_v2.toml`` names the run ``calib-v2``). The version took
+a dot before, which every file exported from the run then carried before its extension.
 
 A run name and a project name follow one rule, ``check_name`` in ``hydromodpy/core/state/names.py``. A name holds ``[a-z0-9_-]``, forty characters at most without
-its ``.vN`` suffix, and is not a name Windows reserves for a device (``con``, ``prn``, ``aux``,
+its ``_vN`` suffix, and is not a name Windows reserves for a device (``con``, ``prn``, ``aux``,
 ``nul``, ``com1`` to ``com9``, ``lpt1`` to ``lpt9``, alone or before a dot). A name that a person
 writes (``[simulation] name``, ``name=``, ``--case``, ``hmp project new``, the target of a
 rename) and that breaks the rule is refused with an error of code 14, and the sentence proposes
@@ -414,7 +416,7 @@ each call.
 and ``parent_hint``, the relative directory at the time of writing. A rename moves the directory
 and the index row; the links by identifier do not move, and a stale hint is never required.
 
-**The reference of a run in the CLI and in Python is its relative directory**: ``baseline.v2``,
+**The reference of a run in the CLI and in Python is its relative directory**: ``baseline_v2``,
 ``J0014010-base``, ``calibration``, ``sessions/calibration/trials/0004``. ``@last`` and
 ``@best:<metric>`` resolve to one of them. The two forms, ``runs/<name>`` and
 ``sessions/<name>/trials/<nnnn>``, are spelled and read only by the relative-directory functions
@@ -457,7 +459,7 @@ what the step reads from that run, never its name or its ``sim_id``: for a resta
 the lake stages of its last step, as float64 values with their shape, and for a zone the fields
 the mesh reads. So two runs that leave the same state give the same request, and a later version
 of the source run that changes its state gives another one. A reference is a store path, a run
-name with or without ``.vN``, a full ``sim_id`` or a prefix of eight characters at least. The
+name with or without ``_vN``, a full ``sim_id`` or a prefix of eight characters at least. The
 frozen ``config.toml`` keeps the pin ``{sim_id, path}`` of the run, and the lineage keeps its
 ``parent_sim_id``, because ``sim_id`` carries the lineage and is part of no identity. The frozen
 ``config.toml`` of a run whose mesh read an earlier run writes the ``sim_id`` of that run in the
@@ -615,7 +617,7 @@ to skip, resume or version.
    and absent PID, or the scheduler says the job ended, or an explicit ``--force``.
 4. **Claiming an attempt is atomic**: the worker reads ``attempt = k`` in ``outcome.json``,
    proves the death, then creates ``runs/<case>/attempts/<k>/`` with ``os.mkdir``. The loser gets
-   ``EEXIST`` and leaves. A re-issued or doubled job therefore never mints a ``.v2`` for an
+   ``EEXIST`` and leaves. A re-issued or doubled job therefore never mints a ``_v2`` for an
    identical configuration.
 5. **Attempt** ``k+1`` **resumes in place by default**: ``outcome.json`` and ``logs/`` of attempt
    ``k`` move under ``attempts/<k>/``; the checkpoints, the partial store, the scratch and
@@ -1036,7 +1038,7 @@ that is not ``bit``, before the seal: the attempt ends ``failed``, its fields an
 readable, and no seal is written.
 
 A replay never writes into the run it replays. It is a new version of the same stem,
-``runs/<name>.vN``, and a copy gives a run of the project that holds it, or of the project that
+``runs/<name>_vN``, and a copy gives a run of the project that holds it, or of the project that
 ``-w`` names. ``hydromodpy.lock`` and ``hmp run --frozen`` keep their role for a project TOML.
 ``hmp run <run>/config.toml --frozen`` and ``hmp run <copy>/config.toml --frozen`` are refused
 with a sentence that names ``hmp replay``.
@@ -1110,7 +1112,7 @@ Tested invariants
 - **Trash.** ``tests/unit/results/test_trash.py`` checks the move, the identical restore, the
   tombstones written by gc and the trash of a session.
 - **Attempts and seal.** ``test_two_workers_one_case.py`` (two workers on one failed case, one
-  continues, no ``.v2``), ``test_a_failed_run_is_sealed.py``, ``test_heartbeat_is_atomic.py``.
+  continues, no ``_v2``), ``test_a_failed_run_is_sealed.py``, ``test_heartbeat_is_atomic.py``.
 - **The index.** ``tests/unit/results/test_reindex.py`` (coverage, sufficiency, idempotence,
   atomicity, incremental diff after a rename, a retry and a deletion),
   ``test_a_run_never_opens_the_index.py`` and ``test_a_calibration_never_opens_the_index.py``

@@ -356,7 +356,7 @@ def identical_session(
     ``extra["identical_to"]`` naming the session folder.
     """
     from hydromodpy.core.state.layout import sessions_dir_for
-    from hydromodpy.results.catalog.registration import split_stem_version
+    from hydromodpy.core.state.names import split_stem_version
     from hydromodpy.results.session.descriptor import read_session, session_descriptor_path
     from hydromodpy.results.storage.json_io import readable
 

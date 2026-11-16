@@ -43,4 +43,4 @@ scale = "log"
 # Step 1's three exports, plus the mapped network as a GeoPackage.
 # `__append` adds a block to the inherited ones.
 [[export__append]]
-variables = "hydrographic_network_reference"
+variable = "hydrographic_network_reference"

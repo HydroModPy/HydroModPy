@@ -15,10 +15,10 @@ from hydromodpy.project.launch.summary_tables import SummaryError
 @pytest.mark.parametrize(
     ("request_data", "match"),
     [
-        ({"runs": "best", "format": "parquet", "variables": ["discharge"]}, "not written"),
-        ({"runs": "best"}, "name the variables"),
+        ({"runs": "best", "format": "parquet", "variable": ["discharge"]}, "not written"),
+        ({"runs": "best"}, "name the variable"),
     ],
-    ids=["best-runs-in-parquet", "best-runs-without-variables"],
+    ids=["best-runs-in-parquet", "best-runs-without-variable"],
 )
 def test_a_best_run_export_the_collect_cannot_write_is_refused(request_data, match) -> None:
     with pytest.raises(SummaryError, match=match):
@@ -45,7 +45,7 @@ def test_a_site_without_a_sealed_best_run_writes_no_series(tmp_path: Path) -> No
     by_site = pd.DataFrame(
         {"site": ["a", "b"], "rel_dir": [None, "runs/empty"], "best_case": [None, "x"]}
     )
-    request = SitesExportRequest(runs="best", variables=["discharge"])
+    request = SitesExportRequest(runs="best", variable=["discharge"])
 
     write_exports(tmp_path, tmp_path, [request], by_site, [], tmp_path / "exports")
 

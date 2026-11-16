@@ -86,7 +86,7 @@ _UNC_PHRASE = (
 
 def _request(**fields: Any) -> ExportRequest:
     """Return the export block a test delivers, one variable by default."""
-    fields.setdefault("variables", "head")
+    fields.setdefault("variable", "head")
     (request,) = load_export_requests([fields])
     return request
 
@@ -133,9 +133,9 @@ def _make_run(
 
 
 def _config_of(*destinations: str) -> str:
-    """Return one ``[[export]]`` block delivering ``variables = "head"`` to *destinations*."""
+    """Return one ``[[export]]`` block delivering ``variable = "head"`` to *destinations*."""
     quoted = ", ".join(json.dumps(text) for text in destinations)
-    return f'[[export]]\nvariables = "head"\ndeliver_to = [{quoted}]\n'
+    return f'[[export]]\nvariable = "head"\ndeliver_to = [{quoted}]\n'
 
 
 def _credentials(root: Path, body: str) -> Path:
@@ -464,7 +464,7 @@ def test_preflight_accepts_local_targets(tmp_path: Path) -> None:
     depot.mkdir()
     requests = [
         _request(deliver_to=[str(depot) + "/"]),
-        _request(variables="discharge", file="one.csv", deliver_to=[str(depot / "one.csv")]),
+        _request(variable="discharge", file="one.csv", deliver_to=[str(depot / "one.csv")]),
     ]
 
     preflight(requests, Environment(), project_root=_project(tmp_path))
@@ -476,7 +476,7 @@ def test_clear_ftp_warns_once(
     port, _root = ftp_depot
     address = f"ftp://127.0.0.1:{port}/depot/"
     request = _request(deliver_to=[address])
-    other = _request(variables="discharge", deliver_to=[address])
+    other = _request(variable="discharge", deliver_to=[address])
     environment = Environment(
         credentials=_ftp_credentials(tmp_path, f"ftp://127.0.0.1:{port}/"),
         bounds=Bounds(allowed_hosts=frozenset({"127.0.0.1"})),
@@ -576,7 +576,7 @@ def test_block_without_file_warns(tmp_path: Path, caplog: pytest.LogCaptureFixtu
     depot.mkdir()
     written = _request(deliver_to=[str(depot) + "/"])
     run_dir = _make_run(tmp_path, written, {"head_last.tif": HEAD})
-    asked = _request(variables="discharge", deliver_to=[str(depot) + "/"])
+    asked = _request(variable="discharge", deliver_to=[str(depot) + "/"])
 
     with caplog.at_level(logging.WARNING, logger="hydromodpy.project.deliver"):
         lines = deliver_run(

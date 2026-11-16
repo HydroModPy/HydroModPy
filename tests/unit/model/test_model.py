@@ -511,5 +511,5 @@ def test_flow_parameters() -> None:
         name: param.as_dict() for name, param in flow_profiles(config).items()
     }
     assert list(flow_profiles(config, ids=["Sy"])) == ["Sy"]
-    with pytest.raises(KeyError, match="declares no Ss"):
-        flow_profiles(config, ids=["Ss"])
+    with pytest.raises(KeyError, match="declares no Kv"):
+        flow_profiles(config, ids=["Kv"])

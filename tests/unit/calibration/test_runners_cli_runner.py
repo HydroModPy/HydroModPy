@@ -798,8 +798,8 @@ def test_second_run_takes_next_version(run):
     run()
     summary = run()
 
-    assert summary.session_dir.name == "toy.v2"
-    assert summary.best_rel_dir == "runs/toy.v2"
+    assert summary.session_dir.name == "toy_v2"
+    assert summary.best_rel_dir == "runs/toy_v2"
 
 
 @pytest.mark.parametrize(

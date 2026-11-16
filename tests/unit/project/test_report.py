@@ -208,7 +208,7 @@ def test_a_session_of_several_cases_draws_the_best_run_of_each(monkeypatch, tmp_
     project = make_project(tmp_path / "p")
     write_session_dir(project, "calage", trials=2)
     directory = project / "sessions" / "calage"
-    runs = {"a": SimpleNamespace(name="a.v1"), "b": SimpleNamespace(name="b.v1")}
+    runs = {"a": SimpleNamespace(name="a_v1"), "b": SimpleNamespace(name="b_v1")}
     monkeypatch.setattr(Session, "best_by_case", property(lambda self: runs))
     monkeypatch.setattr(
         Session,
@@ -236,7 +236,7 @@ def test_a_session_of_several_cases_draws_the_best_run_of_each(monkeypatch, tmp_
 
     report_session(directory, today=DAY)
 
-    assert [row["best_run"] for row in seen["cases"]] == ["a.v1", "b.v1"]
+    assert [row["best_run"] for row in seen["cases"]] == ["a_v1", "b_v1"]
     assert sorted(p.name for p in seen["best_figures"]) == [
         "a_hydrograph.png",
         "a_scatter_one_to_one.png",

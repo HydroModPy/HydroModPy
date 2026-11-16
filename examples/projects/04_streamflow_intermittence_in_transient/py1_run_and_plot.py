@@ -20,7 +20,7 @@ HERE = Path(__file__).resolve().parent
 
 # The same as `hmp run step4_transient.toml`, figures and exports included.
 # An unchanged file is not computed again: the run of the last execution comes
-# back. An edited file writes a new run, nancon_step4_transient.v2, .v3...
+# back. An edited file writes a new run, nancon_step4_transient_v2, _v3...
 run = hmp.run(HERE / "step4_transient.toml").open()
 print(run.name)
 

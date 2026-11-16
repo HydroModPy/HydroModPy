@@ -192,30 +192,30 @@ preset = "water_budget"
 
 # The catchment, its box and the mapped streams: GeoPackage.
 [[export]]
-variables = ["watershed", "watershed_box_buff", "hydrographic_network_reference"]
+variable = ["watershed", "watershed_box_buff", "hydrographic_network_reference"]
 
 # The DEM of the model: GeoTIFF.
 [[export]]
-variables = "watershed_dem"
+variable = "watershed_dem"
 
 # The water table and the seepage cells in January: one GeoTIFF each.
 [[export]]
-variables = ["head", "watertable_depth", "seepage_mask"]
+variable = ["head", "watertable_depth", "seepage_mask"]
 time = "2017-01-15"
 
 # The twelve months of the water table in one NetCDF file.
 [[export]]
-variables = ["head", "watertable_depth", "seepage_mask"]
+variable = ["head", "watertable_depth", "seepage_mask"]
 file = "watertable_2017.nc"
 
 # The discharge at the outlet, month by month: CSV.
 [[export]]
-variables = "discharge"
+variable = "discharge"
 
 # The water budget of every month, for the catchment and for the whole box: CSV.
 [[export]]
-variables = "budget"
+variable = "budget"
 
 # The particle tracks, one line per particle with its travel time in years: GeoPackage.
 [[export]]
-variables = "pathlines"
+variable = "pathlines"

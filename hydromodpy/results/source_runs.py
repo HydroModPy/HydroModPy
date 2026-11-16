@@ -13,7 +13,7 @@ hash alike, and two runs that read two versions of one source run do not.
 What a reference may be
 -----------------------
 A path to a field store or to a run directory (absolute, or relative to the
-project root), a run name with or without its ``.vN``, a ``sim_id`` or an
+project root), a run name with or without its ``_vN``, a ``sim_id`` or an
 unambiguous prefix of one (eight characters at least), or the table
 ``{sim_id, path}`` a frozen ``config.toml`` writes for ``restart_from``. A
 reference that names no sealed run has no ``sim_id`` and stays as written.

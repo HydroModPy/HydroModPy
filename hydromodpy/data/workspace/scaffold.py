@@ -349,7 +349,7 @@ preset = "water_budget"
 [[export]]
 # Writes the head as a GeoTIFF under runs/<run>/exports/, so the first result
 # is something you can open in QGIS, not just numbers in a log.
-variables = "head"
+variable = "head"
 """
 
 RUN_TOML_TEMPLATE = """\

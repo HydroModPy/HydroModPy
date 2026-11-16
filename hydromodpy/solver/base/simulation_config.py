@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias
@@ -18,6 +17,7 @@ from hydromodpy.core.config_kit.types import (
     TimePeriodUnit,
 )
 from hydromodpy.core.plugin_registry import check_registered_name
+from hydromodpy.core.state.names import fold_name, split_stem_version
 from hydromodpy.core.time.window import parse_window_length, reject_invalid_step_value_spec
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.core.units.time import normalize_time_unit
@@ -26,9 +26,6 @@ from hydromodpy.solver.base.registry import (
     solvers,
 )
 from hydromodpy.solver.base.results_config import ResultsConfig
-
-_VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
-"""The ``.vN`` a run directory takes from its reservation."""
 
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
 _STEP_UNIT_ALIASES = {
@@ -439,7 +436,7 @@ class SimulationConfig(HydroModelBase):
             "Human-readable simulation name and the run's identity. When empty, "
             "derived from the TOML filename at load time (run_steady_nwt.toml -> "
             "steady_nwt); a programmatic run without a name gets a deterministic "
-            "memorable slug. It never carries a .vN suffix: the version is given by "
+            "memorable slug. It never carries a _vN suffix: the version is given by "
             "the disk when the run is reserved."
         ),
         examples=["cheze_baseline"],
@@ -452,14 +449,14 @@ class SimulationConfig(HydroModelBase):
         default="version",
         description=(
             "What a run does when its name is already taken in this project. "
-            "``version`` (default) writes the run under the next free ``stem.vN`` and "
+            "``version`` (default) writes the run under the next free ``stem_vN`` and "
             "keeps every run addressable; ``fail`` stops before the run starts. A name is never "
             "reused, so a run is never replaced: delete the old one with "
             "hmp catalog delete."
         ),
         json_schema_extra={
             "value_docs": {
-                "version": "Write the run under the next free <name>.vN.",
+                "version": "Write the run under the next free <name>_vN.",
                 "fail": "Refuse to start when the name is taken.",
             }
         },
@@ -521,14 +518,14 @@ class SimulationConfig(HydroModelBase):
     @field_validator("name")
     @classmethod
     def _refuse_version_suffix(cls, value: str) -> str:
-        """Refuse a name that carries ``.vN``: the version is given by the disk."""
-        match = _VERSION_SUFFIX_RE.search(value)
-        if match:
-            stem = value[: match.start()]
+        """Refuse a name that ends like ``_vN``: the version is given by the disk."""
+        stem, version = split_stem_version(value)
+        if version is not None:
             raise ValueError(
-                f"[simulation] name = {value!r} carries a version. A version is given "
-                f"by the disk when the run is reserved, never written by hand: write "
-                f"name = {stem!r}. To continue runs/{value}, run hmp run --resume {value}."
+                f"[simulation] name = {value!r} ends like a version, which the disk gives "
+                f"when the run is reserved: a second run of {stem!r} takes {value!r}. Write "
+                f"name = {stem!r} to number the runs, or name = {fold_name(value)!r} for a run "
+                f"of its own. To continue runs/{value}, run hmp run --resume {value}."
             )
         return value
 

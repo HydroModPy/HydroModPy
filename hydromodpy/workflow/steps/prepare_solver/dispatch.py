@@ -15,8 +15,9 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.names import split_stem_version
 from hydromodpy.core.state.result_dirs import run_dir_rel
-from hydromodpy.results.catalog.registration import portable_config_source, split_stem_version
+from hydromodpy.results.catalog.registration import portable_config_source
 from hydromodpy.results.field_registry import FACE_FLOW
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_reserved_directory, claim_run_directory

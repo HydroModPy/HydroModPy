@@ -146,7 +146,7 @@ def test_base_by_argument(monkeypatch, tmp_path) -> None:
 
 def test_skipped_run_message(monkeypatch, tmp_path, capsys) -> None:
     config = write_toml(tmp_path / "config.toml", SIMULATION)
-    fake_simulation(monkeypatch, {}, an_outcome(name="test.v2", identical_to="test"))
+    fake_simulation(monkeypatch, {}, an_outcome(name="test_v2", identical_to="test"))
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()

@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.io.atomic_replace import staged_path
+from hydromodpy.core.state.names import split_stem_version
 from hydromodpy.core.toml_io.writer import dumps
-from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_RESOLVED_CONFIG_FILENAME
 from hydromodpy.workflow.steps.prepare_solver.facts import collect_effective_config_snapshot
 from hydromodpy.workflow.steps.prepare_solver.resolved import (
@@ -50,7 +50,7 @@ def frozen_config_of(
     configuration holds it. A refinement zone that
     read an earlier run writes the ``sim_id`` of that run (*zone_runs*, by the
     reference the zone gave) in place of its name, so a replay reads the run the
-    mesh came from and not a later ``.vN`` of it. ``simulation.name`` is the name of
+    mesh came from and not a later ``_vN`` of it. ``simulation.name`` is the name of
     the run, so a replay of the file answers to that run, whatever name the file it
     came from gave. A run describes its own solve: a trial of a calibration writes
     the parameters it ran with and no ``[calibration]``, so a replay solves once and

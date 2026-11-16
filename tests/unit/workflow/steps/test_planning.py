@@ -95,7 +95,7 @@ KEPT_BUDGETS = [
         {
             "results": ResultsConfig(),
             "display": RECHARGE_MAP,
-            "exports": [{"variables": "drain"}],
+            "exports": [{"variable": "drain"}],
         },
         BudgetKeep.everything(),
         id="result run keeps its whole budget",
@@ -105,7 +105,7 @@ KEPT_BUDGETS = [
             "results": ResultsConfig(keep_per_cell_budget=False),
             "level": "research",
             "calibration": DRAIN_CELL_OUTPUT,
-            "exports": [{"variables": "recharge"}],
+            "exports": [{"variable": "recharge"}],
         },
         BudgetKeep.of_terms(("drain",)),
         id="kept trial keeps its criterion terms",
@@ -131,11 +131,11 @@ KEPT_TERMS = [
         id="kept trial keeps the seepage mask of a surface excess solver",
     ),
     pytest.param(
-        {"exports": [{"variables": ["release_flux"]}, {"variables": "recharge"}]},
+        {"exports": [{"variable": ["release_flux"]}, {"variable": "recharge"}]},
         frozenset(budget_terms_for("release_flux")),
         id="export names",
     ),
-    pytest.param({"exports": [{"variables": "all"}]}, frozenset(), id="all export adds nothing"),
+    pytest.param({"exports": [{"variable": "all"}]}, frozenset(), id="all export adds nothing"),
     pytest.param({"calibration": DRAIN_CELL_OUTPUT}, {"drain"}, id="cell output on a budget term"),
     pytest.param({"plan": BOUSSINESQ}, {"surface_excess"}, id="surface excess solver"),
     pytest.param(
@@ -163,7 +163,7 @@ def test_default_keeps_the_whole_budget_and_says_nothing() -> None:
     every_consumer = DisplayConfig(figure=[{"variable": "recharge"}, {"variable": "head"}])
 
     keep, records = keep_with_log(
-        results=ResultsConfig(), display=every_consumer, exports=[{"variables": "drain"}]
+        results=ResultsConfig(), display=every_consumer, exports=[{"variable": "drain"}]
     )
 
     assert keep == BudgetKeep.everything()

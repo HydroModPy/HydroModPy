@@ -40,6 +40,7 @@ to the logger.
 import logging
 import os
 import warnings
+from collections.abc import Iterable
 from contextvars import ContextVar
 
 from hydromodpy.core.console import progress as core_progress
@@ -455,6 +456,60 @@ def current_verbosity():
     if LogManager._instance is None:
         return DEFAULT_VERBOSITY
     return LogManager._instance.mode
+
+
+HeldLine = tuple[str, int, str]
+"""One console line a process held: the logger name, the level and the message."""
+
+
+class HeldConsole(logging.Handler):
+    """What the console of a worker process would print, held for its parent to print.
+
+    A calibration worker shares the terminal of its parent, whose live progress bar
+    owns the last lines there. A line the worker wrote itself cut the bar and printed
+    it again under the line, once per worker and per warning.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.addFilter(_DedupFilter())
+        self._held: list[HeldLine] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self._held.append((record.name, record.levelno, record.getMessage()))
+
+    def drain(self) -> list[HeldLine]:
+        """Return the lines held since the last call, and forget them."""
+        held, self._held = self._held, []
+        return held
+
+
+def hold_console() -> HeldConsole:
+    """Hold what the console of this process would print, and return the holder.
+
+    The console handlers of the package logger leave. The holder takes their place
+    there and on the root logger, so that a warning of a library does not reach the
+    terminal through the last-resort handler either.
+    """
+    manager = LogManager._instance if LogManager._instance is not None else LogManager()
+    for handler in manager.logger.handlers[:]:
+        console = isinstance(handler, (logging.StreamHandler, core_progress.ConsoleLogHandler))
+        if console and not isinstance(handler, logging.FileHandler):
+            manager.logger.removeHandler(handler)
+    held = HeldConsole()
+    manager.logger.addHandler(held)
+    logging.getLogger().addHandler(held)
+    return held
+
+
+def print_held(lines: Iterable[HeldLine]) -> None:
+    """Print the lines a worker held through the console of this process.
+
+    Each goes out under the logger that wrote it, so the console drops a warning it
+    has already shown, the same one from another worker included.
+    """
+    for name, level, message in lines:
+        logging.getLogger(name).log(level, "%s", message)
 
 
 def verbosity_from_env(env=None):

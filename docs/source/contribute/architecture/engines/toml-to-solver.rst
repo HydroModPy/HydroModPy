@@ -44,7 +44,7 @@ steps 1 and 2 leaves nothing on the disk.
 2. ``Environment.check`` tests the credentials and the bounds of the call, and ``check_name``
    tests the name of the run against the rule of ``core/state/names.py``: ``[a-z0-9_-]``, 40
    characters, no reserved Windows name.
-3. The run claims ``runs/<name>[.vN]``. A completed name gets a new version, and a failed or
+3. The run claims ``runs/<name>[_vN]``. A completed name gets a new version, and a failed or
    aborted one continues as the next attempt. The claim writes ``outcome.json`` and starts the
    pulse. Its ``sim_id`` is a uuid taken here, and it enters no identity.
 4. A request given as JSON or as a dict is written as ``request.json``, whole and never

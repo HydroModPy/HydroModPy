@@ -21,7 +21,7 @@ without copying them by hand, and to keep a remote copy on an FTP server.
 
 ```toml
 [[export]]
-variables = "head"
+variable = "head"
 time = "last"
 file = "head_last.tif"
 deliver_to = ["/data/depot/", "ftp://gis.example.org/depot/"]

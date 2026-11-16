@@ -30,7 +30,7 @@ def register(subparsers) -> argparse.ArgumentParser:
             "one or a tombstone holding it is refused.\n"
             "\n"
             "Example:\n"
-            "  hmp catalog rename baseline.v2 baseline_k2e5"
+            "  hmp catalog rename baseline_v2 baseline_k2e5"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

@@ -35,7 +35,7 @@ move a finished study. For a new one, start from {doc}`index`.
 | `update_sink_fill` | `sink_fill` in `[solver]` |
 | `update_input_particles(zone_partic=...)` | `zone_partic` in `[transport.modpath]` |
 | `update_model_name` | `name` in `[simulation]` |
-| `postprocessing_modflow(watertable_depth=True, ...)` | `[[display.figure]]` and `[[export]]` tables with `variables` |
+| `postprocessing_modflow(watertable_depth=True, ...)` | `[[display.figure]]` and `[[export]]` tables with `variable` |
 
 A table of a process now carries `kind` where an alpha release of version 2 used `type`. If an
 old file does not load, `hmp doctor --fix-config` rewrites the renamed keys and says what it

@@ -1,15 +1,17 @@
 """Export simulation fields from Zarr to NetCDF-4 with UGRID topology.
 
 The exported file can be opened in QGIS (MDAL driver), THREDDS, or any
-tool that understands the UGRID-1.0 convention.
+tool that understands the UGRID-1.0 convention. QGIS lists the file three times,
+as a raster, a mesh and a vector. Only the mesh draws the cells: GDAL reads each
+variable as a raster one row high.
 
-A field that has layers is one variable with a ``layer`` dimension, whatever
-the number of layers, so a script reads the same name on every model. QGIS reads
-a mesh through MDAL, which binds a dataset to the face dimension and leaves out an
-array carrying a third one, so a file for QGIS asks for one layer: the variable
-then has no ``layer`` dimension and carries the layer as a scalar coordinate. The
-CRS is stated twice for the same reason: once the CF way, once the way MDAL reads
-it.
+QGIS reads a mesh through MDAL, which binds a dataset to the face dimension and
+leaves out an array carrying a third one. So the file keeps as few dimensions as
+it can. On a model of one layer a field has no ``layer`` dimension and carries the
+layer as a scalar coordinate. On a model of several layers a field keeps its
+``layer`` dimension, and a file for QGIS asks for one layer. The ``crs`` variable
+states the CRS twice, the CF way in ``crs_wkt`` and the MDAL way in ``epsg`` and
+``wkt``, since MDAL follows the ``grid_mapping`` of the node coordinates to it.
 
 The face centers are the ones the model used (``mesh/face_x`` and
 ``mesh/face_y`` of the store). A store without them gives the mean of the
@@ -37,6 +39,11 @@ from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.results.zarr_store.zarr_reader import stored_field_array
 
 logger = get_logger(__name__)
+
+_LAYER_ATTRS: dict[str, object] = {
+    "long_name": "Model layer, counted from 0 at the top",
+    "units": "1",
+}
 
 
 def export_netcdf(
@@ -183,10 +190,7 @@ def export_netcdf(
         },
     )
     if crs_attrs:
-        ds["crs"] = xr.DataArray(np.int32(0), attrs=crs_attrs)
-        mdal_crs = _mdal_crs_attrs(crs_attrs)
-        if mdal_crs:
-            ds["projected_coordinate_system"] = xr.DataArray(np.int32(0), attrs=mdal_crs)
+        ds["crs"] = xr.DataArray(np.int32(0), attrs={**crs_attrs, **_mdal_crs_attrs(crs_attrs)})
 
     if centres is None:
         valid_mask = connectivity >= 0
@@ -229,6 +233,14 @@ def export_netcdf(
             _add_field(ds, var_name, data, timed=timed, attrs=_field_attrs(var_name), layer=layer)
     finally:
         sz.close()
+    layered = sorted(name for name, var in ds.data_vars.items() if "layer" in var.dims)
+    if layered:
+        logger.warning(
+            "%s holds %s with a layer dimension, which QGIS leaves out of the mesh. "
+            "Export one layer for QGIS, with layer = 0 for the top one.",
+            output_path.name,
+            ", ".join(layered),
+        )
 
     if "time" in ds.dims:
         time_indices = list(range(ds.sizes["time"])) if timesteps is None else list(timesteps)
@@ -331,7 +343,7 @@ def _field_attrs(name: str) -> dict[str, object]:
             attrs["valid_min"] = descriptor.valid_min
         if descriptor.valid_max is not None:
             attrs["valid_max"] = descriptor.valid_max
-    return {**attrs, "mesh": "mesh2d", "location": "face"}
+    return {**attrs, "coordinates": "face_x face_y", "mesh": "mesh2d", "location": "face"}
 
 
 def _add_field(
@@ -345,17 +357,24 @@ def _add_field(
 ) -> None:
     """Add one field to the dataset, as one variable.
 
-    A field with layers has a ``layer`` dimension at any number of layers. A
-    field with fewer layers than the model, a recharge applied to the top one,
-    names its own dimension, since a NetCDF dimension has one size. With ``layer``
-    the variable holds that layer alone, under a scalar ``layer`` coordinate.
+    On a model of several layers a field with layers has a ``layer`` dimension.
+    A field with fewer layers than the model, a recharge applied to the top one,
+    names its own dimension, since a NetCDF dimension has one size. With ``layer``,
+    or on a model of one layer, the variable holds that layer alone, under a
+    scalar ``layer`` coordinate, which is the form QGIS reads. An integer narrower
+    than 32 bits, the ``idomain`` byte, is widened: MDAL cannot read it, and one such
+    variable makes QGIS drop the whole mesh.
     """
+    if data.dtype == np.bool_ or (np.issubdtype(data.dtype, np.integer) and data.itemsize < 4):
+        data = data.astype(np.int32)
     dims: tuple[str, ...] = ("time", "n_face") if timed else ("n_face",)
     if data.ndim != (3 if timed else 2):
         ds[var_name] = xr.DataArray(data, dims=dims, attrs=attrs)
         return
     axis = 1 if timed else 0
     n_layers = int(data.shape[axis])
+    if layer is None and int(ds.attrs["n_layers"]) == 1:
+        layer = 0
     if layer is not None:
         if not 0 <= int(layer) < n_layers:
             raise ValueError(
@@ -365,9 +384,13 @@ def _add_field(
         ds[var_name] = xr.DataArray(
             np.take(data, int(layer), axis=axis),
             dims=dims,
-            attrs={**attrs, "coordinates": "layer"},
-            coords={"layer": int(layer)},
+            attrs={**attrs, "coordinates": f"{attrs['coordinates']} layer"},
         )
+        # A scalar variable the fields name, not an xarray coordinate: xarray
+        # would name a scalar coordinate on every variable, the node coordinates
+        # included, and MDAL then reads no face at all.
+        if "layer" not in ds.variables:
+            ds["layer"] = xr.DataArray(np.int32(layer), attrs=_LAYER_ATTRS)
         return
     name = "layer" if n_layers == int(ds.attrs["n_layers"]) else f"{var_name}_layer"
     dims = (*dims[:axis], name, *dims[axis:])
@@ -376,20 +399,20 @@ def _add_field(
         ds[name] = xr.DataArray(
             np.arange(n_layers, dtype=np.int32),
             dims=(name,),
-            attrs={"long_name": "Model layer, counted from 0 at the top", "units": "1"},
+            attrs=_LAYER_ATTRS,
         )
 
 
 def _mdal_crs_attrs(crs_attrs: dict[str, object]) -> dict[str, object]:
-    """CRS attributes MDAL reads, for the ``projected_coordinate_system`` variable.
+    """CRS attributes MDAL reads, laid beside the CF ones on the ``crs`` variable.
 
     The CF way of georeferencing a file is a grid-mapping variable carrying
-    ``crs_wkt``, and the ``crs`` variable next to this one states it. MDAL,
-    which is what QGIS opens a UGRID mesh with, does not read it: it looks up
-    one variable by name and takes ``epsg``, then ``wkt``, which it parses as
-    WKT1 only. Handed the WKT2 that ``crs_wkt`` holds it keeps no CRS at all,
-    and QGIS then draws the mesh in whatever the project uses, nowhere near
-    the catchment. So the EPSG code goes first and the WKT is downgraded.
+    ``crs_wkt``. MDAL, which is what QGIS opens a UGRID mesh with, follows the
+    ``grid_mapping`` of the node coordinates to that variable but does not read
+    ``crs_wkt``: it takes ``epsg``, then ``wkt``, which it parses as WKT1 only.
+    Without them it keeps no CRS at all, and QGIS then draws the mesh in
+    whatever the project uses, nowhere near the catchment. So the EPSG code goes
+    first and the WKT is downgraded.
     """
     attrs: dict[str, object] = {}
     epsg = crs_attrs.get("epsg_code")

@@ -72,6 +72,22 @@ class DisplayConfig(HydroModelBase):
         ),
     )
 
+    @field_validator("figure", mode="before")
+    @classmethod
+    def _refuse_a_written_special(cls, value: object) -> object:
+        """Refuse ``special`` written in a table, with the preset that names it.
+
+        The key stays out of every dump, so the check passed the file and the run then
+        found a figure with nothing to draw.
+        """
+        for index, item in enumerate(value if isinstance(value, list) else ()):
+            if isinstance(item, Mapping) and "special" in item:
+                raise ValueError(
+                    f"display.figure[{index}] writes special = {item['special']!r}, which a "
+                    f"file never writes: write preset = {item['special']!r}."
+                )
+        return value
+
     @field_validator("theme", mode="after")
     @classmethod
     def _check_theme(cls, value: str) -> str:

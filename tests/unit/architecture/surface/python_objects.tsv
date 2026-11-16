@@ -106,7 +106,7 @@ Run.delete	method	(self) -> None
 Run.deliveries	property	tuple[PublishedLine, ...]
 Run.dem	method	
 Run.dir	property	Path
-Run.export	method	(self, variables: str | list[str], *, time: Any = None, period: tuple[Any, Any] | None = None, format: str | None = None, folder: str | Path | None = None, file: str | Path | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0) -> list[Path]
+Run.export	method	(self, variable: str | list[str], *, time: Any = None, period: tuple[Any, Any] | None = None, format: str | None = None, folder: str | Path | None = None, file: str | Path | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0) -> list[Path]
 Run.exports	property	list[Path]
 Run.field	method	(self, variable: str, *, time: int | str | datetime.date | pd.Timestamp | np.datetime64 = -1, layer: int | None = None, bbox: tuple[float, float, float, float] | None = None) -> np.ndarray
 Run.figure	method	(self, name: str | None = None, *, request: Mapping[str, Any] | None = None, draw: Callable[..., Any] | None = None, save: str | Path | None = None, dpi: int | None = None, theme: str | None = None, engine: str | None = None, time: str | None = None, data: bool = False, **options: Any) -> Figure | Path | dict[str, Any]

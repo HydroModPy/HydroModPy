@@ -37,6 +37,7 @@ from hydromodpy.config.solver_supports import (
     uses_of,
 )
 from hydromodpy.core.exceptions import HydroModPyError, IncompatibleCapabilitiesError
+from hydromodpy.display.request import FigureRequest
 from hydromodpy.model.supports import SUPPORTS
 from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.solver.base.registry import solvers
@@ -552,9 +553,10 @@ SOLVER_ROWS = frozenset(
         "refuse_a_transport_its_flow_does_not_feed",
         "refuse_the_contaminations",
         "coarse_conductivity_profile",
+        "warn_of_what_the_run_cannot_draw_or_export",
     }
 )
-"""The rows the tests above drive by hand, with their own documents."""
+"""The rows the tests drive by hand, with their own documents."""
 
 ORDER = (
     "refuse_a_real_catchment_without_a_site",
@@ -589,6 +591,7 @@ ORDER = (
     "refuse_a_cell_address_on_an_irregular_mesh",
     "refuse_a_time_the_run_does_not_hold",
     "refuse_an_export_that_cannot_be_written",
+    "warn_of_what_the_run_cannot_draw_or_export",
 )
 """The order the loader always refused in: the first fault of a document is the first row."""
 
@@ -896,13 +899,13 @@ ROWS: list[tuple[str, str, Any, str]] = [
     (
         "refuse_a_time_the_run_does_not_hold",
         "date outside the record",
-        lambda d: _with_export(d, variables="head", time="2030-01-01"),
+        lambda d: _with_export(d, variable="head", time="2030-01-01"),
         "export[0].time: 2030-01-01 is outside the record",
     ),
     (
         "refuse_an_export_that_cannot_be_written",
         "unknown name",
-        lambda d: _with_export(d, variables=["hed"]),
+        lambda d: _with_export(d, variable=["hed"]),
         "no run can export export[0]: 'hed'",
     ),
 ]
@@ -1051,6 +1054,41 @@ def test_sealed_export_only_warns(
 
     assert row[3] in caplog.text
     assert "This sealed run is read as it ran." in caplog.text
+
+
+def test_what_the_run_cannot_draw_or_export_is_named_before_the_solve(
+    documents: SimpleNamespace,
+) -> None:
+    # A figure or an export the run could not make was found after the solve, or never.
+    plain = documents.plain
+    figures = [
+        FigureRequest(variable="watertable_depth"),
+        FigureRequest(variable="concentration"),
+        FigureRequest(variable="head", layer=3),
+        FigureRequest(preset="root_search"),
+        FigureRequest(preset="root_search", when="session"),
+    ]
+    document = _document(
+        plain,
+        display=plain.display.model_copy(update={"figure": figures}),
+        export=[ExportRequest(variable=["head", "concentration"]), ExportRequest(variable="all")],
+    )
+    rule = CROSS_RULES["warn_of_what_the_run_cannot_draw_or_export"].rule
+    backend = plain.solver.backend_name
+    layers = plain.domain.layers.layer_count
+
+    assert rule(document, sealed=False) == [
+        "display.figure[1] 'concentration' is not drawn by the run: concentration: no solver "
+        f"of this run writes it ({backend}).",
+        f"display.figure[2] 'head' is not drawn by the run: layer 3 is past the {layers} "
+        f"layer(s) of the model, 0 to {layers - 1}.",
+        "display.figure[3] 'root_search' draws a calibration session and this file "
+        "calibrates nothing, so the run does not draw it.",
+        "export[0] is not written by the run: concentration: no solver of this run writes "
+        f"it ({backend}).",
+    ]
+    # The run of a sealed document is made: it says nothing when it is read.
+    assert rule(document, sealed=True) == []
 
 
 def test_walk_warns_then_raises(

@@ -115,7 +115,7 @@ class RefinementZoneConfig(HydroModelBase):
         default=None,
         description=(
             "The earlier run of this project whose field draws the zone, for "
-            "watertable_depth and seepage: its name, with or without its .vN (the "
+            "watertable_depth and seepage: its name, with or without its _vN (the "
             "latest version without), or its full sim_id. The run must be sealed and "
             "hold the field. The mesh then depends on that run: its sim_id enters the "
             "mesh request and the product key."

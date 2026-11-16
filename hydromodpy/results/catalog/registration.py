@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import contextlib
 import os
-import re
 import shutil
 import tarfile
 import tempfile
@@ -40,7 +39,7 @@ from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.io.filesystem import check_project_root, rename_onto_empty_dir
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import internal_dir, runs_dir_for, sessions_dir_for
-from hydromodpy.core.state.names import check_name
+from hydromodpy.core.state.names import check_name, split_stem_version, versioned_name
 from hydromodpy.core.state.portable import to_workspace_relative
 from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel, session_dir_rel
 from hydromodpy.results.publication import publication_path, read_publication
@@ -65,20 +64,6 @@ def portable_config_source(project_root: Path, config_source: str | Path | None)
         return to_workspace_relative(project_root, config_source)
     except ValueError:
         return str(config_source)
-
-
-_VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
-
-
-def split_stem_version(name: str) -> tuple[str, int | None]:
-    """Split ``baseline.v3`` into ``("baseline", 3)``.
-
-    A bare name returns ``(name, None)``.
-    """
-    match = _VERSION_SUFFIX_RE.search(name)
-    if match:
-        return name[: match.start()], int(match.group(1))
-    return name, None
 
 
 _RESERVE_ATTEMPTS = 1000
@@ -113,7 +98,7 @@ def reserve_version_dirname(
     When another process wins the ``mkdir``, the version is computed again,
     so a version is never given twice. ``kind`` picks the tree the claim is
     made in. ``name`` is a bare directory name: a name that already carries
-    ``.vN`` is refused.
+    ``_vN`` is refused.
 
     A calibration session and its promoted run are paired: the session
     reserves ``N`` first, and the run is reserved with ``pair_with`` naming
@@ -164,7 +149,7 @@ def next_version_dirname(project_root: Path, name: str) -> str:
     dry run quotes it; another process may claim it before a real run does.
     """
     highest = max(_taken_versions(Path(project_root), name), default=0)
-    return name if highest == 0 else f"{name}.v{highest + 1}"
+    return versioned_name(name, highest + 1)
 
 
 def _holders(project_root: Path, name: str) -> list[tuple[str, int]]:
@@ -226,8 +211,8 @@ def check_name_free(project_root: Path, name: str, *, excluding: str | None = No
 def live_version_dir(project_root: Path, name: str) -> Path:
     """Return the live directory of ``runs/`` a versioned name names, or refuse it.
 
-    A ``.vN`` is given by the disk when a version is reserved, never written
-    by hand. A versioned name such as ``nancon.v2`` therefore reaches only a
+    A ``_vN`` is given by the disk when a version is reserved, never written
+    by hand. A versioned name such as ``nancon_v2`` therefore reaches only a
     live run directory: a resume or a retry works in it. A version the trash
     or a tombstone holds, or one nobody holds, is refused with
     :class:`NameTakenError`, and the refusal names the bare name to use.
@@ -258,7 +243,7 @@ def rename_case(
     the ``rel_dir`` a manifest recorded at the seal becomes a hint the
     indexer reads past.
 
-    ``new_name`` is a directory name, with or without ``.vN``. Its version
+    ``new_name`` is a directory name, with or without ``_vN``. Its version
     must be free among the live directories, the trash and the tombstones:
     a deleted name is never given out again, not even by a rename. The name
     left behind is free again: a rename leaves no tombstone, so a later run
@@ -336,7 +321,7 @@ def import_publication(
     must be listed in its ``PUBLICATION.json`` and match its digest before
     anything enters ``runs/``. The run takes the next free version of
     ``name``, which defaults to the name of the published run without its
-    ``.vN``: a published ``x.v2`` lands as ``x`` in a project without ``x``.
+    ``_vN``: a published ``x_v2`` lands as ``x`` in a project without ``x``.
     Entries a run directory does not carry (``PUBLICATION.json``, the crate)
     stay out of it. The checked copy enters ``runs/`` by one rename, so a
     reader never sees part of it.

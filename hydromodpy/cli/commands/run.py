@@ -8,7 +8,7 @@ and a Docker image runs it with the same command.
 
 Overrides are merged as defaults < base_config < --overlay < --set < env. A run
 launched with ``--set`` or ``--overlay`` keeps its name: the surcharge is sealed
-in ``lineage.overrides`` and ``.vN`` handles the collision. Nothing is written
+in ``lineage.overrides`` and ``_vN`` handles the collision. Nothing is written
 beside the file the user named: the changes ride in the request.
 
 The relative paths of a request are read from its base: the project root above a

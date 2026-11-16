@@ -23,7 +23,7 @@ NEW_ID = "7b1e0000-0000-4000-8000-000000000002"
 
 def _project(tmp_path: Path) -> Path:
     project = tmp_path / "p"
-    run_dir = project / "runs" / "nancon_monthly.v2"
+    run_dir = project / "runs" / "nancon_monthly_v2"
     run_dir.mkdir(parents=True)
     (project / "project.toml").write_text('[site]\nname = "nancon"\n', encoding="utf-8")
     (run_dir / "config.toml").write_text(
@@ -61,7 +61,7 @@ def test_rerun_reads_the_frozen_config(tmp_path: Path, monkeypatch, capsys) -> N
             source=source_sim_id,
             source_dir=source_dir,
         )
-        new_dir = project / "runs" / "nancon_monthly.v3"
+        new_dir = project / "runs" / "nancon_monthly_v3"
         new_dir.mkdir()
         (new_dir / "manifest.json").write_text(
             json.dumps(manifest_document(sim_id=NEW_ID)),
@@ -74,7 +74,7 @@ def test_rerun_reads_the_frozen_config(tmp_path: Path, monkeypatch, capsys) -> N
         monkeypatch,
         "catalog",
         "rerun",
-        "nancon_monthly.v2",
+        "nancon_monthly_v2",
         "--set",
         "flow.k=2e-4",
         "-w",
@@ -84,11 +84,11 @@ def test_rerun_reads_the_frozen_config(tmp_path: Path, monkeypatch, capsys) -> N
     assert code == 0
     assert calls["name"] == "nancon_monthly"
     assert calls["source"] == SOURCE_ID
-    assert calls["source_dir"] == project.resolve() / "runs" / "nancon_monthly.v2"
+    assert calls["source_dir"] == project.resolve() / "runs" / "nancon_monthly_v2"
     assert calls["overrides"] == {"flow.k": 2e-4}
     assert calls["snapshot"]["flow"]["k"] == 1e-5
     assert calls["snapshot"]["workspace"]["project_root"] == str(project.resolve())
-    assert "runs/nancon_monthly.v3" in capsys.readouterr().out
+    assert "runs/nancon_monthly_v3" in capsys.readouterr().out
     assert not (project / ".hmp" / "index.duckdb").exists()
 
 
@@ -96,7 +96,7 @@ def test_rerun_without_a_run(tmp_path: Path, monkeypatch, capsys) -> None:
     project = _project(tmp_path)
     monkeypatch.setattr(project_rerun, "rerun_config", lambda *args, **kwargs: None)
 
-    code = _hmp(monkeypatch, "catalog", "rerun", "nancon_monthly.v2", "-w", str(project))
+    code = _hmp(monkeypatch, "catalog", "rerun", "nancon_monthly_v2", "-w", str(project))
 
     assert code != 0
     assert "Rerun did not produce a run." in capsys.readouterr().err
@@ -104,9 +104,9 @@ def test_rerun_without_a_run(tmp_path: Path, monkeypatch, capsys) -> None:
 
 def test_rerun_without_a_config(tmp_path: Path, monkeypatch, capsys) -> None:
     project = _project(tmp_path)
-    (project / "runs" / "nancon_monthly.v2" / "config.toml").unlink()
+    (project / "runs" / "nancon_monthly_v2" / "config.toml").unlink()
 
-    code = _hmp(monkeypatch, "catalog", "rerun", "nancon_monthly.v2", "-w", str(project))
+    code = _hmp(monkeypatch, "catalog", "rerun", "nancon_monthly_v2", "-w", str(project))
 
     assert code != 0
     assert "config.toml" in capsys.readouterr().err

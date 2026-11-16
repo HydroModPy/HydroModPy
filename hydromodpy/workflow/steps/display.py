@@ -64,7 +64,9 @@ def _render_requests(
 ) -> list[Path]:
     """Draw each ``[[display.figure]]`` of ``when = "end"``: one render and one write each.
 
-    A figure that does not apply to the run is logged and skipped. Any other failure follows ``on_error``, with the same sealed-run message.
+    A figure that does not apply to the run is skipped with a warning: the file asked for
+    it, and a figure that never appears with no word looked like a run that hung. Any
+    other failure follows ``on_error``, with the same sealed-run message.
     """
     if not display_cfg.figure:
         return []
@@ -95,6 +97,9 @@ def _render_requests(
                 f"hmp show {run_name} --figure {stem}: {exc}"
             ) from exc
         written.extend(report.written)
+        for item in report.skipped:
+            if not item.actionable:  # a failure has its warning already
+                logger.warning("Figure %s not drawn: %s", item.name, item.reason)
     return written
 
 

@@ -7,7 +7,7 @@
 # le run demande est ici, des donnees jusqu'aux figures.
 #
 # Le montage est le drain de Cauchy sur chaque maille, celui de la
-# reference `grid_iter_0003.v2` (NSE 0,607 / NSE_log 0,670 / KGE 0,745).
+# reference `grid_iter_0003_v2` (NSE 0,607 / NSE_log 0,670 / KGE 0,745).
 #
 # DEUX ETAGES, enchaines tout seuls :
 #   1. K   par le critere de reseau d'Abherve, en permanent, par

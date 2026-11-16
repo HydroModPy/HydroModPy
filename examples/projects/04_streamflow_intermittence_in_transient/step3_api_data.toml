@@ -50,4 +50,4 @@ scale = "log"
 # Step 2's exports, where the network is now all BD Topage reaches, plus the
 # permanent reaches as a GeoPackage of their own.
 [[export__append]]
-variables = "hydrographic_network_reference_permanent"
+variable = "hydrographic_network_reference_permanent"

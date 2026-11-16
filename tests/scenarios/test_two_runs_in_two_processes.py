@@ -188,7 +188,7 @@ def test_two_runs_in_two_processes(scenario_env: dict[str, str], scenario_cache:
             replays = {key: {"ref": key} for key in RECHARGES}
             replayed = _jobs_end(url, route, _post_together(url, route, "replay", replays))
             for key, found in replayed.items():
-                assert found["result"]["run_dir"] == f"runs/{key}.v2"
+                assert found["result"]["run_dir"] == f"runs/{key}_v2"
                 replay_dir = project / found["result"]["run_dir"]
                 replay = read_seal(replay_dir).lineage.replay
                 assert replay is not None

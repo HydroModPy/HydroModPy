@@ -13,7 +13,7 @@ What a reference may be
 -----------------------
 - a path to a field store or to a run directory, absolute or relative to the
   project root;
-- a run name, with or without its ``.vN`` (the latest version without);
+- a run name, with or without its ``_vN`` (the latest version without);
 - the ``sim_id`` of a sealed run, or an unambiguous prefix of it;
 - the table ``{sim_id, path}`` a frozen ``config.toml`` writes
   (:class:`~hydromodpy.model.flow_config.RestartReference`): the

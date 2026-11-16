@@ -52,7 +52,7 @@ metrics = ["nse", "kge"]
 rank_by = "nse"
 parameters = ["K"]
 figures = ["map", "distribution"]
-variables = ["K", "nse"]
+variable = ["K", "nse"]
 best = "calibrated"
 
 # The table of the sites as CSV, and the discharge of the best case of each
@@ -63,7 +63,7 @@ format = "csv"
 
 [[sites.export]]
 runs = "best"
-variables = ["discharge"]
+variable = ["discharge"]
 format = "csv"
 
 # Every case is scored on this window. 2011 is spin-up: simulated, not scored.
@@ -176,7 +176,7 @@ time = "2015-09-15"
 
 # What each case writes to runs/<case>/exports/.
 [[export]]
-variables = ["watershed", "hydrographic_network_reference"]
+variable = ["watershed", "hydrographic_network_reference"]
 
 [[export]]
-variables = ["discharge", "discharge_obs"]
+variable = ["discharge", "discharge_obs"]

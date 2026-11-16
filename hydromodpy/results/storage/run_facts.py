@@ -84,7 +84,7 @@ class RunFacts(HydroModelBase):
 
     schema_: str = Field(default=FACTS_SCHEMA, alias="schema", description="Schema id")
     sim_id: str = Field(description="Id of the run")
-    name: str = Field(description="Run directory name, with its .vN")
+    name: str = Field(description="Run directory name, with its _vN")
     case_id: str = Field(description="The run name, or site-recipe under [sites]")
     recipe: str | None = Field(default=None, description="Recipe of a planned case")
     project: str = Field(description="Project the run belongs to")

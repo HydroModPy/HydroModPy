@@ -35,7 +35,7 @@ def register(subparsers) -> argparse.ArgumentParser:
             "the build drift. A moved input is refused before anything runs.\n"
             "\n"
             "Examples:\n"
-            "  hmp replay runs/baseline.v2\n"
+            "  hmp replay runs/baseline_v2\n"
             "  hmp replay copies/baseline --strict -w ."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,

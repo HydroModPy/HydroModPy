@@ -1129,7 +1129,7 @@
           "x-hmp-profile": "user"
         },
         "name": {
-          "description": "Run name, with its .vN",
+          "description": "Run name, with its _vN",
           "examples": [
             "example"
           ],
@@ -1138,7 +1138,7 @@
           "x-hmp-profile": "user"
         },
         "name_stem": {
-          "description": "Run name without its .vN",
+          "description": "Run name without its _vN",
           "examples": [
             "example"
           ],

@@ -161,7 +161,7 @@ report = {{
     ),
     "logs": {{name: (ROOT / name / "runs" / name / "logs" / "run.log").read_text() for name in NAMES}},
     "twins": {{
-        name: digests(ROOT / name / "runs" / name) == digests(ROOT / name / "runs" / f"{{name}}.v2")
+        name: digests(ROOT / name / "runs" / name) == digests(ROOT / name / "runs" / f"{{name}}_v2")
         for name in NAMES
     }},
     "figures": {{
@@ -204,9 +204,9 @@ def test_two_runs_in_two_threads_keep_the_process_as_it_was(tmp_path: Path) -> N
     assert report["errors"] == []
     assert report["runs"] == [
         "basin_a/runs/basin_a",
-        "basin_a/runs/basin_a.v2",
+        "basin_a/runs/basin_a_v2",
         "basin_b/runs/basin_b",
-        "basin_b/runs/basin_b.v2",
+        "basin_b/runs/basin_b_v2",
     ]
     assert report["changed"] == []
     assert report["fonts_lost"] == []

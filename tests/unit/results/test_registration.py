@@ -135,7 +135,7 @@ def test_rename_onto_a_deleted_name(tmp_path: Path) -> None:
     gc_trash(project, older_than=timedelta(0), now=AT + timedelta(days=1))
     with pytest.raises(NameTakenError):
         rename_case(project, "runs/kept", "old")
-    assert rename_case(project, "runs/kept", "old.v2") == ("runs/old.v2",)
+    assert rename_case(project, "runs/kept", "old_v2") == ("runs/old_v2",)
 
 
 def test_rename_of_a_running_directory(tmp_path: Path) -> None:

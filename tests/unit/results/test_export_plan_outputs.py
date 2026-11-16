@@ -26,7 +26,7 @@ def _plan(request: ExportRequest):
 
 
 def test_one_geopackage_for_the_layers() -> None:
-    request = ExportRequest(variables=list(MESH_LAYERS), file="out/mesh.gpkg")
+    request = ExportRequest(variable=list(MESH_LAYERS), file="out/mesh.gpkg")
 
     (planned,) = _plan(request)
 
@@ -36,14 +36,14 @@ def test_one_geopackage_for_the_layers() -> None:
 
 def test_file_refuses_a_layer_of_another_file() -> None:
     with pytest.raises(ValidationError, match="3 names write 2 files"):
-        ExportRequest(variables=["watershed", "mesh_cells", "mesh_seeds"], file="out.gpkg")
+        ExportRequest(variable=["watershed", "mesh_cells", "mesh_seeds"], file="out.gpkg")
 
 
 def test_file_refuses_two_shapefile_layers() -> None:
     with pytest.raises(ValidationError, match="2 names write one file each"):
-        ExportRequest(variables=["mesh_cells", "mesh_seeds"], format="shapefile", file="m.shp")
+        ExportRequest(variable=["mesh_cells", "mesh_seeds"], format="shapefile", file="m.shp")
 
 
 def test_mesh_layer_as_netcdf() -> None:
     with pytest.raises(ValueError, match="'mesh_cells' is a vector"):
-        _plan(ExportRequest(variables="mesh_cells", format="netcdf"))
+        _plan(ExportRequest(variable="mesh_cells", format="netcdf"))

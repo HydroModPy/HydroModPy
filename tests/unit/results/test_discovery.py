@@ -73,7 +73,7 @@ def project(tmp_path: Path) -> Path:
     _seal(root, "nancon_monthly", MONTHLY, site="nancon", day=1, nse=0.80)
     _seal(
         root,
-        "nancon_monthly.v2",
+        "nancon_monthly_v2",
         MONTHLY_V2,
         site="nancon",
         day=2,
@@ -107,7 +107,7 @@ def test_path_outside_the_results() -> None:
 
 def test_index_resolves_a_name(index: Catalog) -> None:
     assert index.resolve("nancon_monthly") == MONTHLY
-    assert index.resolve("nancon_monthly.v2") == MONTHLY_V2
+    assert index.resolve("nancon_monthly_v2") == MONTHLY_V2
     assert index.resolve("runs/J0014010-base") == BASE
 
 
@@ -183,9 +183,9 @@ def test_tree_asks_the_index(project: Path) -> None:
     assert resolve_rel_dir(project, "@last") == "runs/beef1234"
     assert resolve_rel_dir(project, "@best:nse", site="nancon") == "runs/nancon_monthly"
     assert resolve_rel_dir(project, "@best:nse", site="J0014010") == "runs/J0014010-base"
-    assert resolve_rel_dir(project, "@worst:nse", site="nancon") == "runs/nancon_monthly.v2"
+    assert resolve_rel_dir(project, "@worst:nse", site="nancon") == "runs/nancon_monthly_v2"
     assert resolve_rel_dir(project, "3333") == "runs/J0014010-base"
-    assert resolve_rel_dir(project, MONTHLY_V2) == "runs/nancon_monthly.v2"
+    assert resolve_rel_dir(project, MONTHLY_V2) == "runs/nancon_monthly_v2"
     assert resolve_rel_dir(project, "@running", site="nancon") == "runs/live"
     with pytest.raises(SimulationNotFoundError, match="No running run in site 'J0014010'"):
         resolve_rel_dir(project, "@running", site="J0014010")
@@ -199,5 +199,5 @@ def test_tree_refuses_ambiguous_name(
         resolve_rel_dir(project, "2222")
     assert {key for key, _ in caught.value.candidates} == {
         "runs/2222",
-        "runs/nancon_monthly.v2",
+        "runs/nancon_monthly_v2",
     }

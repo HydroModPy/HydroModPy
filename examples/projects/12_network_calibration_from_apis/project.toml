@@ -134,15 +134,15 @@ preset = "root_search"
 when = "session"
 
 [[export]]
-variables = ["watershed", "hydrographic_network_reference"]
+variable = ["watershed", "hydrographic_network_reference"]
 
 [[export]]
-variables = ["watertable_depth", "seepage_mask", "release_flux"]
+variable = ["watertable_depth", "seepage_mask", "release_flux"]
 time = "last"
 format = "geotiff"
 
 [[export]]
-variables = ["discharge", "discharge_obs"]
+variable = ["discharge", "discharge_obs"]
 
 [[export]]
-variables = "budget"
+variable = "budget"

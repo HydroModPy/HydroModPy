@@ -159,7 +159,7 @@ def test_view_refuses_variable_and_time_selectors(isolated_export_formats) -> No
     from hydromodpy.results.exporters.export_spec import ExportRequest
 
     isolated_export_formats.register(StacItemView)
-    with pytest.raises(ValidationError, match='Write variables = "all"'):
-        ExportRequest(variables="head", format="stac")
+    with pytest.raises(ValidationError, match='Write variable = "all"'):
+        ExportRequest(variable="head", format="stac")
     with pytest.raises(ValidationError, match="time selects nothing"):
-        ExportRequest(variables="all", format="stac", time="last")
+        ExportRequest(variable="all", format="stac", time="last")

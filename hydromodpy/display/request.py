@@ -20,20 +20,20 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from importlib import resources
 from itertools import takewhile
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
 from pydantic import (
-    BeforeValidator,
     Field,
     ValidationError,
     ValidationInfo,
     field_validator,
     model_validator,
 )
-from pydantic.json_schema import SkipJsonSchema, WithJsonSchema
+from pydantic.json_schema import SkipJsonSchema
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
+from hydromodpy.core.config_kit.types import Names, listed
 from hydromodpy.core.pipeline_steps import FIGURE_STEPS, STEP_NAMES
 from hydromodpy.core.time.instant import instant
 from hydromodpy.core.units.kinds import LAYER_REDUCTIONS
@@ -309,15 +309,6 @@ def shape_of(name: str) -> str:
     return found.shape
 
 
-def _listed(value: Any) -> Any:
-    return [value] if isinstance(value, str) else value
-
-
-_ONE_OR_SEVERAL = {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]}
-Names = Annotated[list[str], BeforeValidator(_listed), WithJsonSchema(_ONE_OR_SEVERAL)]
-"""One name or a list of names. A single name is read as a list of one."""
-
-
 class ReferenceValue(HydroModelBase):
     """A horizontal reference line at ``value``, in the display unit, with its label."""
 
@@ -428,7 +419,7 @@ class PanelFields(HydroModelBase):
     @classmethod
     def _known_word(cls, value: Any, info: ValidationInfo) -> Any:
         known, what = VOCABULARIES[info.field_name]
-        for word in _listed(value) or ():
+        for word in listed(value) or ():
             if word not in known:
                 raise ValueError(_closest(word, known, what))
         return value
@@ -462,7 +453,7 @@ class PanelFields(HydroModelBase):
     @field_validator("station", mode="after")
     @classmethod
     def _known_zone(cls, value: str | list[str] | None) -> str | list[str] | None:
-        for name in _listed(value) or ():
+        for name in listed(value) or ():
             if name.startswith(ZONE_PREFIX) and name[len(ZONE_PREFIX) :] not in ZONES:
                 zones = ", ".join(ZONE_PREFIX + zone for zone in ZONES)
                 raise ValueError(f"station = {name!r} is no zone. Known zones: {zones}.")
@@ -914,7 +905,7 @@ def required_variables(
     names: set[str] = set()
     figure = expand(request, presets)
     if figure.special is not None:
-        asked = _listed(figure.draw_keywords.get("variable")) or ()
+        asked = listed(figure.draw_keywords.get("variable")) or ()
         reads = (*SPECIALS[figure.special].variables, *asked)
         names.update(name for name in reads if is_registered(name))
     for panel in figure.panels:

@@ -329,7 +329,7 @@ class _SeveralCases:
 
 def test_several_cases_session(tmp_path):
     cases = [
-        {"case": "a", "site": "A", "best_run": "a.v1", "note": ""},
+        {"case": "a", "site": "A", "best_run": "a_v1", "note": ""},
         {"case": "b", "site": "B", "best_run": "", "note": "best run not opened: broken"},
     ]
     figure = tmp_path / "a_hydrograph.png"

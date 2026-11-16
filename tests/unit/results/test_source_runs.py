@@ -29,10 +29,10 @@ def sealed_with_fields(project, name):
 
 def test_a_reference_resolves_to_the_sim_id_of_a_sealed_run(project):
     first = sealed_with_fields(project, "spinup")
-    second = sealed_with_fields(project, "spinup.v2")
+    second = sealed_with_fields(project, "spinup_v2")
 
     assert source_run_id(project, "spinup") == second, "a bare name is the latest version"
-    assert source_run_id(project, "spinup.v2") == second
+    assert source_run_id(project, "spinup_v2") == second
     assert source_run_id(project, "runs/spinup") == first
     assert source_run_id(project, f"runs/spinup/{FIELDS_STORE_NAME}") == first
     assert source_run_id(project, str(project / "runs" / "spinup")) == first

@@ -284,7 +284,7 @@ def test_resume_replays_frozen_config(tmp_path, monkeypatch):
 def test_resume_picks_the_version(tmp_path, monkeypatch):
     workspace = tmp_path / "ws"
     _seed_run(workspace, "cheze_baseline", text="# v1\n" + FROZEN_TOML)
-    _seed_run(workspace, "cheze_baseline.v2", text="# v2\n" + FROZEN_TOML)
+    _seed_run(workspace, "cheze_baseline_v2", text="# v2\n" + FROZEN_TOML)
 
     calls: list[tuple[Path, str]] = []
     monkeypatch.setattr(
@@ -295,9 +295,9 @@ def test_resume_picks_the_version(tmp_path, monkeypatch):
     monkeypatch.chdir(workspace)
 
     run_cmd._resume_from_ref("cheze_baseline", args=_args(resume="cheze_baseline"))
-    run_cmd._resume_from_ref("cheze_baseline.v2", args=_args(resume="cheze_baseline.v2"))
+    run_cmd._resume_from_ref("cheze_baseline_v2", args=_args(resume="cheze_baseline_v2"))
 
-    assert [name for _path, name in calls] == ["cheze_baseline.v2", "cheze_baseline.v2"]
+    assert [name for _path, name in calls] == ["cheze_baseline_v2", "cheze_baseline_v2"]
     assert all(path.read_text(encoding="utf-8").startswith("# v2") for path, _name in calls)
 
 

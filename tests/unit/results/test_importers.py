@@ -86,14 +86,14 @@ CSV_COLUMNS = ["site", "case_id", "datetime", "station_id", "variable", "source"
 
 def export_head_to_netcdf(catalog, sid, exports):
     out = exports / "fields.nc"
-    export_run(catalog, sid, ExportRequest(variables="head", file=out.name))
+    export_run(catalog, sid, ExportRequest(variable="head", file=out.name))
     return out
 
 
 def test_csv_roundtrip(catalog_with_data):
     catalog, sid, exports = catalog_with_data
     out = exports / "ts.csv"
-    export_run(catalog, sid, ExportRequest(variables="recharge", file=out.name))
+    export_run(catalog, sid, ExportRequest(variable="recharge", file=out.name))
 
     df = import_csv_timeseries(out)
 
@@ -108,7 +108,7 @@ def test_csv_roundtrip(catalog_with_data):
 def test_csv_filter_variable(catalog_with_data):
     catalog, sid, exports = catalog_with_data
     out = exports / "ts.csv"
-    export_run(catalog, sid, ExportRequest(variables="recharge", file=out.name))
+    export_run(catalog, sid, ExportRequest(variable="recharge", file=out.name))
 
     df = import_csv_timeseries(out, variable="recharge")
 

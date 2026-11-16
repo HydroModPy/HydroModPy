@@ -98,7 +98,7 @@ class Session:
     Parameters
     ----------
     session_dir
-        The session directory, ``sessions/<case>[.vN]``.
+        The session directory, ``sessions/<case>[_vN]``.
     read_config
         The function that validates a sealed configuration snapshot, passed
         to the runs the session opens. Without one, ``run.hydromodpy_config``
@@ -170,7 +170,7 @@ class Session:
 
     @property
     def name(self) -> str:
-        """Name of the session directory, ``<case>[.vN]``."""
+        """Name of the session directory, ``<case>[_vN]``."""
         return self._dir.name
 
     @property

@@ -44,9 +44,9 @@ from hydromodpy.core.io.filesystem import link_or_copy
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME
+from hydromodpy.core.state.names import split_stem_version
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.version import __version__ as HMP_VERSION
-from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.products.cited import read_cited
 from hydromodpy.results.products.store import ProductStore, products_root
 from hydromodpy.results.readme import manifest_sha256, render_run_readme, write_readme

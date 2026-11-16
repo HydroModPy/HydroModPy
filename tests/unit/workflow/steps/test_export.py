@@ -251,8 +251,8 @@ def _sealed_run_dir(tmp_path: Path) -> tuple[Path, object]:
 
 
 _HEAD_AND_CRATE = [
-    {"variables": "head", "time": "last"},
-    {"variables": "all", "format": "rocrate", "folder": "crate"},
+    {"variable": "head", "time": "last"},
+    {"variable": "all", "format": "rocrate", "folder": "crate"},
 ]
 
 
@@ -263,6 +263,7 @@ def _fake_sealed_store(monkeypatch, opened: list) -> None:
         yield SimpleNamespace()
 
     monkeypatch.setattr(export_module, "sealed_run_store", fake_store)
+    monkeypatch.setattr(export_module, "held_requests", lambda ctx, store, asked: list(asked))
 
 
 def test_exports_are_written_after_the_seal(monkeypatch, tmp_path: Path, caplog) -> None:
@@ -297,6 +298,32 @@ def test_exports_are_written_after_the_seal(monkeypatch, tmp_path: Path, caplog)
     announced = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Exported")]
     assert announced == [announced[0]]
     assert announced[0].startswith("Exported 2 file(s) -> ")
+
+
+def test_a_name_the_run_holds_none_of_is_skipped_with_a_warning(
+    monkeypatch, tmp_path: Path, caplog
+) -> None:
+    # It failed the whole step after the solve, and the figures were never drawn.
+    import hydromodpy.results.exporters.vocabulary as vocabulary
+    import hydromodpy.results.run.view as view
+
+    run_dir, _ = _sealed_run_dir(tmp_path)
+    requests = load_export_requests(
+        [
+            {"variable": ["head", "concentration"]},
+            {"variable": "discharge_obs"},
+            {"variable": "all", "folder": "everything"},
+        ]
+    )
+    monkeypatch.setattr(view, "Run", lambda sim_id, store: None)
+    monkeypatch.setattr(vocabulary, "list_exportable", lambda run: {"head": "field"})
+
+    with caplog.at_level(logging.WARNING):
+        kept = export_module.held_requests(_requests_ctx(run_dir, requests), None, requests)
+
+    assert [request.variable for request in kept] == [["head"], "all"]
+    assert "export[0] skips 'concentration': this run holds none of it." in caplog.text
+    assert "export[1] skips 'discharge_obs'" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -516,7 +543,7 @@ def _store_context(store: object):
 
 
 def _seal_ctx(tmp_path: Path, *, strict: bool | None, replay_of: Path | None) -> PipelineState:
-    ctx = SimpleNamespace(sim_id="0123456789abcdef", run_dir=tmp_path / "runs" / "probe.v2")
+    ctx = SimpleNamespace(sim_id="0123456789abcdef", run_dir=tmp_path / "runs" / "probe_v2")
     data = {"ctx": ctx, "cfg": object()}
     if replay_of is not None:
         data["replay_of"] = replay_of
@@ -545,7 +572,7 @@ def test_replay_seal_classes_the_values(
 
     def fake_seal(target, cfg, replay_of, *, strict: bool):
         seen.update(store=target, cfg=cfg, replay_of=replay_of, strict=strict)
-        return SimpleNamespace(run=SimpleNamespace(name="probe.v2"))
+        return SimpleNamespace(run=SimpleNamespace(name="probe_v2"))
 
     monkeypatch.setattr(export_module, "_seal_replay", fake_seal)
     source = tmp_path / "runs" / "probe"
@@ -569,8 +596,25 @@ def test_source_kind_of_a_copy_and_of_a_run(
     copy = tmp_path / "copies" / "probe"
     copy.mkdir(parents=True)
     (copy / PUBLICATION_FILENAME).write_text("{}", encoding="utf-8")
-    run = tmp_path / "runs" / "probe.v2"
+    run = tmp_path / "runs" / "probe_v2"
     run.mkdir(parents=True)
     # ``published`` is the word of a publication; replay.source tells the two apart.
     assert export_module._source_kind(copy) == "replay"
     assert export_module._source_kind(run) == "replay"
+
+
+def test_the_recap_counts_the_figures_of_the_run() -> None:
+    # A promoted run sealed in 2 s and drew its figures for 25 s: the recap said 2 s.
+    from datetime import UTC, datetime, timedelta
+
+    start = datetime(2026, 11, 16, 22, 2, 38, tzinfo=UTC)
+    epilogue = export_module._Epilogue(
+        name="steady_v3", sim_id="5458728c0000", started_at=start, metric=""
+    )
+
+    recap, hint = epilogue.lines(start + timedelta(seconds=26.6))
+
+    assert recap == "Run completed: steady_v3 [5458728c] 27s"
+    assert hint.startswith("next: hmp show steady_v3")
+    no_start = export_module._Epilogue(name="x", sim_id="abcdef012", started_at=None, metric="")
+    assert no_start.lines(start)[0] == "Run completed: x [abcdef01]"

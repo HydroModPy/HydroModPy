@@ -29,7 +29,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         help=HELP,
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog=(
-            "The case names the session: sessions/<case>[.vN].\n"
+            "The case names the session: sessions/<case>[_vN].\n"
             "\n"
             "Examples:\n"
             "  hmp campaign promote calibration\n"
@@ -38,7 +38,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("case", help="Case of the session, <case> or <case>.vN")
+    parser.add_argument("case", help="Case of the session, <case> or <case>_vN")
     parser.add_argument(
         "--trial",
         type=int,

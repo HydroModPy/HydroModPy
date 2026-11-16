@@ -114,10 +114,10 @@ def run_export_target(store: Any, sim_id: str) -> ExportTarget:
 
 
 def _describe(request: ExportRequest) -> str:
-    """Name a request in an error: its variables and its format."""
-    names = request.variables if isinstance(request.variables, str) else ", ".join(request.names)
+    """Name a request in an error: its variable and its format."""
+    names = request.variable if isinstance(request.variable, str) else ", ".join(request.names)
     fmt = request.output_format
-    return f"variables = {names}" + (f", format = {fmt}" if fmt is not None else "")
+    return f"variable = {names}" + (f", format = {fmt}" if fmt is not None else "")
 
 
 def _field_root_attrs(store: Any, sim_id: str) -> dict[str, Any]:
@@ -332,7 +332,7 @@ def regen_exports(catalog: Any, sim_id: str, target: ExportTarget) -> list[Path]
 
 
 def _all_names(held: Mapping[str, Any]) -> list[str]:
-    """Return what ``variables = "all"`` writes: everything but the mesh quality fields.
+    """Return what ``variable = "all"`` writes: everything but the mesh quality fields.
 
     ``mesh_cells`` already holds them as columns; they stay requestable by name.
     """

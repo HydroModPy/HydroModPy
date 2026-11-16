@@ -5,13 +5,27 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import AfterValidator, BeforeValidator, Field
+from pydantic import AfterValidator, BeforeValidator, Field, WithJsonSchema
 
 from hydromodpy.core.scope import station_name_refusal
 
 # ---------------------------------------------------------------------------
 # String types
 # ---------------------------------------------------------------------------
+
+
+def listed(value: object) -> object:
+    """Read a single name as a list of one, and leave anything else as it is."""
+    return [value] if isinstance(value, str) else value
+
+
+Names = Annotated[
+    list[str],
+    BeforeValidator(listed),
+    WithJsonSchema({"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]}),
+]
+"""One name or a list of names. A single name is read as a list of one."""
+
 
 IdentifierStr = Annotated[
     str,
@@ -138,6 +152,7 @@ __all__ = [
     "IdentifierStr",
     "InterpolationMethod",
     "IsoDateStr",
+    "Names",
     "NonEmptyPath",
     "NonEmptyStr",
     "NonNegativeFloat",
@@ -151,4 +166,5 @@ __all__ = [
     "StationName",
     "StripLower",
     "TimePeriodUnit",
+    "listed",
 ]

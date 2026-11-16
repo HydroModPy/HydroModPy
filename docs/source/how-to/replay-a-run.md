@@ -26,7 +26,7 @@ already at that path with other bytes refuses the replay and nothing is written,
 A run folder copied by hand carries no such bytes. The replay reads its inputs from the
 project `-w` names, each at the digest its seal records. Nothing is ever written in the copy.
 
-The replay writes a new version of the same stem, `runs/nancon_daily.v2`, and seals it. It reads
+The replay writes a new version of the same stem, `runs/nancon_daily_v2`, and seals it. It reads
 the configuration the run sealed and the digests of `inputs.json`, so an input whose bytes moved
 is refused with both digests. A URL is contacted only when the cache lacks the file. Its bytes
 are not pinned, so values that move with them show in the class of the replay.
@@ -64,7 +64,7 @@ a compact precision and to the last bit on an exact one, which is the case of mo
 reference runs.
 
 The README of the replay says the class in its lineage section, and `lineage.replay` in
-`runs/nancon_daily.v2/manifest.json` keeps the whole record. `hmp show` gives the
+`runs/nancon_daily_v2/manifest.json` keeps the whole record. `hmp show` gives the
 summary of the run beside it.
 
 ## What a class does not refuse

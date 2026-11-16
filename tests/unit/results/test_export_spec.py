@@ -64,23 +64,23 @@ def test_blocks_load_in_file_order(tmp_path):
         tmp_path,
         """\
         [[export]]
-        variables = ["head", "watertable_depth"]
+        variable = ["head", "watertable_depth"]
         time = 2002-10-15
 
         [[export]]
-        variables = "all"
+        variable = "all"
         format = "rocrate"
         """,
     )
 
-    assert [request.variables for request in cfg.export] == [["head", "watertable_depth"], "all"]
+    assert [request.variable for request in cfg.export] == [["head", "watertable_depth"], "all"]
     # A bare TOML date reads as the date it names.
     assert cfg.export[0].time == "2002-10-15"
 
 
 def test_table_instead_of_array_is_refused(tmp_path):
     with pytest.raises(ConfigValidationError, match=r"write \[\[export\]\]"):
-        load_config(tmp_path, '[export]\nvariables = "head"\nformat = "netcdf"\n')
+        load_config(tmp_path, '[export]\nvariable = "head"\nformat = "netcdf"\n')
 
 
 def test_empty_document_is_no_request():
@@ -100,7 +100,7 @@ def test_view_with_a_folder_delivers_its_files(tmp_path):
         tmp_path,
         """\
         [[export]]
-        variables = "all"
+        variable = "all"
         format = "rocrate"
         folder = "views"
         deliver_to = "/srv/depot/"
@@ -138,7 +138,7 @@ DELIVERY_REFUSED = [
         'deliver_to = "/srv/depot/head.tif"', "names one remote file", id="file without a file"
     ),
     pytest.param(
-        'format = "rocrate"\nvariables = "all"\ndeliver_to = "/srv/depot/"',
+        'format = "rocrate"\nvariable = "all"\ndeliver_to = "/srv/depot/"',
         "a view is delivered from exports",
         id="view without folder or file",
     ),
@@ -147,94 +147,97 @@ DELIVERY_REFUSED = [
 
 @pytest.mark.parametrize(("lines", "phrase"), DELIVERY_REFUSED)
 def test_delivery_refusals(tmp_path, lines, phrase):
-    body = lines if "variables" in lines else 'variables = "head"\n' + lines
+    body = lines if "variable" in lines else 'variable = "head"\n' + lines
     with pytest.raises(ConfigValidationError, match=re.escape(phrase)):
         load_config(tmp_path, "[[export]]\n" + body + "\n")
 
 
 REQUEST_REFUSED = [
-    pytest.param({"time": "last"}, "variables is missing", id="variables missing"),
-    pytest.param({"variables": ""}, "variables is empty", id="empty string"),
-    pytest.param({"variables": []}, "variables is empty", id="empty list"),
-    pytest.param({"variables": [""]}, "variables is empty", id="list of an empty name"),
-    pytest.param({"variables": ["all", "head"]}, 'mixes "all" with names', id="all with names"),
     pytest.param(
-        {"variables": "head", "time": "last", "period": ["2000-01-01", "2000-12-31"]},
+        {"variables": "head"}, "variables is now variable", id="the plural key of a pre-release"
+    ),
+    pytest.param({"time": "last"}, "variable is missing", id="variable missing"),
+    pytest.param({"variable": ""}, "variable is empty", id="empty string"),
+    pytest.param({"variable": []}, "variable is empty", id="empty list"),
+    pytest.param({"variable": [""]}, "variable is empty", id="list of an empty name"),
+    pytest.param({"variable": ["all", "head"]}, 'mixes "all" with names', id="all with names"),
+    pytest.param(
+        {"variable": "head", "time": "last", "period": ["2000-01-01", "2000-12-31"]},
         "time and period are both given",
         id="time and period",
     ),
     pytest.param(
-        {"variables": ["head", "watertable_depth"], "time": "last", "file": "h.tif"},
+        {"variable": ["head", "watertable_depth"], "time": "last", "file": "h.tif"},
         "2 names write one file each",
         id="file on two names",
     ),
     pytest.param(
-        {"variables": "head", "time": ["2001-01-15", "2001-08-15"], "file": "h.tif"},
+        {"variable": "head", "time": ["2001-01-15", "2001-08-15"], "file": "h.tif"},
         "2 dates write one file each",
         id="file on two dates",
     ),
     pytest.param(
-        {"variables": "discharge", "format": "csv", "file": "series.tif"},
+        {"variable": "discharge", "format": "csv", "file": "series.tif"},
         "names a geotiff file",
         id="extension against format",
     ),
     pytest.param(
-        {"variables": "head", "file": "fields"},
+        {"variable": "head", "file": "fields"},
         "no extension a format is known by",
         id="file without extension",
     ),
     pytest.param(
-        {"variables": "head", "format": "geopackage", "time": "last", "resolution": 10.0},
+        {"variable": "head", "format": "geopackage", "time": "last", "resolution": 10.0},
         "sizes the pixels of a GeoTIFF",
         id="resolution without a raster",
     ),
     pytest.param(
-        {"variables": "all", "format": "rocrate", "time": "last"},
+        {"variable": "all", "format": "rocrate", "time": "last"},
         "time selects nothing",
         id="selector on a run format",
     ),
     pytest.param(
-        {"variables": "head", "format": "netcdf", "crs": "EPSG:4326"},
+        {"variable": "head", "format": "netcdf", "crs": "EPSG:4326"},
         "does not reproject",
         id="crs on netcdf",
     ),
     pytest.param(
-        {"variables": "head", "format": "vtu", "crs": "EPSG:4326"},
+        {"variable": "head", "format": "vtu", "crs": "EPSG:4326"},
         "does not reproject",
         id="crs on vtu",
     ),
     pytest.param(
-        {"variables": "head", "format": "csv", "crs": "EPSG:4326"},
+        {"variable": "head", "format": "csv", "crs": "EPSG:4326"},
         "does not reproject",
         id="crs on csv",
     ),
-    pytest.param({"variables": "head", "time": "all"}, "leave time out", id="time all"),
-    pytest.param({"variables": "head", "time": "middle"}, "is not a date", id="time middle"),
-    pytest.param({"variables": "head", "time": "now"}, "is not a date", id="time now"),
-    pytest.param({"variables": "head", "time": True}, "is a boolean", id="time boolean"),
-    pytest.param({"variables": "head", "time": []}, "names no instant", id="empty time list"),
+    pytest.param({"variable": "head", "time": "all"}, "leave time out", id="time all"),
+    pytest.param({"variable": "head", "time": "middle"}, "is not a date", id="time middle"),
+    pytest.param({"variable": "head", "time": "now"}, "is not a date", id="time now"),
+    pytest.param({"variable": "head", "time": True}, "is a boolean", id="time boolean"),
+    pytest.param({"variable": "head", "time": []}, "names no instant", id="empty time list"),
     pytest.param(
-        {"variables": "discharge", "period": ["2002-12-31", "2001-01-01"]},
+        {"variable": "discharge", "period": ["2002-12-31", "2001-01-01"]},
         "ends before it starts",
         id="period backwards",
     ),
     pytest.param(
-        {"variables": "discharge", "period": ["first", "last"]},
+        {"variable": "discharge", "period": ["first", "last"]},
         "is not two dates",
         id="period of keywords",
     ),
     pytest.param(
-        {"variables": "all", "format": "package"},
+        {"variable": "all", "format": "package"},
         "hmp publish <run> --to DEST --container tar",
         id="package format",
     ),
     pytest.param(
-        {"variables": "head", "time": "last", "folder": "../elsewhere"},
+        {"variable": "head", "time": "last", "folder": "../elsewhere"},
         "climbs out of runs/<run>/exports/",
         id="folder climbs out",
     ),
     pytest.param(
-        {"variables": "head", "time": "last", "file": "../h.tif"},
+        {"variable": "head", "time": "last", "file": "../h.tif"},
         "climbs out of runs/<run>/exports/",
         id="file climbs out",
     ),
@@ -249,39 +252,39 @@ def test_request_refusals(fields, phrase):
 
 def test_run_format_takes_all_only():
     for fmt in run_formats():
-        with pytest.raises(ValidationError, match='Write variables = "all"'):
-            ExportRequest(variables="head", format=fmt)
+        with pytest.raises(ValidationError, match='Write variable = "all"'):
+            ExportRequest(variable="head", format=fmt)
 
 
 def test_all_is_everything():
-    request = ExportRequest(variables=["all"])
+    request = ExportRequest(variable=["all"])
 
     assert request.exports_all
     assert request.names == []
 
 
 def test_all_with_a_format_takes_what_it_holds():
-    request = ExportRequest(variables="all", format="csv")
+    request = ExportRequest(variable="all", format="csv")
 
     assert plan(request, names=list(KINDS)) == ["nancon_series.csv", "budget.csv"]
 
 
 PLAN_REFUSED = [
     pytest.param(
-        {"variables": ["watershed", "discharge"], "crs": "EPSG:4326"},
+        {"variable": ["watershed", "discharge"], "crs": "EPSG:4326"},
         "does not reproject",
         id="crs misses a series",
     ),
     pytest.param(
-        {"variables": "head", "resolution": 50.0}, "writes none", id="resolution without a raster"
+        {"variable": "head", "resolution": 50.0}, "writes none", id="resolution without a raster"
     ),
     pytest.param(
-        {"variables": ["discharge", "budget"], "file": "x.csv"},
+        {"variable": ["discharge", "budget"], "file": "x.csv"},
         "writes 2 files",
         id="file for several",
     ),
     pytest.param(
-        {"variables": "head", "file": "h.tif"}, "one file per date", id="file for one per step"
+        {"variable": "head", "file": "h.tif"}, "one file per date", id="file for one per step"
     ),
 ]
 

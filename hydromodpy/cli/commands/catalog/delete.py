@@ -37,7 +37,7 @@ def register(subparsers) -> argparse.ArgumentParser:
             "a bare name whose stem has other versions is refused with the list.\n"
             "\n"
             "Examples:\n"
-            "  hmp catalog delete baseline.v2 -y\n"
+            "  hmp catalog delete baseline_v2 -y\n"
             "  hmp catalog delete sessions/calibration -y\n"
             "  hmp catalog delete baseline_daily --now -y"
         ),

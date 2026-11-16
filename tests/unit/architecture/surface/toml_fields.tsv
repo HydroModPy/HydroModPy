@@ -823,7 +823,7 @@ export.nodata	float	-9999.0	stable
 export.period	tuple[str, str] | None	None	stable
 export.resolution	float | None	None	stable
 export.time	str | int | list[str | int] | None	None	stable
-export.variables	str | list[str]	<required>	stable
+export.variable	str | list[str]	<required>	stable
 flow	table	<table>	stable
 flow.bc	dict[Literal['west_side', 'east_side', 'north_side', 'south_side', 'stream', 'ocean', 'drainage'], table]	{}	stable
 flow.bc.application_domain	str | None	None	stable
@@ -1613,7 +1613,7 @@ sites.export.file	str | None	None	stable
 sites.export.format	str	'csv'	stable
 sites.export.runs	Literal['best'] | None	None	stable
 sites.export.table	Literal['by_site', 'by_case', 'catalog'] | None	None	stable
-sites.export.variables	list[str]	[]	stable
+sites.export.variable	list[str]	[]	stable
 sites.include	list[str]	[]	stable
 sites.overrides	Path | None	None	stable
 sites.recipes	dict[str, Path | table]	{}	stable
@@ -1633,7 +1633,7 @@ sites.summary.figures	list[str]	[]	stable
 sites.summary.metrics	list[str]	['nse']	stable
 sites.summary.parameters	list[str]	[]	stable
 sites.summary.rank_by	str	'nse'	stable
-sites.summary.variables	list[str]	[]	stable
+sites.summary.variable	list[str]	[]	stable
 sites.table	Path | None	None	stable
 solver	table	<table>	stable
 solver.backend	str	'modflow6'	stable

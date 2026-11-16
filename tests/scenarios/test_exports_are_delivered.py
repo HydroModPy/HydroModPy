@@ -26,7 +26,7 @@ from tests.scenarios.launcher import Scenario, play
 EXPORT_BLOCK = """\
 
 [[export]]
-variables = "head"
+variable = "head"
 time = "last"
 file = "head_last.tif"
 crs = "EPSG:2154"

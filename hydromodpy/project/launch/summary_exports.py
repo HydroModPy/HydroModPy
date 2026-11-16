@@ -59,8 +59,8 @@ def check_exports(requests: Sequence[SitesExportRequest]) -> None:
                 f"[[sites.export]] runs = 'best': format {request.format!r} is not written; "
                 "the series of the best cases go to csv."
             )
-        if not request.variables:
-            raise SummaryError("[[sites.export]] runs = 'best': name the variables to export.")
+        if not request.variable:
+            raise SummaryError("[[sites.export]] runs = 'best': name the variable to export.")
 
 
 def write_exports(
@@ -121,7 +121,7 @@ def _export_best_runs(
         if manifest is None:
             continue
         identity = labelled_identity(manifest, run_dir)
-        for variable in request.variables:
+        for variable in request.variable:
             target = folder / f"{record['site']}_{variable}.csv"
             export_csv(
                 run_dir / TABLES_DIRNAME / _TIMESERIES_FILE,
@@ -135,7 +135,7 @@ def _export_best_runs(
                 exports_dir,
                 target,
                 producer=COLLECT_PRODUCER,
-                options={**options, "variables": [variable], "case_id": record["best_case"]},
+                options={**options, "variable": [variable], "case_id": record["best_case"]},
                 identity=identity,
             )
 

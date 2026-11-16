@@ -36,8 +36,8 @@ print(scores.filter(items=columns).sort_values("nse", ascending=False).round(3))
 
 # %% One run
 
-# The run of project.toml. An edited project.toml writes nancon_intermittence_mf6.v2,
-# .v3...: name the version to read it.
+# The run of project.toml. An edited project.toml writes nancon_intermittence_mf6_v2,
+# _v3...: name the version to read it.
 run = proj["nancon_intermittence_mf6"]
 print(run.name, run.parameters["value"].to_dict())
 

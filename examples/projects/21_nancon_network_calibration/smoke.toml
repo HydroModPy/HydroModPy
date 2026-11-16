@@ -2,7 +2,7 @@
 # Nancon - smoke permanent
 # ======================================================================
 #
-# JUMEAU GELE de runs/grid_iter_0001.v4. Memes forcages, meme maillage,
+# JUMEAU GELE de runs/grid_iter_0001_v4. Memes forcages, meme maillage,
 # memes K, Sy et Ss. La SEULE difference est le code : la cote de lit
 # `rtp` et la pente `rgrd` sont desormais lues sur le MNT DU TOIT et
 # non plus sur le MNT de routage de l'epoque.
