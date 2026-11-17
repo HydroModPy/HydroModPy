@@ -7,13 +7,16 @@ object asks of them and what it refuses.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pytest
 
 from hydromodpy.core.exceptions import CommandUsageError, NothingThereError
 from hydromodpy.results.derive.reading import read_variable
+from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run.group import RunSet
 from hydromodpy.results.run.view import Run
 from hydromodpy.results.session.view import Session
@@ -272,3 +275,55 @@ def test_runset_figures_and_refusals() -> None:
         _set().figure("ensemble_band")
     with pytest.raises(CommandUsageError, match="is not one of table, figure"):
         runs.show("report")
+
+
+class _ArrayRun(_FakeRun):
+    """Run stub whose ``field`` returns fixed arrays and whose mesh selects cells by bbox."""
+
+    def __init__(self, values: np.ndarray, *, catalog: _FakeCatalog | None = None) -> None:
+        super().__init__(catalog=catalog)
+        self._values = values
+        self.field_calls: list[dict] = []
+
+    @property
+    def mesh(self):
+        return SimpleNamespace(cells_in_bbox=lambda bbox: np.array([True, False, True]))
+
+    def field(self, variable, **kwargs):
+        self.field_calls.append({"variable": variable, **kwargs})
+        return self._values
+
+
+@pytest.mark.parametrize(
+    ("values", "dims", "bbox", "expected_shape"),
+    [
+        (np.array([1.0, 2.0, 3.0]), ("cell",), None, (3,)),
+        (np.array([1.0, 2.0, 3.0]), ("cell",), (0, 0, 1, 1), (2,)),
+        (np.ones((2, 3)), ("layer", "cell"), None, (2, 3)),
+        (np.ones((2, 3)), ("layer", "cell"), (0, 0, 1, 1), (2, 2)),
+    ],
+)
+def test_read_a_mesh_quality_field(values, dims, bbox, expected_shape) -> None:
+    run = _ArrayRun(values)
+    out = read_variable(run, "mesh_cell_area", layer=1, bbox=bbox)
+    assert out.dims == dims
+    assert out.shape == expected_shape
+    assert run.field_calls == [{"variable": "mesh_cell_area", "layer": 1}]
+
+
+def test_read_a_rebuilt_face_field_ignores_time() -> None:
+    run = _ArrayRun(np.array([4.0, 5.0, 6.0]))
+    out = read_variable(run, "depression_fill_depth", bbox=(0, 0, 1, 1))
+    assert out.dims == ("cell",)
+    assert out.values.tolist() == [4.0, 6.0]
+    assert run.field_calls == [{"variable": "depression_fill_depth", "time": 0}]
+
+
+def test_an_unknown_variable_is_not_found_when_the_feature_listing_fails(tmp_path: Path) -> None:
+    class _BrokenCatalog(_FakeCatalog):
+        def list_geographic_features(self, sim_id: str) -> list[str]:
+            raise OSError("store unreadable")
+
+    run = _FakeRun(catalog=_BrokenCatalog(tmp_path / "tables"))
+    with pytest.raises(FieldNotFoundError, match="nonexistent_variable"):
+        read_variable(run, "nonexistent_variable")

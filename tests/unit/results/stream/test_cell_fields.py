@@ -7,12 +7,23 @@ mapped network is the axis, and a cell one row up the axis is 100 m of descent a
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget.terms import ACTING_PACKAGES, budget_terms_for
+from hydromodpy.core.budget.terms import (
+    ACTING_PACKAGES,
+    BUDGET_KEPT_TERMS_ATTR,
+    BUDGET_POLICY_ATTR,
+    budget_terms_for,
+)
 from hydromodpy.results.derive.stream_network import cell_fields
-from hydromodpy.results.derive.stream_network.cell_fields import REBUILT_FIELD_ROWS, rebuilt_rows
+from hydromodpy.results.derive.stream_network.cell_fields import (
+    REBUILT_FIELD_ROWS,
+    rebuilt_rows,
+    rebuilt_unavailable,
+)
 from hydromodpy.results.derive.stream_network.comparison import (
     AGREEMENT_LABELS,
     network_comparison_from_run,
@@ -164,3 +175,59 @@ def test_the_package_acting_on_a_cell_is_coded_by_priority() -> None:
 
     assert rows.tolist() == [[2, 4, 8, 0], [0, 0, 2, 0]]
     assert rows.max(axis=0).tolist() == [2, 4, 8, 0]
+
+
+class Store:
+    """A catalog store stand-in holding a root and a close."""
+
+    def __init__(self, root: dict) -> None:
+        self.root = root
+
+    def close(self) -> None:
+        pass
+
+
+def stored_run(root: dict):
+    run = transient_run()
+    run._catalog = SimpleNamespace(open_zarr=lambda sim_id: Store(root))
+    return run
+
+
+def kept(*terms: str, policy: str = "consumers") -> Group:
+    group = Group(**{term: np.zeros((1, 1)) for term in terms})
+    group.attrs = {BUDGET_POLICY_ATTR: policy, BUDGET_KEPT_TERMS_ATTR: list(terms)}
+    return group
+
+
+ACTING_TERMS = tuple(term for _, terms in ACTING_PACKAGES for term in terms)
+
+PACKAGE_REASONS = [
+    pytest.param({}, "kept no budget term of a boundary package", id="no budget group"),
+    pytest.param(
+        {"budget": Group(recharge=np.zeros((1, 1)))},
+        "kept no budget term of a boundary package",
+        id="no package term",
+    ),
+    pytest.param(
+        {"budget": kept("river")},
+        "did not keep every budget term",
+        id="partly kept",
+    ),
+    pytest.param({"budget": kept(*ACTING_TERMS)}, None, id="every term kept"),
+]
+
+
+@pytest.mark.parametrize(("root", "reason"), PACKAGE_REASONS)
+def test_the_package_field_says_what_the_budget_lacks(root, reason) -> None:
+    unavailable = rebuilt_unavailable(stored_run(root), "package_cells")
+
+    assert (reason is None and unavailable is None) or reason in unavailable
+
+
+def test_the_travel_time_of_a_run_without_particles_is_unavailable_and_all_nan() -> None:
+    run = stored_run({})
+
+    assert rebuilt_unavailable(run, "travel_time_to_exit") == "run tracked no particle that moved"
+    rows = REBUILT_FIELD_ROWS["travel_time_to_exit"].rows(run, [0, 3])
+    assert rows.shape == (2, NX * 3)
+    assert np.isnan(rows).all()

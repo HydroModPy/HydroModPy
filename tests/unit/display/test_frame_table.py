@@ -41,6 +41,8 @@ def test_a_row_holds_the_stored_value_and_its_printed_text(stored_run):
         (["simulation.nse"], {}, "COLUMN_REGISTRY"),
         (["budgets.flux_in", "simulation.solver"], {}, "COLUMN_REGISTRY"),
         (["simulation.solver"], {"station": "x"}, "does not take"),
+        ([], {}, "needs variable names"),
+        (["sfr_reaches.strahler"], {}, "3 rows"),
     ],
 )
 def test_a_column_the_table_cannot_give_is_refused(stored_run, names, panel, word):
@@ -54,3 +56,22 @@ def test_draw_adds_one_text_per_cell(stored_run):
     table.draw(ax, out, THEME)
     assert len(ax.texts) == 2 * len(NAMES) and len(ax.lines) == len(NAMES)
     assert not ax.axison
+
+
+class WithTable:
+    """A run whose ``simulation`` table is replaced, every other read going to the run."""
+
+    def __init__(self, run, frame):
+        self._run, self._frame = run, frame
+
+    def table(self, name):
+        return self._frame if name == "simulation" else self._run.table(name)
+
+    def __getattr__(self, name):
+        return getattr(self._run, name)
+
+
+def test_a_registered_column_the_stored_table_lacks_is_refused_with_what_it_holds(stored_run):
+    bare = read_table(stored_run, "simulation").drop(columns="solver")
+    with pytest.raises(FigureNotApplicable, match="has no column 'solver'. It holds: "):
+        data(WithTable(stored_run, bare), "simulation.solver")

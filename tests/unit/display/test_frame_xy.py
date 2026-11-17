@@ -13,7 +13,9 @@ from hydromodpy.display.frames import xy
 from hydromodpy.display.request import PanelRequest
 from hydromodpy.display.subject import FigureNotApplicable, read_observed, read_series
 from hydromodpy.display.theme import THEMES
+from hydromodpy.results.session.descriptor import ParameterBound
 from tests._helpers.run_builders import GAUGE
+from tests.unit.display._calibration_journal import K_BOUNDS, journal_session
 
 THEME = THEMES["default"]
 ZONE = "zone:catchment"
@@ -94,3 +96,77 @@ def test_draw_adds_the_one_to_one_line_the_scores_and_lighter_points_outside_the
     xy.draw(ax, dataclasses.replace(out, window=window), THEME)
     assert len(ax.collections) == 2 and sum(len(c.get_offsets()) for c in ax.collections) == 3
     assert ax.collections[0].get_alpha() > ax.collections[1].get_alpha()
+
+
+def trial_rows(parameters):
+    """One row per trial, ``parameters`` giving the values of each trial by name."""
+    count = len(next(iter(parameters.values())))
+    return [
+        {
+            "trial": i + 1,
+            "cost": float(count - i),
+            "parameters": {k: {"value": v[i]} for k, v in parameters.items() if v[i] is not None},
+        }
+        for i in range(count)
+    ]
+
+
+def test_a_session_pair_needs_two_trial_columns_with_a_trial_that_holds_both(tmp_path):
+    bounds = {
+        **K_BOUNDS,
+        "Sy": ParameterBound(lower=0.01, upper=0.3, search_space="log", units="-"),
+    }
+    apart = journal_session(
+        tmp_path / "a", trial_rows({"K": [1e-5, 2e-5, None, None], "Sy": [None, None, 0.1, 0.2]}),
+        bounds=bounds, best_trial=1,
+    )  # fmt: skip
+    with pytest.raises(FigureNotApplicable, match="No trial has both"):
+        data(apart, variable=["trials.K", "trials.Sy"])
+    with pytest.raises(FigureNotApplicable, match="needs two trials"):
+        data(apart, variable=["trials.K"])
+    together = journal_session(
+        tmp_path / "b", trial_rows({"K": [1e-5, 2e-5, 4e-5], "Sy": [0.05, 0.1, 0.2]}),
+        bounds=bounds, best_trial=1,
+    )  # fmt: skip
+    out = data(together, variable=["trials.K", "trials.cost"], reference=["one_to_one", "zero"])
+    assert out.table["key"].tolist() == [1, 2, 3] and out.trials == (3, 3)
+    assert out.one_to_one and out.references == ((0.0, "zero"),)
+
+
+def test_the_scoring_window_is_the_one_the_metrics_carry_else_none():
+    one = pd.DataFrame({"window_start": ["2001-01-01"] * 2, "window_end": ["2001-12-31"] * 2})
+    two = one.assign(window_end=["2001-12-31", "2002-12-31"])
+    assert xy._window(one) == (pd.Timestamp("2001-01-01"), pd.Timestamp("2001-12-31"))
+    assert xy._window(two) is None and xy._window(None) is None and xy._window(one[[]]) is None
+
+
+def test_two_series_on_other_periods_and_two_fields_on_other_cells_are_refused(
+    stored_run, monkeypatch
+):
+    days = pd.date_range("2001-01-01", periods=4, freq="D")
+    monkeypatch.setattr(xy, "read_series", lambda run, name, **kw: pd.Series(np.ones(4 if name == "discharge" else 3), index=days[: 4 if name == "discharge" else 3]))  # fmt: skip
+    with pytest.raises(FigureNotApplicable, match="not on the same periods"):
+        data(stored_run, variable=["discharge", "rainfall"], station=GAUGE)
+    monkeypatch.setattr(xy, "read_field", lambda run, name, **kw: np.ones((12,) if name == "recharge" else (2, 12)))  # fmt: skip
+    with pytest.raises(FigureNotApplicable, match="do not share their cells"):
+        data(stored_run, variable=["recharge", "drain"], station=ZONE)
+
+
+def test_references_a_log_axis_cannot_show_are_skipped_and_the_scores_sit_inside_a_square_plot(
+    stored_run,
+):
+    out = data(stored_run, variable=["rainfall", "discharge"], station=GAUGE, scale="log", reference=["zero", "one_to_one"])  # fmt: skip
+    ax = static.new_figure(THEME).axes[0]
+    xy.draw(ax, out, THEME)
+    assert len(ax.lines) == 1 and ax.lines[0].get_label() == "1:1"  # no zero line on log y
+    low, high = out.table[["x", "y"]].to_numpy().min(), out.table[["x", "y"]].to_numpy().max()
+    assert ax.get_xlim() == pytest.approx((low / 1.15, high * 1.15))
+    many = data(stored_run, variable=["discharge"], station=GAUGE, observed=True, reference=["one_to_one"], scores=True)  # fmt: skip
+    wide = dataclasses.replace(many, scores=many.scores.assign(metric="kge"))
+    ax = static.new_figure(THEME).axes[0]
+    xy.draw(ax, wide, THEME)
+    assert ax.get_title(loc="right") == "" and ax.texts[0].get_text().startswith("KGE")
+    silent = dataclasses.replace(many, scores=many.scores.assign(metric="bias"))
+    ax = static.new_figure(THEME).axes[0]
+    xy.draw(ax, silent, THEME)
+    assert not ax.texts

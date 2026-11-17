@@ -15,9 +15,13 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.derive.time_alignment import (
+    align_observed_simulated,
     first_period_start,
     observed_on_simulation_index,
+    read_pair,
+    run_period,
     run_period_edges,
+    run_period_start,
     time_method_for,
 )
 from hydromodpy.results.field_registry import FIELD_REGISTRY
@@ -126,3 +130,87 @@ NO_EDGES = [
 @pytest.mark.parametrize("run", NO_EDGES)
 def test_run_without_dates_has_no_edges(run):
     assert run_period_edges(run) is None
+
+
+def run_with_row(row):
+    def load_row():
+        if isinstance(row, Exception):
+            raise row
+        return row
+
+    return SimpleNamespace(_load_row=load_row)
+
+
+START_BEFORE = [
+    pytest.param(SimpleNamespace(), None, id="no loader"),
+    pytest.param(run_with_row(RuntimeError("no row")), None, id="loader fails"),
+    pytest.param(run_with_row({}), None, id="no period_start"),
+    pytest.param(run_with_row({"period_start": pd.NaT}), None, id="NaT start"),
+    pytest.param(run_with_row({"period_start": "2000-01-01"}), pd.Timestamp("2000-01-01"), id="ok"),
+    pytest.param(run_with_row({"period_start": "2001-01-01"}), None, id="start after stamps"),
+]
+
+
+@pytest.mark.parametrize(("run", "expected"), START_BEFORE)
+def test_run_period_start(run, expected):
+    assert run_period_start(run, MONTH_ENDS) == expected
+
+
+def test_run_period_is_the_date_window_of_the_edges():
+    window = run_period(run_with(MONTH_ENDS, CATALOG_EDGES))
+
+    assert (window.start, window.end) == (CATALOG_EDGES[0].date(), CATALOG_EDGES[-1].date())
+
+
+def test_run_period_is_none_without_dates():
+    assert run_period(run_with(None)) is None
+
+
+def test_a_tz_aware_simulation_index_is_read_as_naive_utc():
+    aware = MONTH_ENDS.tz_localize("UTC")
+
+    out = observed_on_simulation_index(DAY_NUMBER, aware, method="mean")
+
+    assert out.index.tz is None
+    assert out.index.equals(MONTH_ENDS)
+
+
+def test_an_empty_simulation_gives_an_empty_pair():
+    empty = pd.Series([], index=pd.DatetimeIndex([]), dtype=float)
+
+    out = align_observed_simulated(DAY_NUMBER, empty)
+
+    assert out.empty
+    assert list(out.columns) == ["obs", "sim"]
+
+
+def _pair_run(stations):
+    simulated = pd.Series([1.0, 2.0, 3.0], index=MONTH_ENDS)
+    raw = pd.DataFrame(
+        {
+            "station_id": stations,
+            "value": np.arange(len(DAYS_2000), dtype=float),
+            "datetime": DAYS_2000,
+        }
+    )
+    return SimpleNamespace(
+        name="r",
+        timeseries=lambda variable, station=None: simulated,
+        observed=lambda family, station=None: raw,
+        _load_row=lambda: {"period_start": "2000-01-01"},
+    )
+
+
+def test_read_pair_refuses_several_stations_without_a_name():
+    stations = ["A"] * 100 + ["B"] * (len(DAYS_2000) - 100)
+
+    with pytest.raises(ValueError, match="several stations.*A, B"):
+        read_pair(_pair_run(stations), "discharge")
+
+
+def test_read_pair_returns_both_columns_on_the_simulated_index():
+    out = read_pair(_pair_run(["A"] * len(DAYS_2000)), "discharge")
+
+    assert list(out.columns) == ["simulated", "observed"]
+    assert out.index.equals(MONTH_ENDS)
+    assert out["observed"].notna().all()

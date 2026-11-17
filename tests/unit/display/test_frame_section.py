@@ -5,16 +5,18 @@ from __future__ import annotations
 from dataclasses import replace
 from types import SimpleNamespace
 
+import geopandas as gpd
 import numpy as np
 import pytest
 from matplotlib.collections import PolyCollection
 from matplotlib.colors import BoundaryNorm, LogNorm
+from shapely.geometry import LineString
 
-from hydromodpy.display import static
+from hydromodpy.display import static, variables
 from hydromodpy.display.frames import section
 from hydromodpy.display.request import PanelRequest
 from hydromodpy.display.subject import FigureNotApplicable
-from hydromodpy.display.theme import THEMES
+from hydromodpy.display.theme import THEMES, colormap
 from tests.unit.display._stored_run import HEAD_TOP, STEP, X0, Y0
 
 THEME = THEMES["default"]
@@ -169,3 +171,66 @@ def test_a_log_scale_and_a_class_scale_set_the_colour_norm(stored_run):
     ax = static.new_figure(THEME).axes[0]
     section.draw(ax, classed, THEME)
     assert isinstance(ax.collections[0].norm, BoundaryNorm)
+
+
+def test_a_frequency_section_is_a_share_and_a_one_signed_flow_is_sequential(stored_run):
+    share = data(stored_run, variable="recharge", reduce="frequency")
+    assert share.label == variables.FREQUENCY_LABEL and share.scale == "sequential"
+    np.testing.assert_allclose(
+        share.table.query("layer == 0")["value"], 1.0
+    )  # recharge is in layer 0
+    flow = data(stored_run, variable="recharge")
+    assert flow.scale == "sequential" and not flow.log
+    ax = static.new_figure(THEME).axes[0]
+    section.draw(ax, flow, THEME)
+    assert ax.collections[0].get_cmap().name == colormap(THEME.ramps["sequential"]).name
+
+
+def test_a_mesh_without_layer_interfaces_has_no_section(stored_run, monkeypatch):
+    real = section.read_mesh
+    monkeypatch.setattr(section, "read_mesh", lambda run: replace(real(run), interfaces=None))
+    with pytest.raises(FigureNotApplicable, match="no layer interfaces"):
+        data(stored_run, variable="head")
+
+
+def test_a_head_section_without_a_water_table_draws_the_cells_alone(stored_run, monkeypatch):
+    stored = section.stored_field
+
+    def field(run, name, panel):
+        if name == "watertable_elevation":
+            raise FigureNotApplicable("no water table")
+        return stored(run, name, panel)
+
+    monkeypatch.setattr(section, "stored_field", field)
+    out = data(stored_run, variable="head")
+    assert out.line is None and not out.water
+
+
+def test_a_line_that_only_touches_a_corner_cuts_no_piece_from_that_cell(stored_run):
+    corner = [(X0 + 250.0, Y0 + 250.0), (X0 + 750.0, Y0 + 750.0)]
+    out = data(stored_run, variable="head", line=corner)
+    assert sorted(set(out.table["cell"])) == [0, 5]  # cells 1 and 4 meet it at the vertex only
+
+
+def test_a_lake_is_one_span_over_its_cells_and_a_barrier_is_a_line_at_its_crossing(
+    stored_run, monkeypatch
+):
+    stored = section.read_field
+
+    def field(run, name, **kwargs):
+        if name == "lake":
+            return np.isin(np.arange(12), [4, 5, 6]).astype(float)
+        return stored(run, name, **kwargs)
+
+    wall = gpd.GeoDataFrame(geometry=[LineString([(X0 + 800.0, Y0), (X0 + 800.0, Y0 + 1500.0)])])
+    monkeypatch.setattr(section, "read_field", field)
+    monkeypatch.setattr(section, "read_network", lambda run, role: wall)
+    out = data(stored_run, variable="head", overlays=["lake", "barrier"])
+    (lake, barrier) = out.marks
+    assert lake[0] == "lake" and lake[1:] == (pytest.approx(0.0), pytest.approx(1400.0))  # fmt: skip
+    assert barrier == ("barrier", pytest.approx(700.0), pytest.approx(700.0))
+    ax = static.new_figure(THEME).axes[0]
+    section.draw(ax, out, THEME)
+    labels = ax.get_legend_handles_labels()[1]
+    assert "Lake" in labels and "Barrier" in labels
+    assert any(line.get_linestyle() == ":" for line in ax.lines)

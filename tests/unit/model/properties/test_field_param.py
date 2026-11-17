@@ -233,8 +233,43 @@ def test_mapping_keeps_user_unit():
         ({"id": "K", "kind": "homogeneous"}, KeyError, "requires key 'value'"),
         ({"id": "K", "kind": "heterogeneous", "values": [1.0]}, KeyError, "mapping key 'values'"),
         ({"id": "K", "kind": "heterogeneous", "values": {"a": 1.0}}, KeyError, "'field_spatial_id'"),
+        ({"id": "K", "kind": "raster"}, KeyError, "requires key 'map'"),
     ],
 )  # fmt: skip
 def test_mapping_refusals(config, error, match):
     with pytest.raises(error, match=match):
         FieldParam.from_dict(config)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({}, "Raster field requires 'raster_map'"),
+        ({"raster_map": "  "}, "Raster field requires 'raster_map'"),
+        ({"raster_map": "k.tif", "mean": "median"}, "Unsupported mean 'median'"),
+    ],
+)  # fmt: skip
+def test_a_raster_field_refuses_a_missing_map_or_an_unknown_mean(kwargs, match):
+    with pytest.raises(ValueError, match=match):
+        FieldParam(identifier="K", kind="raster", **kwargs)
+
+
+@pytest.mark.parametrize(("identifier", "mean"), [("K", "geometric"), ("Sy", "arithmetic")])
+def test_a_raster_field_averages_conductivity_geometrically_and_storage_arithmetically(
+    identifier, mean
+):
+    param = FieldParam(identifier=identifier, kind="raster", raster_map="m.tif")
+    assert param.mean == mean
+    assert FieldParam.from_dict(param.as_dict()).mean == mean
+
+
+def test_a_raster_field_reads_a_map_and_a_plain_field_refuses_one():
+    surface = object()
+    raster = FieldParam.from_dict({"id": "K", "kind": "raster", "map": "m.tif"})
+
+    attached = raster.reading(surface)
+
+    assert attached.raster_surface is surface
+    assert raster.raster_surface is None
+    with pytest.raises(ValueError, match="Field parameter 'K' reads no map"):
+        _homogeneous().reading(surface)

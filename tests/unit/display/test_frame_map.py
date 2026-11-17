@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 
 import numpy as np
+import pandas as pd
 import pytest
 from matplotlib.collections import LineCollection, PolyCollection
 from matplotlib.colors import LogNorm, TwoSlopeNorm
@@ -12,7 +13,7 @@ from matplotlib.colors import LogNorm, TwoSlopeNorm
 from hydromodpy.display import static
 from hydromodpy.display.frames import map as frame
 from hydromodpy.display.request import PanelRequest
-from hydromodpy.display.subject import FigureNotApplicable
+from hydromodpy.display.subject import Compared, FigureNotApplicable
 from hydromodpy.display.theme import THEMES
 from tests.unit.display._stored_run import HEAD_TOP, N_CELLS
 
@@ -126,3 +127,100 @@ def test_another_run_and_a_missing_column_are_refused(stored_run):
         data(stored_run, variable="head", against="other")
     with pytest.raises(FigureNotApplicable, match="no row in COLUMN_REGISTRY"):
         data(stored_run, type="map", variable="sfr_reaches.slope")
+
+
+class WithTable:
+    """A run whose ``table`` is replaced, every other read going to the run."""
+
+    def __init__(self, run, tables):
+        self._run, self._tables = run, tables
+
+    def table(self, name):
+        return self._tables[name] if name in self._tables else self._run.table(name)
+
+    def __getattr__(self, name):
+        return getattr(self._run, name)
+
+
+def test_a_reach_without_a_cell_is_left_out_and_a_column_the_table_lacks_is_refused(stored_run):
+    reaches = stored_run.table("sfr_reaches").copy()
+    reaches.loc[1, "cell2d"] = np.nan
+    out = data(WithTable(stored_run, {"sfr_reaches": reaches}), variable="sfr_reaches.strahler")
+    assert len(out.table) == 2
+    bare = WithTable(stored_run, {"sfr_reaches": reaches.drop(columns="strahler")})
+    with pytest.raises(FigureNotApplicable, match="has no column 'strahler'"):
+        data(bare, variable="sfr_reaches.strahler")
+
+
+@pytest.mark.parametrize(
+    ("panel", "word"),
+    [
+        ({"variable": "seepage_mask"}, "two runs are subtracted through reduce"),
+        ({"variable": "sfr_reaches.strahler"}, "cannot be subtracted between runs"),
+    ],
+)
+def test_a_difference_of_two_runs_refuses_what_cannot_be_subtracted(stored_run, panel, word):
+    with pytest.raises(FigureNotApplicable, match=word):
+        frame.data(Compared(stored_run, stored_run), PanelRequest(**panel))
+
+
+def test_a_time_window_and_a_change_with_a_time_are_refused_on_a_map(stored_run):
+    with pytest.raises(FigureNotApplicable, match="change replaces time and reduce"):
+        data(stored_run, variable="head", change=(0, 3), time=1)
+    with pytest.raises(FigureNotApplicable, match="not over a window"):
+        data(stored_run, variable="head", time=[0, 2])
+
+
+def test_a_crs_has_a_short_name_and_none_or_a_bad_one_is_the_mesh_crs():
+    assert frame.crs_name(None) == "mesh CRS" and frame.crs_name("not a crs") == "mesh CRS"
+    assert frame.crs_name("EPSG:2154") == "Lambert-93"
+
+
+def test_a_field_without_any_spread_draws_without_isolines(stored_run):
+    out = data(stored_run, variable="head", contours=True)
+    flat = dataclasses.replace(out, table=out.table.assign(value=1.0))
+    _, ax = drawn(flat)
+    assert len(ax.collections) == 1  # the cells only, no contour set
+
+
+def test_a_categorical_map_has_no_ramp(stored_run):
+    out = data(stored_run, variable="seepage_mask")
+    assert frame._ramp(out, THEME) == ""
+
+
+@pytest.mark.parametrize(
+    ("panel", "kind"),
+    [
+        ({"variable": "seepage_mask"}, "classes"),
+        ({"variable": "head", "scale": "log"}, "log"),
+        ({"variable": "head", "change": (0, 3)}, "diverging"),
+    ],
+)
+def test_the_interactive_colours_follow_the_static_scale(stored_run, panel, kind):
+    out = data(stored_run, **panel)
+    shown, colors = frame.interactive_color(out, THEME)
+    assert len(shown) == len(out.table)
+    if kind == "classes":
+        assert colors["cmax"] == len(out.classes) - 0.5
+        assert colors["colorbar"]["ticktext"] == [name for _, name in out.classes]
+    elif kind == "log":
+        assert np.allclose(shown, np.log10(out.table["value"]))
+        assert colors["colorbar"]["ticktext"][0] == f"{10 ** colors['cmin']:.3g}"
+    else:
+        assert colors["cmid"] == 0.0
+
+
+def test_the_interactive_map_hovers_name_the_cell_and_its_value_or_class(stored_run):
+    assert frame.hover_text(data(stored_run, variable="head"))[0].startswith("cell 0: ")
+    classed = data(stored_run, variable="seepage_mask")
+    names = {name for _, name in classed.classes}
+    assert {t.split(": ")[1] for t in frame.hover_text(classed)} <= names
+
+
+def test_the_interactive_map_is_one_mesh_and_refuses_a_table_of_reaches(stored_run):
+    pytest.importorskip("plotly")
+    traces, layout = frame.draw_interactive(data(stored_run, variable="head"), THEME)
+    assert len(traces) == 1 and layout["scene"]["zaxis"] == {"visible": False, "range": [-1, 1]}
+    assert layout["scene"]["xaxis"]["title"].startswith("x (")
+    with pytest.raises(FigureNotApplicable, match="static engine only"):
+        frame.draw_interactive(data(stored_run, variable="sfr_reaches.strahler"), THEME)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from hydromodpy.display import static
@@ -11,6 +12,7 @@ from hydromodpy.display.request import PanelRequest
 from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.display.theme import THEMES
 from tests._helpers.run_builders import GAUGE
+from tests.unit.display._calibration_journal import K_BOUNDS, journal_session
 from tests.unit.display._stored_run import ZONE_AREA
 
 THEME = THEMES["default"]
@@ -115,3 +117,113 @@ def test_a_stack_puts_inflows_above_zero_with_distinct_colours_and_registry_labe
     assert labels == ["Recharge", "Drain flow"]
     assert len({tuple(bar.get_facecolor()) for bar in ax.patches}) == 2
     assert all(bar.get_height() >= 0 for bar in ax.patches[:4])
+
+
+@pytest.mark.parametrize(
+    ("fields", "words"),
+    [
+        (
+            {"variable": "discharge", "station": GAUGE, "reference": ["one_to_one"]},
+            "does not apply to a series",
+        ),
+        ({"station": GAUGE}, "needs a variable"),
+    ],
+)
+def test_a_reference_that_is_no_value_and_a_missing_variable_are_refused(stored_run, fields, words):
+    with pytest.raises(FigureNotApplicable, match=words):
+        data(stored_run, **fields)
+
+
+def test_a_session_series_draws_a_trial_column_and_refuses_anything_else(tmp_path):
+    rows = [{"trial": i + 1, "cost": c, "parameters": {"K": {"value": k}}}
+            for i, (c, k) in enumerate(zip([4.0, 1.0, 2.0], [1e-5, 2e-5, 4e-5], strict=True))]  # fmt: skip
+    session = journal_session(tmp_path, rows, bounds=K_BOUNDS, best_trial=2)
+    ax = static.new_figure(THEME).axes[0]
+    series.draw(ax, series.data(session, PanelRequest(type="series", variable=["trials.K"])), THEME)
+    assert ax.lines[0].get_xdata().tolist() == [1, 2, 3] and ax.get_xlabel() == "Trial"
+    assert ax.get_legend() is None  # one line needs no legend
+    for fields, words in (
+        ({"variable": ["head"]}, "takes trials"),
+        ({"variable": ["trials.K"], "observed": True}, "no such axis"),
+    ):
+        with pytest.raises(FigureNotApplicable, match=words):
+            series.data(session, PanelRequest(type="series", **fields))
+
+
+def test_two_stations_are_told_apart_in_the_legend(stored_run):
+    ax = drawn(stored_run, variable="discharge", station=[GAUGE, "catchment"])
+    texts = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert texts[0].endswith(f"({GAUGE})") and texts[1].endswith("(catchment)")
+
+
+def scored(**columns):
+    base = {"variable": "q", "station": "s", "metric": "nse", "value": 0.5}
+    return pd.DataFrame([{**base, **columns}])
+
+
+@pytest.mark.parametrize(
+    ("table", "text"),
+    [
+        (scored(), "NSE 0.50"),
+        (
+            scored(window_start="2001-01-01", window_end="2001-12-31"),
+            "NSE 0.50   (scored 2001-01 to 2001-12)",
+        ),
+        (
+            pd.concat(
+                [
+                    scored(window_start="2001-01-01", window_end="2001-12-31"),
+                    scored(window_start="2002-01-01", window_end="2002-12-31", metric="kge"),
+                ]
+            ),
+            "KGE 0.50   NSE 0.50",
+        ),  # fmt: skip
+        (scored(value=np.nan), ""),
+        (scored(metric="bias"), ""),
+    ],
+)
+def test_the_score_line_names_a_single_window_only_and_skips_a_missing_value(table, text):
+    assert series.score_text(table, many=False) == text
+
+
+def test_the_stacked_bars_of_a_numbered_axis_keep_their_numbers():
+    rows = pd.DataFrame({"time": [1, 2, 3], "simulated": [1.0, -2.0, 3.0]})
+    ax = static.new_figure(THEME).axes[0]
+    series._stacked(ax, [("recharge", None, rows)], False, THEME)
+    assert [p.get_x() for p in ax.patches[:3]] == [1, 2, 3]
+
+
+def test_a_long_record_is_a_thin_line_and_a_short_one_is_dots():
+    ax = static.new_figure(THEME).axes[0]
+    for count in (series.OBSERVED_LINE_FROM + 1, 5):
+        series.draw_observed(ax, np.arange(count), np.arange(count), THEME)
+    long, short = ax.lines
+    assert long.get_linestyle() == "-" and short.get_linestyle() == "None" and short.get_marker() == "o"  # fmt: skip
+
+
+def test_a_panel_without_a_finite_score_has_no_title(stored_run):
+    out = data(stored_run, variable="discharge", station=GAUGE, scores=True)
+    out = replace_scores(out, out.scores.assign(value=np.nan))
+    ax = static.new_figure(THEME).axes[0]
+    series.draw(ax, out, THEME)
+    assert ax.get_title(loc="right") == ""
+
+
+def replace_scores(out, scores):
+    import dataclasses
+
+    return dataclasses.replace(out, scores=scores)
+
+
+def test_the_interactive_series_carries_the_zero_line_the_references_and_the_scores(stored_run):
+    pytest.importorskip("plotly")
+    out = data(stored_run, variable="discharge", station=GAUGE, against="observed",
+               reference=["zero", {"value": 0.5, "label": "limit"}], scores=True)  # fmt: skip
+    traces, axes = series.draw_interactive(out, THEME)
+    flat = [t for t in traces if t.hoverinfo == "skip"]
+    assert [(t.name, t.showlegend) for t in flat] == [
+        (None, False),
+        ("zero", False),
+        ("limit", True),
+    ]
+    assert axes["title"] == "NSE 0.80"

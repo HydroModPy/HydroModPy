@@ -12,13 +12,18 @@ import pytest
 
 from hydromodpy.catchment.algorithms.catchment_zones_field import CatchmentZonesField
 from hydromodpy.catchment.surface import Surface
-from hydromodpy.core.exceptions import ConfigMissingError
+from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.spatial_support import (
+    SpatialSupportProviderRegistry,
     SupportBuildContext,
     build_default_spatial_support_provider_registry,
+    build_phase_supports,
     collect_requested_support_ids,
+    resolve_support_configs,
+    support_provider_names,
+    validate_domain_support_contract,
 )
 from hydromodpy.model.domain.spatial_support_config import (
     CatchmentZonesSupportConfig,
@@ -215,3 +220,170 @@ def test_collect_requested_support_ids_accepts_resolved_dict_payload():
     )()
 
     assert collect_requested_support_ids(flow_cfg) == ("k_bands",)
+
+
+def test_a_support_with_no_extent_cannot_be_cut_into_bands():
+    import dataclasses
+
+    flat = _domain()
+    support = dataclasses.replace(flat.surface_topo.support, xmax=flat.surface_topo.support.xmin)
+    flat.surface_topo = Surface(name="surface_topo", values=np.zeros((4, 4)), support=support)
+
+    with pytest.raises(ValueError, match="strictly positive"):
+        _build("generated_bands", _BANDS, _context(flat))
+
+
+class _Recorder:
+    """A provider that records its builds."""
+
+    def __init__(self, phase: str) -> None:
+        self.provider_name = "recorder"
+        self.build_phase = phase
+        self.built: list[str] = []
+
+    def build(self, *, support_id, config, context):
+        self.built.append(support_id)
+        return f"field-{support_id}"
+
+
+class _Zones:
+    """A domain that stores zones by id."""
+
+    def __init__(self, **zones: object) -> None:
+        self.zones = dict(zones)
+
+    def get_zone(self, zone_id: str):
+        return self.zones.get(zone_id)
+
+    def set_zone(self, zone_id: str, field: object) -> None:
+        self.zones[zone_id] = field
+
+
+def _registry_with(provider: _Recorder) -> SpatialSupportProviderRegistry:
+    registry = SpatialSupportProviderRegistry()
+    registry.register(provider)
+    return registry
+
+
+@pytest.mark.parametrize(
+    ("phase", "held", "built", "stored"),
+    [
+        pytest.param("setup", {}, ["a"], {"a": "field-a"}, id="builds_in_its_phase"),
+        pytest.param("Data", {}, [], {}, id="waits_for_its_own_phase"),
+        pytest.param("setup", {"a": SimpleNamespace(identifier=" a ")}, [], None, id="keeps_a_held_support"),
+    ],
+)  # fmt: skip
+def test_build_phase_supports_builds_only_what_the_phase_asks(phase, held, built, stored):
+    provider = _Recorder(phase)
+    domain = _Zones(**held)
+
+    build_phase_supports(
+        domain, {"a": SimpleNamespace(kind="recorder")},
+        registry=_registry_with(provider), phase="SETUP", context=_context(),
+    )  # fmt: skip
+
+    assert provider.built == built
+    assert domain.zones == (held if stored is None else stored)
+
+
+@pytest.mark.parametrize(
+    ("param", "expected"),
+    [
+        pytest.param({"kind": "heterogeneous", "field_spatial_id": "A"}, ("A",), id="flat"),
+        pytest.param({"field": {"kind": "heterogeneous", "field_spatial_id": "B"}}, ("B",), id="nested"),
+        pytest.param({"field": {"kind": "homogeneous"}}, (), id="nested_homogeneous"),
+        pytest.param({"kind": "homogeneous"}, (), id="flat_homogeneous"),
+        pytest.param({"field": "not a table"}, (), id="no_kind"),
+        pytest.param(SimpleNamespace(field=SimpleNamespace(kind="homogeneous")), (), id="typed_homogeneous"),
+    ],
+)  # fmt: skip
+def test_requested_support_ids_read_flat_nested_and_typed_params(param, expected):
+    assert collect_requested_support_ids(SimpleNamespace(param={"K": param})) == expected
+
+
+def test_requested_support_ids_are_deduplicated_ignoring_case():
+    params = {
+        "K": {"kind": "heterogeneous", "field_spatial_id": "Bands"},
+        "Sy": {"kind": "heterogeneous", "field_spatial_id": "bands"},
+    }
+    assert collect_requested_support_ids(SimpleNamespace(param=params)) == ("Bands",)
+
+
+@pytest.mark.parametrize("flow_cfg", [SimpleNamespace(param=[1]), SimpleNamespace()])
+def test_a_flow_without_a_param_table_requests_no_support(flow_cfg):
+    assert collect_requested_support_ids(flow_cfg) == ()
+
+
+def test_a_heterogeneous_param_without_a_support_id_is_refused():
+    flow_cfg = SimpleNamespace(param={"K": {"kind": "heterogeneous"}})
+
+    with pytest.raises(ConfigError, match="non-empty field_spatial_id"):
+        collect_requested_support_ids(flow_cfg)
+
+
+def test_support_provider_names_keep_order_and_drop_blank_and_repeats():
+    configs = {
+        "a": SimpleNamespace(kind="Generated_Bands"),
+        "b": SimpleNamespace(kind="geology"),
+        "c": SimpleNamespace(kind=" generated_bands "),
+        "d": SimpleNamespace(),
+    }
+    assert support_provider_names(configs) == ("generated_bands", "geology")
+
+
+@pytest.mark.parametrize(
+    ("domain_cfg", "ids", "expected"),
+    [
+        pytest.param(SimpleNamespace(supports={}), (), {}, id="nothing_requested"),
+        pytest.param(SimpleNamespace(supports={" Bands ": "cfg"}), ("bands",), {"bands": "cfg"}, id="case_and_blanks"),
+        pytest.param(SimpleNamespace(supports=None), (), {}, id="none_with_no_request"),
+    ],
+)  # fmt: skip
+def test_resolve_support_configs_matches_ids_ignoring_case(domain_cfg, ids, expected):
+    assert resolve_support_configs(domain_cfg, ids) == expected
+
+
+@pytest.mark.parametrize(
+    ("domain_cfg", "error", "match"),
+    [
+        (SimpleNamespace(supports=None), ConfigError, "Missing domain support declaration for 'k'"),
+        (SimpleNamespace(supports={"other": 1}), ConfigError, "explicit provider"),
+        (SimpleNamespace(supports=["k"]), TypeError, "must be a dictionary"),
+    ],
+)  # fmt: skip
+def test_resolve_support_configs_refuses_what_is_not_declared(domain_cfg, error, match):
+    with pytest.raises(error, match=match):
+        resolve_support_configs(domain_cfg, ("k",))
+
+
+def _flow(**params: object) -> SimpleNamespace:
+    return SimpleNamespace(parameters=params)
+
+
+def _param(support_id: str, heterogeneous: bool = True) -> SimpleNamespace:
+    return SimpleNamespace(is_heterogeneous=heterogeneous, field_spatial_id=support_id)
+
+
+@pytest.mark.parametrize(
+    ("flow", "declared"),
+    [
+        pytest.param(None, {}, id="no_flow"),
+        pytest.param(SimpleNamespace(parameters=3), {}, id="parameters_not_a_table"),
+        pytest.param(_flow(K=_param("x", False)), {}, id="homogeneous_param"),
+        pytest.param(_flow(K=_param("Bands")), {"bands": 1}, id="declared"),
+    ],
+)  # fmt: skip
+def test_the_support_contract_passes_when_every_support_is_declared(flow, declared):
+    validate_domain_support_contract(flow, declared)
+
+
+def test_the_support_contract_names_each_missing_support_once():
+    flow = _flow(K=_param("a"), Sy=_param("A"), Ss=_param("b"))
+
+    with pytest.raises(ConfigError, match=r"declarations for: a, b\."):
+        validate_domain_support_contract(flow, {})
+
+
+def test_the_support_contract_refuses_a_blank_support_id():
+    with pytest.raises(ConfigError, match="non-empty field_spatial_id"):
+        validate_domain_support_contract(_flow(K=_param("  ")), {})

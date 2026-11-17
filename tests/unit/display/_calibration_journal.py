@@ -19,7 +19,7 @@ import tomli_w
 
 from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
 from hydromodpy.core.state.result_dirs import session_dir_rel
-from hydromodpy.results.session.descriptor import BestTrial, ParameterBound
+from hydromodpy.results.session.descriptor import BestTrial, ParameterBound, ParameterWidth
 from hydromodpy.results.session.journal import append_trial
 from hydromodpy.results.session.phase import FrozenValue
 from hydromodpy.results.session.view import Session
@@ -54,6 +54,8 @@ def journal_session(
     frozen: Mapping[str, Mapping[str, float]] | None = None,
     cost_name: str = "nse",
     named_phases: bool = True,
+    best_parameters: Mapping[str, float] | None = None,
+    widths: Mapping[str, ParameterWidth] | None = None,
 ) -> Session:
     """Write one session under ``project`` and return it.
 
@@ -120,8 +122,11 @@ def journal_session(
             )
     persistence.finalize_session(
         status="completed",
-        best=None if best_trial is None else BestTrial(trial=best_trial),
+        best=None
+        if best_trial is None
+        else BestTrial(trial=best_trial, parameters=dict(best_parameters or {})),
         root_search=root_search,
+        widths=widths,
     )
     if config is not None:
         target = persistence.directory / SESSION_CONFIG_FILENAME

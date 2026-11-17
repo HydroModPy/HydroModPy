@@ -5,6 +5,8 @@ Two cells side by side (x 0-50 m and 50-100 m) lie on a DEM ramp z = x with a no
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -14,9 +16,11 @@ from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, MeshIdentity, build_planar_cell_mesh
 from hydromodpy.model.domain.cell_column import (
+    cells_cover_pixels,
     centre_column,
     modflow_column,
     zonal_channel_mask,
+    zonal_top_flat,
 )
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
@@ -100,3 +104,138 @@ def test_no_channel_mask_unless_zonal_has_a_stream_raster(top_sampling):
     )
 
     assert mask is None
+
+
+def _channel_tif(path, *, crs, nodata=None, bounds=(0.0, 0.0, 100.0, 100.0)):
+    """Write a 4 x 4 stream raster whose pixel (1, 2) is a channel with link id 7."""
+    import rasterio
+    from rasterio.transform import from_bounds
+
+    data = np.zeros((4, 4), dtype=np.float32)
+    data[1, 2] = 7.0
+    with rasterio.open(
+        path, "w", driver="GTiff", height=4, width=4, count=1, dtype="float32",
+        crs=crs, transform=from_bounds(*bounds, 4, 4), nodata=nodata,
+    ) as dst:  # fmt: skip
+        dst.write(data, 1)
+    return str(path)
+
+
+def _surface_4x4(**change) -> Surface:
+    support = RasterSupport(
+        crs="EPSG:2154", dx=25.0, dy=25.0, xmin=0.0, xmax=100.0, ymin=0.0, ymax=100.0,
+        nrows=4, ncols=4, nodata=-9999.0,
+    )  # fmt: skip
+    for name, value in change.items():
+        object.__setattr__(support, name, value)
+    return Surface(name="surface_topo", values=np.zeros((4, 4)), support=support)
+
+
+def _raster(link=None, clipped=()):
+    return SimpleNamespace(channel=SimpleNamespace(link=link, clipped=tuple(clipped)))
+
+
+ZONAL = TopSamplingConfig(mode="zonal")
+
+
+def _mask(raster, surface=None, top_sampling=ZONAL):
+    return zonal_channel_mask(
+        raster=raster, surface=surface or _surface_4x4(), top_sampling=top_sampling
+    )
+
+
+@pytest.mark.parametrize(
+    ("crs", "nodata", "buffer_px", "expected"),
+    [
+        pytest.param("EPSG:2154", None, 0, [(1, 2)], id="plain"),
+        pytest.param(None, None, 0, [(1, 2)], id="no crs is the model space"),
+        pytest.param("EPSG:2154", 7.0, 0, [], id="positive nodata is dropped"),
+        pytest.param("EPSG:2154", None, 1, [(0, 2), (1, 1), (1, 2), (1, 3), (2, 2)], id="buffered"),
+    ],
+)  # fmt: skip
+def test_the_channel_mask_marks_the_positive_pixels_of_the_stream_raster(
+    tmp_path, crs, nodata, buffer_px, expected
+):
+    link = _channel_tif(tmp_path / "link.tif", crs=crs, nodata=nodata)
+    top_sampling = TopSamplingConfig(mode="zonal", channel_buffer_px=buffer_px)
+
+    mask = _mask(_raster(link=link), top_sampling=top_sampling)
+
+    assert sorted(zip(*np.nonzero(mask), strict=True)) == expected
+
+
+def test_the_channel_mask_falls_back_to_the_first_clipped_raster_that_exists(tmp_path):
+    clipped = _channel_tif(tmp_path / "clipped.tif", crs="EPSG:2154")
+
+    mask = _mask(
+        _raster(link=str(tmp_path / "gone.tif"), clipped=[str(tmp_path / "no.tif"), clipped])
+    )
+
+    assert mask.sum() == 1
+
+
+def test_the_channel_mask_is_disabled_when_no_stream_raster_exists(tmp_path, caplog):
+    with caplog.at_level("WARNING"):
+        mask = _mask(_raster(clipped=[str(tmp_path / "missing.tif")]))
+
+    assert mask is None
+    assert "no stream raster found" in caplog.text
+
+
+def test_the_channel_mask_is_disabled_on_a_surface_without_georeferencing(tmp_path, caplog):
+    link = _channel_tif(tmp_path / "link.tif", crs="EPSG:2154")
+
+    with caplog.at_level("WARNING"):
+        mask = _mask(_raster(link=link), surface=_surface_4x4(xmin=None))
+
+    assert mask is None
+    assert "needs a georeferenced surface" in caplog.text
+
+
+def test_the_channel_mask_is_disabled_when_the_reprojection_fails(tmp_path, caplog):
+    link = _channel_tif(tmp_path / "link.tif", crs="EPSG:2154")
+
+    with caplog.at_level("WARNING"):
+        mask = _mask(_raster(link=link), surface=_surface_4x4(crs="not a crs"))
+
+    assert mask is None
+    assert "reprojection failed" in caplog.text
+
+
+def _zonal_inputs(surface: Surface) -> dict:
+    return {
+        "top_surface": surface, "centroid_top": np.full(16, 3.0), "bottom_flat": np.zeros(16),
+        "nodata": -9999.0, "top_sampling": ZONAL, "channel_mask": None,
+    }  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("surface", "message"),
+    [
+        pytest.param(Surface(name="s", values=np.zeros((4, 4))), "needs a georeferenced surface", id="no support"),
+        pytest.param(
+            Surface(name="s", values=np.zeros((3, 3)), support=_surface_4x4().support),
+            "does not match its support", id="shape differs",
+        ),
+    ],
+)  # fmt: skip
+def test_zonal_top_keeps_the_centroid_sample_when_it_cannot_reduce_the_dem(
+    surface, message, caplog
+):
+    with caplog.at_level("WARNING"):
+        top = zonal_top_flat(**_zonal_inputs(surface))
+
+    np.testing.assert_array_equal(top, np.full(16, 3.0))
+    assert message in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("native", "grid", "expected"),
+    [
+        pytest.param({}, {"nrows": 2, "ncols": 2}, True, id="a cell spans four pixels"),
+        pytest.param({}, {}, False, id="a cell spans one pixel"),
+        pytest.param({"nrows": None}, {}, True, id="no georeferencing keeps the zonal step"),
+    ],
+)  # fmt: skip
+def test_cells_cover_pixels_reads_the_areas_of_both_grids(native, grid, expected):
+    assert cells_cover_pixels(_surface_4x4(**native), _surface_4x4(**grid)) is expected

@@ -18,7 +18,10 @@ from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     TRANSIENT_STAGE,
 )
 from hydromodpy.calibration.protocols.registry import expand_calibration_protocol
-from hydromodpy.results.derive.stream_network.criterion_settings import network_criterion_settings
+from hydromodpy.results.derive.stream_network.criterion_settings import (
+    DEFAULT_EXTENT_RULES,
+    network_criterion_settings,
+)
 from tests._helpers.sealed_runs import sealed_search
 
 # 36 monthly periods, 2000-01 to 2002-12. October 2002 is period 33.
@@ -290,3 +293,154 @@ def test_refused_seals(outputs, window, kwargs, match) -> None:
 
     with pytest.raises(ValueError, match=match):
         network_criterion_settings(run, **kwargs)
+
+
+def test_a_run_without_a_seal_reads_the_defaults() -> None:
+    settings = network_criterion_settings(SimpleNamespace(sim_id="sim-x"))
+
+    assert settings.output is None
+    assert settings.note() == "criterion settings: the defaults, this run sealed no network output"
+    assert settings.extent_rules is DEFAULT_EXTENT_RULES
+
+
+VALUE_REFUSALS = [
+    pytest.param(
+        {"model": {"seepage_threshold": -1.0}}, "seepage_threshold must be positive", id="tau"
+    ),
+    pytest.param(
+        {"map": {"heads": {"radius": "0 m"}}}, "heads.radius must be positive", id="radius"
+    ),
+    pytest.param(
+        {"map": {"heads": {"min_drained_area": -2.0}}},
+        "min_drained_area must not be negative",
+        id="area",
+    ),
+    pytest.param({"model": {"extent": "yearly"}}, "model.extent is not a mapping", id="extent"),
+]
+
+
+@pytest.mark.parametrize(("fields", "match"), VALUE_REFUSALS)
+def test_a_sealed_value_no_trial_could_read_is_refused(fields, match) -> None:
+    run = run_with_outputs({"streams": network_output(**fields)})
+
+    with pytest.raises(ValueError, match=match):
+        network_criterion_settings(run)
+
+
+def test_a_window_that_is_not_a_mapping_is_refused() -> None:
+    run = run_with_outputs({"streams": network_output()}, window="2002")
+
+    with pytest.raises(ValueError, match="calibration.window is not a mapping"):
+        network_criterion_settings(run)
+
+
+def test_a_sealed_extent_keeps_its_rules_and_fills_the_rest_with_defaults() -> None:
+    extent = {"flowing_at_least": "3 months", "dry_at_most": "1 month"}
+    run = run_with_outputs({"streams": network_output(model={"extent": extent})})
+
+    rules = network_criterion_settings(run).extent_rules
+
+    assert (rules.maximal_flowing_duration, rules.minimal_dry_duration) == ("3 months", "1 month")
+    assert rules.year_quorum == DEFAULT_EXTENT_RULES.year_quorum
+    assert rules.visible_flow == DEFAULT_EXTENT_RULES.visible_flow
+
+
+def test_four_neighbours_turn_the_diagonals_off() -> None:
+    run = run_with_outputs({"streams": network_output(model={"neighbours": "D4"})})
+
+    assert network_criterion_settings(run).diagonal_neighbors is False
+
+
+def test_a_run_without_dates_or_a_count_reads_one_state() -> None:
+    run = run_with_time("2002-10-15", edges=None)
+
+    assert network_criterion_settings(run).timestep == 0
+
+
+def test_the_phase_of_a_run_is_unknown_without_a_session_column() -> None:
+    run = run_of_phase({"outputs": {"streams": NETWORK}, "phases": phases(None)}, phase="transient")
+    run.calibration_iterations = [{"iteration": 0}]
+
+    settings = network_criterion_settings(run)
+
+    assert settings.window_phase is None
+
+
+def test_the_phase_of_a_run_is_unknown_when_its_trials_name_two_sessions() -> None:
+    calibration = {
+        "outputs": {"streams": NETWORK},
+        "phases": phases({"start": "2003-01-01"}),
+    }
+    run = run_of_phase(calibration, phase="transient")
+    run.calibration_iterations = [
+        {"session_id": uuid.uuid4().hex, "iteration": 0},
+        {"session_id": uuid.uuid4().hex, "iteration": 1},
+    ]
+
+    assert network_criterion_settings(run).window_phase is None
+
+
+@pytest.mark.parametrize(
+    "sessions",
+    [
+        pd.DataFrame({"session_id": []}),
+        pd.DataFrame({"name": ["x"]}),
+        pd.DataFrame({"session_id": [uuid.uuid4()], "phase_name": ["transient"]}),
+    ],
+    ids=["empty", "no id column", "other session"],
+)
+def test_the_phase_of_a_run_is_unknown_when_no_session_row_names_it(sessions) -> None:
+    calibration = {"outputs": {"streams": NETWORK}, "phases": phases({"start": "2003-01-01"})}
+    run = run_of_phase(calibration, phase="transient")
+    run.calibration_sessions = sessions
+
+    assert network_criterion_settings(run).window_phase is None
+
+
+@pytest.mark.parametrize("phase_name", [None, float("nan")])
+def test_a_session_without_a_phase_name_gives_no_phase(phase_name) -> None:
+    calibration = {"outputs": {"streams": NETWORK}, "phases": phases({"start": "2003-01-01"})}
+    run = run_of_phase(calibration, phase=phase_name)
+
+    assert network_criterion_settings(run).window_phase is None
+
+
+def test_the_blocks_of_a_phase_that_use_no_sealed_output_fall_back_to_the_first_output() -> None:
+    calibration = {
+        "outputs": {"a": NETWORK, "b": NETWORK},
+        "objective_blocks": ["junk", {"name": "blk", "uses_outputs": ["ghost"]}],
+        "phases": ["junk", {"name": "transient", "objective_blocks": ["blk"]}],
+    }
+    run = run_of_phase(calibration, phase="transient")
+
+    assert network_criterion_settings(run).output == "a"
+
+
+def test_a_run_whose_seal_cannot_be_read_gets_the_defaults(tmp_path) -> None:
+    run = SimpleNamespace(sim_id="sim-x", dir=tmp_path / "missing")
+
+    assert network_criterion_settings(run).output is None
+
+
+def test_a_phase_the_calibration_never_declared_reads_the_calibration_window() -> None:
+    calibration = {
+        "outputs": {"streams": NETWORK},
+        "window": {"start": "2001-01-01"},
+        "phases": [{"name": "other", "window": {"start": "2005-01-01"}}],
+    }
+
+    settings = network_criterion_settings(run_of_phase(calibration, phase="transient"))
+
+    assert settings.window == (pd.Timestamp("2001-01-01"), None)
+    assert settings.window_phase is None
+
+
+def test_a_run_whose_step_count_cannot_be_read_holds_one_state() -> None:
+    class Counting(SimpleNamespace):
+        @property
+        def n_timesteps(self):
+            raise RuntimeError("no count")
+
+    run = Counting(**vars(run_with_time("2002-10-15", edges=None)))
+
+    assert network_criterion_settings(run).timestep == 0

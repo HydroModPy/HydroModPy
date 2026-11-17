@@ -14,6 +14,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
+import pyarrow.parquet as pq
 import pytest
 import zarr
 
@@ -22,7 +23,11 @@ from hydromodpy.catchment.terrain import registry as terrain_registry
 from hydromodpy.core.code_fingerprint import RUN_LAYERS
 from hydromodpy.core.exceptions import ConfigError, StepError
 from hydromodpy.data.workspace.scaffold import scaffold
-from hydromodpy.results.storage.contract import RUN_RESOLVED_CONFIG_FILENAME, RUN_SEARCH_TABLE
+from hydromodpy.results.storage.contract import (
+    RUN_RESOLVED_CONFIG_FILENAME,
+    RUN_SEARCH_TABLE,
+    SIMULATION_TABLE_NAME,
+)
 from hydromodpy.workflow.steps.extract import ExtractStep
 from tests._helpers.cli_runner import CliRunner
 from tests.characterization.comparator import compare_run_dirs
@@ -60,11 +65,14 @@ def _parameter(run_dir: Path, name: str) -> float:
 
 
 def _drift(run_a: Path, run_b: Path) -> list[tuple[str, str]]:
-    """Return what differs between two runs, beyond the version in their names."""
+    """Return what differs between two runs, beyond their version and their attempt.
+
+    Both are identities, like the name. A resumed run is the second attempt of its case.
+    """
     return [
         (verdict.target, verdict.detail)
         for verdict in compare_run_dirs(run_a, run_b).drifted
-        if not verdict.target.endswith(":version_int")
+        if not verdict.target.endswith((":version_int", ":attempt"))
     ]
 
 
@@ -417,6 +425,8 @@ def test_a_run_resumed_right_after_its_solver_reads_the_folder_it_solved_in(
 
     assert resumed.name == "killed"
     assert _manifest(resumed)["run"]["status"] == "completed"
+    table = resumed / "tables.parquet" / f"{SIMULATION_TABLE_NAME}.parquet"
+    assert pq.read_table(table, columns=["attempt"]).column("attempt").to_pylist() == [2]
     assert _drift(clean, resumed) == [("run directory", "only in A [], only in B ['attempts']")]
 
 

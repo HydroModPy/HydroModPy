@@ -90,6 +90,31 @@ def test_heads_figure_marks_the_one_head_the_sealed_area_keeps():
     assert "Head kept (1)" in ax.get_legend_handles_labels()[1]
 
 
+def test_heads_figure_draws_the_permanent_trace_and_says_it_redrew_the_rule():
+    run = grid()
+    streams = {"support": "network", "model": {"seepage_threshold": 0.0}}
+    streams["map"] = {"complete": "data.hydrography", "drawn_by": "crossing"}
+    run.dir = sealed_search({"outputs": {"streams": streams}})
+    roles = ["reference", "reference_permanent"]
+    run.has_hydrographic_network = lambda role="generated": role in roles
+    run.available_hydrographic_network_roles = lambda: roles
+    observed_network_heads.draw(run, ax := axes(), THEME)
+    held = ax.get_legend_handles_labels()[1]
+    assert {"Permanent trace (3 cells)", "Permanent head kept (1)"} <= set(held)
+    assert "Redrawn under map.drawn_by = 'heads'" in ax.texts[-1].get_text()
+
+
+def test_heads_figure_refuses_a_run_whose_heads_cannot_be_traced(monkeypatch):
+    def fail(run):
+        raise ValueError("the heads redraw built no trace.")
+
+    monkeypatch.setattr(observed_network_heads, "network_heads_view_from_run", fail)
+    with pytest.raises(
+        FigureNotApplicable, match="no head to draw .the heads redraw built no trace"
+    ):
+        observed_network_heads.draw(grid(), axes(), THEME)
+
+
 def pair_run(*, with_generated=True):
     x = (run := grid()).outlet[0]
     near = LineString([(x + 10.0, 0.1 * CELL_M), (x + 10.0, (NY - 0.1) * CELL_M)])
@@ -121,6 +146,11 @@ def test_flow_directions_draw_one_arrow_per_routed_cell_and_ring_the_raised_one(
     arrows = next(c for c in ax.collections if hasattr(c, "U"))
     assert len(arrows.get_offsets()) == NX * NY - 1
     assert "Raised by the descent (1)" in ax.get_legend_handles_labels()[1]
+
+
+def test_flow_directions_without_a_raised_cell_draw_no_ring():
+    flow_directions.draw(grid(), ax := axes(), THEME)
+    assert not any(label.startswith("Raised") for label in ax.get_legend_handles_labels()[1])
 
 
 @pytest.mark.parametrize(

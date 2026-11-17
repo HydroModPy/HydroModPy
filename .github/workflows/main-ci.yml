@@ -213,8 +213,9 @@ jobs:
       - name: Install external validity_frame package
         run: pip install -e validity_frame
 
-      - name: Install the solver binary the mesh and calibration tests need
-        run: python -m hydromodpy install-binaries --subset mf6 --quiet
+      # The lab tests play MODFLOW 6 in memory through libmf6, and skip without it.
+      - name: Install the solver files the mesh, calibration and lab tests need
+        run: python -m hydromodpy install-binaries --subset mf6,libmf6 --quiet
 
       # Every module of hydromodpy/ that carries a docstring example, found by
       # git grep, so that no list of files drifts from the tree.

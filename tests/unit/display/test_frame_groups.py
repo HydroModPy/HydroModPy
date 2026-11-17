@@ -11,6 +11,7 @@ from hydromodpy.display.frames import groups, series
 from hydromodpy.display.request import PanelRequest
 from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.display.theme import THEMES
+from hydromodpy.results.run.group import RunSet
 from tests._helpers.run_builders import GAUGE
 from tests.unit.display._stored_run import ZONE_AREA
 
@@ -120,3 +121,73 @@ def test_each_kind_of_group_draws_on_one_axes(stored_run, panel):
     ax = static.new_figure(THEME).axes[0]
     groups.draw(ax, data(stored_run, **panel), THEME)
     assert ax.patches or ax.lines
+
+
+class Named:
+    """A run under another name, every read going to the run."""
+
+    def __init__(self, run, name):
+        self._run, self.name = run, name
+
+    def __getattr__(self, name):
+        return getattr(self._run, name)
+
+
+class Set(RunSet):
+    def __init__(self, runs):
+        self._runs, self._sim_ids = runs, [run.sim_id for run in runs]
+
+    def __iter__(self):
+        return iter(self._runs)
+
+
+def test_a_run_set_is_drawn_by_run_and_a_long_list_of_names_is_turned(stored_run):
+    runs = Set([Named(stored_run, f"calibration number {i}") for i in range(7)])
+    out = data(runs, variable="discharge", station=GAUGE, by="run", reduce="mean")
+    assert out.table["category"].tolist() == [f"calibration number {i}" for i in range(7)]
+    ax = static.new_figure(THEME).axes[0]
+    groups.draw(ax, out, THEME)
+    labels = ax.get_xticklabels()
+    assert labels[0].get_rotation() == 45 and labels[0].get_horizontalalignment() == "right"
+
+
+@pytest.mark.parametrize(
+    ("panel", "word"),
+    [
+        ({}, "needs a variable"),
+        ({"variable": "head", "by": "month"}, "by = 'run' only"),
+    ],
+)
+def test_a_groups_panel_without_a_variable_or_on_a_run_set_is_refused(stored_run, panel, word):
+    subject = Set([stored_run]) if panel else stored_run
+    with pytest.raises(FigureNotApplicable, match=word):
+        data(subject, **panel)
+
+
+def test_the_observed_record_is_a_bar_of_its_own_colour_beside_the_simulation(stored_run):
+    ax = static.new_figure(THEME).axes[0]
+    panel = {"variable": "discharge", "station": GAUGE, "by": "month", "reduce": "mean", "observed": True}  # fmt: skip
+    groups.draw(ax, data(stored_run, **panel), THEME)
+    colours = {p.get_facecolor() for p in ax.patches}
+    assert len(colours) == 2 and ax.get_legend_handles_labels()[1] == ["simulated", "observed"]
+
+
+def test_several_variables_by_run_are_labelled_bars_side_by_side(stored_run):
+    runs = Set([Named(stored_run, "first"), Named(stored_run, "second")])
+    panel = {"variable": ["recharge", "drain"], "station": ZONE, "by": "run", "reduce": "mean"}
+    ax = static.new_figure(THEME).axes[0]
+    groups.draw(ax, data(runs, **panel), THEME)
+    assert len(ax.get_legend_handles_labels()[1]) == 2 and len(ax.patches) == 4
+
+
+def test_boxes_on_a_log_axis_keep_it_and_a_short_sample_names_both_whiskers():
+    assert "5 to 95 %, min to max under ten values" in groups._box_note(
+        pd.DataFrame({"n": [3, 12]}), "x"
+    ).replace("\n", " ")
+    assert "whiskers 5 to 95 %" in groups._box_note(pd.DataFrame({"n": [12, 14]}), "x").replace("\n", " ")  # fmt: skip
+
+
+def test_boxes_by_month_follow_a_log_scale_when_it_is_asked(stored_run):
+    ax = static.new_figure(THEME).axes[0]
+    groups.draw(ax, data(stored_run, variable="discharge", station=GAUGE, by="month", scale="log"), THEME)  # fmt: skip
+    assert ax.get_yscale() == "log" and len(ax.lines) > 0

@@ -8,7 +8,7 @@ from hydromodpy.display import static
 from hydromodpy.display.special import calibration_landscape, calibration_progress, root_search
 from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.display.theme import get_theme
-from hydromodpy.results.session.descriptor import ParameterBound
+from hydromodpy.results.session.descriptor import CostInterval, ParameterBound, ParameterWidth
 
 from ._calibration_journal import (
     K_BOUNDS,
@@ -161,3 +161,104 @@ def test_refuses_a_session_without_its_data(tmp_path, module):
     else:
         with pytest.raises(FigureNotApplicable):
             module.draw(session, ax, THEME)
+
+
+def sign_rows(residuals, extra=None):
+    """Steady-search rows on K whose signed residual is given, one per trial."""
+    table = steady_bisection_rows()[: len(residuals)]
+    for i, (row, value) in enumerate(zip(table, residuals, strict=True)):
+        row["parameters"]["K"]["value"] = 1e-6 * 10**i
+        row["components"].update(
+            {
+                "seepage_network.D_so": 100.0 + max(value, 0.0),
+                "seepage_network.D_os": 100.0 + max(-value, 0.0),
+            }
+        )
+        row["cost"] = abs(value) + 1.0
+        row.update(extra or {})
+    return table
+
+
+@pytest.mark.parametrize(
+    ("residuals", "word"),
+    [
+        ([5.0, 4.0, 3.0], "no sign change: no root is bracketed"),
+        ([5.0, -4.0, 3.0, -2.0], "3 sign changes: the root is not unique"),
+    ],
+)
+def test_root_search_reads_a_missing_or_a_repeated_sign_change(tmp_path, residuals, word):
+    session = journal_session(tmp_path, sign_rows(residuals), bounds=K_BOUNDS, best_trial=1)
+    _, ax = ax_of()
+    root_search.draw(session, ax, THEME)
+    assert word in noted(ax, "sign change")
+    assert ("Final bracket" in ax.get_legend_handles_labels()[1]) == (len(residuals) == 4)
+
+
+def test_root_search_marks_the_returned_value_or_says_it_is_not_drawn(tmp_path):
+    rows_ = sign_rows([5.0, -4.0, 3.0])
+    drawn = journal_session(tmp_path / "a", rows_, bounds=K_BOUNDS, best_trial=2,
+                            best_parameters={"K": 1e-5})  # fmt: skip
+    _, ax = ax_of()
+    root_search.draw(drawn, ax, THEME)
+    assert "Returned K = 1e-05" in noted(ax, "Returned")
+    assert labelled(ax, "Returned value").get_xdata()[0] == 1e-5
+    absent = journal_session(tmp_path / "b", rows_, bounds=K_BOUNDS, best_trial=99)
+    _, ax = ax_of()
+    root_search.draw(absent, ax, THEME)
+    assert "The returned trial is not among the trials drawn" in noted(ax, "returned")
+
+
+def test_root_search_refuses_a_session_that_searched_two_parameters(tmp_path):
+    table = sign_rows([5.0, -4.0, 3.0])
+    for row in table:
+        row["parameters"]["Sy"] = {"value": 0.1}
+    session = journal_session(tmp_path, table, bounds=BOUNDS, best_trial=1)
+    with pytest.raises(FigureNotApplicable, match="one parameter"):
+        root_search.draw(session, ax_of()[1], THEME)
+
+
+def test_progress_refuses_a_session_without_a_completed_trial(tmp_path):
+    table = rows({"K": [1e-5, 2e-5]}, [1.0, 2.0])
+    for row in table:
+        row["status"] = "failed"
+    session = journal_session(tmp_path, table, bounds=K_BOUNDS)
+    with pytest.raises(FigureNotApplicable, match="no completed trial"):
+        calibration_progress.draw(session, ax_of()[1], THEME)
+
+
+def test_progress_refuses_a_phase_that_holds_no_completed_trial(tmp_path):
+    session = journal_session(
+        tmp_path, rows({"K": [1e-5, 2e-5]}, [1.0, 2.0]), bounds=K_BOUNDS,
+        phases=["search", "later"], phase_best={"search": 1, "later": 1}, best_trial=1,
+    )  # fmt: skip
+    with pytest.raises(FigureNotApplicable, match="Phase 'later' has no completed trial"):
+        calibration_progress.draw(session, ax_of()[1], THEME)
+
+
+def test_progress_notes_the_tolerance_interval_and_logs_a_wide_cost_span(tmp_path):
+    width = ParameterWidth(interval=CostInterval(lower=1.5e-5, upper=3.0e-5))
+    session = journal_session(
+        tmp_path, rows({"K": [1e-5, 2e-5, 4e-5, 8e-5]}, [100.0, 1.0, 2.0, 3.0]), bounds=K_BOUNDS,
+        best_trial=2, best_parameters={"K": 2e-5}, widths={"K": width},
+    )  # fmt: skip
+    _, ax = ax_of()
+    calibration_progress.draw(session, ax, THEME)
+    assert "K = 2e-05 [1.5e-05, 3e-05]" in noted(ax, "K =")
+    assert ax.get_yscale() == "log"
+
+
+@pytest.mark.filterwarnings("ignore:No artists with labels")
+def test_landscape_notes_a_returned_trial_that_searched_another_pair(tmp_path):
+    session = journal_session(tmp_path, rows({"K": [1e-5, 2e-5, 4e-5, 8e-5], "Sy": [0.05, 0.1, 0.12, 0.2]}),
+                              bounds=BOUNDS, best_trial=9)  # fmt: skip
+    _, ax = ax_of()
+    calibration_landscape.draw(session, ax, THEME)
+    assert "not among the trials drawn" in noted(ax, "returned")
+    assert "Returned trial" not in ax.get_legend_handles_labels()[1]
+
+
+def test_landscape_draws_no_star_when_the_returned_trial_lacks_one_of_the_pair(tmp_path):
+    _, ax = ax_of()
+    calibration_landscape.draw(two_parameters(tmp_path, only_k=(2,)), ax, THEME)
+    assert len(ax.collections[0].get_offsets()) == 3
+    assert "Returned trial" not in ax.get_legend_handles_labels()[1]

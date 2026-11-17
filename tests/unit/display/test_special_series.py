@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import matplotlib.dates as mdates
@@ -12,11 +13,12 @@ from matplotlib.collections import LineCollection, PolyCollection
 from matplotlib.colors import Normalize
 
 import hydromodpy as hmp
-from hydromodpy.display import static
+from hydromodpy.display import overlays, static, variables
 from hydromodpy.display.special import (
     ensemble_band,
     particle_tracks,
     recession,
+    records,
     residence_time_distribution,
 )
 from hydromodpy.display.subject import FigureNotApplicable
@@ -29,7 +31,7 @@ from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.run_builders import GAUGE, score
 from tests._helpers.run_stores import open_run_store
-from tests.unit.display._stored_run import ZONE_AREA
+from tests.unit.display._stored_run import X0, Y0, ZONE_AREA
 
 THEME = THEMES["default"]
 DAYS = pd.date_range("2001-01-02", periods=60, freq="D")
@@ -116,11 +118,15 @@ def test_the_ensemble_band_is_the_10_to_90_percent_quantiles_of_the_runs_at_each
     assert ax.lines[0].get_ydata()[4] == pytest.approx(np.median(rows))
 
 
-def with_particles(monkeypatch, run, years, porosity=0.1):
-    """Give the run one two-step pathline per travel time, as ``read_particle_tracks`` does."""
+def with_particles(monkeypatch, run, years, porosity=0.1, starts=None):
+    """Give the run one two-step pathline per travel time, as ``read_particle_tracks`` does.
+
+    ``starts`` gives the release point of each line, else they are far from every cell.
+    """
+    starts = starts or [(100.0 * i, 0.0) for i in range(len(years))]
     tracks = [
-        np.array([[100.0 * i, 0.0, 0.0, 0.0], [100.0 * i + 50.0, 10.0, 0.0, t * 365.25]])
-        for i, t in enumerate(years)
+        np.array([[x, y, 0.0, 0.0], [x + 50.0, y + 10.0, 0.0, t * 365.25]])
+        for (x, y), t in zip(starts, years, strict=True)
     ]
     monkeypatch.setattr(particle_module, "read_particle_tracks", lambda run: tracks)
     monkeypatch.setattr(particle_module, "particle_time_to_days", lambda run: 1.0)
@@ -194,3 +200,129 @@ def test_a_subject_without_the_data_is_not_applicable(stored_run, module):
     subject = Group([stored_run]) if module is ensemble_band else stored_run
     with pytest.raises(FigureNotApplicable):
         drawn(module, subject)
+
+
+INSIDE = (X0 + 250.0, Y0 + 250.0)
+OUTSIDE = (X0 + 250.0, Y0 + 1250.0)
+
+
+@pytest.mark.parametrize(
+    ("starts", "grey", "coloured", "note"),
+    [
+        ([INSIDE] * 3 + [OUTSIDE] * 2, 2, 3, "3 from the catchment in colour"),
+        ([OUTSIDE] * 4, 0, 4, None),
+    ],
+)
+def test_the_particle_tracks_grey_the_lines_released_outside_the_catchment(
+    stored_run, monkeypatch, starts, grey, coloured, note
+):
+    run = with_particles(monkeypatch, stored_run, np.arange(1.0, len(starts) + 1), starts=starts)
+    ax = drawn(particle_tracks, run)
+    lines = [c for c in ax.collections if isinstance(c, LineCollection)]
+    outside = [c for c in lines if c.get_label() == "Outside the catchment"]
+    assert sum(len(c.get_segments()) for c in outside) == grey
+    assert len(next(c for c in lines if c.get_array() is not None).get_segments()) == coloured
+    assert (note in ax.get_title(loc="right")) if note else "catchment" not in ax.get_title(loc="right")  # fmt: skip
+    assert ("Outside the catchment" in ax.get_legend_handles_labels()[1]) == bool(grey)
+
+
+def test_the_particle_tracks_thin_out_a_crowd_of_lines_and_say_so(stored_run, monkeypatch):
+    monkeypatch.setattr(particle_tracks, "MAX_LINES", 3)
+    run = with_particles(monkeypatch, stored_run, np.arange(1.0, 11.0), starts=[INSIDE] * 10)
+    ax = drawn(particle_tracks, run)
+    coloured = next(c for c in ax.collections if c.get_array() is not None)
+    assert len(coloured.get_segments()) == 3  # one in 4 of the 10 lines
+    assert ax.get_title(loc="right") == "10 pathlines, one in 4 drawn"
+
+
+def test_the_particle_tracks_over_a_variable_say_how_many_lines_are_drawn(stored_run, monkeypatch):
+    monkeypatch.setattr(overlays, "MAX_PATHLINES", 4)
+    run = with_particles(monkeypatch, stored_run, np.arange(1.0, 11.0), starts=[INSIDE] * 10)
+    ax = drawn(particle_tracks, run, variable="head", time=0)
+    assert ax.get_title(loc="right").endswith("10 pathlines, one in 3 drawn")
+
+
+def decaying(index, values):
+    return pd.Series(values, index=index, dtype=float)
+
+
+def test_the_recession_draws_the_boussinesq_line_and_skips_the_fit_of_a_short_record(
+    stored_run, monkeypatch
+):
+    days = pd.date_range("2001-01-01", periods=5, freq="D")
+    simulated = decaying(days, [5.0, 4.0, 3.0, 2.0, 1.0])
+    monkeypatch.setattr(recession, "_stream_length", lambda run: 4000.0)
+    monkeypatch.setattr(recession, "read_observed", lambda *a, **k: decaying(days, [5, 5, 5, 5, 4]))
+    run = Held(stored_run, timeseries=lambda variable, station=None: simulated,
+               has_field=lambda name, **kw: True, field=lambda name, **kw: np.full((2, 12), 0.1))  # fmt: skip
+    ax = drawn(recession, run)
+    labels = ax.get_legend_handles_labels()[1]
+    assert sum(label.startswith("Boussinesq") for label in labels) == 1
+    assert not any(label.startswith("observed") for label in labels)  # one falling step, no fit
+    assert any(label.startswith("simulated, fitted b") for label in labels)
+    assert not ax.texts
+
+
+def test_the_recession_refuses_a_run_without_a_discharge_series(stored_run):
+    def absent(variable, station=None):
+        raise KeyError(variable)
+
+    with pytest.raises(FigureNotApplicable, match="stores no 'discharge' series"):
+        drawn(recession, Held(stored_run, timeseries=absent))
+
+
+def test_the_boussinesq_line_names_a_field_that_is_empty_on_the_catchment(stored_run):
+    held = Held(stored_run, has_field=lambda name, **kw: True,
+                field=lambda name, **kw: np.full((2, 12), np.nan))  # fmt: skip
+    coefficient, missing = recession._boussinesq(held)
+    assert coefficient is None
+    assert missing == ["hydraulic conductivity", "specific yield", "stream network"]
+
+
+def test_the_ensemble_band_refuses_an_empty_set_and_a_lone_run(stored_run):
+    with pytest.raises(FigureNotApplicable, match="run set is empty"):
+        drawn(ensemble_band, Group([]))
+    with pytest.raises(FigureNotApplicable, match="Only 0 of the 2 runs"):
+        drawn(ensemble_band, Group([stored_run, stored_run]), station="zone:nowhere")
+
+
+def test_the_ensemble_band_draws_the_record_over_runs_with_numbered_stamps(stored_run, monkeypatch):
+    stamps = pd.RangeIndex(1, 5, name="period")
+    table = {0: [1.0, 2.0, 3.0, 4.0], 1: [2.0, 3.0, 4.0, 5.0], 2: [3.0, 4.0, 5.0, 6.0]}
+    runs = [Held(stored_run, sim_id=str(n)) for n in table]
+    seen = iter(table.values())
+    monkeypatch.setattr(ensemble_band, "read_series", lambda run, name, station=None: pd.Series(next(seen), index=stamps))  # fmt: skip
+    monkeypatch.setattr(ensemble_band, "read_observed", lambda run, name, station=None: pd.Series([2.0, np.nan, 4.0, 5.0], index=stamps))  # fmt: skip
+    ax = drawn(ensemble_band, Group(runs), station="gauge")
+    assert ax.get_xlabel() == "Period"
+    assert ax.lines[0].get_ydata().tolist() == pytest.approx(
+        variables.to_display("discharge", np.median(list(table.values()), axis=0)).tolist()
+    )
+    assert len(ax.lines) == 2  # the median and the record
+    assert ax.lines[1].get_ydata().tolist() == [
+        2.0,
+        4.0,
+        5.0,
+    ]  # the stamp without a value is dropped
+
+
+def test_the_survival_step_refuses_a_mesh_without_layer_interfaces(stored_run, monkeypatch):
+    real = residence_time_distribution.read_mesh
+    monkeypatch.setattr(residence_time_distribution, "read_mesh", lambda run: replace(real(run), interfaces=None))  # fmt: skip
+    with pytest.raises(FigureNotApplicable, match="no layer interfaces"):
+        drawn(residence_time_distribution, with_particles(monkeypatch, stored_run, [1.0, 2.0]))
+
+
+def test_the_acceptable_cost_ring_needs_a_threshold_and_a_cost_under_it():
+    ax = static.new_figure(THEME).axes[0]
+    x, ys, cost = np.arange(3.0), [np.arange(3.0)], [3.0, 2.0, 1.0]
+    records.ring_acceptable(ax, x, ys, cost, None, THEME)
+    records.ring_acceptable(ax, x, ys, cost, 0.5, THEME)
+    assert not ax.collections
+    records.ring_acceptable(ax, x, ys, cost, 2.0, THEME)
+    assert ax.collections[0].get_offsets().tolist() == [[1.0, 1.0], [2.0, 2.0]]
+    assert ax.collections[0].get_label() == "Cost under 2"
+
+
+def test_a_station_that_is_asked_for_is_returned_without_reading_the_scores():
+    assert records.scored_station(None, "discharge", "gauge") == "gauge"

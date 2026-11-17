@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 import xarray as xr
 
 from hydromodpy.core.budget.flux import seepage_mask
+from hydromodpy.results.derive import derived
 from hydromodpy.results.derive.derived import (
     budget_flux_per_area,
     watertable_depth,
@@ -61,3 +64,29 @@ def test_budget_flux_per_area():
 def test_seepage_mask_needs_an_input():
     with pytest.raises(ValueError):
         seepage_mask()
+
+
+def test_watertable_depth_xarray_is_clipped_and_labelled():
+    top = xr.DataArray(TOP, dims="face")
+    head = xr.DataArray(HEAD, dims="face")
+
+    out = watertable_depth(head, top)
+
+    np.testing.assert_array_equal(out.values, [2.0, 0.0, 0.5])
+    assert out.attrs["units"] == "m"
+
+
+def test_budget_flux_per_area_xarray_masks_zero_area():
+    flux = xr.DataArray([-2.0, 3.0], dims="dim_0")
+
+    out = budget_flux_per_area(flux, np.array([4.0, 0.0]))
+
+    assert out.values[0] == -0.5
+    assert np.isnan(out.values[1])
+    assert out.attrs["units"] == "m d-1"
+
+
+def test_numpy_paths_are_taken_when_xarray_has_no_data_array(monkeypatch):
+    monkeypatch.setattr(derived, "xr", SimpleNamespace())
+
+    np.testing.assert_array_equal(watertable_depth(HEAD, TOP), [2.0, 0.0, 0.5])
