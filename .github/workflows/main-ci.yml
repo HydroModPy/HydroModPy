@@ -218,9 +218,12 @@ jobs:
         run: python -m hydromodpy install-binaries --subset mf6,libmf6 --quiet
 
       # Every module of hydromodpy/ that carries a docstring example, found by
-      # git grep, so that no list of files drifts from the tree.
+      # git grep, so that no list of files drifts from the tree. The module paths
+      # hold no space, so the list is split on purpose.
       - name: Run docstring examples
-        run: python -m pytest --doctest-modules -q $(git grep -l -E '^\s*>>> ' -- 'hydromodpy/*.py')
+        run: |
+          # shellcheck disable=SC2046
+          python -m pytest --doctest-modules -q $(git grep -l -E '^\s*>>> ' -- 'hydromodpy/*.py')
 
       - name: Run unit tests in parallel
         env:
