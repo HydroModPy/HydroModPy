@@ -44,6 +44,7 @@ def export_geotiff(
     *,
     layer: int | None = None,
     resolution: float | None = None,
+    native_resolution: float | None = None,
     crs: str | None = None,
     nodata: float = -9999.0,
     values: np.ndarray | None = None,
@@ -51,6 +52,10 @@ def export_geotiff(
     model_time: str | None = None,
 ) -> Path:
     """Rasterize a field from the unstructured mesh into a GeoTIFF.
+
+    The mesh is rasterized in the CRS it is stored in. When ``crs`` names
+    another one, that raster is then reprojected, and ``resolution`` sizes the
+    pixels of the reprojected raster, in units of ``crs``.
 
     Requires ``rasterio`` and ``shapely``.
 
@@ -70,8 +75,12 @@ def export_geotiff(
         Layer of a field of several layers. Required when the field holds
         more than one: a GeoTIFF holds one layer.
     resolution : float, optional
-        Pixel size in CRS units. Left out, the side of a square of the mean
-        cell area.
+        Pixel size of the written raster, in units of ``crs``. Left out, the
+        pixel of the rasterized mesh, carried into ``crs`` by the reprojection.
+    native_resolution : float, optional
+        Pixel size the mesh is rasterized at, in units of the CRS it is stored
+        in, when ``resolution`` does not give it. Left out, the side of a square
+        of the mean cell area.
     crs : str
         Coordinate reference system of the output. When it differs from the
         CRS the mesh is stored in, the raster is reprojected into it.
@@ -143,16 +152,19 @@ def export_geotiff(
 
     if not shapes:
         raise ValueError("No valid polygons to rasterize")
-    if resolution is None:
-        resolution = float(np.sqrt(np.mean([poly.area for poly, _ in shapes])))
+    # A resolution in units of another CRS cannot size the pixels of the mesh CRS.
+    reprojected = source_crs is not None and not _same_crs(crs, source_crs)
+    pixel = native_resolution if reprojected or resolution is None else resolution
+    if pixel is None:
+        pixel = float(np.sqrt(np.mean([poly.area for poly, _ in shapes])))
 
     xmin = float(vertices[:, 0].min())
     ymin = float(vertices[:, 1].min())
     xmax = float(vertices[:, 0].max())
     ymax = float(vertices[:, 1].max())
 
-    width = max(1, int(np.ceil((xmax - xmin) / resolution)))
-    height = max(1, int(np.ceil((ymax - ymin) / resolution)))
+    width = max(1, int(np.ceil((xmax - xmin) / pixel)))
+    height = max(1, int(np.ceil((ymax - ymin) / pixel)))
     transform = from_bounds(xmin, ymin, xmax, ymax, width, height)
 
     raster = rasterize(
@@ -179,6 +191,7 @@ def export_geotiff(
             crs,
             nodata=nodata,
             resampling=_resampling_for(descriptor, data),
+            resolution=resolution if reprojected else None,
         )
 
     tags = {
@@ -258,6 +271,13 @@ def export_geographic_raster(
     return output_path
 
 
+def _same_crs(one: str, other: str) -> bool:
+    """Return whether two CRS strings name the same reference system."""
+    from rasterio.crs import CRS
+
+    return CRS.from_user_input(one) == CRS.from_user_input(other)
+
+
 def _warp(
     raster: np.ndarray,
     transform: Any,
@@ -269,12 +289,10 @@ def _warp(
     resolution: float | None = None,
 ) -> tuple[np.ndarray, Any]:
     """Reproject or resample a raster; return it unchanged when nothing changes."""
-    from rasterio.crs import CRS
     from rasterio.transform import array_bounds
     from rasterio.warp import calculate_default_transform, reproject
 
-    same_crs = CRS.from_user_input(target_crs) == CRS.from_user_input(source_crs)
-    if same_crs and resolution is None:
+    if _same_crs(target_crs, source_crs) and resolution is None:
         return raster, transform
     height, width = raster.shape
     west, south, east, north = array_bounds(height, width, transform)

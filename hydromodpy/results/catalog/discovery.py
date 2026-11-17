@@ -108,12 +108,15 @@ class AmbiguousReferenceError(ReferenceResolutionError):
     """Raised when a reference matches more than one run or session.
 
     ``candidates`` holds ``(key, label)`` pairs. The key is a ``sim_id`` or a
-    relative directory, the label says what it is.
+    relative directory, the label says what it is. ``hint`` says how to name
+    one of them.
     """
 
     category = Category.AMBIGUOUS_REFERENCE
 
-    def __init__(self, ref: str, candidates: list[tuple[str, str | None]]) -> None:
+    def __init__(
+        self, ref: str, candidates: list[tuple[str, str | None]], hint: str | None = None
+    ) -> None:
         self.ref = ref
         self.candidates = candidates
         head = candidates[:10]
@@ -121,7 +124,7 @@ class AmbiguousReferenceError(ReferenceResolutionError):
         suffix = f"\n  ... and {len(candidates) - 10} more" if len(candidates) > 10 else ""
         super().__init__(
             f"Reference '{ref}' is ambiguous; matches {len(candidates)} "
-            f"directories:\n{lines}{suffix}"
+            f"directories:\n{lines}{suffix}" + (f"\n{hint}" if hint else "")
         )
 
 
@@ -213,7 +216,11 @@ def resolve_rel_dir(
         if unambiguous and "/" not in text and split_stem_version(text)[1] is None:
             versions = _versions_on_disk(root, rel_dir)
             if len(versions) > 1:
-                raise AmbiguousReferenceError(text, [(version, "version") for version in versions])
+                raise AmbiguousReferenceError(
+                    text,
+                    [(version, "version") for version in versions],
+                    hint=f"Name one by its directory: {rel_dir} is that run alone.",
+                )
         return rel_dir
     if len(by_id) == 1:
         return by_id[0]

@@ -94,7 +94,7 @@ from hydromodpy.data.source.port import (
 )
 from hydromodpy.data.variables.crossings.apis.bdtopo import BdTopoCrossings
 from hydromodpy.data.variables.crossings.apis.roe import RoeCrossings
-from hydromodpy.data.variables.dem.apis.ign_dem_fr import IgnGeoplateformeDem
+from hydromodpy.data.variables.dem.apis.ign_dem_fr import BdAltiDem, RgeAltiDem
 from hydromodpy.data.variables.geology.apis.brgm_1m import Brgm1m
 from hydromodpy.data.variables.geology.apis.brgm_50k import Brgm50k
 from hydromodpy.data.variables.hydrography.apis.bdtopage import BdTopageSource
@@ -468,8 +468,17 @@ BUILTIN_CASES: tuple[SourceCase, ...] = (
     ),
     SourceCase(
         section="dem",
-        name="ign_geoplateforme_dem",
-        build=IgnGeoplateformeDem,
+        name="bdalti",
+        build=BdAltiDem,
+        provider_module="hydromodpy.data.variables.dem.apis.ign_dem_fr",
+        provider_attr="fetch_ign_dem",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=_dem_canned,
+    ),
+    SourceCase(
+        section="dem",
+        name="rgealti",
+        build=RgeAltiDem,
         provider_module="hydromodpy.data.variables.dem.apis.ign_dem_fr",
         provider_attr="fetch_ign_dem",
         read_bbox=lambda args, kwargs: kwargs.get("bbox"),
@@ -1390,7 +1399,7 @@ def test_the_bbox_on_the_ign_wire_is_the_reprojected_one(
         ymax=48.0 + 0.011,
         crs="EPSG:4326",
     )
-    source = IgnGeoplateformeDem(dataset="rge-alti")
+    source = RgeAltiDem()
     result = source.fetch(FetchRequest(out_dir=tmp_path, extent=caller))
 
     expected = wms.snap_bbox(_expected_bbox(caller, source.extent_crs), 5.0)

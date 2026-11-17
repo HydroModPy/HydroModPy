@@ -30,7 +30,7 @@ from hydromodpy.data.common.source_extent import (
 )
 from hydromodpy.data.loading.store import DataStore
 from hydromodpy.data.source.port import Extent
-from hydromodpy.data.variables.dem.config import DemConfig, IgnGeoplateformeDemSource
+from hydromodpy.data.variables.dem.config import BdAltiDemSource, DemConfig
 from hydromodpy.data.variables.dem.variable import DemVariable
 from hydromodpy.data.variables.geology.variable import GeologyVariable
 from hydromodpy.data.variables.oceanic.variable import OceanicVariable
@@ -166,7 +166,7 @@ def test_mask_reprojected_from_own_crs(tmp_path, monkeypatch):
     )
     path = write_vector_mask(tmp_path / "mask.gpkg", RENNES_4326, "EPSG:4326")
     DemVariable(
-        config=DemConfig(sources=[IgnGeoplateformeDemSource(mask_path=path)]),
+        config=DemConfig(sources=[BdAltiDemSource(mask_path=path)]),
         index=None,
         data_dir=tmp_path / "dem",
     ).load()

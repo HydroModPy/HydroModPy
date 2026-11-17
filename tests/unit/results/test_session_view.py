@@ -46,7 +46,9 @@ def test_session_reads_its_files(tmp_path: Path) -> None:
     assert session.status == "completed"
     assert session.descriptor.session_id == session_id
     trials = session.trials
-    assert list(trials.columns) == list(TRIAL_COLUMNS)
+    # The fixed columns, then one column per searched parameter with the value tried.
+    assert list(trials.columns) == [*TRIAL_COLUMNS, "K"]
+    assert list(trials["K"]) == pytest.approx([1e-5, 2e-5, 3e-5])
     assert list(trials["trial"]) == [1, 2, 3]
     assert set(trials["case_id"]) == {"calage"}
     assert set(trials["session_id"]) == {session_id}

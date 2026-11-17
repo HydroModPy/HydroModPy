@@ -201,3 +201,14 @@ def test_tree_refuses_ambiguous_name(
         "runs/2222",
         "runs/nancon_monthly_v2",
     }
+
+
+def test_bare_name_with_other_versions_hints_at_its_directory(tmp_path: Path) -> None:
+    root = make_project(tmp_path / "p")
+    for name in ("x", "x_v2"):
+        _make_dir(root, f"runs/{name}")
+
+    with pytest.raises(AmbiguousReferenceError) as caught:
+        resolve_rel_dir(root, "x", unambiguous=True)
+    assert "Name one by its directory: runs/x is that run alone." in str(caught.value)
+    assert resolve_rel_dir(root, "runs/x", unambiguous=True) == "runs/x"

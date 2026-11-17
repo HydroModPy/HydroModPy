@@ -198,3 +198,24 @@ def test_session_by_name(monkeypatch: pytest.MonkeyPatch, tmp_path, name: str) -
     session = accessors.ProjectSessions(tmp_path)[name]
     assert session.dir == tmp_path / "sessions" / "calage_v2"
     assert (session.read_config, session.render) == (read_sealed_config, render)
+
+
+def test_repr_names_the_completed_runs_newest_first(tmp_path) -> None:
+    from datetime import timedelta
+
+    from hydromodpy.results.catalog.facade import Catalog
+    from hydromodpy.results.catalog.indexer import index_new_runs
+    from tests._helpers.sealed_runs import NOW, make_project, seal_run
+
+    root = make_project(tmp_path / "p")
+    seal_run(root, "older", nse=0.5, created_at=NOW - timedelta(days=2))
+    seal_run(root, "newer", nse=0.8125, created_at=NOW)
+    index_new_runs(root)
+
+    with Catalog(root) as store:
+        text = repr(ProjectRunsAccessor(SimpleNamespace(store=store, root=root)))
+
+    assert "2 completed" in text
+    assert text.index("newer") < text.index("older")
+    assert "NSE 0.812" in text or "NSE 0.813" in text
+    assert "project.runs()" in text

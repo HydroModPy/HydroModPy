@@ -47,6 +47,7 @@ def test_reviewed_claims() -> None:
     claims = {slug: SOURCES[slug].licence.spdx for slug in CLAIMED}
 
     assert claims == {
+        "bdalti": "etalab-2.0",
         "bdtopage": "etalab-2.0",
         "bdtopo": "etalab-2.0",
         "brgm_1m": "etalab-2.0",
@@ -54,8 +55,8 @@ def test_reviewed_claims() -> None:
         "euhydro": COPERNICUS_LICENCE_ID,
         "explore2": "etalab-2.0",
         "hubeau": "etalab-2.0",
-        "ign_geoplateforme_dem": "etalab-2.0",
         "osm": "ODbL-1.0",
+        "rgealti": "etalab-2.0",
         "roe": "etalab-2.0",
         "shom": "etalab-2.0",
         "sim2": "etalab-2.0",
@@ -114,6 +115,7 @@ def test_entry_document() -> None:
 
 def test_code_slugs_are_known() -> None:
     written_by_the_code = {
+        "bdalti",
         "bdtopage",
         "bdtopo",
         "brgm_1m",
@@ -122,8 +124,8 @@ def test_code_slugs_are_known() -> None:
         "euhydro",
         "file",
         "hubeau",
-        "ign_geoplateforme_dem",
         "osm",
+        "rgealti",
         "roe",
         "shom",
         "sim2",
@@ -201,10 +203,17 @@ INLINE_NAMES = [
     ),
     pytest.param(
         "hydromodpy/data/variables/dem/apis/ign_dem_fr.py",
-        "ign_geoplateforme_dem",
+        "bdalti",
         "data/dem/processed",
-        "dem_ign_geoplateforme_",
-        id="ign dem",
+        "dem_ign_geoplateforme_bdalti_",
+        id="bd alti",
+    ),
+    pytest.param(
+        "hydromodpy/data/variables/dem/apis/ign_dem_fr.py",
+        "rgealti",
+        "data/dem/processed",
+        "dem_ign_geoplateforme_rgealti_",
+        id="rge alti",
     ),
 ]
 

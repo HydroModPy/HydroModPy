@@ -214,7 +214,13 @@ class Session:
 
     @property
     def trials(self) -> pd.DataFrame:
-        """Every trial of the session, one row per trial and case (:data:`TRIAL_COLUMNS`)."""
+        """Every trial of the session, one row per trial and case.
+
+        The columns are :data:`TRIAL_COLUMNS`, then one column per searched
+        parameter, named as in ``[calibration.parameters]``, with the value the
+        trial tried, empty in a phase that did not search it. A parameter named
+        like a column of :data:`TRIAL_COLUMNS` stays in ``parameters`` alone.
+        """
         descriptor = self.descriptor
         rows = []
         for line in read_trials(self._dir):
@@ -227,7 +233,12 @@ class Session:
                         "site": None if case is None else case.site,
                     }
                 )
-        return pd.DataFrame(rows, columns=list(TRIAL_COLUMNS))
+        frame = pd.DataFrame(rows, columns=list(TRIAL_COLUMNS))
+        tried = [row["parameters"] for row in rows]
+        for name in dict.fromkeys(name for one in tried for name in one):
+            if name not in TRIAL_COLUMNS:
+                frame[name] = [one.get(name, {}).get("value") for one in tried]
+        return frame
 
     def profile(self) -> pd.DataFrame:
         """Where the time of the search went, by step and by ``reused`` (:data:`PROFILE_COLUMNS`).

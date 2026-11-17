@@ -4,9 +4,9 @@ The data exports and the metadata views of the ``[[export]]`` blocks are
 written right after the seal (:func:`step_after_seal`), from the sealed run,
 as ``hmp export <run>`` writes them. Each file carries the identity block of
 the run with its label of the day, the rules it follows and the date. An
-export that fails after the seal leaves the run sealed and ``completed``, and
-raises :class:`~hydromodpy.core.exceptions.ExportError` naming
-``hmp export <run>``.
+export that fails after the seal leaves the run sealed and ``completed``. The
+figures are still drawn, then the pipeline raises
+:class:`~hydromodpy.core.exceptions.ExportError` naming ``hmp export <run>``.
 
 Every export lands under ``runs/<run>/exports/``: the run directory holds
 everything the run produced. A copy out of the project is ``hmp publish``.
@@ -103,7 +103,8 @@ def step_after_seal(ctx: WorkflowContext) -> list[Path]:
     ExportError
         When a request fails. The run stays sealed and ``completed``; the
         message names ``hmp export <run>``, which writes the exports again.
-        Every request had its turn first, the views included.
+        Every request had its turn first, the views included. ``SealStep``
+        holds the error until the figures are drawn.
     """
     from hydromodpy.results.exporters.registry import run_formats
     from hydromodpy.results.exporters.request import export_data_requests, export_views
@@ -443,7 +444,7 @@ class SealStep:
 
     name = "seal"
     reads: ClassVar[tuple[str, ...]] = ("cfg", "ctx", "replay_of", "strict")
-    writes: ClassVar[tuple[str, ...]] = ("ctx",)
+    writes: ClassVar[tuple[str, ...]] = ("ctx", "failed_after_seal")
     config_sections: ClassVar[tuple[str, ...]] = ()
 
     def depends_on(self) -> tuple[str, ...]:
@@ -470,6 +471,7 @@ class SealStep:
         ctx: WorkflowContext | None = state.get("ctx")
         if ctx is None:
             raise ConfigError("SealStep requires 'ctx' in state.data")
+        failed = None
         if ctx.sim_id is None or not run_is_persisted(ctx):
             logger.debug("SealStep: this run keeps no store to seal, skipping")
         else:
@@ -489,11 +491,17 @@ class SealStep:
                         strict=bool(state.get("strict")),
                     )
             logger.info("Run %s sealed: %s", record.run.name, ctx.run_dir)
-            step_after_seal(ctx)
+            try:
+                step_after_seal(ctx)
+            except ExportError as exc:
+                # The figures read the sealed run, not the exports: they are drawn
+                # first, and the pipeline raises this error once they are.
+                failed = exc
         return state.advance(
             step_index=state.step_index + 1,
             step_name=self.name,
             ctx=ctx,
+            failed_after_seal=failed,
         )
 
 

@@ -95,7 +95,7 @@ def test_roll_up_of_entries(entries: list[InputEntry], expected: str) -> None:
 
 def test_one_unknown_input(tmp_path: Path) -> None:
     project = tmp_path / "demo"
-    dem = _input(project, "dem.tif", source="ign_geoplateforme_dem", license="etalab-2.0")
+    dem = _input(project, "dem.tif", source="bdalti", license="etalab-2.0")
     recharge = _input(project, "recharge.csv", source="file", license=UNDETERMINED_LICENSE)
     with _open(project, [dem, recharge]) as store:
         assert store.licence() == UNDETERMINED_LICENSE

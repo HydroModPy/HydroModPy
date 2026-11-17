@@ -278,9 +278,11 @@ class ExportJob:
         if fmt == "geotiff":
             from hydromodpy.results.exporters.geotiff import export_geotiff
 
-            resolution = request.resolution
-            if resolution is None:
-                resolution = self._once("resolution", self.target.default_resolution)
+            # The native pixel rasterizes the mesh when no resolution is named, and
+            # when the named one is in units of another CRS.
+            native = None
+            if request.resolution is None or request.crs is not None:
+                native = self._once("resolution", self.target.default_resolution)
             period = period_label(step, self.edges) if timed and self.edges is not None else None
             import pandas as pd
 
@@ -294,7 +296,8 @@ class ExportJob:
                 step,
                 dest,
                 layer=request.layer,
-                resolution=resolution,
+                resolution=request.resolution,
+                native_resolution=native,
                 crs=self.crs,
                 nodata=request.nodata,
                 values=values,

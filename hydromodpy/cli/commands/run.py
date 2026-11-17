@@ -72,10 +72,11 @@ from hydromodpy.cli.profiling import profile_arg_from_toml, profile_run, resolve
 from hydromodpy.cli.refs import base_named_by_w
 from hydromodpy.core.exceptions import ConfigError, HydroModPyError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.pipeline_steps import STEP_NAMES
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.core.state.portable import display_path
 from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project, resolve_project_root
-from hydromodpy.core.toml_io.overrides import set_overrides
+from hydromodpy.core.toml_io.overrides import env_set_names, set_overrides
 
 if TYPE_CHECKING:
     from hydromodpy.project.request import RunOutcome, RunRequest
@@ -111,16 +112,6 @@ def _stops_before_setup_process(until_step: str | None) -> bool:
     except ConfigError:
         # The runner refuses an unknown step by itself; here only the message is at stake.
         return False
-
-
-def _step_choices() -> list[str]:
-    """Return the canonical pipeline step names for shell completion."""
-    try:
-        from hydromodpy.workflow.steps.sequence import standard_steps
-
-        return [getattr(s, "name", type(s).__name__) for s in standard_steps()]
-    except Exception:
-        return []
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -187,7 +178,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         from argcomplete.completers import ChoicesCompleter, FilesCompleter
 
         config_arg.completer = FilesCompleter(("toml", "json"))
-        step_completer = ChoicesCompleter(_step_choices())
+        step_completer = ChoicesCompleter(STEP_NAMES)
         from_arg.completer = step_completer
         until_arg.completer = step_completer
     except ImportError:
@@ -346,6 +337,34 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace, base: Path | None = 
     _run_toml(config_path, args=args, environment=environment_from_args(args), base=base)
 
 
+def _print_the_banner_early(
+    config_path: Path, *, args: argparse.Namespace, changes: Mapping[str, Any]
+) -> None:
+    """Print the banner before the configuration model loads, at the level the file asks.
+
+    Reading a request imports every section of the configuration, about a second.
+    The level is read here from the raw chain, its overlays and the changes, which
+    costs milliseconds. A file this cannot read prints nothing yet: the request
+    refuses it with its own words, and :func:`_run_request` prints the banner of
+    a ``.json`` request.
+    """
+    from hydromodpy.cli.banner import print_hydromodpy
+    from hydromodpy.core.toml_io.loader import merge_toml_layers, read_toml_chain
+
+    if config_path.suffix != ".toml":
+        return
+    try:
+        chains = [
+            read_toml_chain(path, root=None)
+            for path in (config_path, *(getattr(args, "overlay", None) or ()))
+        ]
+        raw_toml = with_changes(merge_toml_layers(chains, root=None), changes)
+    except (OSError, ValueError, ConfigError):
+        return
+    if apply_verbosity(args, raw_toml) != "quiet":
+        print_hydromodpy()
+
+
 def _request_of(
     config_path: Path,
     *,
@@ -428,14 +447,17 @@ def _run_toml(
 
     profile_output = resolve_profile_output(getattr(args, "profile", None), config_path)
 
-    from hydromodpy.project.launch.plan import refuse_env_overrides
+    if env_set_names(os.environ):
+        # The plan module costs a second of imports, so only an override asks it.
+        from hydromodpy.project.launch.plan import refuse_env_overrides
 
-    refuse_env_overrides(os.environ, config_path)
+        refuse_env_overrides(os.environ, config_path)
     try:
         changes = changes_of_args(args, os.environ)
     except ValueError as exc:
         refuse(f"Invalid override: {exc}", EXIT_CONFIG, cause=exc)
 
+    _print_the_banner_early(config_path, args=args, changes=changes)
     request = _request_of(config_path, args=args, base=base, changes=changes)
     _run_request(
         config_path,
@@ -543,13 +565,15 @@ def _run_request(
         if profile_output is not None:
             print("[dry-run] --profile ignored (nothing is executed)", file=sys.stderr)
         if workflow == "calibration":
-            from hydromodpy.calibration.preflight import preflight_launch
+            from hydromodpy.project.calibrate import calibration_plan
 
+            # The check of hmp calibrate --dry-run, which fills the trial pipeline the
+            # preflight reads the document through.
             try:
                 if _held_in_memory(request):
-                    preflight_launch(config_path, config=_config_of(request, config_path, run_base))
+                    calibration_plan(_config_of(request, config_path, run_base), source=config_path)
                 else:
-                    preflight_launch(config_path)
+                    calibration_plan(config_path, check=True)
             except ConfigError as exc:
                 refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
         else:

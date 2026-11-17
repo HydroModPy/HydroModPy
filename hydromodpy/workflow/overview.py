@@ -263,8 +263,7 @@ class DataOverviewLauncher:
             raise ConfigMissingError(
                 "No [data.dem] source configured. Add:\n"
                 '  [data]\n  types = [..., "dem"]\n'
-                '  [[data.dem.sources]]\n  source = "ign_geoplateforme_dem"\n'
-                '  dataset = "bd-alti"\n  resolution_m = 25.0\n'
+                '  [[data.dem.sources]]\n  source = "bdalti"\n'
                 "or:\n"
                 '  [[data.dem.sources]]\n  source = "file"\n  path = "inputs/dem.tif"'
             )

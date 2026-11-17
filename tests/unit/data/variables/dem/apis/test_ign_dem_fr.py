@@ -37,7 +37,8 @@ from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
 from hydromodpy.data.variables.dem.apis.ign_dem_fr import (
     GEOPLATEFORME_ORIGIN,
     RGE_ALTI_MAX_PIXELS,
-    IgnGeoplateformeDem,
+    BdAltiDem,
+    RgeAltiDem,
     _archive_extract_dir,
     _install_extracted_archive,
     _mask_sea,
@@ -52,7 +53,7 @@ from hydromodpy.data.variables.dem.apis.ign_dem_fr import (
     fetch_rge_alti,
     normalize_department_code,
 )
-from hydromodpy.data.variables.dem.config import IgnGeoplateformeDemSource
+from hydromodpy.data.variables.dem.config import BdAltiDemSource, DemConfig, RgeAltiDemSource
 from hydromodpy.data.variables.dem.resolver import resolve_dem
 from hydromodpy.data.variables.dem.variable import _resolution_for_ign_geoplateforme
 
@@ -431,9 +432,7 @@ def test_foreign_box_goes_in_lambert(tmp_path, monkeypatch):
 
     monkeypatch.setattr(ign_dem_fr, "fetch_ign_dem", fake)
 
-    result = IgnGeoplateformeDem(dataset="rge-alti").fetch(
-        FetchRequest(out_dir=tmp_path, extent=FOREIGN)
-    )
+    result = RgeAltiDem().fetch(FetchRequest(out_dir=tmp_path, extent=FOREIGN))
 
     np.testing.assert_allclose(asked["bbox"], expected_box(FOREIGN), rtol=0, atol=1e-6)
     assert result.extent is not None and result.extent.crs == LAMBERT
@@ -448,7 +447,7 @@ def test_file_record_carries_the_header_nodata(tmp_path, monkeypatch):
 
     monkeypatch.setattr(ign_dem_fr, "fetch_ign_dem", fake)
 
-    result = IgnGeoplateformeDem().fetch(FetchRequest(out_dir=tmp_path, extent=EXTENT))
+    result = BdAltiDem().fetch(FetchRequest(out_dir=tmp_path, extent=EXTENT))
 
     [record] = result.files
     assert record.path == seen["output_dir"] / "dem_25m.tif"
@@ -475,12 +474,13 @@ def test_port_refusals_come_before_the_assembler(tmp_path, monkeypatch, selector
     monkeypatch.setattr(ign_dem_fr, "fetch_ign_dem", fail)
 
     with pytest.raises(DataCapabilityError, match=match):
-        IgnGeoplateformeDem().fetch(FetchRequest(out_dir=tmp_path, **selectors))
+        BdAltiDem().fetch(FetchRequest(out_dir=tmp_path, **selectors))
 
 
-def test_a_dataset_nobody_assembles_is_refused():
-    with pytest.raises((ValueError, DataRequestError)):
-        IgnGeoplateformeDem(dataset="srtm")
+def test_each_source_names_its_product():
+    assert (BdAltiDem().dataset, BdAltiDem().resolution_m) == ("bd-alti", 25.0)
+    assert (RgeAltiDem().dataset, RgeAltiDem().resolution_m) == ("rge-alti", 5.0)
+    assert RgeAltiDem(resolution_m=1.0).file_format == "GEOTIFF"
 
 
 def test_tiles_assemble_one_raster(tmp_path):
@@ -683,7 +683,7 @@ def test_60_km_fits_default_limit():
 
 
 def project(resolution_m):
-    source = IgnGeoplateformeDemSource(dataset="rge-alti", resolution_m=resolution_m)
+    source = RgeAltiDemSource(resolution_m=resolution_m)
     geographic = SimpleNamespace(x_outlet=344100.0, y_outlet=6806100.0)
     dem = SimpleNamespace(sources=[source])
     return SimpleNamespace(data=SimpleNamespace(dem=dem), geographic=geographic)
@@ -720,26 +720,36 @@ def test_project_passes_5_m(tmp_path, monkeypatch):
 
 
 def test_rge_alti_default_resolution():
-    source = IgnGeoplateformeDemSource(dataset="rge-alti")
+    source = RgeAltiDemSource()
 
     assert source.resolution_m is None
     assert _resolution_for_ign_geoplateforme(source) == 5.0
-    assert IgnGeoplateformeDemSource(dataset="rge-alti", resolution_m=1.0).resolution_m == 1.0
-    assert _resolution_for_ign_geoplateforme(IgnGeoplateformeDemSource()) == 25.0
+    assert RgeAltiDemSource(resolution_m=1.0).resolution_m == 1.0
+    assert _resolution_for_ign_geoplateforme(BdAltiDemSource()) == 25.0
 
 
 DECLARATION_REFUSALS = [
-    pytest.param({"dataset": "rge-alti", "resolution_m": 25.0}, id="rge 25 m"),
-    pytest.param({"dataset": "rge-alti", "resolution_m": 2.0}, id="rge 2 m"),
-    pytest.param({"dataset": "bd-alti", "resolution_m": 5.0}, id="bd alti 5 m"),
-    pytest.param({"dataset": "rge-alti", "departments": ["35"]}, id="rge with departments"),
-    pytest.param({"dataset": "rge-alti", "regions": ["Bretagne"]}, id="rge with regions"),
-    pytest.param({"dataset": "rge-alti", "file_format": "TIF"}, id="rge with a file format"),
-    pytest.param({"dataset": "rge-alti", "crs": "EPSG:4326"}, id="rge with a crs"),
+    pytest.param(RgeAltiDemSource, {"resolution_m": 25.0}, id="rge 25 m"),
+    pytest.param(RgeAltiDemSource, {"resolution_m": 2.0}, id="rge 2 m"),
+    pytest.param(BdAltiDemSource, {"resolution_m": 5.0}, id="bd alti pixel"),
+    pytest.param(BdAltiDemSource, {"dataset": "bd-alti"}, id="bd alti dataset"),
+    pytest.param(RgeAltiDemSource, {"departments": ["35"]}, id="rge with departments"),
+    pytest.param(RgeAltiDemSource, {"regions": ["Bretagne"]}, id="rge with regions"),
+    pytest.param(RgeAltiDemSource, {"file_format": "TIF"}, id="rge with a file format"),
+    pytest.param(RgeAltiDemSource, {"crs": "EPSG:4326"}, id="rge with a crs"),
 ]
 
 
-@pytest.mark.parametrize("fields", DECLARATION_REFUSALS)
-def test_declaration_refusals(fields):
+@pytest.mark.parametrize(("model", "fields"), DECLARATION_REFUSALS)
+def test_declaration_refusals(model, fields):
     with pytest.raises(ValueError):
-        IgnGeoplateformeDemSource(**fields)
+        model(**fields)
+
+
+def test_the_retired_tag_names_both_sources():
+    with pytest.raises(ValueError) as info:
+        DemConfig.model_validate({"sources": [{"source": "ign_geoplateforme_dem"}]})
+
+    message = str(info.value)
+    assert 'source = "bdalti"' in message and 'source = "rgealti"' in message
+    assert "not accepted any more" in message

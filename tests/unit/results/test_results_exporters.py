@@ -351,17 +351,21 @@ def test_raster_keeps_the_native_grid(catalog_on_lambert93):
 def test_raster_is_warped_to_another_crs(catalog_on_lambert93):
     catalog, sid, exports, bounds = catalog_on_lambert93
     out = exports / "wgs84.tif"
-    _export(catalog, sid, variable="head", file=out, time=0, resolution=100.0, crs="EPSG:4326")
+    _export(catalog, sid, variable="head", file=out, time=0, resolution=0.0005, crs="EPSG:4326")
 
     lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
     with rasterio.open(str(out)) as src:
         assert src.crs.to_epsg() == 4326
-        # A relabelled file would still carry meter bounds near 385000.
-        assert src.bounds.left == pytest.approx(lon_min, abs=1e-3)
-        assert src.bounds.right == pytest.approx(lon_max, abs=1e-3)
-        assert src.bounds.bottom == pytest.approx(lat_min, abs=1e-3)
-        assert src.bounds.top == pytest.approx(lat_max, abs=1e-3)
-        assert src.res[0] < 1.0  # degrees, not meters
+        # A relabelled file would still carry meter bounds near 385000. The mesh is
+        # rasterized at its 500 m cells, 2 x 2 pixels, and GDAL fits the warped box
+        # to its default grid of such a raster, about 0.0045 deg: the box overshoots
+        # by up to one of those pixels.
+        assert src.bounds.left == pytest.approx(lon_min, abs=5e-3)
+        assert src.bounds.right == pytest.approx(lon_max, abs=5e-3)
+        assert src.bounds.bottom == pytest.approx(lat_min, abs=5e-3)
+        assert src.bounds.top == pytest.approx(lat_max, abs=5e-3)
+        # The resolution is read in the units of the output CRS, here degrees.
+        assert src.res == pytest.approx((0.0005, 0.0005))
         valid = src.read(1)[src.read(1) != -9999.0]
         # Bilinear interpolates, it does not extrapolate: the warped field
         # stays inside the range of the four cell values.

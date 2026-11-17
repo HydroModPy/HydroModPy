@@ -175,6 +175,9 @@ class Pipeline:
 
         ``heartbeat`` is the pulse of the attempt, started by the caller; the
         pipeline names the step under way on it.
+
+        An export that failed after the seal (``failed_after_seal``) is raised
+        once the last step has played, so the figures of the run are drawn.
         """
         from hydromodpy.workflow.record.journal import WorkflowJournal
 
@@ -214,7 +217,7 @@ class Pipeline:
                 journal,
                 config_sha256=config_sha256,
             )
-            return self._execute_suffix(
+            state = self._execute_suffix(
                 state,
                 restart_index,
                 journal=journal,
@@ -222,6 +225,11 @@ class Pipeline:
                 heartbeat=heartbeat,
                 previous_hashes=prefix_hashes,
             )
+        # An export that failed after the seal let the figures be drawn; it is raised now.
+        failed = state.get("failed_after_seal")
+        if failed is not None:
+            raise failed
+        return state
 
     def _open_profile(self, state: PipelineState) -> None:
         """Note the age of the process when this attempt began, in ``profile.json``."""

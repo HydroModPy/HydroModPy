@@ -39,10 +39,9 @@ _BUILTIN_PATHS: dict[str, str] = {
     "crossings_file": "hydromodpy.data.source.file:CrossingsFile",
     "crossings_roe": "hydromodpy.data.variables.crossings.apis.roe:RoeCrossings",
     "crossings_url": "hydromodpy.data.source.url:CrossingsUrl",
+    "dem_bdalti": "hydromodpy.data.variables.dem.apis.ign_dem_fr:BdAltiDem",
     "dem_file": "hydromodpy.data.source.file:DemFile",
-    "dem_ign_geoplateforme_dem": (
-        "hydromodpy.data.variables.dem.apis.ign_dem_fr:IgnGeoplateformeDem"
-    ),
+    "dem_rgealti": "hydromodpy.data.variables.dem.apis.ign_dem_fr:RgeAltiDem",
     "dem_url": "hydromodpy.data.source.url:DemUrl",
     "etp_explore2": "hydromodpy.data.common.clients.explore2_files:Explore2Etp",
     "etp_file": "hydromodpy.data.source.file:EtpFile",
@@ -120,7 +119,7 @@ _BUILTIN_PATHS: dict[str, str] = {
 }
 """Dotted paths to the in-tree source classes, imported on first lookup.
 
-The single declaration of what this build serves: 74 sources under 29 sections.
+The single declaration of what this build serves: 75 sources under 29 sections.
 Format ``"<module>:<class>"``, the one every registry of this repository uses.
 """
 
@@ -140,8 +139,8 @@ data_sources = PluginRegistry(
 )
 """The data-source registry, keyed on the two parts of a source's identity.
 
-``data_sources.get("dem", "ign_geoplateforme_dem")`` and
-``data_sources.get("dem_ign_geoplateforme_dem")`` resolve the same class, and
+``data_sources.get("dem", "bdalti")`` and
+``data_sources.get("dem_bdalti")`` resolve the same class, and
 ``data_sources.names("hydrometry")`` lists what a hydrometry section may name. A
 lookup returns the class and not an instance, because what configures a source
 lives in its constructor and only the caller knows those values, and a lookup

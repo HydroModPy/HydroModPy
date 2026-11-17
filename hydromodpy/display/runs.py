@@ -195,7 +195,7 @@ def draw_requests(
     on_measure: Callable[[Measure], None] | None = None,
     when: str = END,
 ) -> FigureRenderReport:
-    """Draw each request whose ``when`` is the given one: one expand, one render and one write each.
+    """Draw each request whose ``when`` is the given one: one expand, then a render and a write per engine.
 
     The subject is a run, possibly not sealed yet, or a session. A session figure is
     written without a ledger entry. A figure that does not apply to the subject is
@@ -221,9 +221,18 @@ def draw_requests(
             requested.append(stem)
             with measured("figure", stem) as measure:
                 try:
-                    paths = write(
-                        render(figure, subject, theme=theme), figure, run, output_dir, theme
-                    )
+                    # One file per engine: the static formats, then the HTML page.
+                    paths = [
+                        path
+                        for engine in figure.engine
+                        for path in write(
+                            render(figure, subject, theme=theme, engine=engine),
+                            figure,
+                            run,
+                            output_dir,
+                            theme,
+                        )
+                    ]
                 finally:
                     if on_measure is not None:
                         on_measure(measure)

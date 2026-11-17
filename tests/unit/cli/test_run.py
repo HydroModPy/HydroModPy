@@ -112,6 +112,32 @@ def test_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert sorted(path.name for path in project.iterdir()) == before
 
 
+def test_dry_run_of_a_calibration_file_fills_the_trial_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hydromodpy.calibration.runners import trial
+
+    # The session fills the global pipeline: empty it, so the dry run has to fill it itself.
+    monkeypatch.setattr(trial, "_PIPELINE", None)
+    monkeypatch.setattr(trial, "_INITIALIZER", None)
+    (tmp_path / "data").mkdir()
+    outlet = '[site]\nname = "alpha"\n\n' + _COMMON.format(
+        outlet="x_outlet = 389285.9\ny_outlet = 6816518.7\n"
+    ).replace("simulation", "calibration", 1)
+    config = tmp_path / "cal.toml"
+    config.write_text(
+        outlet
+        + "\n[calibration]\nseed = 3\n\n[calibration.parameters.K]\n"
+        + 'bounds = [1e-7, 1e-3]\npath = "flow.param.K.field.value"\n',
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(["run", str(config), "--dry-run", "-q"])
+
+    assert result.exit_code == 0, result.stderr
+    assert "workflow: calibration" in result.stdout
+
+
 def test_dry_run_refuses_a_file_that_check_refuses(tmp_path: Path) -> None:
     bad = tmp_path / "bad.toml"
     bad.write_text('[workflow]\nmode = "simulation"\n[bogus_section]\nx = 1\n', encoding="utf-8")
@@ -383,3 +409,35 @@ def test_bare_resume_name_of_a_file(tmp_path) -> None:
     config = tmp_path / "Config Winter.toml"
 
     assert run_cmd._case_name(RunRequest(config={}, form="toml"), {}, config) == "config_winter"
+
+
+# Each row: the files of the chain, the changes, the flag, and whether the banner prints.
+EARLY_BANNERS = [
+    pytest.param({}, {}, None, True, id="default"),
+    pytest.param({}, {}, "quiet", False, id="quiet flag"),
+    pytest.param({"own": '[workflow]\nverbosity = "quiet"\n'}, {}, None, False, id="quiet file"),
+    pytest.param({"base": '[workflow]\nverbosity = "quiet"\n'}, {}, None, False, id="quiet base"),
+    pytest.param({}, {"workflow.verbosity": "quiet"}, None, False, id="quiet set"),
+    pytest.param({"own": "[workflow\n"}, {}, None, False, id="unreadable file"),
+]
+
+
+@pytest.mark.parametrize(("texts", "changes", "flag", "printed"), EARLY_BANNERS)
+def test_the_banner_comes_before_the_request(tmp_path, monkeypatch, texts, changes, flag, printed):
+    from hydromodpy.cli import banner
+    from hydromodpy.core.logging import current_verbosity, set_verbosity
+
+    seen: list[str] = []
+    monkeypatch.setattr(banner, "print_hydromodpy", lambda: seen.append("banner"))
+    monkeypatch.delenv("HMP_VERBOSITY", raising=False)
+    (tmp_path / "base.toml").write_text(texts.get("base", ""), encoding="utf-8")
+    config = tmp_path / "project.toml"
+    config.write_text('base_config = "base.toml"\n' + texts.get("own", ""), encoding="utf-8")
+    before = current_verbosity()
+
+    try:
+        run_cmd._print_the_banner_early(config, args=_args(verbosity=flag), changes=changes)
+    finally:
+        set_verbosity(before)
+
+    assert seen == (["banner"] if printed else [])

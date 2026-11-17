@@ -352,3 +352,14 @@ def test_save_suffix_follows_the_engine(
     else:
         show._render_request(run, name, {"save": tmp_path / save})
         assert seen == ([engine] if isinstance(engine, str) else engine)
+
+
+def test_figure_keeps_the_time_given_in_its_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list = []
+    monkeypatch.setattr(show, "render", lambda subject, name, drawn: seen.append(drawn))
+
+    show._figure("run", {"name": "head", "options": {"time": "T", "layer": 1}, "time": None})
+    show._figure("run", {"name": "head", "options": {"time": "T"}, "time": "last", "dpi": 90})
+
+    assert seen[0] == {"time": "T", "layer": 1}
+    assert seen[1] == {"time": "last", "dpi": 90}

@@ -18,7 +18,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
-        epilog="Examples:\n  hmp data ls\n  hmp data ls --variable dem --provider ign_geoplateforme_dem",
+        epilog="Examples:\n  hmp data ls\n  hmp data ls --variable dem --provider bdalti",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--variable", default=None, help="Filter by variable")

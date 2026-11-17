@@ -50,7 +50,7 @@ CATCHMENT = {
 
 DEM_INPUT = InputEntry(
     variable="dem:dem",
-    provider="ign_geoplateforme_dem",
+    provider="bdalti",
     request={"bbox": [10.0, 20.0, 110.0, 220.0]},
     fetched_at=datetime(2026, 10, 1, tzinfo=UTC),
     path="data/dem/dem_abcd.tif",
@@ -88,7 +88,7 @@ def filled(tmp_path: Path) -> RunStore:
         sz.close()
     store.write_mass_balance(sid, 0, 10.0, 9.5, 5.0)
     store.write_metric(sid, MetricRow(station="P01", metric="nse", value=0.8))
-    store.write_provenance(sid, "dem", "ign_geoplateforme_dem", np.ones(4))
+    store.write_provenance(sid, "dem", "bdalti", np.ones(4))
     store.record_input(sid, DEM_INPUT)
     store.write_geographic_metadata(sid, CATCHMENT)
     store.update_simulation_grid_metadata(sid, mesh_hash="mesh01", mesh_topology="structured_2d")

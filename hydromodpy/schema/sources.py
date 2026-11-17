@@ -250,42 +250,35 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         ),
     ),
     SourceEntry(
-        slug="ign_geoplateforme_dem",
+        slug="bdalti",
         publisher="IGN",
-        licence=_etalab("Source: IGN, Geoplateforme elevation data"),
+        licence=_etalab("Source: IGN, BD ALTI"),
         basis=(
             "IGN, publishing on data.gouv.fr under its own organisation, gives BD ALTI "
-            "and RGE ALTI the 'Licence Ouverte / Open Licence version 2.0'. The "
-            "cartes.gouv.fr terms add that a Geoplateforme dataset without another "
-            "licence falls under the Licence Ouverte Etalab."
+            "the 'Licence Ouverte / Open Licence version 2.0'. The cartes.gouv.fr terms "
+            "add that a Geoplateforme dataset without another licence falls under the "
+            "Licence Ouverte Etalab."
         ),
         hosts=("data.geopf.fr",),
         licence_pages=(
             "https://www.data.gouv.fr/datasets/bd-alti-r-1",
-            "https://www.data.gouv.fr/datasets/rge-alti-r",
             "https://cartes.gouv.fr/cgu",
         ),
         licence_checked=LICENCES_CHECKED,
         facts_pages=(
             "https://www.data.gouv.fr/datasets/bd-alti-r-1",
-            "https://www.data.gouv.fr/datasets/rge-alti-r",
             "https://cartes.gouv.fr/cgu",
         ),
         coverage=(
-            "BD ALTI and RGE ALTI cover metropolitan and overseas France except French "
-            "Polynesia, New Caledonia and Wallis and Futuna. RGE ALTI holds nodata over "
-            "the zones closed to aerial capture. The adapter takes a box in EPSG:2154."
+            "Metropolitan and overseas France except French Polynesia, New Caledonia and "
+            "Wallis and Futuna. The adapter takes a box in EPSG:2154."
         ),
         resolution=(
-            "BD ALTI: regular grid, 25 m (75 m also published); the adapter assembles 25 m "
-            "ASC archives. RGE ALTI: regular grid, 1 m or 5 m, fetched by extent from the "
-            "WMS-Raster service."
+            "Regular grid, 25 m (75 m also published); the adapter assembles the 25 m "
+            "ASC archives of the departments the box covers."
         ),
-        period=(
-            "BD ALTI: records from 2011-01-01 to 2023-10-04. RGE ALTI: from 2009-01-01 to "
-            "2024-11-26; its updates stopped in 2024, pending the LiDAR HD survey."
-        ),
-        update="BD ALTI: irregular, from RGE ALTI. RGE ALTI: irregular, stopped in 2024.",
+        period="Records from 2011-01-01 to 2023-10-04.",
+        update="Irregular, from RGE ALTI.",
         authentication=(
             "None sent by the adapter. The cartes.gouv.fr terms say some APIs may need an "
             "account, according to their documentation."
@@ -294,13 +287,58 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         cache=(
             CacheLayout(
                 folder="data/dem/processed",
-                pattern="dem_ign_geoplateforme_*.tif",
+                pattern="dem_ign_geoplateforme_bdalti_*.tif",
                 format="GeoTIFF",
                 note=(
-                    "dem_ign_geoplateforme_bdalti_25m_<hash>.tif and "
-                    "dem_ign_geoplateforme_rgealti_<resolution>_<hash>.tif. The BD ALTI "
-                    "department archives stay in data/dem/raw_ign and data/dem/extracted_ign."
+                    "dem_ign_geoplateforme_bdalti_25m_<hash>.tif is the merged crop of one "
+                    "request. The department archives stay in data/dem/raw_ign and "
+                    "data/dem/extracted_ign."
                 ),
+            ),
+        ),
+    ),
+    SourceEntry(
+        slug="rgealti",
+        publisher="IGN",
+        licence=_etalab("Source: IGN, RGE ALTI"),
+        basis=(
+            "IGN, publishing on data.gouv.fr under its own organisation, gives RGE ALTI "
+            "the 'Licence Ouverte / Open Licence version 2.0'. The cartes.gouv.fr terms "
+            "add that a Geoplateforme dataset without another licence falls under the "
+            "Licence Ouverte Etalab."
+        ),
+        hosts=("data.geopf.fr",),
+        licence_pages=(
+            "https://www.data.gouv.fr/datasets/rge-alti-r",
+            "https://cartes.gouv.fr/cgu",
+        ),
+        licence_checked=LICENCES_CHECKED,
+        facts_pages=(
+            "https://www.data.gouv.fr/datasets/rge-alti-r",
+            "https://cartes.gouv.fr/cgu",
+        ),
+        coverage=(
+            "Metropolitan and overseas France except French Polynesia, New Caledonia and "
+            "Wallis and Futuna. It holds nodata over the zones closed to aerial capture. "
+            "The adapter takes a box in EPSG:2154."
+        ),
+        resolution=("Regular grid, 1 m or 5 m, fetched by extent from the WMS-Raster service."),
+        period=(
+            "From 2009-01-01 to 2024-11-26; its updates stopped in 2024, pending the "
+            "LiDAR HD survey."
+        ),
+        update="Irregular, stopped in 2024.",
+        authentication=(
+            "None sent by the adapter. The cartes.gouv.fr terms say some APIs may need an "
+            "account, according to their documentation."
+        ),
+        limits=_GEOPF_RATE_LIMITS,
+        cache=(
+            CacheLayout(
+                folder="data/dem/processed",
+                pattern="dem_ign_geoplateforme_rgealti_*.tif",
+                format="GeoTIFF",
+                note="dem_ign_geoplateforme_rgealti_<resolution>_<hash>.tif is one request.",
             ),
         ),
     ),

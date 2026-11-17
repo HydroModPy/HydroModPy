@@ -16,7 +16,7 @@ from rasterio.transform import from_origin
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.data.variables.dem.apis import ign_dem_fr
-from hydromodpy.data.variables.dem.config import DemConfig, IgnGeoplateformeDemSource
+from hydromodpy.data.variables.dem.config import BdAltiDemSource, DemConfig
 from hydromodpy.data.variables.dem.variable import DemVariable
 
 PROJECT_EXTENT = (650000.0, 6400000.0, 1050000.0, 6650000.0)
@@ -74,9 +74,7 @@ def load_dem(tmp_path, monkeypatch, source):
 
 
 def test_explicit_departments_reach_the_assembler(tmp_path, monkeypatch):
-    source = IgnGeoplateformeDemSource(
-        extent="study_area", departments=["22"], dataset="bd-alti", resolution_m=25.0
-    )
+    source = BdAltiDemSource(extent="study_area", departments=["22"])
 
     result, _, asked = load_dem(tmp_path, monkeypatch, source)
 
@@ -87,11 +85,9 @@ def test_explicit_departments_reach_the_assembler(tmp_path, monkeypatch):
 
 
 def test_regions_become_departments_and_a_row(tmp_path, monkeypatch):
-    source = IgnGeoplateformeDemSource(
+    source = BdAltiDemSource(
         extent="study_area",
         regions=["Auvergne-Rhone-Alpes"],
-        dataset="bd-alti",
-        resolution_m=25.0,
         file_format="ASC",
         crs="epsg:2154",
         force_refresh=True,
@@ -100,14 +96,14 @@ def test_regions_become_departments_and_a_row(tmp_path, monkeypatch):
     result, index, asked = load_dem(tmp_path, monkeypatch, source)
 
     assert Path(result.fields[0].data).exists()
-    assert result.fields[0].source == "ign_geoplateforme_dem"
+    assert result.fields[0].source == "bdalti"
     assert asked["dataset"] == "bd-alti"
     assert asked["resolution_m"] == 25.0
     assert asked["file_format"] == "ASC"
     assert asked["crs"] == "epsg:2154"
     assert asked["force_refresh"] is True
     assert asked["departments"] == AURA_DEPARTMENTS
-    (row,) = index.rows(variable="dem", source="ign_geoplateforme_dem")
+    (row,) = index.rows(variable="dem", source="bdalti")
     assert row.source_unit == "bd-alti:25m:ASC"
     assert row.bbox is not None
     assert row.crs == "EPSG:2154"
@@ -123,7 +119,7 @@ def test_regions_become_departments_and_a_row(tmp_path, monkeypatch):
 
 def test_a_download_without_a_data_folder_is_refused(tmp_path, monkeypatch):
     monkeypatch.setenv("HMP_CACHE_HOME", str(tmp_path / "user-cache"))
-    source = IgnGeoplateformeDemSource(extent="study_area", departments=["22"])
+    source = BdAltiDemSource(extent="study_area", departments=["22"])
     variable = DemVariable(
         config=DemConfig(sources=[source]),
         index=CacheIndex(None),

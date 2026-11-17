@@ -16,6 +16,7 @@ import pytest
 
 from hydromodpy.core.exceptions import (
     CheckpointError,
+    ExportError,
     HydroModPyError,
     LedgerError,
     PipelineError,
@@ -404,3 +405,29 @@ def test_figures_are_drawn_after_each_executed_step(
     pipeline.run(initial_state(tmp_path, "figs"))
 
     assert drawn == expected
+
+
+class FailsAfterSeal:
+    """A step that holds an export error in the state, as SealStep does."""
+
+    name = "seal"
+
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def run(self, state: PipelineState) -> PipelineState:
+        return state.advance(
+            step_index=state.step_index + 1, step_name=self.name, failed_after_seal=self.error
+        )
+
+
+def test_export_failed_after_the_seal_is_raised_after_the_last_step() -> None:
+    error = ExportError("run x is sealed; write the exports again")
+    display = Memory("display")
+
+    with pytest.raises(ExportError) as raised:
+        Pipeline([FailsAfterSeal(error), display]).run(PipelineState(run_id="r", data={}))
+
+    assert raised.value is error
+    # The step after the seal (the figures) still played.
+    assert display.calls == 1

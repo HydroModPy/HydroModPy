@@ -949,6 +949,35 @@ def test_sealed_dem_init_path() -> None:
     assert "catchment" not in doc["geographic"]
 
 
+IGN_DEM_SPLITS = [
+    pytest.param(
+        {"source": "ign_geoplateforme_dem", "dataset": "bd-alti", "resolution_m": 25.0},
+        {"source": "bdalti"},
+        id="bd alti",
+    ),
+    pytest.param(
+        {"source": "ign_geoplateforme_dem", "regions": ["Bretagne"]},
+        {"source": "bdalti", "regions": ["Bretagne"]},
+        id="bd alti by default",
+    ),
+    pytest.param(
+        {"source": "ign_geoplateforme_dem", "dataset": "rge-alti", "resolution_m": 1.0},
+        {"source": "rgealti", "resolution_m": 1.0},
+        id="rge alti",
+    ),
+]
+
+
+@pytest.mark.parametrize(("old", "new"), IGN_DEM_SPLITS)
+def test_ign_dem_source_splits(old: dict, new: dict) -> None:
+    doc = {"data": {"dem": {"sources": [old]}}}
+
+    changes = migrate_sealed_config_doc(doc)
+
+    assert doc["data"]["dem"]["sources"] == [new]
+    assert any("not accepted any more" in change for change in changes)
+
+
 def test_scored_evaluator_dropped(
     tmp_path: Path,
 ) -> None:
@@ -990,6 +1019,11 @@ DOCTOR_REFUSALS = [
             'source = "file"',
         ],
         id="dem_init_path",
+    ),
+    pytest.param(
+        '[[data.dem.sources]]\nsource = "ign_geoplateforme_dem"\ndataset = "rge-alti"\n',
+        ['source = "bdalti"', 'source = "rgealti"', "not accepted any more"],
+        id="ign_geoplateforme_dem",
     ),
     pytest.param(
         '[geographic.catchment]\nkind = "dem"\n'

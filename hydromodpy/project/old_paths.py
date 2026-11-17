@@ -45,7 +45,7 @@ LEFT_BEFORE_2_0: dict[str, str] = {
     "HydrographySourceConfig": "hydromodpy.data.variables.hydrography.config.HydrographySourceConfig",
     "HydrometryConfig": "hydromodpy.data.variables.hydrometry.config.HydrometryConfig",
     "HydrometrySourceConfig": "hydromodpy.data.variables.hydrometry.config.HydrometrySourceConfig",
-    "IgnGeoplateformeDemSource": "hydromodpy.data.variables.dem.config.IgnGeoplateformeDemSource",
+    "IgnGeoplateformeDemSource": "hydromodpy.data.variables.dem.config.BdAltiDemSource",
     "IntermittencyConfig": "hydromodpy.data.variables.intermittency.config.IntermittencyConfig",
     "IntermittencyManager": "hydromodpy.data.variables.intermittency.variable.IntermittencyVariable",
     "IntermittencySourceConfig": "hydromodpy.data.variables.intermittency.config.IntermittencySourceConfig",

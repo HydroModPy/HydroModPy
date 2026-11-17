@@ -92,6 +92,12 @@ def test_what_a_series_cannot_do_is_refused(stored_run, fields, words):
         data(stored_run, **fields)
 
 
+@pytest.mark.parametrize("window", [[2, 2], [1, 1]])
+def test_a_window_of_one_period_is_no_series(stored_run, window):
+    with pytest.raises(FigureNotApplicable, match="needs two periods"):
+        data(stored_run, variable="discharge", station=GAUGE, time=window)
+
+
 def test_lines_points_scores_and_a_window(stored_run):
     ax = drawn(
         stored_run, variable="discharge", station=GAUGE, observed=True, scores=True,

@@ -37,7 +37,7 @@ types = [
 # IGN BD ALTI 25 m, assembled from the department archives around the outlet.
 # No DEM input file: the catchment is delineated on this download.
 [[data.dem.sources]]
-source = "ign_geoplateforme_dem"
+source = "bdalti"
 
 # BRGM 1:50 000 departmental map. At 1:1 000 000 a catchment this size holds
 # one or two polygons.

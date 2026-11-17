@@ -15,7 +15,6 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from hydromodpy.calibration.runners.recap import result_lines, staged_result_lines
 from hydromodpy.cli.conventions import (
     add_override_arguments,
     apply_verbosity,
@@ -322,17 +321,18 @@ def _run_named(
 
     A file read as it is written goes to the runners by its path. When
     ``--set``, ``--overlay`` or ``--case`` change it, no copy of the file is
-    written. A verb that only reads (``--dry-run``, ``--list-phases``,
-    ``--expand``) reads the ``[calibration]`` section of the changed document, as
-    it reads the one of the file. A calibration that runs validates the changed
-    document against its base and runs it held in memory.
+    written. ``--list-phases`` and ``--expand`` read the ``[calibration]``
+    section of the changed document, as they read the one of the file. A
+    calibration that runs, and ``--dry-run`` that checks it, validate the
+    changed document against its base and hold it in memory: the preflight
+    resolves each parameter against the flow it calibrates.
     """
     document = _read(args, target)
     case = getattr(args, "case", None)
     varied = bool(getattr(args, "overlay", None) or changes or case)
     merged = with_changes(document, changes)
     source: Any = target
-    if varied and _reads_only(args):
+    if varied and _reads_only(args) and not getattr(args, "dry_run", False):
         source = _section_of(target, merged)
     elif varied:
         source = _held_in_memory(target, document, base=base, changes=changes)
@@ -464,6 +464,8 @@ def _calibrate(
         refuse(f"Calibration failed: {exc}", EXIT_CALIBRATION, cause=exc)
 
     def table() -> None:
+        from hydromodpy.calibration.runners.recap import result_lines, staged_result_lines
+
         print(f"Calibration finished: {target.name}", file=sys.stderr)
         lines = (
             staged_result_lines(result) if getattr(result, "phases", None) else result_lines(result)

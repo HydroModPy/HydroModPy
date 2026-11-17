@@ -46,6 +46,11 @@ rows:
   kind: pass
   class: cli
   why: the command layer folds the HMP_SET_* overrides of the environment into the request
+- file: hydromodpy/cli/commands/run.py
+  variable: <whole>
+  kind: pass
+  class: cli
+  why: the command layer asks the plan module only when an HMP_SET_* override is set
 - file: hydromodpy/cli/commands/ls.py
   variable: HMP_WORKSPACE
   kind: read

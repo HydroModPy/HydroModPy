@@ -66,6 +66,8 @@ def diagnose_result_storage(
     if not db.is_file():
         return []
 
+    import duckdb
+
     from hydromodpy.core.exceptions import CatalogUnreadableError
     from hydromodpy.results.catalog.index_file import open_index
 
@@ -92,7 +94,18 @@ def diagnose_result_storage(
                     "Rebuild it with hmp catalog reindex.",
                 )
             ]
-        rows = _simulation_rows(conn)
+        try:
+            rows = _simulation_rows(conn)
+        except duckdb.Error as exc:
+            # An index written by another version lacks a column this one reads.
+            return [
+                StorageDiagnostic(
+                    "results:catalog_schema",
+                    "WARN",
+                    f"index {db} holds another schema: {str(exc).splitlines()[0]}",
+                    f"Rebuild it with hmp catalog reindex -w {root}.",
+                )
+            ]
     finally:
         conn.close()
 
@@ -142,7 +155,17 @@ def diagnose_result_storage(
             )
         )
 
-    changed = _runs_changed_since_seal(run_dirs.values())
+    changed, other_version = _runs_changed_since_seal(run_dirs.values())
+    if other_version:
+        diagnostics.append(
+            StorageDiagnostic(
+                "results:seal_version",
+                "WARN",
+                f"{len(other_version)} run(s) sealed by a version this one does not read",
+                f"first: {other_version[0].name}. Run them again, or remove them.",
+                tuple(str(directory) for directory in other_version),
+            )
+        )
     if changed:
         first_dir, first_problem = changed[0]
         diagnostics.append(
@@ -166,18 +189,27 @@ def diagnose_result_storage(
     return diagnostics
 
 
-def _runs_changed_since_seal(directories) -> list[tuple[Path, str]]:
-    """Return ``(run directory, first problem)`` for each sealed run whose digests differ."""
+def _runs_changed_since_seal(directories) -> tuple[list[tuple[Path, str]], list[Path]]:
+    """Return ``(run directory, first problem)`` for each sealed run whose digests differ.
+
+    The second list holds the sealed runs whose seal this version cannot read.
+    """
+    from hydromodpy.core.exceptions import SchemaVersionMismatchError
     from hydromodpy.results.record.manifest import is_sealed, seal_problems
 
     changed = []
+    other_version = []
     for directory in directories:
         if not is_sealed(directory):
             continue
-        problems = seal_problems(directory)
+        try:
+            problems = seal_problems(directory)
+        except SchemaVersionMismatchError:
+            other_version.append(directory)
+            continue
         if problems:
             changed.append((directory, problems[0]))
-    return changed
+    return changed, other_version
 
 
 def is_run_directory(path: Path) -> bool:

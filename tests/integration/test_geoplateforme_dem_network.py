@@ -9,7 +9,7 @@ from hydromodpy.data.variables.dem.apis.ign_dem_fr import (
     discover_ign_dem_files,
     download_ign_dem_departments,
 )
-from hydromodpy.data.variables.dem.config import DemConfig, IgnGeoplateformeDemSource
+from hydromodpy.data.variables.dem.config import BdAltiDemSource, DemConfig
 from hydromodpy.data.variables.dem.variable import DemVariable
 
 pytestmark = [
@@ -89,11 +89,9 @@ def test_geoplateforme_dem_variable_bd_alti_assembly_for_small_finistere_bbox(tm
     index = CacheIndex(tmp_path)
     config = DemConfig(
         sources=[
-            IgnGeoplateformeDemSource(
+            BdAltiDemSource(
                 extent="study_area",
                 departments=["29"],
-                dataset="bd-alti",
-                resolution_m=25.0,
                 file_format="ASC",
             )
         ]
@@ -107,6 +105,6 @@ def test_geoplateforme_dem_variable_bd_alti_assembly_for_small_finistere_bbox(tm
     ).load()
 
     assert len(result.fields) == 1
-    assert result.fields[0].source == "ign_geoplateforme_dem"
+    assert result.fields[0].source == "bdalti"
     assert result.fields[0].data.is_file()
     assert result.fields[0].data.name.startswith("dem_ign_geoplateforme_bdalti_25m_")

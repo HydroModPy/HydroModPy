@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.data.variables.dem.config import IgnGeoplateformeDemSource
+from hydromodpy.data.variables.dem.config import BdAltiDemSource
 from hydromodpy.data.variables.forcing_series import (
     EtpConfig,
     EtpSourceConfig,
@@ -218,12 +218,11 @@ def test_custom_loader_reads_one_station(var_case, tmp_path):
 
 
 @pytest.mark.fast
-def test_dem_source_of_the_ign_geoplateforme():
-    cfg = IgnGeoplateformeDemSource(dataset="bd-alti", resolution_m=25.0)
+def test_dem_source_of_the_bd_alti():
+    cfg = BdAltiDemSource()
 
-    assert cfg.source == "ign_geoplateforme_dem"
-    assert cfg.dataset == "bd-alti"
-    assert cfg.resolution_m == pytest.approx(25.0)
+    assert cfg.source == "bdalti"
+    assert cfg.file_format == "ASC"
 
 
 @pytest.mark.fast

@@ -105,3 +105,40 @@ def test_a_file_changed_since_the_seal_is_reported(tmp_path):
 
     assert diagnostics["results:seal_digest"].status == "WARN"
     assert table.name in diagnostics["results:seal_digest"].hint
+
+
+def test_an_index_of_another_schema_is_a_warning(tmp_path):
+    import duckdb
+
+    project = tmp_path / "project"
+    _seal(project, "old_index")
+    rebuild_index(project)
+    db = project / ".hmp" / "index.duckdb"
+    db.unlink()
+    conn = duckdb.connect(str(db))
+    conn.execute("CREATE TABLE simulations (sim_id VARCHAR)")
+    conn.execute("CREATE TABLE statuses (sim_id VARCHAR)")
+    conn.close()
+
+    diagnostics = _by_name(diagnose_result_storage(project))
+
+    assert diagnostics["results:catalog_schema"].status == "WARN"
+    assert "hmp catalog reindex" in diagnostics["results:catalog_schema"].hint
+
+
+def test_a_seal_of_another_version_is_a_warning(tmp_path, monkeypatch):
+    from hydromodpy.core.exceptions import SchemaVersionMismatchError
+
+    project = tmp_path / "project"
+    _, run_dir = _seal(project, "old_seal")
+    rebuild_index(project)
+
+    def unreadable(directory):
+        raise SchemaVersionMismatchError("manifest from another version")
+
+    monkeypatch.setattr("hydromodpy.results.record.manifest.seal_problems", unreadable)
+    diagnostics = _by_name(diagnose_result_storage(project))
+
+    assert diagnostics["results:seal_version"].status == "WARN"
+    assert diagnostics["results:seal_version"].paths == (str(run_dir),)
+    assert "results:seal_digest" not in diagnostics

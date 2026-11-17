@@ -164,7 +164,6 @@ data.dem	table | None	None	stable
 data.dem.sources	list[table]	<required>	stable
 data.dem.sources.country	str	'FR'	stable
 data.dem.sources.crs	str | None	None	stable
-data.dem.sources.dataset	Literal['bd-alti', 'rge-alti']	'bd-alti'	stable
 data.dem.sources.departments	list[str]	[]	stable
 data.dem.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.dem.sources.file_format	str	'ASC'	stable
@@ -175,8 +174,9 @@ data.dem.sources.path	Path	<required>	stable
 data.dem.sources.regions	list[str]	[]	stable
 data.dem.sources.resolution_m	float | None	None	stable
 data.dem.sources.sha256	str | None	None	stable
+data.dem.sources.source	Literal['bdalti']	'bdalti'	stable
 data.dem.sources.source	Literal['file']	'file'	stable
-data.dem.sources.source	Literal['ign_geoplateforme_dem']	'ign_geoplateforme_dem'	stable
+data.dem.sources.source	Literal['rgealti']	'rgealti'	stable
 data.dem.sources.source	Literal['url']	'url'	stable
 data.dem.sources.state	Literal['raw', 'conditioned']	'raw'	stable
 data.dem.sources.url	str	<required>	stable

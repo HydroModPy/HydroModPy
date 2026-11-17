@@ -105,7 +105,7 @@ def test_the_catalogs_read_the_solver_and_source_registries(registry: dict) -> N
     pairs = {(row["process"], row["solver"]) for row in result["solvers"]}
     assert ("flow", "modflow6") in pairs
     dem = next(row for row in result["data_sources"] if row["variable"] == "dem")
-    assert {"file", "url", "ign_geoplateforme_dem"} <= {s["value"] for s in dem["sources"]}
+    assert {"file", "url", "bdalti", "rgealti"} <= {s["value"] for s in dem["sources"]}
 
 
 def test_outputs_hold_one_row_per_registry_key_with_a_unit_and_a_path() -> None:

@@ -64,6 +64,57 @@ bounds = [1e-7, 1e-3]
 path = "flow.param.K.field.value"
 """
 
+# A calibration over a whole project, as a dry run reads it with its flow and its site.
+FULL_CALIBRATION = """\
+[site]
+name = "alpha"
+
+[workspace]
+data_dir = "data"
+
+[workflow]
+mode = "calibration"
+
+[geographic]
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
+kind = "from_outlet_coord"
+snap_dist = "150 m"
+buff_area = "10%"
+x_outlet = 389285.9
+y_outlet = 6816518.7
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-03-31"
+step_value = "1 month"
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow6"]
+
+[flow]
+flow_regime = "steady"
+param_list = ["K"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+[flow.bc.drainage]
+
+[calibration]
+seed = 3
+save_runs = "best_n"
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+path = "flow.param.K.field.value"
+"""
+
 # Flags that --expand cannot be combined with.
 EXPAND_REFUSES = [
     pytest.param({"resume": True}, id="resume"),
@@ -288,7 +339,8 @@ def test_expand_refuses_other_flags(tmp_path, capsys, overrides) -> None:
 
 
 def test_set_changes_what_the_calibration_would_do(tmp_path: Path) -> None:
-    config = write_file(tmp_path, SEED_CALIBRATION, name="cal.toml")
+    (tmp_path / "data").mkdir()
+    config = write_file(tmp_path, FULL_CALIBRATION, name="cal.toml")
 
     plain = CliRunner().invoke(["calibrate", str(config), "--dry-run"])
     varied = CliRunner().invoke(
@@ -314,7 +366,8 @@ def test_set_reaches_the_section_expand_prints(tmp_path: Path) -> None:
 
 
 def test_case_names_the_session(tmp_path: Path) -> None:
-    config = write_file(tmp_path, SEED_CALIBRATION, name="cal.toml")
+    (tmp_path / "data").mkdir()
+    config = write_file(tmp_path, FULL_CALIBRATION, name="cal.toml")
 
     result = CliRunner().invoke(["calibrate", str(config), "--dry-run", "--case", "x"])
 
@@ -322,6 +375,27 @@ def test_case_names_the_session(tmp_path: Path) -> None:
     assert "case: x\n" in result.stderr
     assert "session: sessions/x" in result.stderr
     assert "calibrated run: runs/x " in result.stderr
+    assert leftovers(tmp_path) == []
+
+
+def test_dry_run_with_an_overlay_reads_the_whole_configuration(tmp_path: Path) -> None:
+    # The preflight resolves K against the flow: the bare [calibration] section names none.
+    (tmp_path / "data").mkdir()
+    config = write_file(tmp_path, FULL_CALIBRATION, name="cal.toml")
+    overlay = write_file(
+        tmp_path,
+        '[site]\nname = "beta"\n\n[geographic.catchment]\nx_outlet = 377120.0\n'
+        "y_outlet = 6831410.0\n",
+        name="overlay.toml",
+    )
+
+    result = CliRunner().invoke(
+        ["calibrate", str(config), "--dry-run", "--overlay", str(overlay), "--case", "x"]
+    )
+
+    assert result.exit_code == 0, result.stderr
+    assert "case: x\n" in result.stderr
+    assert "names nothing this project carries" not in result.stderr
     assert leftovers(tmp_path) == []
 
 

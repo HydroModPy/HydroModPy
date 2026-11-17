@@ -575,12 +575,11 @@ def _rank(subject: Any, options: Mapping[str, Any]) -> Any:
 
 def _figure(subject: Any, options: Mapping[str, Any]) -> Any:
     name = _named(options, "figure", "the figure to draw")
-    drawn = {
-        **dict(options.get("options") or {}),
-        "save": options.get("save"),
-        "dpi": options.get("dpi"),
-        "time": options.get("time"),
-    }
+    drawn = dict(options.get("options") or {})
+    # A keyword of the verb wins over the same field in its options, and None says nothing.
+    for key in ("save", "dpi", "time"):
+        if options.get(key) is not None:
+            drawn[key] = options[key]
     return render(subject, name, drawn)
 
 

@@ -35,12 +35,14 @@ LIST_CACHE = "hydromodpy.data.request.cache_verbs.list_data_cache"
 PERIOD = ["--start", "2020-01-01", "--end", "2020-01-31"]
 
 # Requests that are refused before anything is fetched: (words after "data get", exit code).
+DEM = ["dem", "--source", "bdalti"]
 REFUSED_REQUESTS = [
-    pytest.param(["dem"], 14, id="no extent"),
-    pytest.param(["dem", "--bbox", "0,0,1,1"], 14, id="bbox without crs"),
-    pytest.param(["dem", "--mask", "absent.gpkg"], 10, id="mask not there"),
-    pytest.param(["dem", "--bbox", "not-floats"], 2, id="bbox not floats"),
-    pytest.param(["dem", "--bbox", "0,1,2"], 2, id="bbox of three numbers"),
+    pytest.param(["dem", "--mask", "absent.gpkg"], 14, id="two sources"),
+    pytest.param(DEM, 14, id="no extent"),
+    pytest.param([*DEM, "--bbox", "0,0,1,1"], 14, id="bbox without crs"),
+    pytest.param([*DEM, "--mask", "absent.gpkg"], 10, id="mask not there"),
+    pytest.param([*DEM, "--bbox", "not-floats"], 2, id="bbox not floats"),
+    pytest.param([*DEM, "--bbox", "0,1,2"], 2, id="bbox of three numbers"),
 ]
 
 

@@ -46,7 +46,7 @@ from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     list_files,
     list_subresources,
 )
-from hydromodpy.data.variables.dem.config import RGE_ALTI_RESOLUTIONS_M
+from hydromodpy.data.variables.dem.config import BD_ALTI_RESOLUTION_M, RGE_ALTI_RESOLUTIONS_M
 
 logger = get_logger(__name__)
 
@@ -245,11 +245,10 @@ def fetch_ign_dem(
             requests_per_second=requests_per_second,
             client=client,
         )
-    resolved_resolution = 25.0 if resolution_m is None else resolution_m
-    if float(resolved_resolution) != 25.0 or normalized_format != "ASC":
+    resolved_resolution = BD_ALTI_RESOLUTION_M if resolution_m is None else resolution_m
+    if float(resolved_resolution) != BD_ALTI_RESOLUTION_M or normalized_format != "ASC":
         raise NotImplementedError(
-            "BD ALTI assembly through ign_geoplateforme_dem supports only "
-            "resolution_m=25 and file_format='ASC'."
+            "BD ALTI assembly supports only resolution_m=25 and file_format='ASC'."
         )
 
     from hydromodpy.catchment.administrative.france import (
@@ -284,7 +283,7 @@ def fetch_ign_dem(
         bbox=bbox,
         departments=dept_codes,
         dataset="bd-alti",
-        resolution_m=25.0,
+        resolution_m=BD_ALTI_RESOLUTION_M,
         file_format="ASC",
         crs=crs,
     )
@@ -300,7 +299,7 @@ def fetch_ign_dem(
         output_dir=raw_dir,
         departments=dept_codes,
         dataset="bd-alti",
-        resolution_m=25.0,
+        resolution_m=BD_ALTI_RESOLUTION_M,
         file_format="ASC",
         crs=crs,
         dry_run=False,
@@ -706,7 +705,7 @@ def _bdalti_archive_index_fallback_files(
     This is an internal resilience path for the Geoplateforme client, not a
     separate legacy user-facing source.
     """
-    if resolution_m is not None and float(resolution_m) != 25.0:
+    if resolution_m is not None and float(resolution_m) != BD_ALTI_RESOLUTION_M:
         return []
     if file_format.upper() != "ASC":
         return []
@@ -727,7 +726,7 @@ def _bdalti_archive_index_fallback_files(
             url=build_download_url("BDALTI", archive_name, file_name),
             department=department,
             dataset="bd-alti",
-            resolution_m=25.0,
+            resolution_m=BD_ALTI_RESOLUTION_M,
         )
     ]
 
@@ -999,38 +998,39 @@ def _write_processed_cache_metadata(
         )
 
 
-class IgnGeoplateformeDem:
-    """The IGN DEM (BD ALTI or RGE ALTI), one GeoTIFF written in Lambert-93.
+class _IgnDem:
+    """One IGN DEM product, one GeoTIFF written in Lambert-93.
 
-    The port class over the same assembly this module has always served:
-    ``fetch`` asks :func:`fetch_ign_dem` for the whole product of a box, from
-    the department archives of BD ALTI or the WMS-Raster tiles of RGE ALTI.
-    The raster is the provider's answer as the variable caches it, so its
-    ``state`` is ``"raw"`` and its ``nodata`` is read from the header the file
-    carries (``-9999`` once this module has written it).
+    ``fetch`` asks :func:`fetch_ign_dem` for the whole product of a box. The
+    raster is the provider's answer as the variable caches it, so its ``state``
+    is ``"raw"`` and its ``nodata`` is read from the header the file carries
+    (``-9999`` once this module has written it).
     """
 
-    source_id: ClassVar[str] = "ign_geoplateforme_dem"
     section: ClassVar[str] = "dem"
     payload_kind: ClassVar[PayloadKind] = "files"
     extent_crs: ClassVar[str] = "EPSG:2154"
     selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
     period_need: ClassVar[PeriodNeed] = "refused"
     writes_out_dir: ClassVar[bool] = True
+    dataset: ClassVar[IgnDemDataset]
 
-    def __init__(
+    resolution_m: float
+    file_format: str
+    crs: str | None
+    force_refresh: bool
+    departments: tuple[str, ...]
+
+    def _set(
         self,
         *,
-        dataset: str = "bd-alti",
-        resolution_m: float | None = None,
-        file_format: str = "ASC",
-        crs: str | None = None,
-        force_refresh: bool = False,
-        departments: Sequence[str] | None = None,
+        resolution_m: float,
+        file_format: str,
+        crs: str | None,
+        force_refresh: bool,
+        departments: Sequence[str] | None,
     ) -> None:
-        resolved_dataset = _normalize_dataset(dataset)
-        self.dataset: IgnDemDataset = resolved_dataset
-        self.resolution_m = None if resolution_m is None else float(resolution_m)
+        self.resolution_m = float(resolution_m)
         self.file_format = str(file_format or "ASC").upper()
         self.crs = crs
         self.force_refresh = bool(force_refresh)
@@ -1085,6 +1085,50 @@ class IgnGeoplateformeDem:
         }
 
 
+class BdAltiDem(_IgnDem):
+    """The IGN BD ALTI at 25 m, merged from the department archives."""
+
+    source_id: ClassVar[str] = "bdalti"
+    dataset: ClassVar[IgnDemDataset] = "bd-alti"
+
+    def __init__(
+        self,
+        *,
+        file_format: str = "ASC",
+        crs: str | None = None,
+        force_refresh: bool = False,
+        departments: Sequence[str] | None = None,
+    ) -> None:
+        self._set(
+            resolution_m=BD_ALTI_RESOLUTION_M,
+            file_format=file_format,
+            crs=crs,
+            force_refresh=force_refresh,
+            departments=departments,
+        )
+
+
+class RgeAltiDem(_IgnDem):
+    """The IGN RGE ALTI at 1 m or 5 m, drawn tile by tile from the WMS-Raster."""
+
+    source_id: ClassVar[str] = "rgealti"
+    dataset: ClassVar[IgnDemDataset] = "rge-alti"
+
+    def __init__(
+        self,
+        *,
+        resolution_m: float | None = None,
+        force_refresh: bool = False,
+    ) -> None:
+        self._set(
+            resolution_m=RGE_ALTI_DEFAULT_RESOLUTION_M if resolution_m is None else resolution_m,
+            file_format="GEOTIFF",
+            crs=None,
+            force_refresh=force_refresh,
+            departments=None,
+        )
+
+
 GEOPLATEFORME_ORIGIN = "https://data.geopf.fr"
 """The service ``fetch`` answers of, for the :class:`FileRecord` it returns."""
 
@@ -1103,7 +1147,8 @@ def _raster_nodata(raster_path: Path) -> float | None:
 
 __all__ = [
     "DATASET_RESOURCE_NAMES",
-    "IgnGeoplateformeDem",
+    "BdAltiDem",
+    "RgeAltiDem",
     "discover_ign_dem_files",
     "download_ign_dem_departments",
     "fetch_ign_dem",

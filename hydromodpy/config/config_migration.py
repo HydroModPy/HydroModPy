@@ -44,6 +44,7 @@ from hydromodpy.core.toml_io.merge import DIRECTIVE_SUFFIXES
 from hydromodpy.core.toml_io.overrides import COMMAND_LINE_SOURCES
 from hydromodpy.core.toml_io.paths import DottedPath, parse
 from hydromodpy.core.version import __version__
+from hydromodpy.data.variables.dem.config import RETIRED_DEM_SOURCES
 from hydromodpy.schema.changes import (
     FIRST_EDITION,
     REGISTER,
@@ -199,6 +200,35 @@ def _move_the_dem_init_path(doc: Any, *, sealed: bool) -> list[str]:
     ]
 
 
+def _split_the_ign_dem_source(doc: Any, *, sealed: bool) -> list[str]:
+    """Write ``source = "ign_geoplateforme_dem"`` as ``bdalti`` or ``rgealti``.
+
+    A row with that source or with ``dataset`` is rewritten. ``dataset`` picks the
+    new source and leaves. A BD ALTI row drops ``resolution_m``,
+    which only 25 m filled. A RGE ALTI row drops the archive selectors it refused.
+    """
+    del sealed
+    changes: list[str] = []
+    for where, table in _tables_at(doc, "data.dem.sources[*]"):
+        if _plain(table.get("source")) != "ign_geoplateforme_dem" and "dataset" not in table:
+            continue
+        dataset = _plain(table.pop("dataset", "bd-alti"))
+        new = "rgealti" if dataset == "rge-alti" else "bdalti"
+        dropped = (
+            ("departments", "regions", "country", "file_format", "crs")
+            if new == "rgealti"
+            else ("resolution_m",)
+        )
+        for key in dropped:
+            table.pop(key, None)
+        table["source"] = new
+        changes.append(
+            f"{where}.source: 'ign_geoplateforme_dem' -> {new!r} "
+            f"({RETIRED_DEM_SOURCES['ign_geoplateforme_dem']})"
+        )
+    return changes
+
+
 def _drop_the_forward_model(doc: Any, *, sealed: bool) -> list[str]:
     """Drop ``[calibration] forward_model`` and the value ``scored_forward_model``.
 
@@ -242,6 +272,7 @@ def _drop_the_cache_switches(doc: Any, *, sealed: bool) -> list[str]:
 RULES: dict[str, Callable[..., list[str]]] = {
     "flatten_the_backend_table": _flatten_the_backend_table,
     "move_the_dem_init_path": _move_the_dem_init_path,
+    "split_the_ign_dem_source": _split_the_ign_dem_source,
     "drop_the_forward_model": _drop_the_forward_model,
     "drop_the_cache_switches": _drop_the_cache_switches,
 }

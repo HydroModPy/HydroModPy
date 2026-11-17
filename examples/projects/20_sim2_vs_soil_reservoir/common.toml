@@ -41,8 +41,7 @@ thickness = "30.0 m"
 types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
 
 [[data.dem.sources]]
-source = "ign_geoplateforme_dem"
-dataset = "bd-alti"
+source = "bdalti"
 
 [[data.hydrography.sources]]
 source = "bdtopage"

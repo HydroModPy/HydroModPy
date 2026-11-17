@@ -7,8 +7,8 @@ Caches and serves DEM data from the port source the configuration names, or
 from the user's own files. Returns a ``LoadResult`` containing ``FieldRecord``
 objects pointing to cached GeoTIFF files.
 
-The download itself is the port source ``(dem, ign_geoplateforme_dem)``: this
-variable resolves the box, writes the sidecar of the file the source returns
+The download itself is the port source ``(dem, bdalti)`` or ``(dem, rgealti)``:
+this variable resolves the box, writes the sidecar of the file the source returns
 and wraps that file into the ``FieldRecord`` the loader reads. A download
 needs the data folder of the call, and is refused without one.
 """
@@ -26,6 +26,7 @@ from hydromodpy.data.families.common import SourceTable
 from hydromodpy.data.provenance import derived
 from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.data.source.port import FetchRequest
+from hydromodpy.data.variables.dem.config import BD_ALTI_RESOLUTION_M
 
 
 class DemVariable(SourceTable):
@@ -96,7 +97,7 @@ class DemVariable(SourceTable):
             )
         bbox = extent.to_crs("EPSG:2154").bbox
 
-        dataset = str(getattr(source_cfg, "dataset", "bd-alti") or "bd-alti")
+        dataset = str(getattr(source, "dataset", name))
         resolution_m = _resolution_for_ign_geoplateforme(source_cfg)
         file_format = _file_format_for_ign_geoplateforme(source_cfg)
         department_codes = _department_codes_for_french_dem_source(source_cfg)
@@ -165,8 +166,7 @@ class DemVariable(SourceTable):
 
 
 def _file_format_for_ign_geoplateforme(source_cfg: Any) -> str:
-    dataset = str(getattr(source_cfg, "dataset", "bd-alti") or "bd-alti")
-    if dataset == "rge-alti":
+    if source_cfg.source == "rgealti":
         # Fetched by extent from WMS-Raster: no archive, no department.
         return "GEOTIFF"
     return str(getattr(source_cfg, "file_format", "ASC") or "ASC").upper()
@@ -187,16 +187,10 @@ def _department_codes_for_french_dem_source(source_cfg: Any) -> list[str] | None
 
 
 def _resolution_for_ign_geoplateforme(source_cfg: Any) -> float:
-    resolution_m = getattr(source_cfg, "resolution_m", None)
-    if resolution_m is not None:
-        return float(resolution_m)
-    dataset = str(getattr(source_cfg, "dataset", "bd-alti") or "bd-alti")
-    if dataset == "bd-alti":
-        return 25.0
-    if dataset == "rge-alti":
-        from hydromodpy.data.variables.dem.apis.ign_dem_fr import (
-            RGE_ALTI_DEFAULT_RESOLUTION_M,
-        )
+    if source_cfg.source == "rgealti":
+        if source_cfg.resolution_m is not None:
+            return float(source_cfg.resolution_m)
+        from hydromodpy.data.variables.dem.apis.ign_dem_fr import RGE_ALTI_DEFAULT_RESOLUTION_M
 
         return RGE_ALTI_DEFAULT_RESOLUTION_M
-    raise ValueError(f"Unsupported assembled IGN DEM dataset: {dataset!r}")
+    return BD_ALTI_RESOLUTION_M

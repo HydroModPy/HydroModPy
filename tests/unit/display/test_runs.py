@@ -113,6 +113,17 @@ def test_draw_requests_names_what_it_drew_and_what_it_skipped(stored_run, tmp_pa
     assert [(item.name, item.actionable) for item in report.skipped] == [("c", False)]
 
 
+def test_draw_requests_writes_one_file_per_engine(stored_run, tmp_path):
+    requests = _requests({"variable": "head", "name": "a", "engine": ["static", "interactive"]})
+
+    report = _draw_requests(stored_run, requests, tmp_path)
+
+    assert report.rendered == ("a",)
+    assert (tmp_path / "a.png").is_file()
+    assert (tmp_path / "a.html").is_file()
+    assert sorted(p.name for p in report.written) == ["a.html", "a.png"]
+
+
 def test_draw_requests_draws_the_requests_of_its_moment(stored_run, tmp_path):
     requests = _requests(
         {"variable": "head", "name": "a"},

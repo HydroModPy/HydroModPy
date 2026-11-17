@@ -31,6 +31,7 @@ from hydromodpy.core.state.layout import (
     project_roots_under,
     sessions_dir_for,
 )
+from hydromodpy.core.summary import summary
 from hydromodpy.results.catalog.constants import metric_sense
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
 from hydromodpy.results.session.descriptor import list_session_dirs
@@ -50,6 +51,9 @@ logger = get_logger(__name__)
 
 CASE_KINDS: tuple[str, ...] = ("run", "session")
 """Kinds of result directory that stand for a case; a kept trial is not one."""
+
+SHOWN_RUNS = 10
+"""How many runs the summary of ``project.runs`` names before it counts the rest."""
 
 
 class ProjectDataAccessor:
@@ -112,6 +116,19 @@ class ProjectRunsAccessor:
         if label is not None:
             frame = frame[frame["label"] == label]
         return RunSet([str(sid) for sid in frame["sim_id"]], store)
+
+    def __repr__(self) -> str:
+        """Name the completed runs, newest first, with their label and NSE, then how to read them."""
+        frame = _case_rows(self._project.store)
+        frame = frame[(frame["kind"] == "run") & (frame["status"] == "completed")]
+        rows: builtins.list[tuple[str, object]] = []
+        for _, row in frame.head(SHOWN_RUNS).iterrows():
+            score = "" if pd.isna(row["nse"]) else f", NSE {row['nse']:.3f}"
+            rows.append((Path(row["rel_dir"]).name, f"{row['label'] or 'no label'}{score}"))
+        if len(frame) > SHOWN_RUNS:
+            rows.append(("...", f"and {len(frame) - SHOWN_RUNS} more"))
+        rows.append(("project.runs()", "the set of them; .best('nse'), .latest(), .list()"))
+        return summary(f"Runs of {self._project.root.name}: {len(frame)} completed", rows)
 
     def list(self) -> pd.DataFrame:
         store = self._project._store

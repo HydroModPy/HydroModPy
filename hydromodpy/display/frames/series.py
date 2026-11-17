@@ -281,6 +281,11 @@ def data(subject: Run | Session, panel: PanelRequest) -> SeriesData:
             keys.append((name, station))
     table = pd.concat(frames, ignore_index=True)
     table = table[[c for c in SERIES_COLUMNS if c in table.columns]]
+    if table["time"].nunique() < 2:
+        raise FigureNotApplicable(
+            "A series needs two periods and this one has one: the run is steady, or the "
+            "window holds one period. A map shows a steady run."
+        )
     log = (
         panel.scale == "log"
         if against or panel.cumulative

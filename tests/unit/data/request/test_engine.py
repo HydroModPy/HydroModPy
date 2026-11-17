@@ -487,7 +487,7 @@ def test_failed_source_leaves_no_file(
 
 
 def test_missing_mask_writes_nothing(tmp_path: Path):
-    request = DataRequest.for_variable("dem", mask=tmp_path / "absent.gpkg")
+    request = DataRequest.for_variable("dem", source="bdalti", mask=tmp_path / "absent.gpkg")
 
     with pytest.raises(JobInputNotFoundError, match="absent.gpkg"):
         run_request(request, tmp_path / "out")

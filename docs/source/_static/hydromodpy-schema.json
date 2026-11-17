@@ -103,6 +103,151 @@
         }
       }
     },
+    "BdAltiDemSource": {
+      "additionalProperties": false,
+      "description": "IGN BD ALTI at 25 m, assembled from the department archives of the Geoplateforme.",
+      "properties": {
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are not told apart, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
+          "title": "Extent",
+          "x-hmp-profile": "dev"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Download this source again instead of reading the cache.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "bdalti",
+          "default": "bdalti",
+          "description": "Discriminator tag selecting the IGN BD ALTI 25 m provider.",
+          "examples": [
+            "bdalti"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "departments": {
+          "description": "Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Departments",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "country": {
+          "default": "FR",
+          "description": "Country code used for administrative DEM selectors.",
+          "examples": [
+            "FR"
+          ],
+          "title": "Country",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "regions": {
+          "description": "Optional French administrative regions used to infer department downloads.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Regions",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "file_format": {
+          "default": "ASC",
+          "description": "Format of the archive requested from the IGN Geoplateforme, such as 'ASC'.",
+          "examples": [
+            "ASC"
+          ],
+          "title": "File Format",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "crs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional CRS filter forwarded to Geoplateforme discovery.",
+          "title": "Crs",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "BdAltiDemSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^departments__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^departments__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^regions__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^regions__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "BdtopoCrossingsSource": {
       "additionalProperties": false,
       "description": "Roads and railways of the IGN BD TOPO, from the Geoplateforme WFS.\n\nA road segment flagged above the ground is a ``bridge`` and one flagged\nbelow it is ``other`` (a tunnel); ferries and stairs are left out.",
@@ -4972,16 +5117,17 @@
     },
     "DemConfig": {
       "additionalProperties": false,
-      "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"bd-alti\"\n    resolution_m = 25.0\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"rge-alti\"\n    resolution_m = 5.0\n\n    [[data.dem.sources]]\n    source = \"file\"\n    path = \"data/my_dem.tif\"",
+      "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"bdalti\"\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"rgealti\"\n    resolution_m = 5.0\n\n    [[data.dem.sources]]\n    source = \"file\"\n    path = \"data/my_dem.tif\"",
       "properties": {
         "sources": {
           "description": "At least one DEM data source.",
           "items": {
-            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'file' for a user file (TIF/ASC/NC), 'url' for a remote file, and 'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval.",
+            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'file' for a user file (TIF/ASC/NC), 'url' for a remote file, 'bdalti' for the IGN BD ALTI at 25 m and 'rgealti' for the IGN RGE ALTI at 1 m or 5 m.",
             "discriminator": {
               "mapping": {
+                "bdalti": "#/$defs/BdAltiDemSource",
                 "file": "#/$defs/FileDemSource",
-                "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource",
+                "rgealti": "#/$defs/RgeAltiDemSource",
                 "url": "#/$defs/UrlDemSource"
               },
               "propertyName": "source"
@@ -4994,7 +5140,10 @@
                 "$ref": "#/$defs/UrlDemSource"
               },
               {
-                "$ref": "#/$defs/IgnGeoplateformeDemSource"
+                "$ref": "#/$defs/BdAltiDemSource"
+              },
+              {
+                "$ref": "#/$defs/RgeAltiDemSource"
               }
             ]
           },
@@ -5014,11 +5163,12 @@
         "^sources__append$": {
           "type": "array",
           "items": {
-            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'file' for a user file (TIF/ASC/NC), 'url' for a remote file, and 'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval.",
+            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'file' for a user file (TIF/ASC/NC), 'url' for a remote file, 'bdalti' for the IGN BD ALTI at 25 m and 'rgealti' for the IGN RGE ALTI at 1 m or 5 m.",
             "discriminator": {
               "mapping": {
+                "bdalti": "#/$defs/BdAltiDemSource",
                 "file": "#/$defs/FileDemSource",
-                "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource",
+                "rgealti": "#/$defs/RgeAltiDemSource",
                 "url": "#/$defs/UrlDemSource"
               },
               "propertyName": "source"
@@ -5031,7 +5181,10 @@
                 "$ref": "#/$defs/UrlDemSource"
               },
               {
-                "$ref": "#/$defs/IgnGeoplateformeDemSource"
+                "$ref": "#/$defs/BdAltiDemSource"
+              },
+              {
+                "$ref": "#/$defs/RgeAltiDemSource"
               }
             ]
           }
@@ -5039,11 +5192,12 @@
         "^sources__merge$": {
           "type": "array",
           "items": {
-            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'file' for a user file (TIF/ASC/NC), 'url' for a remote file, and 'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval.",
+            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'file' for a user file (TIF/ASC/NC), 'url' for a remote file, 'bdalti' for the IGN BD ALTI at 25 m and 'rgealti' for the IGN RGE ALTI at 1 m or 5 m.",
             "discriminator": {
               "mapping": {
+                "bdalti": "#/$defs/BdAltiDemSource",
                 "file": "#/$defs/FileDemSource",
-                "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource",
+                "rgealti": "#/$defs/RgeAltiDemSource",
                 "url": "#/$defs/UrlDemSource"
               },
               "propertyName": "source"
@@ -5056,7 +5210,10 @@
                 "$ref": "#/$defs/UrlDemSource"
               },
               {
-                "$ref": "#/$defs/IgnGeoplateformeDemSource"
+                "$ref": "#/$defs/BdAltiDemSource"
+              },
+              {
+                "$ref": "#/$defs/RgeAltiDemSource"
               }
             ]
           }
@@ -14208,179 +14365,6 @@
         }
       }
     },
-    "IgnGeoplateformeDemSource": {
-      "additionalProperties": false,
-      "description": "Recommended IGN DEM source: BD ALTI from archives, RGE ALTI from WMS-Raster.",
-      "properties": {
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
-          "site_scoped": true,
-          "title": "Mask Path",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are not told apart, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
-          "title": "Extent",
-          "x-hmp-profile": "dev"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Download this source again instead of reading the cache.",
-          "examples": [
-            false
-          ],
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "departments": {
-          "description": "Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Departments",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "country": {
-          "default": "FR",
-          "description": "Country code used for administrative DEM selectors.",
-          "examples": [
-            "FR"
-          ],
-          "title": "Country",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "regions": {
-          "description": "Optional French administrative regions used to infer department downloads.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Regions",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "source": {
-          "const": "ign_geoplateforme_dem",
-          "default": "ign_geoplateforme_dem",
-          "description": "Discriminator tag selecting the IGN Geoplateforme DEM provider.",
-          "examples": [
-            "ign_geoplateforme_dem"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "dataset": {
-          "default": "bd-alti",
-          "description": "IGN DEM product assembled by the data manager. 'bd-alti' is the 25 m BD ALTI built from the department archives. 'rge-alti' is the RGE ALTI built from Geoplateforme WMS-Raster tiles, 5 m by default, 1 m allowed.",
-          "enum": [
-            "bd-alti",
-            "rge-alti"
-          ],
-          "examples": [
-            "bd-alti"
-          ],
-          "title": "Dataset",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "resolution_m": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "DEM pixel size in metres, the size a provider serves. It comes first of three: geographic.catchment.dem_resolution aggregates this pixel, and mesh.cell_size defaults to the result. 'bd-alti' accepts 25 only and defaults to it. 'rge-alti' accepts 1 or 5 and defaults to 5: the 1 m grid is native and, inland, a 5 m request returns its centre pixels unchanged, while the server resamples any other size with an undocumented kernel. A request above 150 million pixels is refused (a 1 m box is limited to about 12 km a side), so 1 m cannot bootstrap a project from its outlet: declare the DEM as a [[data.dem.sources]] row with source = \"file\", or use 5 m.",
-          "title": "Resolution M",
-          "x-hmp-profile": "user"
-        },
-        "file_format": {
-          "default": "ASC",
-          "description": "Format of the archive requested from the IGN Geoplateforme, such as 'ASC'. Not used by 'rge-alti', which is a GeoTIFF.",
-          "examples": [
-            "ASC"
-          ],
-          "title": "File Format",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "crs": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional CRS filter forwarded to Geoplateforme discovery. Not used by 'rge-alti', which is requested in EPSG:2154.",
-          "title": "Crs",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "IgnGeoplateformeDemSource",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        },
-        "^departments__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^departments__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^regions__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^regions__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
     "IntermittencyConfig": {
       "additionalProperties": false,
       "description": "Top-level intermittency configuration.\n\nThe section groups flow-state observation sources and an optional date\nwindow. Loaded data can be used to compare simulated drying or active\nstream behavior against observed intermittency states.",
@@ -22308,6 +22292,90 @@
         }
       },
       "title": "ResultsConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "RgeAltiDemSource": {
+      "additionalProperties": false,
+      "description": "IGN RGE ALTI at 1 m or 5 m, fetched by extent from the Geoplateforme WMS-Raster.",
+      "properties": {
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are not told apart, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
+          "title": "Extent",
+          "x-hmp-profile": "dev"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Download this source again instead of reading the cache.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "rgealti",
+          "default": "rgealti",
+          "description": "Discriminator tag selecting the IGN RGE ALTI provider.",
+          "examples": [
+            "rgealti"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "resolution_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "DEM pixel size in metres, 1 or 5, 5 when unset, the size the WMS-Raster serves. It comes first of three: geographic.catchment.dem_resolution aggregates this pixel, and mesh.cell_size defaults to the result. The 1 m grid is native and, inland, a 5 m request returns its centre pixels unchanged, while the server resamples any other size with an undocumented kernel. A request above 150 million pixels is refused (a 1 m box is limited to about 12 km a side), so 1 m cannot bootstrap a project from its outlet: declare the DEM as a [[data.dem.sources]] row with source = \"file\", or use 5 m.",
+          "title": "Resolution M",
+          "unit": "m",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "RgeAltiDemSource",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {

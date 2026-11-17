@@ -590,6 +590,33 @@ def test_replay_seal_classes_the_values(
     assert advanced.step_index == 14
 
 
+def test_seal_holds_a_failed_export_for_the_pipeline(tmp_path: Path, monkeypatch) -> None:
+    error = ExportError("run probe_v2 is sealed; write the exports again")
+    store = SimpleNamespace(facts=SimpleNamespace(attempt=1, attempt_id="a"))
+    monkeypatch.setattr(
+        export_module, "read_outcome", lambda run_dir: SimpleNamespace(attempt=1, attempt_id="a")
+    )
+    monkeypatch.setattr(export_module, "run_is_persisted", lambda ctx: True)
+    monkeypatch.setattr(export_module, "run_store", lambda ctx: _store_context(store))
+    monkeypatch.setattr(
+        export_module,
+        "_seal_replay",
+        lambda *a, **k: SimpleNamespace(run=SimpleNamespace(name="probe_v2")),
+    )
+
+    def failing(ctx):
+        raise error
+
+    monkeypatch.setattr(export_module, "step_after_seal", failing)
+    state = _seal_ctx(tmp_path, strict=None, replay_of=tmp_path / "runs" / "probe")
+
+    advanced = export_module.SealStep().run(state)
+
+    assert advanced.step_index == 14
+    assert advanced.get("failed_after_seal") is error
+    assert "failed_after_seal" in export_module.SealStep.writes
+
+
 def test_source_kind_of_a_copy_and_of_a_run(
     tmp_path: Path,
 ) -> None:

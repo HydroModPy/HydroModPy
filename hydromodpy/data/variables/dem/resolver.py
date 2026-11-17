@@ -3,13 +3,13 @@
 The geographic delineation pipeline needs a concrete DEM file path before any
 data variable runs. A user declares the DEM under ``[[data.dem.sources]]``
 (with source = "file", source = "url", or an API provider such as
-"ign_geoplateforme_dem").
+"bdalti" or "rgealti").
 
 Resolution order:
 - The first source in ``[[data.dem.sources]]`` that yields a valid DEM file wins.
 - A ``file`` source resolves ``path`` against the project root.
 - A ``url`` source downloads and caches the remote raster.
-- An API source (e.g. ``ign_geoplateforme_dem``) uses an outlet-buffer bootstrap
+- An API source (e.g. ``bdalti``) uses an outlet-buffer bootstrap
   bounding box (60 km wide around the outlet).
 """
 
@@ -143,11 +143,7 @@ def _resolve_registered_source(
 
     selectors = getattr(source, "selectors", ())
     extent: Extent | None = None
-    if (
-        "extent" in selectors
-        or getattr(source, "requires_extent", False)
-        or source_kind == "ign_geoplateforme_dem"
-    ):
+    if "extent" in selectors or getattr(source, "requires_extent", False):
         geo_cfg = (
             getattr(cfg, "geographic", None)
             if not isinstance(cfg, Mapping)
@@ -179,19 +175,14 @@ def _resolve_registered_source(
             float(x_out) + _BOOTSTRAP_BUFFER_M,
             float(y_out) + _BOOTSTRAP_BUFFER_M,
         )
-        dataset = (
-            getattr(source_cfg, "dataset", "bd-alti")
-            if not isinstance(source_cfg, Mapping)
-            else source_cfg.get("dataset", "bd-alti")
-        )
         resolution_m = (
             getattr(source_cfg, "resolution_m", None)
             if not isinstance(source_cfg, Mapping)
             else source_cfg.get("resolution_m")
         )
-        if dataset == "rge-alti" and resolution_m is not None and float(resolution_m) == 1.0:
+        if source_kind == "rgealti" and resolution_m is not None and float(resolution_m) == 1.0:
             raise ValueError(
-                "[data.dem] rge-alti at resolution_m = 1 cannot bootstrap the project: the "
+                "[data.dem] rgealti at resolution_m = 1 cannot bootstrap the project: the "
                 f"{2 * _BOOTSTRAP_BUFFER_M / 1000:.0f} km box around the outlet would need "
                 "billions of pixels. The 1 m grid is for an explicit extent (the "
                 "fetch_rge_alti helper or `hmp data get`). Use resolution_m = 5, or give "

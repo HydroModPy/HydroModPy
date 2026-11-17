@@ -272,6 +272,13 @@ old_value = "custom"
 new_value = "file"
 since = "2.0.0"
 
+[[migration]]
+document = "config"
+old = "data.dem.sources[*].dataset"
+instead = "The IGN DEM is two sources now. In a row of data.dem.sources, in place of source = \"ign_geoplateforme_dem\" and dataset, write source = \"bdalti\" for the 25 m BD ALTI, or source = \"rgealti\" with resolution_m = 5 or 1 for the RGE ALTI. `hmp doctor --fix-config` rewrites it."
+since = "2.0.0"
+rule = "split_the_ign_dem_source"
+
 # The [transport] tables of the pre-release grammar sat one level deeper: the
 # parameters of each transport rise under [transport.<name>], the registry name
 # of that solver (E34), and the emptied parent table goes. Four moves, same
@@ -1122,3 +1129,17 @@ since = "2.0.0"
 versions = ">=2.0.0a1,<=2.0.0rc1"
 quantities = ["fields@network_agreement", "fields@downslope_distance"]
 text = "The fields network_agreement and downslope_distance of a run compared the simulated network with the complete map, whatever map the calibration scored. They now read the map in the cost of the sealed output, the permanent one under map.calibrate_on = \"permanent\". On a run that sealed several network outputs they read the output and the window of the phase that promoted it, where they read the first output. On a 64.6 km2 catchment calibrated on the permanent map, the cells mapped only go from 966 to 128, the count of the best trial. No sealed number moves, the two fields are rebuilt when read."
+
+[[recipe]]
+id = "geotiff_resolution_in_the_output_crs"
+since = "2.0.0"
+effect = "layout"
+quantities = []
+text = "A GeoTIFF of a field exported into another CRS reads resolution in the units of that CRS, as the reference says. The mesh is rasterized at its own pixel, the side of its smallest cell, then reprojected onto pixels of resolution. resolution was applied in the units of the model CRS before the reprojection, so resolution = 0.0005 with crs = \"EPSG:4326\" asked for 23 100 000 by 20 850 000 pixels on a 120 km2 model and the export failed. An export in the model CRS does not change. No value of a run changes."
+
+[[recipe]]
+id = "figures_after_a_failed_export"
+since = "2.0.0"
+effect = "layout"
+quantities = []
+text = "An export that fails after the seal no longer stops the figures: they are drawn, then the run exits with the export error. A figure with engine = [\"static\", \"interactive\"] writes its PNG and its HTML page during a run, where it wrote the PNG alone. A series of one period, on a steady run or in a window of one month, is skipped with its reason, where it drew an empty panel. hmp show <run> --figure <name> --time <date> draws that date and records it in figures/index.json, where it drew the default instant. No value of a run changes."

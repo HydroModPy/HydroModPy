@@ -33,6 +33,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A run written by an earlier version keeps its label. A [[bug]] row of hydromodpy/schema/changes.toml labels exploratory only the runs whose quantities it names.
 - `[[export]]`, `[[sites.export]]` and `[sites.summary]` name what they read with `variable`, the key `[[display.figure]]` writes, one name or a list. A file that writes `variables` still loads with a warning, and `hmp doctor --fix-config` rewrites it. `run.export` and `hydromodpy.export` take `variable=`.
 - A second run of one name is `<name>_v2`, not `<name>.v2`. A folder `<name>.vN` of an earlier build still opens under its name. `[simulation] name` cannot end in `_v<N>`, and a file `calib_v2.toml` names its run `calib-v2`.
+- The IGN DEM is two sources. `source = "bdalti"` fetches the 25 m BD ALTI and `source = "rgealti"` the RGE ALTI at 5 m, or 1 m with `resolution_m = 1`. A file that writes `source = "ign_geoplateforme_dem"` with `dataset` is refused, and `hmp doctor --fix-config` rewrites it.
 
 ### Added
 
@@ -904,6 +905,13 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Fixed
 
+- A GeoTIFF exported into another CRS reads `resolution` in the units of that CRS. `resolution = 0.0005` with `crs = "EPSG:4326"` asked for 23 million pixels a side and the export failed.
+- An export that fails after the seal no longer stops the figures. They are drawn, then the run exits with the export error.
+- `engine = ["static", "interactive"]` writes the PNG and the HTML page during a run, where it wrote the PNG alone. A series of one period is skipped with its reason, where it drew an empty panel, and `hmp show <run> --figure <name> --time <date>` draws that date.
+- `hmp run --dry-run` of a calibration file checks it as `hmp calibrate --dry-run` does, where it failed with HMPY.E600. `hmp calibrate --dry-run --overlay` checks the whole changed document, so a parameter the overlay calibrates is found.
+- A run name that matches several versions says to name one by its directory, `runs/<name>`.
+- `hmp doctor` warns on an index of another schema and on runs sealed by a version it does not read, where it stopped with an error.
+- `session.trials` has one column per searched parameter, and `project.runs` prints the completed runs with their label and NSE.
 - HydroModPy imports again on Python 3.11. Five frozen dataclasses took a read-only mapping as their default, which Python 3.11 refuses at import, so every `hmp` command stopped there.
 - Two workers that start one fresh case at the same instant no longer write two folders. The second could find no folder, then see the one the first had just made, and take `<case>_v2`. It is now refused as claimed.
 - `Run completed: <run> [id] <time>` counts the time up to the line, the exports and the figures included. It gave the time up to the seal, so a promoted run that took its solve from its trial read 2 s under a promotion of 27 s. `hmp show` still gives the time up to the seal.

@@ -10,9 +10,10 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from hydromodpy.data.variables.dem.config import (
+    BdAltiDemSource,
     DemSourceConfig,
     FileDemSource,
-    IgnGeoplateformeDemSource,
+    RgeAltiDemSource,
 )
 from hydromodpy.data.variables.geology.config import (
     BrgmGeology1mSource,
@@ -28,15 +29,15 @@ PICKED = [
     ),
     pytest.param(
         DemSourceConfig,
-        {"source": "ign_geoplateforme_dem", "dataset": "bd-alti", "resolution_m": 25.0},
-        IgnGeoplateformeDemSource,
-        id="dem bd-alti",
+        {"source": "bdalti"},
+        BdAltiDemSource,
+        id="dem bdalti",
     ),
     pytest.param(
         DemSourceConfig,
-        {"source": "ign_geoplateforme_dem", "dataset": "rge-alti", "resolution_m": 5.0},
-        IgnGeoplateformeDemSource,
-        id="dem rge-alti",
+        {"source": "rgealti", "resolution_m": 5.0},
+        RgeAltiDemSource,
+        id="dem rgealti",
     ),
     pytest.param(GeologySourceConfig, {"source": "brgm_1m"}, BrgmGeology1mSource, id="geology 1m"),
     pytest.param(
@@ -51,8 +52,12 @@ REJECTED = [
     ),
     pytest.param(
         DemSourceConfig,
-        {"source": "ign_geoplateforme_dem", "dataset": "rge-alti", "resolution_m": 25.0},
-        id="rge-alti at 25 m",
+        {"source": "rgealti", "resolution_m": 25.0},
+        id="rgealti at 25 m",
+    ),
+    pytest.param(DemSourceConfig, {"source": "bdalti", "resolution_m": 25.0}, id="bdalti pixel"),
+    pytest.param(
+        DemSourceConfig, {"source": "rgealti", "departments": ["35"]}, id="rgealti departments"
     ),
 ]
 

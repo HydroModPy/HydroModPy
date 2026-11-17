@@ -141,8 +141,8 @@ exports and the views are written after the seal, from the sealed run, and carry
 day in their footer, or "unlabelled" for a directory without a seal. ``figures/``, ``exports/``
 and ``report/`` are not in the inventory of ``manifest.json`` (``artifacts``), and the STAC view
 has no figure asset. A figure or an export that fails after the seal leaves the run sealed and
-completed. The command then exits with an error that names ``hmp show <run> --figure <figure>`` or
-``hmp export <run>``.
+completed. The figures are drawn even when an export failed. The command then exits with an error
+that names ``hmp show <run> --figure <figure>`` or ``hmp export <run>``.
 
 ``report/`` holds what ``hmp show RUN --report`` writes from a sealed run. Its pages and its
 ``report.json`` are described in :doc:`how-to/add-a-block-html-report`.

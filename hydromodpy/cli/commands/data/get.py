@@ -53,7 +53,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog=(
             "Examples:\n"
-            "  hmp data get dem --to data/dem --bbox 340000,6780000,350000,6790000 --crs EPSG:2154\n"
+            "  hmp data get dem --source bdalti --to data/dem "
+            "--bbox 340000,6780000,350000,6790000 --crs EPSG:2154\n"
             "  hmp data get precipitation --to data/precipitation --mask catchment.gpkg "
             "--start 2015-01-01 --end 2020-12-31 --source sim2"
         ),
