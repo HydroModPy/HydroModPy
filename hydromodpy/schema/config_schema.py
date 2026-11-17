@@ -355,12 +355,17 @@ _DELETE_SUFFIX = "__delete"
 _ANY_KEY = ".+"
 
 _BASE_CONFIG_SCHEMA: dict[str, Any] = {
-    "type": "string",
+    "anyOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": True},
+    ],
     "description": (
-        "Path of a TOML file this file extends, relative to this file. The keys written "
-        "here replace the ones the base file sets. Lists replace the base list: the suffix "
-        "__append extends it, __merge merges each table with the inherited one of the same "
-        "id, name or source, and a key is removed with <key>__delete = true."
+        "Path of a TOML file this file extends, or a list of them, relative to this file. "
+        "The keys written here replace the ones the base files set. Two base files that do "
+        "not inherit each other must agree on a key, or this file writes it. Lists replace "
+        "the base list: the suffix __append extends it, __merge merges each table with the "
+        "inherited one of the same id, name or source, and a key is removed with "
+        "<key>__delete = true."
     ),
 }
 

@@ -1,9 +1,13 @@
 """TOML loading with ``base_config`` inheritance, and the base of relative paths.
 
-A file inherits another with ``base_config = "project.toml"``; the chain is
-read root first and merged by :mod:`hydromodpy.core.toml_io.merge`.
-:func:`read_toml_chain` returns the files of the chain with the keys each one
-writes itself, :func:`load_toml_with_base_config` the merged document.
+A file inherits another with ``base_config = "project.toml"``, or several with
+``base_config = ["model.toml", "site.toml"]``, and each of them may inherit
+others. :func:`read_toml_chain` reads that graph, each file once, and returns its
+files with the keys each one writes itself, every file after the files it
+inherits. :func:`merge_toml_chain` merges them by the rule of
+:func:`hydromodpy.core.toml_io.merge.merge_graph`: the most derived writer of a
+key wins, and two writers that do not inherit each other must agree.
+:func:`load_toml_with_base_config` returns the merged document.
 :func:`merge_toml_layers` adds the overlays, ``--set`` and ``HMP_SET_*`` on top.
 
 Each file reads under the key names of today before the merge, so an old name in
@@ -14,7 +18,8 @@ written. A warning names the file that holds the old key, and nothing here write
 
 Every relative path a project file declares is read from one base, the
 project root: the folder that holds ``project.toml`` above the file, or,
-outside a project, the folder of the root file of the chain.
+outside a project, the folder of the root file of the chain, the one reached by
+following the first base of each file.
 :func:`config_base_dir` returns it. A file two folders down (``plan/<hash>/
 <case>.toml``, ``runs/<case>/config.toml``) therefore names the same
 relative paths as ``project.toml`` does.
@@ -33,7 +38,7 @@ from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.result_dirs import resolve_project_root
-from hydromodpy.core.toml_io.merge import merge_toml_payloads
+from hydromodpy.core.toml_io.merge import merge_graph, merge_toml_payloads
 from hydromodpy.core.toml_io.overrides import ENV_SOURCE, SET_SOURCE
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path
 
@@ -144,7 +149,7 @@ BASE_CONFIG_KEY = "base_config"
 
 @dataclass(frozen=True, slots=True)
 class ChainFile:
-    """One file of a ``base_config`` chain and the keys it writes itself."""
+    """One file of a ``base_config`` graph, the keys it writes itself and the files it inherits."""
 
     path: Path
     own: dict[str, Any]
@@ -152,53 +157,96 @@ class ChainFile:
 
     Under the key names of today, unless the chain was read with ``root=None``.
     """
+    bases: tuple[Path, ...]
+    """The files its ``base_config`` names, in the order it writes them."""
 
 
-def _base_config_of(path: Path, raw: Mapping[str, Any]) -> Path | None:
-    """Return the file *raw* inherits, resolved from the folder of *path*."""
-    name = raw.get(BASE_CONFIG_KEY)
-    if name in (None, ""):
-        return None
-    if not isinstance(name, str):
-        raise TypeError("base_config must be a TOML string path when provided")
-    base_path = Path(name).expanduser()
-    if not is_declared_absolute_path(base_path):
-        base_path = (path.parent / base_path).resolve()
-    return base_path
+def base_configs_of(path: Path, raw: Mapping[str, Any]) -> tuple[Path, ...]:
+    """Return the files *raw* inherits, each resolved from the folder of *path*.
+
+    ``base_config`` is one path or a list of paths. An empty string or an empty
+    list names none.
+    """
+    named = raw.get(BASE_CONFIG_KEY)
+    if named in (None, ""):
+        return ()
+    items = named if isinstance(named, list) else [named]
+    if not all(isinstance(item, str) and item for item in items):
+        raise TypeError("base_config must be a path or a list of paths, each a TOML string")
+    bases: list[Path] = []
+    for item in items:
+        base_path = Path(item).expanduser()
+        if not is_declared_absolute_path(base_path):
+            base_path = path.parent / base_path
+        base_path = base_path.resolve()
+        if base_path in bases:
+            raise ValueError(f"base_config of {path} names {item!r} twice")
+        bases.append(base_path)
+    return tuple(bases)
 
 
 def read_toml_chain(toml_path: str | Path, *, root: RootConfig | None) -> tuple[ChainFile, ...]:
-    """Return the files of the ``base_config`` chain of *toml_path*, root first.
+    """Return the files of the ``base_config`` graph of *toml_path*, each file once.
 
-    The last element is *toml_path* itself. A cycle raises ``ValueError``. Each file
-    is migrated on its own and warns under its own name, or is left as it is written
+    Every file comes after the files it inherits, the bases of a file in the
+    order it writes them, so the first element is the root reached by following
+    the first base of each file and the last is *toml_path* itself. A file two
+    others inherit is read once. A cycle raises ``ValueError``. Each file is
+    migrated on its own and warns under its own name, or is left as it is written
     with ``root=None``.
     """
-    files: list[ChainFile] = []
-    seen: list[Path] = []
-    current: Path | None = Path(toml_path).resolve()
-    while current is not None:
-        if current in seen:
-            cycle = " -> ".join(str(path) for path in (*seen, current))
+    files: dict[Path, ChainFile] = {}
+
+    def visit(path: Path, stack: tuple[Path, ...]) -> None:
+        if path in stack:
+            cycle = " -> ".join(str(item) for item in (*stack, path))
             raise ValueError(f"Detected circular base_config chain: {cycle}")
-        seen.append(current)
-        raw = read_toml(current)
+        if path in files:
+            return
+        raw = read_toml(path)
+        bases = base_configs_of(path, raw)
+        for base in bases:
+            visit(base, (*stack, path))
         own = dict(raw)
         own.pop(BASE_CONFIG_KEY, None)
-        files.append(ChainFile(path=current, own=own))
-        current = _base_config_of(current, raw)
-    files.reverse()
+        files[path] = ChainFile(path=path, own=own, bases=bases)
+
+    visit(Path(toml_path).resolve(), ())
+    chain = tuple(files.values())
     if root is not None:
-        root.migrate_layers([(item.path, item.own) for item in files])
-    return tuple(files)
+        root.migrate_layers([(item.path, item.own) for item in chain])
+    return chain
+
+
+def _label_from(files: Sequence[ChainFile]) -> Callable[[Any], str]:
+    """Name a file of *files* by its path from the folder of the last one, the file read."""
+    folder = files[-1].path.parent if files else Path.cwd()
+
+    def label(path: Any) -> str:
+        try:
+            return Path(path).relative_to(folder).as_posix()
+        except ValueError:
+            return str(path)
+
+    return label
 
 
 def _merged_files(files: Sequence[ChainFile]) -> dict[str, Any]:
-    """Merge the documents of *files*, root first, and strip the empty placeholders."""
-    merged: dict[str, Any] = {}
-    for item in files:
-        merged = merge_toml_payloads(merged, item.own)
+    """Merge the documents of *files*, and strip the empty placeholders."""
+    nodes = [(item.path, item.own, item.bases) for item in files]
+    merged, _ = merge_graph(nodes, label=_label_from(files))
     return _strip_empty_strings(merged)
+
+
+def origins_of(files: Sequence[ChainFile]) -> dict[str, tuple[Path, ...]]:
+    """Return, for each value the files set, the file that wrote it, then those that added to it.
+
+    The keys are dotted paths of the merged document, a table excluded. A value
+    the merge leaves empty, such as ``""``, is still listed.
+    """
+    nodes = [(item.path, item.own, item.bases) for item in files]
+    _, origins = merge_graph(nodes, label=_label_from(files))
+    return origins
 
 
 def merge_toml_chain(
@@ -227,9 +275,8 @@ def merge_toml_layers(
     :func:`read_toml_chain` reads them with ``root=None``. The two payloads are
     migrated in place.
     """
-    layers: list[tuple[Path | str, dict[str, Any]]] = [
-        (item.path, item.own) for chain in chains for item in chain
-    ]
+    files = _with_overlays(chains)
+    layers: list[tuple[Path | str, dict[str, Any]]] = [(item.path, item.own) for item in files]
     if cli_overrides:
         layers.append((SET_SOURCE, cli_overrides))
     if env_overrides:
@@ -238,14 +285,38 @@ def merge_toml_layers(
     if root is not None:
         root.migrate_layers(layers)
     merged = merge_toml_payloads(
-        _merged_files(chains[0]),
-        overlays=[_strip_empty_strings(item.own) for chain in chains[1:] for item in chain],
+        _merged_files(files),
         cli_overrides=cli_overrides,
         env_overrides=env_overrides,
     )
     if root is not None:
         root.migrate_merged(merged, layers)
     return merged
+
+
+def _with_overlays(chains: Sequence[Sequence[ChainFile]]) -> list[ChainFile]:
+    """Return one graph: the file, then each overlay as a file that inherits what came before.
+
+    A file of an overlay graph that the graph already holds stays as it is. Each
+    other file of the overlay that inherits none of the new files inherits the
+    top of what came before, the file or the previous overlay, so an overlay and
+    its own bases override the file as they always did. The empty placeholders of
+    an overlay are dropped before the merge, so they never remove a value.
+    """
+    files: dict[Path, ChainFile] = {item.path: item for item in chains[0]}
+    top = chains[0][-1].path
+    for chain in chains[1:]:
+        new = [item for item in chain if item.path not in files]
+        new_paths = {item.path for item in new}
+        for item in new:
+            bases = item.bases
+            if not any(base in new_paths for base in bases):
+                bases = (*bases, top)
+            files[item.path] = ChainFile(
+                path=item.path, own=_strip_empty_strings(item.own), bases=bases
+            )
+        top = chain[-1].path
+    return list(files.values())
 
 
 def load_toml_with_base_config(toml_path: str | Path, *, root: RootConfig | None) -> dict[str, Any]:

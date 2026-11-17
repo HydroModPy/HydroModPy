@@ -125,7 +125,7 @@ class PriorState:
     lake_stages: Mapping[str, float]
     path: str
     sim_id: str | None = None
-    sfr_stages: Mapping[int, float] = MappingProxyType({})
+    sfr_stages: Mapping[int, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         head = np.array(self.head, dtype=np.float64, copy=True)
@@ -163,7 +163,7 @@ class SolvedState:
 
     head: np.ndarray
     solver: str
-    lake_stages: Mapping[str, float] = MappingProxyType({})
+    lake_stages: Mapping[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         head = np.array(self.head, dtype=np.float64, copy=True)

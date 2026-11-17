@@ -41,6 +41,7 @@ from hydromodpy.mesh import registry
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.mesh.planning.input_triangulation import domain_polygon_of, read_input_triangulation
 from hydromodpy.mesh.request import MeshRequest, RasterGridSpec
+from hydromodpy.model.domain.cell_column import CellColumn, centre_column
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.model import Geometry, Model, ModelTime, model_from_flow
@@ -433,11 +434,15 @@ class SolverInputs:
     recharge: dict[int, np.ndarray]
 
 
-def model_of(pair: MeshPair, flow: Flow) -> Model:
-    """The ``Model`` the ``prepare_solver`` step builds from ``flow`` on the cells of ``pair``."""
+def model_of(pair: MeshPair, flow: Flow, *, column: CellColumn | None = None) -> Model:
+    """The ``Model`` the ``prepare_solver`` step builds from ``flow`` on the cells of ``pair``.
+
+    ``column`` is the top and bottom of every cell, which the step builds by the
+    rule of the backend. Boussinesq reads it, the MODFLOW adapters here do not.
+    """
     return model_from_flow(
         flow,
-        geometry=Geometry(cells=pair.cell_mesh, domain=pair.domain),
+        geometry=Geometry(cells=pair.cell_mesh, domain=pair.domain, column=column),
         time=ModelTime.from_flow(flow, SimpleNamespace(window=WINDOW)),
         options=default_options(),
     )
@@ -543,7 +548,8 @@ def prepare_nwt(pair: MeshPair, flow: Flow, tmp_path: Path) -> SolverInputs:
 
 def prepare_boussinesq(pair: MeshPair, flow: Flow) -> SolverInputs:
     """The per-cell K, Sy and recharge series a Boussinesq model is built with."""
-    model = model_of(pair, flow)
+    column = centre_column(cell_mesh=pair.cell_mesh, domain=pair.domain)
+    model = model_of(pair, flow, column=column)
     mesh = resolve_runtime_solver_mesh(model)
     resolver = BoussinesqForcingResolver(mesh=mesh, inputs=model)
     series = resolver.resolve_recharge_series(NPER)

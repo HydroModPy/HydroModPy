@@ -53,12 +53,23 @@ BASE_DIGESTS = {
     "hfb": "69702d16da30ce5ef1c1a5a90c5f83ff0a3a16ed0b22ce2df8e7a99e6045b86a",
     "disv": "2b23c96d1ee9b227b1d05f7ba3e5b5a9c9fa030e98ea0f0e5f3b6ab3acad8d83",
     "mesh_npz": "f2adebae6bd2d7c65bf1befe744a54d359dbb451009e8c2789c17c415dc0a008",
-    "mesh_json": "5bf86fa5eaffbdaa6c0e54528a213180cef59a90174a330fd6bccd1c68efa5b4",
+    "mesh_json": "0915415ea009c9bf298d7dab7998fbe87e23db8008014cc03ebf4b4d315264a6",
 }
 
 
 def _sha256_of(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _sha256_of_mesh_json(path: Path) -> str:
+    """The digest of a stored ``mesh.json`` without its ``qa`` block.
+
+    The quality block holds angles and quantiles whose last bit moves with the
+    SIMD path numpy takes on the CPU, while the cells in ``mesh.npz`` do not.
+    """
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload.pop("qa", None)
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
 
 
 def _sha256_without_flopy_header(path: Path) -> str:
@@ -162,7 +173,7 @@ def test_lake_and_wall_inputs_hold_still(tmp_path: Path, monkeypatch: pytest.Mon
 
     json_matches = sorted(mesh_cache.glob("??/*/mesh.json"))
     assert json_matches, "Missing mesh.json"
-    digests["mesh_json"] = _sha256_of(json_matches[0])
+    digests["mesh_json"] = _sha256_of_mesh_json(json_matches[0])
 
     for key, expected_digest in BASE_DIGESTS.items():
         actual = digests.get(key)

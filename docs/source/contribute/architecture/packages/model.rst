@@ -61,7 +61,9 @@ A ``FieldParam`` holds the values of one parameter in SI units, one per zone, an
 profile. ``FieldParam.to_mesh_field`` weights the zone values with the zone share of each cell
 (a ``Field`` of ``field_spatial.py``) and returns a ``MeshWithValues``. ``map_flow_properties`` in
 ``property_table.py`` does this for K, Kv, Sy, Ss and the K tensor of every solver, and it refuses
-a value that is not positive.
+a value that is not positive. A parameter of kind ``raster`` holds no zone values: the build of
+the model reads its map from ``[data.property_map]`` and ``raster_cells.py`` gives each cell the
+mean of the pixels it covers.
 
 A forcing reaches a solver by two paths. A grid or a set of stations goes through
 ``discretize_fields_on_cells`` in ``forcing/cells.py``. It gives one rate per cell and per stress

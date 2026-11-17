@@ -24,9 +24,11 @@ from hydromodpy.core.config_kit.field_param.sections import (
     FieldHeterogeneousSection,
     FieldHomogeneousSection,
     FieldKind,
+    FieldRasterSection,
     FieldSection,
     FieldVerticalProfileSection,
     HeterogeneousValueSource,
+    RasterMean,
     VerticalProfileInterpolation,
     VerticalProfileMode,
     coerce_scalar_value_with_unit,
@@ -48,7 +50,7 @@ class ResolvedFieldParam(HydroModelBase):
     )
     kind: Annotated[FieldKind | None, Profile.DEV] = Field(
         default=None,
-        description="Resolved parameter kind: homogeneous or heterogeneous.",
+        description="Resolved parameter kind: homogeneous, heterogeneous or raster.",
     )
     unit: Annotated[UnitStr, Profile.DEV] = Field(
         default=None,
@@ -82,6 +84,14 @@ class ResolvedFieldParam(HydroModelBase):
         default=None,
         description="Optional helper CSV value column used before resolution.",
     )
+    map: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
+        default=None,
+        description="Resolved name of the property map for raster kind.",
+    )
+    mean: Annotated[RasterMean | None, Profile.DEV] = Field(
+        default=None,
+        description="Resolved mean of the pixels of a cell for raster kind, unset for its default.",
+    )
     vertical_profile: Annotated[FieldVerticalProfileSection | None, Profile.DEV] = Field(
         default=None,
         description="Resolved optional depth profile configuration.",
@@ -112,6 +122,11 @@ class ResolvedFieldParam(HydroModelBase):
                 self.values = None
             if self.field_spatial_id is not None:
                 self.field_spatial_id = None
+            return self
+
+        if self.kind == "raster":
+            if self.map is None:
+                raise ValueError("Raster field requires 'map'")
             return self
 
         if self.values is None:
@@ -149,6 +164,8 @@ def validate_resolved_field_param_data(
             raise KeyError("Heterogeneous field requires mapping key 'values'")
         if "field_spatial_id" not in payload:
             raise KeyError("Heterogeneous field requires key 'field_spatial_id'")
+    elif kind_key == "raster" and "map" not in payload:
+        raise KeyError("Raster field requires key 'map'")
 
     try:
         parsed = ResolvedFieldParam.model_validate(payload)
@@ -288,9 +305,11 @@ __all__ = (
     "FieldHomogeneousSection",
     "FieldKind",
     "FieldParamConfig",
+    "FieldRasterSection",
     "FieldSection",
     "FieldVerticalProfileSection",
     "HeterogeneousValueSource",
+    "RasterMean",
     "ResolvedFieldParam",
     "SUPPORTED_PARAMETER_UNITS",
     "VerticalProfileInterpolation",
@@ -330,12 +349,14 @@ class FieldParamConfig(HydroModelBase):
         A homogeneous value and each inline zone value are checked here. A value
         written ``"<number> <unit>"`` is checked in that unit. A section with no
         ``id`` and a CSV table are checked by ``FieldParam``, once the id and the
-        values are known.
+        values are known. A map is checked cell by cell once it is read.
         """
         from hydromodpy.core.units.physical_bounds import validate_physical_value
 
         field = self.field
         if field.id is None:
+            return self
+        if isinstance(field, FieldRasterSection):
             return self
         if isinstance(field, FieldHomogeneousSection):
             if field.value is not None:

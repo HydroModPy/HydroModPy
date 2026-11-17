@@ -20,3 +20,17 @@ paths = [
 regexes = [
     '''^\s*key="[a-z]+[0-9]{4}[a-z]*",?\s*$''',
 ]
+
+# A frozen run names its solution and its products by a sha256 digest, 64
+# lowercase hex characters. The exemption holds only under the two frozen
+# folders and only for that shape, so a real token there still fails.
+[[rules.allowlists]]
+description = "A sha256 digest of a frozen run is not a credential."
+condition = "AND"
+regexTarget = "secret"
+paths = [
+    '''(^|/)tests/regression/frozen_(runs|replay)/''',
+]
+regexes = [
+    '''^[0-9a-f]{64}$''',
+]

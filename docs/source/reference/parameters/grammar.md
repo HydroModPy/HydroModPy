@@ -67,15 +67,48 @@ step_value = "1 day"
 ```
 
 `base_config` is a top-level key, so it goes before the first table header. Its value is a
-path, read from the folder of the file that holds it. An absolute path works, and `~` is
-expanded. The parent can have its own `base_config`: the chain is read from the oldest
-ancestor down, and a loop stops with `Detected circular base_config chain`. Once the
-files are merged, `base_config` is gone, and the merged result is what the schema
+path, or a list of paths, each read from the folder of the file that holds it. An absolute
+path works, and `~` is expanded. The parent can have its own `base_config`: the chain is read
+from the oldest ancestor down, and a loop stops with `Detected circular base_config chain`.
+Once the files are merged, `base_config` is gone, and the merged result is what the schema
 validates.
+
+### Several bases
+
+A file can inherit several files at once, when `base_config` is a list. One site and one
+experiment then meet in a file of one line, where a chain would need a file for each pair.
+
+```{hmp-toml}
+:caption: run.toml, a site and an experiment on one model
+base_config = ["sites/nancon.toml", "experiments/steady.toml"]
+```
+
+Each base may have its own `base_config`, and a file that two bases inherit, such as a
+`model.toml` both of them name, is read once. The files make a graph, and one rule merges it
+at any depth: for each key, the most derived file that writes it wins. A file overrides
+every file it inherits, directly or not. If `experiments/steady.toml` sets
+{toml}`flow.param.K.field.value`, its value wins over the one of `model.toml`, even though
+`sites/nancon.toml` inherits `model.toml` too, because the site does not write the key
+itself.
+
+Two files that do not inherit each other must agree on each key they both write. When they
+disagree, the file is refused with both names and both values, and the order of the list never
+decides. Write the key in the file that names both bases, or keep it in one of them. The items
+two such files add with `__append` are all kept, in the order of the files, bases first. A list
+written plainly in one of them and extended with `__append` in the other gives the plain list,
+then the items.
+
+Outside a project, relative paths are read from the folder of the first root file, the one
+reached by following the first base of each file. Inside a project they are read from the
+project root, whatever the file. `hmp config resolve <file> --origin` writes each value of the
+merged file on its own line, with the file that set it and the files that added to it.
+
+### Overlays and `--set`
 
 `hmp run` and `hmp calibrate` add two more layers on top of the chain, in this order: files given with
 `--overlay`, then values given with `--set`. Environment variables named `HMP_SET_*` come
-last.
+last. An overlay is read as a file that inherits the run file, so it and its own bases override
+the run file.
 
 ```bash
 hmp run run.toml --overlay daily.toml
@@ -177,8 +210,8 @@ Two traps come from inheritance, not from the merge itself.
   inherited list is refused: `flow.param contains ids not declared in flow.param_list: Ss`.
   Write `param_list__append = ["Ss"]`. Or leave `param_list` out of every file: it is then
   taken from the tables.
-- **A table that changes shape.** `value` belongs to `kind = "homogeneous"`, and `values` to
-  `"heterogeneous"`. A child that switches the kind must remove the old key with
+- **A table that changes shape.** `value` belongs to `kind = "homogeneous"`, `values` to
+  `"heterogeneous"` and `map` to `"raster"`. A child that switches the kind must remove the old key with
   `value__delete = true`, or the file is refused with `Extra inputs are not permitted`.
 
 An empty string is not a value: a key written `""` is dropped when the file is read, as if

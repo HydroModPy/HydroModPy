@@ -157,7 +157,7 @@ The field `height_above_stream` is the height of a pixel above the first stream 
 to (HAND, {cite:p}`nobre2011hand`). The code fills the depressions of a copy of the DEM by a
 priority flood {cite:p}`barnes2014priority`, seeded on the streams and on the edge of the grid.
 Then each pixel follows the steepest descent of that copy to the first stream pixel, and takes
-its height on the raw DEM. The streams are the river network traced from the DEM with the
+its height on the raw DEM. The streams are the stream network traced from the DEM with the
 threshold of `[geographic.river_network]`. A mapped network never enters. A pixel below its
 stream gets 0, and a pixel whose path leaves the grid with no stream gets no height. On a grid
 of 464 by 420 pixels the computation takes less than a second.

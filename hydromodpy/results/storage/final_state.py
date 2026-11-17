@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 
@@ -45,8 +45,8 @@ class FinalState:
     """
 
     head: np.ndarray
-    lake_stages: Mapping[str, float] = MappingProxyType({})
-    sfr_stages: Mapping[int, float] = MappingProxyType({})
+    lake_stages: Mapping[str, float] = field(default_factory=dict)
+    sfr_stages: Mapping[int, float] = field(default_factory=dict)
     at: pd.Timestamp | None = None
 
     def __post_init__(self) -> None:

@@ -586,6 +586,7 @@ ORDER = (
     "refuse_a_recharge_the_model_would_not_read",
     "refuse_a_soil_capacity_without_the_soil",
     "refuse_layer_bases_that_do_not_match",
+    "refuse_property_maps_that_do_not_match",
     "refuse_an_angle_with_a_depth_profile",
     "refuse_a_solver_that_cannot_read_the_mesh",
     "refuse_a_cell_address_on_an_irregular_mesh",
@@ -855,6 +856,16 @@ ROWS: list[tuple[str, str, Any, str]] = [
         "[domain.layers] reads the base surfaces ['wb'], and [data.layer_base] does not declare",
     ),
     (
+        "refuse_property_maps_that_do_not_match",
+        "map not declared",
+        lambda d: _document(
+            d.plain,
+            flow=_ns(param={"K": _ns(field=_ns(kind="raster", map="k_map"))}),
+            data=_ns(property_map=_ns(sources=[_ns(name="sy_map")])),
+        ),
+        "flow.param.K reads the map(s) ['k_map'], and [data.property_map] declares ['sy_map']",
+    ),
+    (
         "refuse_layer_bases_that_do_not_match",
         "base not read",
         lambda d: _document(
@@ -1054,6 +1065,20 @@ def test_sealed_export_only_warns(
 
     assert row[3] in caplog.text
     assert "This sealed run is read as it ran." in caplog.text
+
+
+def test_a_property_map_no_parameter_reads_is_only_named(documents: SimpleNamespace) -> None:
+    rule = CROSS_RULES["refuse_property_maps_that_do_not_match"].rule
+    unread = _document(
+        documents.plain,
+        flow=_ns(param={"K": _ns(field=_ns(kind="homogeneous"))}),
+        data=_ns(property_map=_ns(sources=[_ns(name="k_map")])),
+    )
+
+    assert rule(unread, sealed=False) == [
+        "[data.property_map] declares ['k_map'], and no [flow.param.<id>.field] of kind "
+        "'raster' reads them."
+    ]
 
 
 def test_what_the_run_cannot_draw_or_export_is_named_before_the_solve(

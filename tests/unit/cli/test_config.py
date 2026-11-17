@@ -203,6 +203,40 @@ def test_resolve_names_a_broken_chain(tmp_path) -> None:
     assert "Detected circular base_config chain" in result.stderr
 
 
+def _two_bases(tmp_path, site_k: str = "") -> Path:
+    """A run that inherits a site and an experiment, both on one model."""
+    (tmp_path / "model.toml").write_text("[flow]\nK = 1.0\nSy = 0.1\n", encoding="utf-8")
+    (tmp_path / "site.toml").write_text(
+        f"base_config = 'model.toml'\n[site]\nname = 'nancon'\n{site_k}", encoding="utf-8"
+    )
+    (tmp_path / "steady.toml").write_text(
+        "base_config = 'model.toml'\n[flow]\nK = 5.0\n", encoding="utf-8"
+    )
+    run = tmp_path / "run.toml"
+    run.write_text("base_config = ['site.toml', 'steady.toml']\n", encoding="utf-8")
+    return run
+
+
+def test_resolve_names_the_file_of_each_value(tmp_path) -> None:
+    result = CliRunner().invoke(["config", "resolve", str(_two_bases(tmp_path)), "--origin"])
+
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "flow.K = 5.0  # steady.toml",
+        "flow.Sy = 0.1  # model.toml",
+        'site.name = "nancon"  # site.toml',
+    ]
+
+
+def test_resolve_refuses_two_bases_that_disagree(tmp_path) -> None:
+    run = _two_bases(tmp_path, site_k="[flow]\nK = 3.0\n")
+
+    result = CliRunner().invoke(["config", "resolve", str(run)])
+
+    assert result.exit_code == 14
+    assert "flow.K is written by site.toml (3.0) and by steady.toml (5.0)" in result.stderr
+
+
 def test_targets_show_the_value_the_project_holds_today(tmp_path, capsys) -> None:
     run_targets(write_project(tmp_path, PROJECT_TOML), format="table")
 

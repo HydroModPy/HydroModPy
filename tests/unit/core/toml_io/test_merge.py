@@ -1,10 +1,21 @@
-"""Merging TOML layers: tables merge key by key, lists replace, three suffixes adjust one key."""
+"""Merging TOML layers: tables merge key by key, lists replace, three suffixes adjust one key.
+
+A graph of files merges by one rule: the most derived writer of a key wins, and
+two writers that do not inherit each other must agree. The graph of the tables
+below is a diamond, ``R`` inheriting the site ``S`` and the experiment ``E``,
+both inheriting the model ``M``.
+"""
 
 from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.toml_io.merge import merge_toml_payloads
+from hydromodpy.core.toml_io.merge import (
+    BaseConfigConflict,
+    ancestors_of,
+    merge_graph,
+    merge_toml_payloads,
+)
 
 
 def test_append() -> None:
@@ -78,3 +89,101 @@ _REFUSED: list[tuple[str, dict, dict, str]] = [
 def test_refusals(base, over, message) -> None:
     with pytest.raises(ValueError, match=message):
         merge_toml_payloads(base, over)
+
+
+def _diamond(m: dict, s: dict, e: dict, r: dict | None = None) -> tuple[dict, dict]:
+    """Merge the model, the site, the experiment and the run that inherits both."""
+    nodes = [("M", m, ()), ("S", s, ("M",)), ("E", e, ("M",)), ("R", r or {}, ("S", "E"))]
+    return merge_graph(nodes)
+
+
+MODEL = {"flow": {"K": 1.0, "Sy": 0.1}, "figures": ["map"]}
+
+_GRAPH = [
+    # (id, site, experiment, run, merged document, origins checked)
+    ("a file overrides what it inherits", {"site": "n"}, {"flow": {"K": 5.0}}, {},
+     {"flow": {"K": 5.0, "Sy": 0.1}, "figures": ["map"], "site": "n"},
+     {"flow.K": ("E",), "flow.Sy": ("M",), "site": ("S",)}),
+    ("two branches agree", {"flow": {"K": 5.0}}, {"flow": {"K": 5.0}}, {},
+     {"flow": {"K": 5.0, "Sy": 0.1}, "figures": ["map"]}, {"flow.K": ("S", "E")}),
+    ("the run settles a disagreement", {"flow": {"K": 3.0}}, {"flow": {"K": 5.0}},
+     {"flow": {"K": 7.0}}, {"flow": {"K": 7.0, "Sy": 0.1}, "figures": ["map"]},
+     {"flow.K": ("R",)}),
+    ("appends of two branches add up", {"figures__append": ["site"]},
+     {"figures__append": ["root"]}, {},
+     {"flow": {"K": 1.0, "Sy": 0.1}, "figures": ["map", "site", "root"]},
+     {"figures": ("M", "S", "E")}),
+    ("a branch replaces, the other adds", {"figures__append": ["site"]},
+     {"figures": ["root"]}, {},
+     {"flow": {"K": 1.0, "Sy": 0.1}, "figures": ["root", "site"]}, {"figures": ("E", "S")}),
+    ("a branch removes an inherited key", {}, {"flow": {"Sy__delete": True}}, {},
+     {"flow": {"K": 1.0}, "figures": ["map"]}, {}),
+    ("a table written fresh drops what it inherits", {},
+     {"flow__delete": True, "flow": {"K": 9.0}}, {},
+     {"flow": {"K": 9.0}, "figures": ["map"]}, {"flow.K": ("E",)}),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("site", "experiment", "run", "merged", "origins"),
+    [pytest.param(*case, id=name) for name, *case in _GRAPH],
+)
+def test_the_most_derived_writer_of_a_key_wins(site, experiment, run, merged, origins) -> None:
+    document, found = _diamond(MODEL, site, experiment, run)
+
+    assert document == merged
+    assert {key: found[key] for key in origins} == origins
+
+
+_GRAPH_REFUSED = [
+    ("two values", {"flow": {"K": 3.0}}, {"flow": {"K": 5.0}},
+     r"flow.K is written by S \(3.0\) and by E \(5.0\), and neither file inherits"),
+    ("two lists", {"figures": ["a"]}, {"figures": ["b"]}, "figures is written by S"),
+    ("a value and a removal", {"flow": {"K": 3.0}}, {"flow": {"K__delete": True}},
+     r"by E \(removed\)"),
+    ("a table and a value", {"flow": {"K": {"x": 1}}}, {"flow": {"K": 2.0}},
+     r"S \(a table\) and by E \(2.0\)"),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("site", "experiment", "message"),
+    [pytest.param(*case, id=name) for name, *case in _GRAPH_REFUSED],
+)
+def test_two_branches_that_disagree_are_refused(site, experiment, message) -> None:
+    with pytest.raises(BaseConfigConflict, match=message):
+        _diamond(MODEL, site, experiment)
+
+
+def test_a_merge_directive_reads_what_its_file_inherits() -> None:
+    model = {"s": [{"name": "a", "v": 1}, {"name": "b", "v": 1}]}
+    document, _ = _diamond(model, {}, {"s__merge": [{"name": "b", "v": 2}]})
+
+    assert document == {"s": [{"name": "a", "v": 1}, {"name": "b", "v": 2}]}
+
+
+CHAIN = [
+    {"t": {"a": 1, "b": 2}, "l": ["x"], "gone": 1, "u": {"v": 1}},
+    {"t": {"a__delete": True, "a": 3}, "l__append": ["y"], "gone__delete": True},
+    {"t": {"c": 4}, "l": ["z"], "u__delete": True, "u": {"w": 2}},
+    {"l__append": ["q"], "gone": 5},
+]
+"""A chain of single bases: each file inherits the one before."""
+
+
+def test_a_chain_merges_as_the_files_one_after_the_other() -> None:
+    nodes = [(i, own, (i - 1,) if i else ()) for i, own in enumerate(CHAIN)]
+    expected: dict = {}
+    for own in CHAIN:
+        expected = merge_toml_payloads(expected, own)
+
+    document, _ = merge_graph(nodes)
+
+    assert document == expected
+    assert list(document) == list(expected) and list(document["t"]) == list(expected["t"])
+
+
+def test_the_ancestors_of_a_file_are_every_file_it_inherits() -> None:
+    above = ancestors_of({"M": (), "S": ("M",), "E": ("M",), "R": ("S", "E")})
+
+    assert above["R"] == {"S", "E", "M"} and above["S"] == {"M"} and above["M"] == frozenset()

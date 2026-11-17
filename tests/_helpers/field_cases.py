@@ -29,6 +29,7 @@ def planar_mesh(
     exact_faces: bool = False,
     cell_zone: np.ndarray | None = None,
     zone_names: tuple[str, ...] = (),
+    crs_wkt: str = TEST_CRS_WKT,
 ) -> PlanarCellMesh:
     """Return the cell mesh of *cells* on *vertices*, centered on their vertex means by default."""
     vertices = np.asarray(vertices, dtype=float)
@@ -42,7 +43,7 @@ def planar_mesh(
         centers = np.array([vertices[list(cell)].mean(axis=0) for cell in cells])
     declarations = {"graded": False, "exact_faces": exact_faces, "deterministic": True, "needs_cache": False}  # fmt: skip
     return build_planar_cell_mesh(
-        hydro, np.asarray(centers, dtype=float), center_kind="vertex_mean", crs_wkt=TEST_CRS_WKT,
+        hydro, np.asarray(centers, dtype=float), center_kind="vertex_mean", crs_wkt=crs_wkt,
         identity=MeshIdentity("test", "0", "", None), declarations=declarations,
         cell_zone=cell_zone, zone_names=zone_names,
     )  # fmt: skip

@@ -92,6 +92,16 @@ def test_unreadable_file(tmp_path: Path, text: str, code: str) -> None:
     assert (found.path, found.code, found.severity) == ("", code, "error")
 
 
+def test_two_bases_that_disagree(tmp_path: Path) -> None:
+    (tmp_path / "a.toml").write_text("[flow]\nflow_regime = 'steady'\n", encoding="utf-8")
+    (tmp_path / "b.toml").write_text("[flow]\nflow_regime = 'transient'\n", encoding="utf-8")
+
+    [found] = check(_write(tmp_path, 'base_config = ["a.toml", "b.toml"]\n'))
+
+    assert found.code == "bad_chain"
+    assert "flow.flow_regime is written by a.toml ('steady') and by b.toml" in found.detail
+
+
 def test_missing_file(tmp_path: Path) -> None:
     [found] = check(tmp_path / "absent.toml")
 

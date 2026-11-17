@@ -246,6 +246,21 @@ A4_SFR = {
 }
 
 
+def _close(tree: object) -> object:
+    """``tree`` with each float held to ``rel=1e-12``.
+
+    The mean over periods is a numpy reduction, whose last bit moves with the
+    SIMD path of the CPU.
+    """
+    if isinstance(tree, dict):
+        return {key: _close(value) for key, value in tree.items()}
+    if isinstance(tree, list):
+        return [_close(value) for value in tree]
+    if isinstance(tree, float):
+        return pytest.approx(tree, rel=1e-12)
+    return tree
+
+
 def test_steady_averages_forcings() -> None:
     lakes, sfr = _a4_lakes(), _a4_sfr()
     model = make_model(
@@ -258,8 +273,8 @@ def test_steady_averages_forcings() -> None:
 
     steady = steady_variant(model)
 
-    assert dict(steady.lakes) == A4_LAKES
-    assert dict(steady.sfr) == A4_SFR
+    assert dict(steady.lakes) == _close(A4_LAKES)
+    assert dict(steady.sfr) == _close(A4_SFR)
     assert model.lakes["a"]["runoff"]["values"] == [0.0, 10.0, 20.0, 40.0]
     assert lakes == _a4_lakes() and sfr == _a4_sfr()
 
@@ -513,3 +528,13 @@ def test_flow_parameters() -> None:
     assert list(flow_profiles(config, ids=["Sy"])) == ["Sy"]
     with pytest.raises(KeyError, match="declares no Kv"):
         flow_profiles(config, ids=["Kv"])
+
+
+def test_a_steady_grid_with_no_window_prints_its_model() -> None:
+    from hydromodpy.core.time.window import ResolvedSteadySimulationTimeGrid
+
+    grid = ResolvedSteadySimulationTimeGrid()
+    model = make_model(time=ModelTime(grid=grid, regime="steady", first_period_steady=True))
+
+    assert repr(model).splitlines()[0].startswith("Model: ")
+    assert "periods from" not in repr(model)

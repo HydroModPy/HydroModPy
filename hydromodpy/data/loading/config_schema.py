@@ -60,6 +60,7 @@ if TYPE_CHECKING:
     )
     from hydromodpy.data.variables.user_rasters import (
         LayerBaseConfig,
+        PropertyMapConfig,
         SoilCapacityConfig,
         SubstratumConfig,
     )
@@ -218,6 +219,13 @@ class DataConfig(HydroModelBase):
         description=(
             "Layer base configuration (one elevation raster per named layer base, read by "
             "[domain.layers] with genmtd_lay = 'surfaces')."
+        ),
+    )
+    property_map: Annotated[PropertyMapConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Property map configuration (one raster per named map, read by a "
+            "[flow.param.<id>.field] of kind 'raster', one value per pixel)."
         ),
     )
     soil_capacity: Annotated[SoilCapacityConfig | None, Profile.USER] = Field(

@@ -1,12 +1,14 @@
 """
-Field parameter container supporting homogeneous and heterogeneous values.
+Field parameter container supporting homogeneous, heterogeneous and raster values.
 
-A field can be described in two ways:
+A field can be described in three ways:
 
 1) Homogeneous: one scalar value everywhere
    (example: hydraulic conductivity K = 1e-4 everywhere).
 2) Heterogeneous: one value per zone/material key
    (example: {"alluvium": 2e-4, "bedrock": 1e-6}).
+3) Raster: one value per pixel of a named property map, which each cell reads as the
+   mean of the pixels it covers (``raster_cells``).
 
 Values are always stored in SI internally; the user-provided unit string is
 preserved on `original_unit` for round-trip introspection.
@@ -14,11 +16,13 @@ preserved on `original_unit` for round-trip introspection.
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, get_args
 
 import numpy as np
 
+from hydromodpy.core.config_kit.field_param.sections import FieldKind, RasterMean
 from hydromodpy.core.config_kit.field_param.units import normalize_unit_token
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.scope import zone_name_refusal
@@ -26,6 +30,7 @@ from hydromodpy.core.units.physical_bounds import validate_physical_array, valid
 from hydromodpy.core.units.quantities import M_PER_S_CANONICAL_UNITS, factor_to_m_per_s
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.model.properties.mesh_cells import MeshWithValues, cell_values
+from hydromodpy.model.properties.property_ids import CONDUCTIVITY_IDS
 from hydromodpy.model.properties.vertical_profile import (
     apply_vertical_profile,
     mesh_vertical_factor,
@@ -33,7 +38,7 @@ from hydromodpy.model.properties.vertical_profile import (
     vertical_factor,
 )
 
-SUPPORTED_KINDS = ("homogeneous", "heterogeneous")
+SUPPORTED_KINDS: tuple[str, ...] = get_args(FieldKind)
 
 # Conversion factors to SI. Values in this class are always stored in SI
 # internally. The unit tokens and their aliases live in `core.config_kit.field_param.units`.
@@ -102,6 +107,8 @@ class FieldParam:
         values_by_key: Mapping[str, object] | None = None,
         field_spatial_id: str | None = None,
         vertical_profile: Mapping[str, Any] | None = None,
+        raster_map: str | None = None,
+        mean: str | None = None,
     ):
         ident = str(identifier).strip()
         if ident == "":
@@ -123,7 +130,26 @@ class FieldParam:
         self.value: float | None = None
         self.values_by_key: dict[str, float] | None = None
         self.field_spatial_id: str | None = None
+        self.raster_map: str | None = None
+        self.mean: str | None = None
+        self.raster_surface: Any = None
         explicit_unit_is_set = unit is not None
+
+        if self.kind == "raster":
+            if raster_map is None or str(raster_map).strip() == "":
+                raise ValueError("Raster field requires 'raster_map'")
+            if mean is None:
+                # A block of random conductivities flows as their geometric mean; a
+                # storage is a volume, and volumes add up.
+                mean = "geometric" if self.identifier in CONDUCTIVITY_IDS else "arithmetic"
+            if mean not in get_args(RasterMean):
+                raise ValueError(
+                    f"Unsupported mean '{mean}'. Allowed: {', '.join(get_args(RasterMean))}"
+                )
+            self.raster_map = str(raster_map).strip()
+            self.mean = str(mean)
+            self.vertical_profile = normalize_vertical_profile(vertical_profile)
+            return
 
         if self.kind == "homogeneous":
             if value is None:
@@ -209,6 +235,23 @@ class FieldParam:
         return self.kind == "heterogeneous"
 
     @property
+    def is_raster(self):
+        return self.kind == "raster"
+
+    def reading(self, surface: Any) -> FieldParam:
+        """Return this raster field with the ``Surface`` of its map attached.
+
+        The field names its map; the build of the model reads it from
+        ``[data.property_map]`` and attaches it here, so a solver maps the field
+        from the profile alone.
+        """
+        if not self.is_raster:
+            raise ValueError(f"Field parameter '{self.identifier}' reads no map.")
+        attached = copy.copy(self)
+        attached.raster_surface = surface
+        return attached
+
+    @property
     def has_vertical_variation(self):
         return str(self.vertical_profile.get("kind", "none")) != "none"
 
@@ -226,6 +269,11 @@ class FieldParam:
         depth=0.0,
     ):
         """Materialize field values as a numeric array (homogeneous = value-driven, heterogeneous = structure-driven; `depth` applies vertical factors)."""
+        if self.is_raster:
+            raise ValueError(
+                f"Field parameter '{self.identifier}' reads the map '{self.raster_map}', "
+                "which only a mesh reads: use to_mesh_field."
+            )
         if self.is_homogeneous:
             if x is not None or y is not None:
                 if x is None or y is None:
@@ -285,6 +333,9 @@ class FieldParam:
                 label=label if label is not None else "homogeneous_value",
             )
 
+        if self.is_raster:
+            return self._raster_mesh_field(field_discretization, label=label, depth=depth)
+
         if field_discretization is None:
             raise ValueError("Heterogeneous field requires 'field_discretization'")
 
@@ -339,6 +390,27 @@ class FieldParam:
             mesh=mesh,
             cell_values=values,
             label=label if label is not None else "heterogeneous_values",
+        )
+
+    def _raster_mesh_field(self, cells, *, label: str | None, depth) -> MeshWithValues:
+        """The values a property map gives the cells, in SI, after the depth factor.
+
+        ``cells`` is the ``RasterCells`` of the map on the mesh, in the unit of the
+        parameter. A cell the map gives no value holds 0: the solver refuses it on an
+        active cell, as it refuses a cell no zone of a support covers.
+        """
+        if cells is None or not hasattr(cells, "covered"):
+            raise ValueError(
+                f"Field parameter '{self.identifier}' reads the map '{self.raster_map}': "
+                "pass its RasterCells on the mesh."
+            )
+        covered = np.asarray(cells.covered, dtype=bool)
+        values = np.where(covered, np.asarray(cells.values, dtype=float), 0.0)
+        values = values * self._unit_factor_to_si
+        values = values * mesh_vertical_factor(self.vertical_profile, cells.mesh, depth=depth)
+        self._bound_cell_values(values, depth=depth, covered=covered)
+        return MeshWithValues(
+            mesh=cells.mesh, cell_values=values, label=label if label is not None else "raster"
         )
 
     def _bound_cell_values(self, values: np.ndarray, *, depth, covered) -> None:
@@ -405,6 +477,14 @@ class FieldParam:
                 "unit": str(self.unit),
                 "value": float(self.value),
             }
+        elif self.is_raster:
+            payload = {
+                "id": str(self.identifier),
+                "kind": self.kind,
+                "unit": str(self.unit),
+                "map": str(self.raster_map),
+                "mean": str(self.mean),
+            }
         else:
             payload = {
                 "id": str(self.identifier),
@@ -425,7 +505,7 @@ class FieldParam:
         Build `FieldParam` from a plain mapping.
 
         Required keys: `id`, `kind`. Optional: `unit`, `values`,
-        `field_spatial_id`, `vertical_profile`.
+        `field_spatial_id`, `map`, `mean`, `vertical_profile`.
         """
         if not isinstance(config, Mapping):
             raise TypeError("config must be a mapping")
@@ -449,6 +529,18 @@ class FieldParam:
                 kind=kind_key,
                 unit=unit,
                 value=config["value"],
+                vertical_profile=vertical_profile,
+            )
+
+        if kind_key == "raster":
+            if "map" not in config:
+                raise KeyError("Raster field requires key 'map'")
+            return cls(
+                identifier=str(identifier),
+                kind=kind_key,
+                unit=unit,
+                raster_map=str(config["map"]),
+                mean=config.get("mean"),
                 vertical_profile=vertical_profile,
             )
 

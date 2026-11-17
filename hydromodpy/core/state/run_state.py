@@ -164,6 +164,7 @@ class LoadedDataContext:
     lake_withdrawal: Any = None
     substratum: Any = None
     layer_base: Any = None
+    property_map: Any = None
     soil_capacity: Any = None
     crossings: Any = None
     # Data-plan types covered by the last completed load; None = never loaded.

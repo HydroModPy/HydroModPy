@@ -4501,7 +4501,7 @@
       "description": "Top-level ``[data]`` configuration for the data variables.\n\nThe `types` list declares user-requested data variables. The effective\nactive set can also include planner-inferred variables deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataLoader``.",
       "properties": {
         "types": {
-          "description": "Ordered list of data variables explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, a [flow.bc.stream] table). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
+          "description": "Ordered list of data variables explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, a [flow.bc.stream] table). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'property_map', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
           "items": {
             "type": "string"
           },
@@ -4872,6 +4872,19 @@
           ],
           "default": null,
           "description": "Layer base configuration (one elevation raster per named layer base, read by [domain.layers] with genmtd_lay = 'surfaces').",
+          "x-hmp-profile": "user"
+        },
+        "property_map": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PropertyMapConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Property map configuration (one raster per named map, read by a [flow.param.<id>.field] of kind 'raster', one value per pixel).",
           "x-hmp-profile": "user"
         },
         "soil_capacity": {
@@ -6310,7 +6323,7 @@
         "kind": {
           "const": "heterogeneous",
           "default": "heterogeneous",
-          "description": "How the parameter varies in space: one value everywhere ('homogeneous') or one value per zone ('heterogeneous').",
+          "description": "How the parameter varies in space: one value everywhere ('homogeneous'), one value per zone ('heterogeneous'), or one value per pixel of a map ('raster').",
           "examples": [
             "heterogeneous"
           ],
@@ -6475,7 +6488,7 @@
         "kind": {
           "const": "homogeneous",
           "default": "homogeneous",
-          "description": "How the parameter varies in space: one value everywhere ('homogeneous') or one value per zone ('heterogeneous').",
+          "description": "How the parameter varies in space: one value everywhere ('homogeneous'), one value per zone ('heterogeneous'), or one value per pixel of a map ('raster').",
           "examples": [
             "homogeneous"
           ],
@@ -6524,6 +6537,93 @@
         }
       },
       "title": "FieldHomogeneousSection",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FieldRasterSection": {
+      "additionalProperties": false,
+      "description": "Schema for `[field]` payloads that read one value per pixel of a property map.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Parameter identifier used in outputs and logs (for example 'K', 'Sy').",
+          "title": "Id",
+          "x-hmp-profile": "user"
+        },
+        "kind": {
+          "const": "raster",
+          "default": "raster",
+          "description": "How the parameter varies in space: one value everywhere ('homogeneous'), one value per zone ('heterogeneous'), or one value per pixel of a map ('raster').",
+          "examples": [
+            "raster"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unit of the values the map holds. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss). Unset, the unit of the parameter: m/s for K, - for Sy, m-1 for Ss.",
+          "title": "Unit",
+          "x-hmp-profile": "user"
+        },
+        "map": {
+          "description": "Name of the raster under [[data.property_map.sources]] that holds the values. Any mesh reads it, regular or not: each cell takes the mean of the pixels it covers, sampled at points spread evenly over its area, in the CRS of the map.",
+          "examples": [
+            "k_map"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Map",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "mean": {
+          "anyOf": [
+            {
+              "enum": [
+                "arithmetic",
+                "geometric",
+                "harmonic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the pixels a cell covers make its value. Unset, 'geometric' for a conductivity (K, Kv, K22), the effective value of a block of random conductivities, and 'arithmetic' for every other property, such as Sy and Ss, whose volumes add up.",
+          "title": "Mean",
+          "value_docs": {
+            "arithmetic": "The mean of the pixel values.",
+            "geometric": "The exponential of the mean of their logarithms.",
+            "harmonic": "The inverse of the mean of their inverses, the lowest of three."
+          },
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FieldRasterSection",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -7921,6 +8021,61 @@
         }
       },
       "title": "FileLayerBaseSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FilePropertyMapSource": {
+      "additionalProperties": false,
+      "description": "User-provided raster of one aquifer property (GeoTIFF/ASC), one value per pixel.\n\nA flow parameter reads it by its ``name`` through ``[flow.param.<id>.field]``\n``kind = \"raster\"``, which also gives the unit of its values.",
+      "properties": {
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' property map provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "name": {
+          "description": "Name a [flow.param.<id>.field] of kind 'raster' gives as its map to read this raster.",
+          "examples": [
+            "example"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a single-band raster of the property, one value per pixel (GeoTIFF, ASC), in the unit of the parameter that reads it. Its nodata pixels hold no value.",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FilePropertyMapSource",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -10503,7 +10658,8 @@
           "discriminator": {
             "mapping": {
               "heterogeneous": "#/$defs/FieldHeterogeneousSection",
-              "homogeneous": "#/$defs/FieldHomogeneousSection"
+              "homogeneous": "#/$defs/FieldHomogeneousSection",
+              "raster": "#/$defs/FieldRasterSection"
             },
             "propertyName": "kind"
           },
@@ -10515,6 +10671,9 @@
             },
             {
               "$ref": "#/$defs/FieldHeterogeneousSection"
+            },
+            {
+              "$ref": "#/$defs/FieldRasterSection"
             }
           ]
         },
@@ -20721,6 +20880,42 @@
         }
       }
     },
+    "PropertyMapConfig": {
+      "additionalProperties": false,
+      "description": "Top-level property map configuration: one named raster per map.\n\nExample TOML::\n\n    [[data.property_map.sources]]\n    source = \"file\"\n    name = \"k_map\"\n    path = \"maps/k.tif\"",
+      "properties": {
+        "sources": {
+          "description": "One raster per property map, each under its own name.",
+          "items": {
+            "$ref": "#/$defs/FilePropertyMapSource"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "PropertyMapConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FilePropertyMapSource"
+          }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FilePropertyMapSource"
+          }
+        }
+      }
+    },
     "PublicationConfig": {
       "additionalProperties": false,
       "description": "The licence and the authorship written into every publication.",
@@ -27682,8 +27877,21 @@
       "x-hmp-profile": "user"
     },
     "base_config": {
-      "type": "string",
-      "description": "Path of a TOML file this file extends, relative to this file. The keys written here replace the ones the base file sets. Lists replace the base list: the suffix __append extends it, __merge merges each table with the inherited one of the same id, name or source, and a key is removed with <key>__delete = true."
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      ],
+      "description": "Path of a TOML file this file extends, or a list of them, relative to this file. The keys written here replace the ones the base files set. Two base files that do not inherit each other must agree on a key, or this file writes it. Lists replace the base list: the suffix __append extends it, __merge merges each table with the inherited one of the same id, name or source, and a key is removed with <key>__delete = true."
     }
   },
   "title": "HydroModPyConfig",

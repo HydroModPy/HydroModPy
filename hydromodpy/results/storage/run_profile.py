@@ -24,7 +24,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from types import MappingProxyType
@@ -142,7 +142,7 @@ class Profile:
     """
 
     lines: tuple[ProfileLine, ...] = ()
-    process_age_s: Mapping[int, float | None] = MappingProxyType({})
+    process_age_s: Mapping[int, float | None] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "lines", tuple(self.lines))

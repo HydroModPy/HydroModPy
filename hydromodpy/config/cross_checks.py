@@ -509,6 +509,36 @@ def refuse_layer_bases_that_do_not_match(cfg: Any, *, sealed: bool) -> None:
         )
 
 
+def refuse_property_maps_that_do_not_match(cfg: Any, *, sealed: bool) -> list[str]:
+    """Refuse a raster parameter whose map ``[data.property_map]`` does not declare.
+
+    A ``[flow.param.<id>.field]`` of kind ``raster`` reads its map by name from
+    ``[data.property_map]``. A map no parameter reads is only named, since a project
+    may keep several maps and read one at a time.
+    """
+    section = cfg.data.property_map
+    declared = set() if section is None else {source.name for source in section.sources}
+    readers = {
+        param.field.map: name
+        for name, param in cfg.flow.param.items()
+        if getattr(param.field, "kind", None) == "raster"
+    }
+    unknown = sorted(set(readers) - declared)
+    if unknown:
+        raise ValueError(
+            f"{', '.join(f'flow.param.{readers[name]}' for name in unknown)} reads the map(s) "
+            f"{unknown}, and [data.property_map] declares {sorted(declared) or 'none'}. Add "
+            "one [[data.property_map.sources]] entry per name, with its raster."
+        )
+    unread = sorted(declared - set(readers))
+    if unread:
+        return [
+            f"[data.property_map] declares {unread}, and no [flow.param.<id>.field] of kind "
+            "'raster' reads them."
+        ]
+    return []
+
+
 def refuse_an_angle_with_a_depth_profile(cfg: Any, *, sealed: bool) -> None:
     """Refuse an angle of the K tensor with a depth profile.
 
@@ -956,6 +986,7 @@ CROSS_RULES: dict[str, CrossRule] = {
         CrossRule(refuse_a_recharge_the_model_would_not_read, _reads("flow", "data")),
         CrossRule(refuse_a_soil_capacity_without_the_soil, _reads("flow", "data")),
         CrossRule(refuse_layer_bases_that_do_not_match, _reads("domain", "data")),
+        CrossRule(refuse_property_maps_that_do_not_match, _reads("flow", "data")),
         CrossRule(refuse_an_angle_with_a_depth_profile, _reads("flow")),
         # Last, so a fault of the solver itself is named before a mesh it would not read.
         CrossRule(refuse_a_solver_that_cannot_read_the_mesh, _reads("solver", "mesh")),
@@ -1058,6 +1089,7 @@ __all__ = [
     "refuse_an_overview_without_its_section",
     "refuse_conditioning_choices_on_a_conditioned_dem",
     "refuse_layer_bases_that_do_not_match",
+    "refuse_property_maps_that_do_not_match",
     "refuse_site_and_sites_together",
     "refuse_soil_precipitation_in_parts",
     "refuse_strict_inference_without_types",

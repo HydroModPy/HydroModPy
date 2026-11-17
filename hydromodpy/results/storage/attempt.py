@@ -284,6 +284,10 @@ def claim_run_directory(
         if if_exists == "fail":
             check_name_free(root, name)
         if next_version_dirname(root, name) != name:
+            # Another worker may have made runs/<name> since the first look. Its
+            # case is claimed, and this worker takes no version beside it.
+            if latest_version_dir(root, name) is not None:
+                raise AttemptClaimedError(f"{CLAIMED_ELSEWHERE}: {name}")
             target = reserve_version_dirname(root, "run", name)
             return _first_attempt(
                 target, case_id=case_id, project=project, site=site, when=when, created=True

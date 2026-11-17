@@ -179,6 +179,10 @@ class PiezometryFile(FileSource):
     section = "piezometry"
 
 
+class PropertyMapFile(FileSource):
+    section = "property_map"
+
+
 class PrecipitationFile(FileSource):
     section = "precipitation"
 
@@ -239,6 +243,7 @@ __all__ = [
     "LayerBaseFile",
     "OceanicFile",
     "PiezometryFile",
+    "PropertyMapFile",
     "PrecipitationFile",
     "RadiationFile",
     "RechargeFile",

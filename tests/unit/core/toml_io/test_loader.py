@@ -10,11 +10,15 @@ from pydantic import BaseModel
 
 from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.toml_io.loader import (
+    config_base_dir,
+    load_toml_with_base_config,
     merge_toml_layers,
+    origins_of,
     read_toml,
     read_toml_chain,
     validate_toml,
 )
+from hydromodpy.core.toml_io.merge import BaseConfigConflict
 
 
 class _Doc(BaseModel):
@@ -68,10 +72,74 @@ def test_a_real_syntax_error_is_raised(tmp_path: Path) -> None:
         read_toml(path)
 
 
-def test_bad_base_config_refused(tmp_path: Path) -> None:
-    path = _write(tmp_path / "a.toml", "base_config = 3\n")
-    with pytest.raises(TypeError, match="base_config must be a TOML string"):
+@pytest.mark.parametrize(
+    ("written", "error", "message"),
+    [
+        ("base_config = 3", TypeError, "base_config must be a path or a list of paths"),
+        ("base_config = ['b.toml', 4]", TypeError, "base_config must be a path or a list"),
+        ("base_config = ['b.toml', './b.toml']", ValueError, "names './b.toml' twice"),
+    ],
+)
+def test_bad_base_config_refused(tmp_path: Path, written: str, error: type, message: str) -> None:
+    _write(tmp_path / "b.toml", "")
+    path = _write(tmp_path / "a.toml", written + "\n")
+    with pytest.raises(error, match=message):
         read_toml_chain(path, root=None)
+
+
+def _diamond(tmp_path: Path, site: str = "", experiment: str = "") -> Path:
+    """A run that inherits a site and an experiment, both on one model, outside a project."""
+    _write(tmp_path / "model.toml", "[flow]\nK = 1.0\nSy = 0.1\n")
+    _write(tmp_path / "sites" / "nancon.toml", 'base_config = "../model.toml"\n' + site)
+    _write(tmp_path / "experiments" / "steady.toml", 'base_config = "../model.toml"\n' + experiment)
+    return _write(
+        tmp_path / "run.toml",
+        'base_config = ["sites/nancon.toml", "experiments/steady.toml"]\n',
+    )
+
+
+def test_a_list_of_bases_is_read_as_a_graph_each_file_once(tmp_path: Path) -> None:
+    run = _diamond(tmp_path, site="[site]\nname = 'nancon'\n", experiment="[flow]\nK = 5.0\n")
+
+    chain = read_toml_chain(run, root=None)
+
+    assert [item.path.relative_to(tmp_path).as_posix() for item in chain] == [
+        "model.toml", "sites/nancon.toml", "experiments/steady.toml", "run.toml"
+    ]  # fmt: skip
+    assert chain[-1].bases == (chain[1].path, chain[2].path)
+    assert load_toml_with_base_config(run, root=None) == {
+        "flow": {"K": 5.0, "Sy": 0.1}, "site": {"name": "nancon"}
+    }  # fmt: skip
+    assert origins_of(chain)["flow.K"] == (chain[2].path,)
+    # Outside a project, paths are read from the root reached by the first bases.
+    assert config_base_dir(run, chain=chain) == tmp_path.resolve()
+
+
+def test_two_bases_that_disagree_are_named_from_the_file_read(tmp_path: Path) -> None:
+    run = _diamond(tmp_path, site="[flow]\nK = 3.0\n", experiment="[flow]\nK = 5.0\n")
+
+    with pytest.raises(BaseConfigConflict, match="sites/nancon.toml .3.0. and by experiments"):
+        load_toml_with_base_config(run, root=None)
+
+
+def test_a_cycle_through_a_list_of_bases_is_refused(tmp_path: Path) -> None:
+    _write(tmp_path / "a.toml", 'base_config = ["b.toml"]\n')
+    _write(tmp_path / "b.toml", 'base_config = ["c.toml", "a.toml"]\n')
+    _write(tmp_path / "c.toml", "")
+
+    with pytest.raises(ValueError, match="circular base_config chain: .*a.toml -> .*b.toml -> "):
+        read_toml_chain(tmp_path / "a.toml", root=None)
+
+
+def test_an_overlay_and_its_base_still_override_the_file(tmp_path: Path) -> None:
+    main = read_toml_chain(_write(tmp_path / "main.toml", "x = 'file'\ny = 'file'\n"), root=None)
+    _write(tmp_path / "shared.toml", "x = 'shared'\n")
+    overlay = read_toml_chain(
+        _write(tmp_path / "o.toml", 'base_config = "shared.toml"\ny = ""\n'), root=None
+    )
+
+    # The empty string of an overlay is dropped and never removes the value of the file.
+    assert merge_toml_layers([main, overlay], root=None) == {"x": "shared", "y": "file"}
 
 
 def test_overlay_cli_env_order(tmp_path: Path) -> None:

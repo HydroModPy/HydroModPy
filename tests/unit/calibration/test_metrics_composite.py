@@ -417,7 +417,9 @@ def test_lake_cost_pinned(monkeypatch, metric, pin) -> None:
     cost, components = _score("lake_level", metric, ctx)
 
     assert np.isfinite(cost)
-    assert cost == PINNED[pin]
+    # The lake metrics sum over the series, whose last bits move with the SIMD
+    # path of the CPU: 2.6e-14 relative between a laptop and a CI runner.
+    assert cost == pytest.approx(PINNED[pin], rel=1e-12, abs=0.0)
     assert _pairs(components)["lake_level@lac0"] == 36
 
 

@@ -1,4 +1,4 @@
-"""Every list of ``[data]`` variables names the same 28 variables, and their sources agree.
+"""Every list of ``[data]`` variables names the same 29 variables, and their sources agree.
 
 ``VARIABLE_SPECS`` is the one registry: it holds the config and variable classes
 and the columns of the workspace folder. Adding a variable still touches a few
@@ -81,8 +81,8 @@ def test_every_variable_list_names_the_same_variables() -> None:
     )
 
 
-def test_there_are_twenty_eight_variables() -> None:
-    assert len(VARIABLE_SPECS) == 28
+def test_there_are_twenty_nine_variables() -> None:
+    assert len(VARIABLE_SPECS) == 29
 
 
 def test_the_scaffold_keeps_no_table_of_its_own() -> None:
@@ -159,7 +159,7 @@ def _shipped_pairs() -> set[tuple[str, str]]:
 def test_the_shipped_keys_cut_into_one_section_each() -> None:
     pairs = _shipped_pairs()
     assert len(pairs) == len(data_sources.names(shipped_only=True))
-    assert len({section for section, _id in pairs}) == 28
+    assert len({section for section, _id in pairs}) == 29
 
 
 @pytest.mark.parametrize("variable", sorted(VARIABLE_SPECS))

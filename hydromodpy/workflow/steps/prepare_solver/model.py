@@ -53,6 +53,7 @@ from hydromodpy.model.model import (
     ModelTime,
     model_from_flow,
 )
+from hydromodpy.model.properties.raster_cells import read_property_maps
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.results.storage.prior_state import read_prior_state
@@ -123,6 +124,7 @@ def step_build_model(
         ),
         options=ModelOptions.from_settings(ctx.cfg.solver),
         initial=initial,
+        property_maps=read_property_maps(flow.parameters, getattr(ctx.cfg, "data", None)),
     )
     if window is not None:
         model = window_model(model, window, grid=time_grid)

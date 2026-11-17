@@ -95,7 +95,18 @@ def check_file(
         return [Diagnostic(path="", code="sites_case", severity="error", detail=str(exc))]
     if sites_file is not None:
         return _check_sites_project(target, partial=partial, inputs=inputs, bounds=bounds)
-    document, told = _read_as_loaded(target, chain)
+    try:
+        document, told = _read_as_loaded(target, chain)
+    except ValueError as exc:
+        # Two bases that disagree, or a directive the merge cannot apply.
+        return [
+            Diagnostic(
+                path="",
+                code="bad_chain",
+                severity="error",
+                detail=f"Invalid base_config chain: {exc}",
+            )  # fmt: skip
+        ]
     try:
         declared = extract_workflow_field(document)
         if declared is not None:
@@ -146,7 +157,7 @@ def _read_as_loaded(
             told.extend(
                 _old_form(item.path, change) for change in changes if CANNOT_REWRITE not in change
             )
-        files.append(ChainFile(path=item.path, own=own))
+        files.append(ChainFile(path=item.path, own=own, bases=item.bases))
     return merge_toml_chain(files, root=None), told
 
 

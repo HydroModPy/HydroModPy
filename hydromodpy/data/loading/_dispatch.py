@@ -334,6 +334,17 @@ VARIABLE_SPECS: dict[str, VariableSpec] = {
         label="base of a layer (elevation)",
         apply_simulation_window=False,
     ),
+    "property_map": VariableSpec(
+        config_module="hydromodpy.data.variables.user_rasters",
+        config_class="PropertyMapConfig",
+        variable_module="hydromodpy.data.variables.user_rasters",
+        variable_class="PropertyMapVariable",
+        category="raster",
+        kind="raster",
+        unit="-",
+        label="map of an aquifer property (K, Sy, Ss), in the unit of the parameter that reads it",
+        apply_simulation_window=False,
+    ),
     "soil_capacity": VariableSpec(
         config_module="hydromodpy.data.variables.user_rasters",
         config_class="SoilCapacityConfig",

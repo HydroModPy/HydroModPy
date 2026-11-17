@@ -230,6 +230,7 @@ hmp config figures --verbose,-v	nargs=0
 hmp config figures --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp config figures --workspace,-w	
 hmp config resolve	command
+hmp config resolve --origin	nargs=0
 hmp config resolve --workspace,-w	
 hmp config resolve <file>	required
 hmp config schema	command

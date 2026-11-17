@@ -341,6 +341,16 @@ def _isolate_plugin_registry(
         monkeypatch.setattr(registry, "unavailable", dict(registry.unavailable))
 
 
+def _forget_plugins(registry: object) -> None:
+    """Drop from the copied cache what an earlier scan of the worker registered.
+
+    The copy then starts from the in-tree classes, as in a fresh process, and the
+    next lookup scans the plugin group again.
+    """
+    for name in set(registry.classes) - set(registry.builtin_paths):
+        del registry.classes[name]
+
+
 @pytest.fixture
 def isolated_registry(monkeypatch: pytest.MonkeyPatch):
     """Give one test its own data-source registry, restored afterwards, and return it.
@@ -362,6 +372,7 @@ def isolated_export_formats(monkeypatch: pytest.MonkeyPatch):
     from hydromodpy.results.exporters.registry import export_formats
 
     _isolate_plugin_registry(monkeypatch, export_formats, plugins_loaded=False)
+    _forget_plugins(export_formats)
     return export_formats
 
 

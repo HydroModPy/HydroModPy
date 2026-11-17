@@ -413,6 +413,20 @@ UNRESOLVED = [
         ("raster_thickness", "exposes nothing"),
         id="thickness on a raster",
     ),
+    pytest.param(
+        calibration_of(K={"bounds": [1e-7, 1e-3]}),
+        _Project(
+            FlowConfig.model_validate(
+                {
+                    "flow_regime": "steady",
+                    "param": {"K": {"field": {"kind": "raster", "unit": "m/s", "map": "k_map"}}},
+                }
+            )
+        ),
+        "K",
+        ("reads the map 'k_map'", "is not searched"),
+        id="K read from a map",
+    ),
 ]
 
 REFUSALS = [

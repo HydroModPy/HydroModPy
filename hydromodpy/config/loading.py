@@ -38,6 +38,7 @@ from hydromodpy.core.exceptions import (
 from hydromodpy.core.toml_io.loader import (
     BASE_CONFIG_KEY,
     ChainFile,
+    base_configs_of,
     config_base_dir,
     merge_toml_layers,
     read_toml,
@@ -45,7 +46,7 @@ from hydromodpy.core.toml_io.loader import (
 )
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
 from hydromodpy.core.toml_io.overrides import SET_SOURCE
-from hydromodpy.core.toml_io.paths import assign, is_declared_absolute_path
+from hydromodpy.core.toml_io.paths import assign
 
 MEMORY_NEEDS_BASE = (
     "A configuration read from memory needs base=, the folder its relative paths are read from."
@@ -302,27 +303,27 @@ def _read_chain(path: Path) -> tuple[ChainFile, ...]:
 
 
 def _first_unreadable_file(path: Path) -> Path | None:
-    """Follow the chain from *path* and return the first file that does not parse.
+    """Follow the bases from *path* and return the first file that does not parse.
 
     Called only once a parse failed, to name the file at fault.
     """
     seen: set[Path] = set()
-    current: Path | None = path.resolve()
-    while current is not None and current not in seen:
+    waiting = [path.resolve()]
+    while waiting:
+        current = waiting.pop(0)
+        if current in seen:
+            continue
         seen.add(current)
         try:
             raw = read_toml(current)
         except tomllib.TOMLDecodeError:
             return current
         except OSError:
-            return None
-        named = raw.get(BASE_CONFIG_KEY)
-        if not isinstance(named, str) or not named:
-            return None
-        parent = Path(named).expanduser()
-        if not is_declared_absolute_path(parent):
-            parent = current.parent / parent
-        current = parent.resolve()
+            continue
+        try:
+            waiting.extend(base_configs_of(current, raw))
+        except (TypeError, ValueError):
+            continue
     return None
 
 

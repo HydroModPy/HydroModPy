@@ -84,6 +84,7 @@ def test_the_published_schema_validates_every_example_file(path: Path) -> None:
 
 ACCEPTED = {
     "base_config": 'base_config = "step1_minimal.toml"\n',
+    "a list of bases": 'base_config = ["model.toml", "sites/nancon.toml"]\n',
     "append a list": 'base_config = "a.toml"\n[display]\nfigure__append = [{ variable = "head" }]\n',
     "append a table list": 'export__append = [{ format = "csv" }]\n',
     "merge a table list": 'export__merge = [{ format = "csv" }]\n',

@@ -16,7 +16,7 @@ A lab opens a `Project` and plays the same steps a run plays, from `validate` to
 
 ## Change a value
 
-`lab.set(K=5e-5)` changes the configuration of the lab. A key is a short name of `hmp config targets`, a dotted path of the TOML such as `flow.param.K.field.value`, or a whole section such as `data={...}`. The new configuration is checked at once, and when your changes bring the configuration back to the file, the lab forgets them, so a run seals none. `lab.set` returns the built steps that became stale, and `lab.steps` shows them. The next `advance` plays again from the first of them. `lab.config` is a frozen copy of the configuration with your changes.
+`lab.set(K=5e-5)` changes the configuration of the lab. A key is a short name of `hmp config targets`, a dotted path of the TOML such as {toml}`flow.param.K.field.value`, or a whole section such as `data={...}`. The new configuration is checked at once, and when your changes bring the configuration back to the file, the lab forgets them, so a run seals none. `lab.set` returns the built steps that became stale, and `lab.steps` shows them. The next `advance` plays again from the first of them. `lab.config` is a frozen copy of the configuration with your changes.
 
 ## Force an object
 

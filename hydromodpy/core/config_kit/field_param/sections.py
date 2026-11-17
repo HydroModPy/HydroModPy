@@ -16,14 +16,16 @@ from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.field_param.units import UnitStr, normalize_unit_token
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import NonEmptyPath, NonEmptyStr, Probability
+from hydromodpy.core.config_kit.types import IdentifierStr, NonEmptyPath, NonEmptyStr, Probability
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.scope import zone_name_refusal
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.core.units.types import LengthMeters
 
-FieldKind = Literal["homogeneous", "heterogeneous"]
+FieldKind = Literal["homogeneous", "heterogeneous", "raster"]
 HeterogeneousValueSource = Literal["inline", "csv"]
+RasterMean = Literal["arithmetic", "geometric", "harmonic"]
+"""How the pixels a cell covers make the value of the cell, for a field of kind 'raster'."""
 VerticalProfileMode = Literal["none", "exponential", "tabulated"]
 VerticalProfileInterpolation = Literal["linear", "step"]
 
@@ -112,7 +114,9 @@ class FieldBaseSection(HydroModelBase):
     )
     kind: Annotated[FieldKind | None, Profile.USER] = Field(
         default=None,
-        description=("Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."),
+        description=(
+            "Field type selector. Allowed values: 'homogeneous', 'heterogeneous' or 'raster'."
+        ),
     )
     unit: Annotated[UnitStr, Profile.USER] = Field(
         default=None,
@@ -132,8 +136,8 @@ class FieldHomogeneousSection(HydroModelBase):
     kind: Annotated[Literal["homogeneous"], Profile.USER] = Field(
         default="homogeneous",
         description=(
-            "How the parameter varies in space: one value everywhere ('homogeneous') or "
-            "one value per zone ('heterogeneous')."
+            "How the parameter varies in space: one value everywhere ('homogeneous'), "
+            "one value per zone ('heterogeneous'), or one value per pixel of a map ('raster')."
         ),
     )
     unit: Annotated[UnitStr, Profile.USER] = Field(
@@ -186,8 +190,8 @@ class FieldHeterogeneousSection(HydroModelBase):
     kind: Annotated[Literal["heterogeneous"], Profile.USER] = Field(
         default="heterogeneous",
         description=(
-            "How the parameter varies in space: one value everywhere ('homogeneous') or "
-            "one value per zone ('heterogeneous')."
+            "How the parameter varies in space: one value everywhere ('homogeneous'), "
+            "one value per zone ('heterogeneous'), or one value per pixel of a map ('raster')."
         ),
     )
     unit: Annotated[UnitStr, Profile.USER] = Field(
@@ -285,8 +289,57 @@ class FieldHeterogeneousSection(HydroModelBase):
         return self
 
 
+class FieldRasterSection(HydroModelBase):
+    """Schema for `[field]` payloads that read one value per pixel of a property map."""
+
+    id: Annotated[NonEmptyStr | None, Profile.USER] = Field(
+        default=None,
+        description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
+    )
+    kind: Annotated[Literal["raster"], Profile.USER] = Field(
+        default="raster",
+        description=(
+            "How the parameter varies in space: one value everywhere ('homogeneous'), "
+            "one value per zone ('heterogeneous'), or one value per pixel of a map ('raster')."
+        ),
+    )
+    unit: Annotated[UnitStr, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Unit of the values the map holds. Typical examples: 'm/s' (K), '-' (Sy), "
+            "'m-1' (Ss). Unset, the unit of the parameter: m/s for K, - for Sy, m-1 for Ss."
+        ),
+    )
+    map: Annotated[IdentifierStr, Profile.USER] = Field(
+        ...,
+        description=(
+            "Name of the raster under [[data.property_map.sources]] that holds the "
+            "values. Any mesh reads it, regular or not: each cell takes the mean of the "
+            "pixels it covers, sampled at points spread evenly over its area, in the "
+            "CRS of the map."
+        ),
+        examples=["k_map"],
+    )
+    mean: Annotated[RasterMean | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "How the pixels a cell covers make its value. Unset, 'geometric' for a "
+            "conductivity (K, Kv, K22), the effective value of a block of random "
+            "conductivities, and 'arithmetic' for every other property, such as Sy and Ss, "
+            "whose volumes add up."
+        ),
+        json_schema_extra=field_metadata(
+            value_docs={
+                "arithmetic": "The mean of the pixel values.",
+                "geometric": "The exponential of the mean of their logarithms.",
+                "harmonic": "The inverse of the mean of their inverses, the lowest of three.",
+            }
+        ),
+    )
+
+
 FieldSection: TypeAlias = Annotated[
-    FieldHomogeneousSection | FieldHeterogeneousSection,
+    FieldHomogeneousSection | FieldHeterogeneousSection | FieldRasterSection,
     Field(discriminator="kind", description="Field section kind discriminator."),
 ]
 """Discriminated field payload."""

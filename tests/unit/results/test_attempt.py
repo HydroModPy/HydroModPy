@@ -48,6 +48,8 @@ from hydromodpy.results.catalog.indexer import index_new_runs
 from hydromodpy.results.catalog.registration import NameTakenError, reserve_version_dirname
 from hydromodpy.results.outcome import Outcome, effective_status, read_outcome, write_outcome
 from hydromodpy.results.storage.attempt import (
+    CLAIMED_ELSEWHERE,
+    AttemptClaimedError,
     CaseAliveError,
     claim_reserved_directory,
     claim_run_directory,
@@ -544,6 +546,25 @@ def test_name_folded_on_caseless_disk(tmp_path: Path, monkeypatch: pytest.Monkey
         claim_run_directory(project, "j0014010-base", case_id="j0014010-base", project="demo")
 
     assert sorted(path.name for path in (project / RUNS_DIRNAME).iterdir()) == ["J0014010-base"]
+
+
+def test_a_claim_made_between_two_looks_takes_no_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A worker that finds no folder, then sees one made by another worker, is refused."""
+    project = make_project(tmp_path / "demo")
+    real_next = attempt_module.next_version_dirname
+
+    def other_worker_claims_first(root: Path, name: str) -> str:
+        (Path(root) / RUNS_DIRNAME / name).mkdir(parents=True)
+        return real_next(root, name)
+
+    monkeypatch.setattr(attempt_module, "next_version_dirname", other_worker_claims_first)
+
+    with pytest.raises(AttemptClaimedError, match=CLAIMED_ELSEWHERE):
+        claim_run_directory(project, "nancon", case_id="nancon", project="demo")
+
+    assert sorted(path.name for path in (project / RUNS_DIRNAME).iterdir()) == ["nancon"]
 
 
 # A run is asked to stop by a flag in its attempt state. The flag stops it at the

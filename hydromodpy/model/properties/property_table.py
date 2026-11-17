@@ -25,6 +25,7 @@ from hydromodpy.core.units.physical_bounds import (
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.properties.field_spatial import WeightedAverageFieldDiscretization
 from hydromodpy.model.properties.property_ids import FLOW_PROPERTY_IDS
+from hydromodpy.model.properties.raster_cells import RasterCells, raster_cells
 from hydromodpy.model.properties.zone_fractions import ZoneFractions, zone_fractions
 from hydromodpy.model.time.regime import normalize_flow_regime
 
@@ -253,6 +254,13 @@ def _value_hint(profiles: Mapping[str, object] | None, label: str, aliases: tupl
     param_obj = None
     if isinstance(profiles, Mapping):
         param_obj = next((profiles[name] for name in aliases if name in profiles), None)
+    if param_obj is not None and getattr(param_obj, "is_raster", False):
+        return (
+            f" {label} is read from the map '{param_obj.raster_map}'. A cell the map "
+            "gives no value, outside its extent or on its nodata pixels, holds 0, so the "
+            "map does not cover the whole active domain. Extend the map to the model "
+            "extent, or fill its nodata pixels."
+        )
     if param_obj is not None and getattr(param_obj, "is_heterogeneous", False):
         support_id = getattr(param_obj, "field_spatial_id", None)
         return (
@@ -308,6 +316,7 @@ def map_flow_properties(
         )
     fill_values = {str(name): float(value) for name, value in (optional_fill_values or {}).items()}
     fractions_by_support: dict[int, ZoneFractions] = {}
+    cells_by_map: dict[tuple[str, str], RasterCells] = {}
 
     out: dict[str, np.ndarray] = {}
     for canonical, aliases, name, label in FLOW_PROPERTY_SPECS:
@@ -327,7 +336,9 @@ def map_flow_properties(
             profiles=profiles, aliases=aliases, property_label=label
         )
         discretization = None
-        if getattr(param, "is_heterogeneous", False):
+        if getattr(param, "is_raster", False):
+            discretization = _map_on_cells(param, cell_mesh, cells_by_map, property_label=label)
+        elif getattr(param, "is_heterogeneous", False):
             support = _heterogeneous_support(param, domain=domain, property_label=label)
             fractions = fractions_by_support.get(id(support))
             if fractions is None:
@@ -345,6 +356,27 @@ def map_flow_properties(
         )
         logger.debug("%s mapped from flow.%s", label, selected)
     return out
+
+
+def _map_on_cells(
+    param: object,
+    cell_mesh: PlanarCellMesh,
+    read: dict[tuple[str, str], RasterCells],
+    *,
+    property_label: str,
+) -> RasterCells:
+    """The map a raster parameter reads, on the cells, read once per map and mean."""
+    surface = getattr(param, "raster_surface", None)
+    name = str(param.raster_map)
+    if surface is None:
+        raise ValueError(
+            f"Cannot map {property_label}: the map {name!r} it reads was not attached to "
+            "the model. The build of the model reads it from [data.property_map]."
+        )
+    key = (name, str(param.mean))
+    if key not in read:
+        read[key] = raster_cells(cell_mesh, surface, mean=str(param.mean), map_name=name)
+    return read[key]
 
 
 def _heterogeneous_support(param: object, *, domain: object, property_label: str) -> object:
@@ -367,7 +399,7 @@ def _heterogeneous_support(param: object, *, domain: object, property_label: str
 
 def _cell_values(
     param: object,
-    discretization: WeightedAverageFieldDiscretization | None,
+    discretization: WeightedAverageFieldDiscretization | RasterCells | None,
     cell_mesh: PlanarCellMesh,
     name: str,
     depth: float | np.ndarray,

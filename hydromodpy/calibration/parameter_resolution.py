@@ -254,6 +254,9 @@ def _target_for(
         why = _why_the_depth_model_is_not_searchable(project_config)
         if why is not None:
             raise UnresolvedParameterName(f"[calibration.parameters.{name}] {why}")
+    why = _why_a_property_map_is_not_searchable(project_config, name)
+    if why is not None:
+        raise UnresolvedParameterName(f"[calibration.parameters.{name}] {why}")
     ending = [target for target in catalogue if target.name.endswith(f".{name}")]
     if len(ending) == 1:
         return ending[0]
@@ -325,6 +328,25 @@ def _names_a_depth_model_field(name: str) -> bool:
             RasterSubstratumDepthModel,
             RasterThicknessDepthModel,
         )
+    )
+
+
+def _why_a_property_map_is_not_searchable(project_config: Any, name: str) -> str | None:
+    """Say that ``flow.param.<name>`` reads a map, or None.
+
+    A map gives each cell its own value, and no one number of the file holds them,
+    so the catalogue lists no target for it. The reason is the same as for a raster
+    depth model.
+    """
+    params = getattr(getattr(project_config, "flow", None), "param", None) or {}
+    field = getattr(params.get(name) if isinstance(params, dict) else None, "field", None)
+    if getattr(field, "kind", None) != "raster":
+        return None
+    return (
+        f"reaches flow.param.{name}, which reads the map {field.map!r} "
+        f"([flow.param.{name}.field] kind = 'raster'). A map gives each cell its own "
+        "value and is not searched. Calibrate a 'homogeneous' or 'heterogeneous' field, "
+        "or compare one run per map."
     )
 
 

@@ -36,7 +36,8 @@ One TOML file drives these steps, the same way on every catchment:
 2. Forcing and observations: recharge, climate series, groundwater heads, gauged
    discharge, mapped stream networks and intermittency.
 3. Mesh and vertical discretization suited to shallow basement aquifers, with
-   parameters given per zone or per cell, in steady state or in transient.
+   parameters given per zone, per pixel of a raster or per cell, in steady state or in
+   transient.
 4. Calibration that combines heads, discharge and the extent of the stream network
    to constrain the hydraulic properties.
 5. Outputs that can be reopened, stored with their provenance and the licence of
@@ -96,7 +97,7 @@ which is the default, there is no hydraulic computation of the river. The
 | Data | Role | In example 04 |
 |---|---|---|
 | Relief | It gives the ground surface, hence the elevation at which water leaves. It delimits the {term}`catchment` from the {term}`outlet` and tells where the water flows downstream. | A digital elevation model, 75 m cells; 64.6 km² catchment traced from the outlet. |
-| Geology | It sets how easily water moves (the {term}`hydraulic conductivity` K) and the volume of water released when the water table drops (the {term}`specific yield` Sy). One value for the whole aquifer, or one per zone of a geological map ({doc}`[flow.param] <../reference/parameters/flow/param>`). | A single value of K and a single value of Sy for the whole catchment: the geological map is not used. Both are calibrated ({ref}`two-stage-calibration`). |
+| Geology | It sets how easily water moves (the {term}`hydraulic conductivity` K) and the volume of water released when the water table drops (the {term}`specific yield` Sy). One value for the whole aquifer, one per zone of a geological map, or one per pixel of a raster ({doc}`[flow.param] <../reference/parameters/flow/param>`). | A single value of K and a single value of Sy for the whole catchment: the geological map is not used. Both are calibrated ({ref}`two-stage-calibration`). |
 | Recharge | The water that reaches the water table. It is provided (a series from a file, or {term}`SIM2` data from Météo-France), or computed by a {term}`soil reservoir` from rainfall and {term}`potential evapotranspiration` ({doc}`theory <../theory/soil-reservoir>`). | A single monthly recharge series for the whole catchment, and a runoff series ({doc}`data sources <../reference/data-sources>`). |
 | Thickness | The depth of the aquifer below the ground surface. It is an assumption, not a measurement. | 30 m everywhere. |
 | Observations | The {term}`mapped network` and the flow measured at the outlet are not part of the physical computation. They are used to compare the results and to calibrate K and Sy. | The permanent stretches of the {term}`BD TOPO` and the {term}`NANCON station`. |

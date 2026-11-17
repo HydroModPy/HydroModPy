@@ -75,6 +75,18 @@ def test_a_site_file_on_a_shared_calibration_names_its_case(
     assert session.calibration_case_name(site) == case
 
 
+def test_a_site_beside_the_calibration_names_its_case(tmp_path) -> None:
+    _write(tmp_path / "model.toml", "[simulation]\nname = 'model'\n")
+    _write(tmp_path / "site.toml", "base_config = 'model.toml'\n[simulation]\nname = 'nancon'\n")
+    _write(tmp_path / "steady.toml", "base_config = 'model.toml'\n[calibration]\nmethod = 'grid'\n")
+    run = _write(tmp_path / "run.toml", "base_config = ['site.toml', 'steady.toml']\n")
+    alone = _write(tmp_path / "alone.toml", "base_config = ['model.toml', 'steady.toml']\n")
+
+    assert session.calibration_case_name(run) == "nancon"
+    # The model is inherited by the carrier, so its name is not the case.
+    assert session.calibration_case_name(alone) == "steady"
+
+
 def test_session_identity(monkeypatch) -> None:
     asked: list[object] = []
 

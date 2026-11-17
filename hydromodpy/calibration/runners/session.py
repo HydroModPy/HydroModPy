@@ -25,6 +25,8 @@ from hydromodpy.calibration.config_phases import CalibPhaseDecl
 from hydromodpy.calibration.config_terms import window_bounds
 from hydromodpy.core.state.names import fold_name
 from hydromodpy.core.state.result_dirs import resolve_project_root
+from hydromodpy.core.toml_io.loader import base_configs_of
+from hydromodpy.core.toml_io.merge import ancestors_of
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.metric_rule import CALIBRATION_ROLE, VALIDATION_ROLE, PeriodWindow
 from hydromodpy.results.session.descriptor import ParameterBound, latest_session_dir
@@ -40,10 +42,11 @@ def calibration_case_name(cfg_path: Path) -> str:
     """Return the name of the case a calibration file declares.
 
     The file that carries ``[calibration]`` is found along the ``base_config``
-    chain, starting at ``cfg_path``. The first file from ``cfg_path`` down to that
-    carrier that writes ``[simulation] name`` names the case, so a site file on top
-    of a shared calibration names its own case. When none writes one, the stem of
-    the carrier, folded into the letters of a name, is the case.
+    graph, starting at ``cfg_path``. The most derived file that writes
+    ``[simulation] name`` names the case, unless the carrier inherits it, so a site
+    file on top of a shared calibration, or beside it in a list of bases, names its
+    own case. When none writes one, the stem of the carrier, folded into the
+    letters of a name, is the case.
     """
     chain = _chain_to_calibration(Path(cfg_path).expanduser().resolve())
     for path in chain:
@@ -75,25 +78,36 @@ def _own_document(path: Path) -> dict[str, Any]:
 
 
 def _chain_to_calibration(path: Path) -> list[Path]:
-    """Return the base_config chain from *path* down to the file that writes ``[calibration]``.
+    """Return the files that may name the case of *path*, the carrier of ``[calibration]`` last.
 
-    A chain that never writes the section is *path* alone.
+    The bases of each file are followed, each file once, and a base that does not
+    exist is passed over. The carrier is the most derived file that writes the
+    section. The files before it are the others the carrier does not inherit, the
+    most derived first, *path* at the head. A graph that never writes the section
+    is *path* alone.
     """
-    current = path
-    chain: list[Path] = []
-    while current not in chain:
-        chain.append(current)
+    order: list[Path] = []
+    bases: dict[Path, tuple[Path, ...]] = {}
+    carriers: set[Path] = set()
+
+    def visit(current: Path) -> None:
+        if current in bases:
+            return
         own = _own_document(current)
+        found = tuple(base for base in base_configs_of(current, own) if base.is_file())
+        bases[current] = found
+        for base in found:
+            visit(base)
+        order.append(current)
         if "calibration" in own:
-            return chain
-        base = own.get("base_config")
-        if not isinstance(base, str) or not base:
-            break
-        candidate = Path(base).expanduser()
-        current = (candidate if candidate.is_absolute() else current.parent / candidate).resolve()
-        if not current.is_file():
-            break
-    return [path]
+            carriers.add(current)
+
+    visit(path)
+    if not carriers:
+        return [path]
+    carrier = next(item for item in reversed(order) if item in carriers)
+    above = ancestors_of(bases)[carrier]
+    return [item for item in reversed(order) if item != carrier and item not in above] + [carrier]
 
 
 def project_root_for(cfg_path: Path, workspace: Path | str | None) -> Path:

@@ -1,7 +1,8 @@
-"""Soil capacity, substratum and layer base, the rasters the user brings.
+"""Soil capacity, substratum, layer base and property maps, the rasters the user brings.
 
 Each one is a file or a url source read in place. Soil capacity and substratum take
-exactly one raster, layer base takes one per named layer base.
+exactly one raster, layer base takes one per named layer base, and a property map one
+per named map that a ``kind = "raster"`` flow parameter reads.
 """
 
 from __future__ import annotations
@@ -244,3 +245,74 @@ class LayerBaseConfig(HydroModelBase):
 
 class LayerBaseVariable(RasterFileVariable):
     VARIABLE_NAME = "layer_base"
+
+
+# --- Property map ----------------------------------------------------------
+
+
+class FilePropertyMapSource(HydroModelBase):
+    """User-provided raster of one aquifer property (GeoTIFF/ASC), one value per pixel.
+
+    A flow parameter reads it by its ``name`` through ``[flow.param.<id>.field]``
+    ``kind = "raster"``, which also gives the unit of its values.
+    """
+
+    source: Annotated[Literal["file"], Profile.USER] = Field(
+        default="file",
+        description="Discriminator tag selecting the 'file' property map provider.",
+    )
+    name: Annotated[IdentifierStr, Profile.USER] = Field(
+        ...,
+        description=(
+            "Name a [flow.param.<id>.field] of kind 'raster' gives as its map to read this raster."
+        ),
+    )
+    path: Annotated[
+        Path,
+        Profile.USER,
+        InputFile(role="property_map", category="data"),
+    ] = Field(
+        ...,
+        description=(
+            "Path to a single-band raster of the property, one value per pixel (GeoTIFF, "
+            "ASC), in the unit of the parameter that reads it. Its nodata pixels hold no value."
+        ),
+    )
+    default_crs: Annotated[str, Profile.USER] = Field(
+        default="EPSG:2154",
+        description=(
+            "CRS to use for a raster that carries none of its own. Only a value written "
+            "here is used: without it, a file with no CRS is refused."
+        ),
+    )
+
+
+class PropertyMapConfig(HydroModelBase):
+    """Top-level property map configuration: one named raster per map.
+
+    Example TOML::
+
+        [[data.property_map.sources]]
+        source = "file"
+        name = "k_map"
+        path = "maps/k.tif"
+    """
+
+    sources: Annotated[list[FilePropertyMapSource], Profile.USER] = Field(
+        ...,
+        min_length=1,
+        description="One raster per property map, each under its own name.",
+    )
+
+    @field_validator("sources")
+    @classmethod
+    def _names_are_unique(cls, value: list[FilePropertyMapSource]) -> list[FilePropertyMapSource]:
+        names = [source.name for source in value]
+        doubles = sorted({name for name in names if names.count(name) > 1})
+        if doubles:
+            raise ValueError(f"[[data.property_map.sources]] names a map twice: {doubles}.")
+        return value
+
+
+class PropertyMapVariable(RasterFileVariable):
+    VARIABLE_NAME = "property_map"

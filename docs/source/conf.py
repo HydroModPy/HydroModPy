@@ -367,7 +367,9 @@ bibtex_bibfiles = ["theory/references.bib"]
 bibtex_default_style = "alpha"
 bibtex_reference_style = "author_year"
 
-suppress_warnings = ["myst.header"]
+# sphinx-design 0.8 deprecates the "+++" footer of a card. The home page keeps
+# it because the "card-footer" directive does not exist in sphinx-design 0.7.
+suppress_warnings = ["myst.header", "design.card_legacy"]
 
 favicons = [
     {"rel": "icon", "href": "logoHydroModPy.png", "type": "image/png", "sizes": "64x64"},

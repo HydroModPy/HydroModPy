@@ -3,7 +3,8 @@
 Subparsers:
   - ``hmp config template [--to FILE]``  : generate a TOML template
   - ``hmp config figures``               : list the figure names ``[display].figures`` accepts
-  - ``hmp config resolve FILE.toml``     : print the file its base_config chain resolves to
+  - ``hmp config resolve FILE.toml``     : print the file its base_config graph resolves to,
+                                           with ``--origin`` the file that set each value
   - ``hmp config schema ...``            : export the JSON Schema, with ``--editor`` the editor
                                            schema of one TOML file, with ``--bundle`` the files
                                            a frontend reads
@@ -17,7 +18,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.cli.conventions import (
     add_destination,
@@ -101,12 +102,17 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     res = sub.add_parser(
         "resolve",
-        help="Print the TOML a base_config chain resolves to, before validation",
+        help="Print the TOML a base_config graph resolves to, before validation",
         parents=[workspace_parser()],
-        epilog="Example:\n  hmp config resolve run.toml",
+        epilog="Examples:\n  hmp config resolve run.toml\n  hmp config resolve run.toml --origin",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     res.add_argument("file", help="Path to the TOML configuration")
+    res.add_argument(
+        "--origin",
+        action="store_true",
+        help="Write one line per value, with the file that set it and the files that added to it",
+    )
 
     sch = sub.add_parser(
         "schema",
@@ -350,28 +356,70 @@ def _cmd_config_template(args: argparse.Namespace) -> None:
 
 
 def _cmd_config_resolve(args: argparse.Namespace) -> None:
-    """Print the payload a ``base_config`` chain resolves to.
+    """Print the payload a ``base_config`` graph resolves to.
 
-    This is what ``hmp check`` validates: every file of the chain
+    This is what ``hmp check`` validates: every file of the graph
     merged, the merge directives applied. Defaults of the model are not
-    added, so the output shows only what the files say.
+    added, so the output shows only what the files say. ``--origin`` writes
+    one line per value instead, with the file that set it.
     """
     import tomllib
 
     from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+    from hydromodpy.core.toml_io.loader import (
+        merge_toml_chain,
+        origins_of,
+        read_toml_chain,
+    )
     from hydromodpy.core.toml_io.writer import dumps
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
         refuse(f"File not found: {path}", EXIT_NOT_FOUND)
     try:
-        payload = load_toml_with_base_config(path, root=ROOT_CONFIG)
+        files = read_toml_chain(path, root=ROOT_CONFIG)
+        payload = merge_toml_chain(files, root=ROOT_CONFIG)
+        origins = origins_of(files) if args.origin else {}
     except tomllib.TOMLDecodeError as exc:
         refuse(f"Invalid TOML syntax: {exc}", EXIT_CONFIG, cause=exc)
     except (TypeError, ValueError) as exc:
         refuse(f"Invalid base_config chain: {exc}", EXIT_CONFIG, cause=exc)
-    sys.stdout.write(dumps(payload))
+    if not args.origin:
+        sys.stdout.write(dumps(payload))
+        return
+    for line in _lines_with_origin(payload, origins, folder=path.parent):
+        sys.stdout.write(line + "\n")
+
+
+def _lines_with_origin(
+    payload: dict[str, Any], origins: dict[str, tuple[Path, ...]], *, folder: Path
+) -> list[str]:
+    """One line per value of *payload*: its dotted key, its value, and the files it comes from."""
+    from hydromodpy.core.toml_io.render import fmt, fmt_key
+
+    def name(path: Path) -> str:
+        try:
+            return path.relative_to(folder).as_posix()
+        except ValueError:
+            return str(path)
+
+    lines: list[str] = []
+
+    def walk(table: dict[str, Any], parts: tuple[str, ...]) -> None:
+        for key, value in table.items():
+            here = (*parts, str(key))
+            if isinstance(value, dict) and value:
+                walk(value, here)
+                continue
+            line = f"{'.'.join(fmt_key(part) for part in here)} = {fmt(value) or '{}'}"
+            files = origins.get(".".join(here), ())
+            if files:
+                added = ", ".join(name(item) for item in files[1:])
+                line += f"  # {name(files[0])}" + (f", added by {added}" if added else "")
+            lines.append(line)
+
+    walk(payload, ())
+    return lines
 
 
 LINE_WIDTH = 110

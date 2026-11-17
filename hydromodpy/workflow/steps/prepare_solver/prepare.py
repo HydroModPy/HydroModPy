@@ -72,6 +72,18 @@ def step_persist_params(
                         "parameterization": "homogeneous",
                     }
                 )
+            elif kind == "raster":
+                # One value per pixel, so no single value: the row names the map, and
+                # the field store holds the value of each cell.
+                params.append(
+                    {
+                        "param_name": pid,
+                        "zone_id": None,
+                        "value": None,
+                        "unit": getattr(fp, "unit", ""),
+                        "parameterization": f"map {getattr(fp, 'raster_map', '')}",
+                    }
+                )
             else:
                 values_by_key = getattr(fp, "values_by_key", None) or {}
                 for zone_key, val in values_by_key.items():

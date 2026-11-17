@@ -39,4 +39,6 @@ extend-ignore-re = [
   "exceute",
   # Key of [geographic], spelled this way in the model.
   "dem_correc_type",
+  # Misspelt figure name quoted with the error it raises.
+  "Unknown figure 'hed'",
 ]

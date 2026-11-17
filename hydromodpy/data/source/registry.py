@@ -82,6 +82,7 @@ _BUILTIN_PATHS: dict[str, str] = {
     "oceanic_file": "hydromodpy.data.source.file:OceanicFile",
     "oceanic_shom": "hydromodpy.data.variables.oceanic.apis.shom:ShomSeaLevel",
     "piezometry_file": "hydromodpy.data.source.file:PiezometryFile",
+    "property_map_file": "hydromodpy.data.source.file:PropertyMapFile",
     "piezometry_hubeau": "hydromodpy.data.variables.piezometry.apis.hubeau:HubeauPiezometry",
     "precipitation_explore2": (
         "hydromodpy.data.common.clients.explore2_files:Explore2Precipitation"
@@ -119,7 +120,7 @@ _BUILTIN_PATHS: dict[str, str] = {
 }
 """Dotted paths to the in-tree source classes, imported on first lookup.
 
-The single declaration of what this build serves: 73 sources under 28 sections.
+The single declaration of what this build serves: 74 sources under 29 sections.
 Format ``"<module>:<class>"``, the one every registry of this repository uses.
 """
 

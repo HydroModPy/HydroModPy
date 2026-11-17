@@ -11,7 +11,7 @@ identifies K/R.
 ## Run
 
 ```bash
-hmp calibrate examples/projects/12_network_calibration_from_apis/project.toml --check
+hmp check examples/projects/12_network_calibration_from_apis/project.toml
 hmp run examples/projects/12_network_calibration_from_apis/project.toml
 ```
 

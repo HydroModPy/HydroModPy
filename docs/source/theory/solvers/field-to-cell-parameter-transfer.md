@@ -1,9 +1,10 @@
 # From a zone map to the cells
 
 A property such as $K$ is given per zone of a map: geology classes, bands, rings, or the
-zones of a raster. The solver needs one value per cell and per layer. This page gives
-the rule that turns the first into the second, what that rule means for the
-conductivity, and a worked example. The keys of a value per zone are in
+zones of a raster. It can also be given by a raster that holds its own value in each pixel.
+The solver needs one value per cell and per layer. This page gives the rule that turns
+each of them into the cell values, what that rule means for the conductivity, and a worked
+example. The keys of a value per zone or per pixel are in
 {doc}`[flow.param] <../../reference/parameters/flow/param>`.
 
 ::::{dropdown} Notation of this page
@@ -46,6 +47,33 @@ depth $d = 0$, because it has one layer. In the code: `FieldParam.to_mesh_field`
 A zone of the map with no value in the parameter stops the run, with a message that
 names the missing keys. A cell that no zone reaches gets
 $\sum_z F_{c,z} = 0$, so a value of zero, and a zero $K$ on an active cell is refused.
+
+(transfer-raster)=
+## A raster with a value per pixel
+
+A parameter written `kind = "raster"` reads a map declared under
+{toml}`data.property_map.sources`, by its `name`. Each pixel holds a value in the `unit` of
+the parameter, and the cell takes the mean of the pixels it covers.
+
+1. **Read the pixels under the cell.** The cell is sampled on a lattice of points as for a
+   zone map, but their number follows the pixels: about two per pixel along a side of the
+   median cell, between 4 and 16 per axis. Each point reads the pixel that contains it.
+   The points are moved into the CRS of the map first, so a map in another CRS than the
+   mesh is read where it lies and its pixels are never resampled. This works on any cell
+   shape, a square of a regular grid, a triangle or a Voronoi polygon.
+2. **Leave out what the map does not cover.** A point outside the map or on a nodata pixel
+   is left out. A cell with no point left gets a value of zero, so an active cell outside
+   the map is refused, with the name of the map.
+3. **Average, then scale with depth.** The mean is set by `mean`. `arithmetic` adds the
+   values, `geometric` takes the exponential of the mean of their logarithms, and
+   `harmonic` takes the inverse of the mean of their inverses. A conductivity takes the
+   geometric mean unless told, any other property the arithmetic mean. The two last means
+   take positive values only, so a pixel at or below zero under a cell stops the run. The
+   depth factor $f(d_j)$ then applies as for a zone map.
+
+On a regular grid whose cells are the pixels of the map, each cell takes its pixel
+exactly. A map of values is not calibrated, and a calibration of a parameter read from a
+map is refused before the first run.
 
 (transfer-conductivity)=
 ## What the rule means for the conductivity
@@ -95,8 +123,9 @@ faces with it, removes the mixed cell.
 
 ## Limits
 
-- **Arithmetic mean only.** The aggregation is `weighted_average`; no geometric or
-  harmonic option exists.
+- **Arithmetic mean only for zones.** The aggregation of a zone map is `weighted_average`;
+  no geometric or harmonic option exists. A raster with a value per pixel has the three
+  means.
 - **A sampled share for a raster.** For a raster map and for the analytical bands and rings,
   $F_{c,z}$ is counted on $n_s$ points per axis, not computed from the exact intersection of
   the cell and the zone. A vector map gives the exact intersection.
@@ -108,6 +137,8 @@ faces with it, removes the mixed cell.
 
 ```{hmp-params}
 flow.param.K.field.value
+flow.param.K.field.map
+flow.param.K.field.mean
 flow.param.K.field_vertical_profile.kind
 data.geology.cell_samples_per_axis
 domain.supports.<name>.default_cell_samples_per_axis
@@ -118,6 +149,7 @@ domain.supports.<name>.default_cell_samples_per_axis
 ```{hmp-tested-by}
 hydromodpy.model.properties.field_param
 hydromodpy.model.properties.cell_sampling
+hydromodpy.model.properties.raster_cells
 hydromodpy.model.domain.spatial_support
 hydromodpy.model.properties.property_table
 ```
@@ -130,10 +162,11 @@ hydromodpy.model.properties.property_table
 | The shares of each zone in a cell | `hydromodpy/model/properties/zone_fractions.py` (`zone_fractions`) |
 | The sampled shares | `hydromodpy/model/domain/support_fields.py` (`on_mesh`), `hydromodpy/model/properties/geology_field.py` (`GeologyField.on_mesh`) |
 | The sample points of a cell | `hydromodpy/model/properties/cell_sampling.py` (`sample_points_in_cell`) |
+| The mean of a raster of values on each cell | `hydromodpy/model/properties/raster_cells.py` (`raster_cells`, `read_property_maps`) |
 | The mapping, for the three solvers | `hydromodpy/model/properties/property_table.py` (`map_flow_properties`): per layer for MODFLOW, once for Boussinesq |
 
 ## See also
 
 - {doc}`../groundwater-flow`: the properties in the flow equation, and the depth factor.
 - {doc}`../mesh`: the cells the values land on.
-- {doc}`../../reference/parameters/flow/param`: give a value per zone.
+- {doc}`../../reference/parameters/flow/param`: give a value per zone or per pixel.

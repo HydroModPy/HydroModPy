@@ -59,7 +59,9 @@ def test_unimportable_format_refused(
         lambda group: [_FailingEntryPoint()] if group == "hydromodpy.export.format" else [],
     )
     monkeypatch.setattr(export_formats, "unavailable", {})
-    monkeypatch.setattr(export_formats, "classes", dict(export_formats.classes))
+    # An earlier test of the worker may have scanned the group and cached stac.
+    in_tree = {k: v for k, v in export_formats.classes.items() if k in export_formats.builtin_paths}
+    monkeypatch.setattr(export_formats, "classes", in_tree)
     monkeypatch.setattr(export_formats, "plugins_loaded", False)
 
     assert "stac" not in export_formats.names()

@@ -909,6 +909,9 @@ NEW_FIELDS: dict[str, tuple[Any, str]] = {
     "display.figure": ([], "an empty list draws no figure of the new path"),
     "display.presets": ({}, "an empty table adds no preset"),
     "display.theme": ("default", "the default theme is the one the key preset already gave"),
+    "data.property_map": (_UNSET, "an unset table declares no map, and no parameter reads one"),
+    "flow.param.<id>.field.map": (None, "only a field of kind 'raster', new too, reads a map"),
+    "flow.param.<id>.field.mean": (_UNSET, "only a field of kind 'raster', new too, takes a mean"),
 }
 
 

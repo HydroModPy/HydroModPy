@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Mapping
-from dataclasses import dataclass, fields, replace
+from dataclasses import dataclass, field, fields, replace
 from types import MappingProxyType
 from typing import Any
 
@@ -97,7 +97,7 @@ class Properties:
     """
 
     profiles: Mapping[str, Any]
-    overrides: Mapping[str, Any] = MappingProxyType({})
+    overrides: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "profiles", _frozen(self.profiles))
@@ -119,6 +119,8 @@ def _property_text(profile: Any) -> str:
     # A repr never raises, so a stand-in without these members still prints.
     if getattr(profile, "kind", None) == "homogeneous":
         text = f"{profile.value:g} {profile.unit}".removesuffix(" -")
+    elif getattr(profile, "kind", None) == "raster":
+        text = f"map {profile.raster_map}, {profile.mean} mean over each cell"
     else:
         by_zone = getattr(profile, "values_by_key", None) or {}
         text = f"{len(by_zone)} values by zone" if by_zone else one_line(profile)
@@ -215,9 +217,11 @@ class Model:
         cells, grid = self.geometry.cells, self.time.grid
         steady = ", first period steady" if self.time.first_period_steady else ""
         parts = ["no cell mesh" if cells is None else f"{cells.n_cells} cells"]
-        if hasattr(grid, "window"):
-            window = f"{grid.window.start:%Y-%m-%d} to {grid.window.end:%Y-%m-%d}"
-            parts.append(f"{grid.nper} periods from {window}")
+        # A steady run with no [simulation.time] has a grid with no window.
+        window = getattr(grid, "window", None)
+        if window is not None:
+            dates = f"{window.start:%Y-%m-%d} to {window.end:%Y-%m-%d}"
+            parts.append(f"{grid.nper} periods from {dates}")
         profiles = self.properties.profiles.items()
         return summary(
             f"Model: {', '.join(parts)}, {self.time.regime}{steady}",
@@ -423,16 +427,26 @@ def model_from_flow(
     time: ModelTime,
     options: ModelOptions,
     initial: InitialState | None = None,
+    property_maps: Mapping[str, Any] | None = None,
 ) -> Model:
     """The ``Model`` of a bound ``Flow``, its members the objects the flow holds.
 
     ``initial`` defaults to the state ``[flow.ic]`` asks for. A restart passes
-    the ``PriorState`` it read instead.
+    the ``PriorState`` it read instead. ``property_maps`` holds, by name, the maps
+    of ``[data.property_map]`` the raster profiles read; each such profile carries
+    its map in the model.
     """
     sinks_sources = flow.sinks_sources
+    maps = dict(property_maps or {})
+    profiles = {
+        name: profile.reading(maps[profile.raster_map])
+        if getattr(profile, "is_raster", False)
+        else profile
+        for name, profile in flow.parameters.items()
+    }
     return Model(
         geometry=geometry,
-        properties=Properties(profiles=flow.parameters),
+        properties=Properties(profiles=profiles),
         boundaries=boundary_condition_bundle_from_flow(flow),
         recharge=sinks_sources.get("recharge"),
         etp=sinks_sources.get("etp"),

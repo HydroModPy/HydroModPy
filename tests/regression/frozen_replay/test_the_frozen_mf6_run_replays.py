@@ -90,7 +90,7 @@ def _replay(folder: Path, *, without_gmsh: bool) -> dict[str, Any]:
         check=False,
     )
     assert done.returncode == 0, f"hmp replay exited with {done.returncode}:\n{done.stderr[-3000:]}"
-    manifest = _json(folder / "runs" / "tri.v2" / "manifest.json")
+    manifest = _json(folder / "runs" / "tri_v2" / "manifest.json")
     return {"lineage": manifest["lineage"]["replay"], "manifest": manifest}
 
 
@@ -99,7 +99,7 @@ def _write_report(replay: dict[str, Any], folder: Path) -> None:
     target = os.environ.get(REPORT_VARIABLE)
     if not target:
         return
-    solver = _json(folder / "runs" / "tri.v2" / "provenance.json")["solver"]
+    solver = _json(folder / "runs" / "tri_v2" / "provenance.json")["solver"]
     lineage = replay["lineage"]
     report = {
         "class": lineage["class"],

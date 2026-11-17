@@ -1756,7 +1756,7 @@ def synthesize_truth_observations_via_project_api(
         candidate_label="truth",
         workspace_root=truth_project_root,
         extra_sections={
-            "display": {"enabled": False, "show": False, "save": False},
+            "display": {"enabled": False},
             "simulation": {"name": "twin_truth"},
         },
     )

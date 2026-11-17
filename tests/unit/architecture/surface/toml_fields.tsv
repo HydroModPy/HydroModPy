@@ -477,6 +477,12 @@ data.precipitation.sources.source	str	<required>	stable
 data.precipitation.sources.source_unit	str | None	None	stable
 data.precipitation.sources.station_ids	list[str] | None	None	stable
 data.precipitation.sources.url	str | None	None	stable
+data.property_map	table | None	None	stable
+data.property_map.sources	list[table]	<required>	stable
+data.property_map.sources.default_crs	str	'EPSG:2154'	stable
+data.property_map.sources.name	str	<required>	stable
+data.property_map.sources.path	Path	<required>	stable
+data.property_map.sources.source	Literal['file']	'file'	stable
 data.radiation	table | None	None	stable
 data.radiation.date_end	str | None	None	stable
 data.radiation.date_start	str | None	None	stable
@@ -894,6 +900,9 @@ flow.param.field.field_spatial_id	str | None	None	stable
 flow.param.field.id	str | None	None	stable
 flow.param.field.kind	Literal['heterogeneous']	'heterogeneous'	stable
 flow.param.field.kind	Literal['homogeneous']	'homogeneous'	stable
+flow.param.field.kind	Literal['raster']	'raster'	stable
+flow.param.field.map	str	<required>	stable
+flow.param.field.mean	Literal['arithmetic', 'geometric', 'harmonic'] | None	None	stable
 flow.param.field.unit	str | None	None	stable
 flow.param.field.value	object | None	None	stable
 flow.param.field.values	dict[str, float | str] | None	None	stable
