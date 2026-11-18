@@ -307,7 +307,7 @@ def test_a_copied_run_replays_into_a_project_and_never_into_itself(
 
 def test_a_run_promoted_by_a_calibration_replays_as_one_solve(tmp_path: Path) -> None:
     """The file of the run names its solve, and the heads of a replay are those of the trial."""
-    example = Path(__file__).parents[3] / "examples" / "projects" / "01_calibration"
+    example = Path(__file__).parents[3] / "tests" / "fixtures" / "projects" / "calibration_dupuit"
     project = tmp_path / "calibration"
     project.mkdir()
     (project / "project.toml").write_text(

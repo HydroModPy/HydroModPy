@@ -1,9 +1,9 @@
 """Every solver an example config names resolves in the adapter registry.
 
 A config that names a pair the registry does not hold fails at the plan, before
-any work. The PRT example of project 14 kept ``modflow6prt`` after the pair was
-renamed ``modflow6_prt`` and failed that way for months, unseen: no test read
-the ``solvers`` lists of the examples.
+any work. A PRT example once kept ``modflow6prt`` after the pair was renamed
+``modflow6_prt`` and failed that way for months, unseen: no test read the
+``solvers`` lists of the examples.
 """
 
 from __future__ import annotations
@@ -20,11 +20,6 @@ from hydromodpy.solver.base.registry import solvers
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_PROJECTS = Path("examples/projects")
-PRT_EXAMPLE = (
-    EXAMPLES_PROJECTS
-    / "14_transport_nancon_gwt_visual_guard"
-    / "run_nancon_steady_mf6_prt_pathlines.toml"
-)
 
 requires_git = pytest.mark.skipif(
     not (REPO_ROOT / ".git").exists(),
@@ -63,14 +58,6 @@ def _identifier(toml_file: Path) -> str:
 
 
 _CONFIGS_WITH_PROCESSES = [path for path in _tracked_toml_files() if _declared_pairs(path)]
-
-
-@requires_git
-def test_the_prt_example_names_a_registered_pair() -> None:
-    pairs = _declared_pairs(REPO_ROOT / PRT_EXAMPLE)
-    assert ("transport", "modflow6_prt") in pairs
-    adapter_cls = solvers.get("transport", "modflow6_prt")
-    assert adapter_cls.name == "modflow6_prt"
 
 
 def test_the_prt_parameter_table_name_is_not_a_solver_name() -> None:

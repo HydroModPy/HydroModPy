@@ -43,6 +43,11 @@ source = "file"
 path = "../../data/runoff"
 station_ids = ["NANCON_REA"]
 
+# The first day alone would start the run from one storm, so the steady start
+# takes the mean rate of the record.
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
 # 36 monthly points were too few to read a duration curve or a recession off,
 # 1096 daily ones are not. The linear hydrograph shows the storms the log axis
 # flattens. `__append` adds to the parent's figures; a plain

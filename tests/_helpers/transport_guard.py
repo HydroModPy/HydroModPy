@@ -1,7 +1,7 @@
 """Load the visual-guard transport example and build its fast synthetic cases.
 
 The regression signatures and the mesh diagnostics read the same numeric cases
-of ``examples/projects/13_transport_mf6_gwt_disv_visual_guard``.
+of ``tests/fixtures/transport_visual_guard/run_visual_guard.py``.
 """
 
 from __future__ import annotations
@@ -13,9 +13,9 @@ from typing import Any
 
 MODULE_PATH = (
     Path(__file__).resolve().parents[2]
-    / "examples"
-    / "projects"
-    / "13_transport_mf6_gwt_disv_visual_guard"
+    / "tests"
+    / "fixtures"
+    / "transport_visual_guard"
     / "run_visual_guard.py"
 )
 

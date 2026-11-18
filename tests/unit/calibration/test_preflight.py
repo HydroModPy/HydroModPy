@@ -1117,7 +1117,7 @@ def test_precision_not_positive(tmp_path: Path, precision: float) -> None:
 
 
 _REPO = Path(__file__).resolve().parents[3]
-_EXAMPLE_21 = _REPO / "examples/projects/21_nancon_network_calibration/auto_sfr_drn.toml"
+_EXAMPLE_21 = _REPO / "tests/fixtures/projects/nancon_network/auto_sfr_drn.toml"
 
 _LAUNCH_PARAMETERS = """
 @GRID4

@@ -33,7 +33,9 @@ from hydromodpy.workflow.record.journal import WorkflowJournal
 from tests._helpers.run_stores import facts_of, seal_demo_run
 from tests.unit.project._helpers import DEM, PROJECT_TOML, REPO_ROOT
 
-SYNTHETIC_PROJECT = REPO_ROOT / "examples" / "projects" / "00_getting_started" / "project.toml"
+SYNTHETIC_PROJECT = (
+    REPO_ROOT / "tests" / "fixtures" / "projects" / "getting_started" / "project.toml"
+)
 
 
 def _declared_config(root: Path):

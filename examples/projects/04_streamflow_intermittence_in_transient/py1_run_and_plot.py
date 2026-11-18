@@ -33,7 +33,7 @@ state = lab.advance("load_data")
 print(state.geographic)
 print(state.data)
 
-# The recharge and the runoff of the gauge, one value per month in mm/day. The model takes
+# The recharge and the runoff over the catchment, one value per month in mm/day. The model takes
 # the recharge, and the runoff is added to the drain flow to give the discharge.
 forcing = pd.DataFrame(
     {

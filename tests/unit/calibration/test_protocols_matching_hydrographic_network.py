@@ -44,9 +44,10 @@ OPTIONS = MatchingHydrographicNetworkOptions(name=NAME)
 
 REFERENCE = (
     Path(__file__).resolve().parents[3]
-    / "examples"
+    / "tests"
+    / "fixtures"
     / "projects"
-    / "21_nancon_network_calibration"
+    / "nancon_network"
     / "ref_example04.toml"
 )
 

@@ -9,7 +9,8 @@
 
 # The catchment. The gauge is the station of every series below: the discharge,
 # the recharge and the runoff read station NANCON, and the calibration files
-# score it, with no station named again. The uri is the Hub'Eau site code of the
+# score it, with no station named again. The recharge and the runoff are the
+# SIM2 means over the catchment. The uri is the Hub'Eau site code of the
 # catchment, the key that survives a move to another workspace.
 [site]
 name = "nancon"
@@ -36,16 +37,19 @@ id = "flow_main"
 kind = "flow"
 solvers = ["modflow6"]
 
+# The catchment is cut out of a regional 75 m DEM, upstream of the outlet,
+# after the depressions of the DEM are breached. The domain is the box around
+# the catchment widened by 10 % of the square root of its area.
 [geographic]
 crs_project = "EPSG:2154"
+dem_correc_type = "breach"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
 x_outlet = 389285.910
 y_outlet = 6816518.749
 snap_dist = "150 m"
-# "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
-buff_area = "10%"
+buff_area = "10% of sqrt(area)"
 
 [domain.depth_model]
 kind = "constant_thickness"
@@ -65,15 +69,15 @@ path = "../../data/hydrography/nancon_stream_network.gpkg"
 
 [[data.hydrometry.sources]]
 source = "file"
-path = "../../data/hydrometry"
+path = "workspace:."
 
 [[data.recharge.sources]]
 source = "file"
-path = "../../data/recharge"
+path = "workspace:."
 
 [[data.runoff.sources]]
 source = "file"
-path = "../../data/runoff"
+path = "workspace:."
 
 
 [flow]
@@ -99,7 +103,10 @@ value = 1e-5
 # the drain follows K, which is why the network stage identifies K/R.
 [flow.bc.drainage]
 
+# January 2000 is solved in steady state under the recharge of January, so the
+# run starts from a wet winter water table.
 [flow.sinks_sources.recharge]
+first_clim = "first"
 
 [display]
 on_error = "raise"

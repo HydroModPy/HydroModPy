@@ -224,3 +224,18 @@ def test_the_interactive_map_is_one_mesh_and_refuses_a_table_of_reaches(stored_r
     assert layout["scene"]["xaxis"]["title"].startswith("x (")
     with pytest.raises(FigureNotApplicable, match="static engine only"):
         frame.draw_interactive(data(stored_run, variable="sfr_reaches.strahler"), THEME)
+
+
+def test_an_inactive_cell_is_not_drawn(stored_run, monkeypatch):
+    real = frame.read_mesh
+
+    def without_cell_0(run):
+        mesh = real(run)
+        domain = mesh.zones["domain"].copy()
+        domain[0] = False
+        return dataclasses.replace(mesh, zones={**mesh.zones, "domain": domain})
+
+    monkeypatch.setattr(frame, "read_mesh", without_cell_0)
+    values = data(stored_run, variable="topography").table["value"].to_numpy()
+    assert np.isnan(values[0])
+    assert np.isfinite(values[1:]).all()

@@ -16,21 +16,7 @@ from .runner.visualization_runner import (
 def resolve_default_config_path() -> Path:
     """Return the default example TOML shipped with the package or repository."""
 
-    package_dir = Path(__file__).resolve().parent
-    repo_root = package_dir.parents[1] if len(package_dir.parents) > 1 else None
-    candidates = (
-        (
-            repo_root / "examples" / "projects" / "08_mesh_viewer" / DEFAULT_CONFIG_FILENAME
-            if repo_root is not None
-            else None
-        ),
-        package_dir.parent / "examples" / "projects" / "08_mesh_viewer" / DEFAULT_CONFIG_FILENAME,
-        package_dir / "examples" / DEFAULT_CONFIG_FILENAME,
-    )
-    for path in candidates:
-        if path is not None and path.exists():
-            return path
-    return next(path for path in candidates if path is not None)
+    return Path(__file__).resolve().parent / "examples" / DEFAULT_CONFIG_FILENAME
 
 
 def build_parser() -> argparse.ArgumentParser:

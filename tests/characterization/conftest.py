@@ -2,7 +2,7 @@
 
 Everything this tier asserts is read from a run a stranger could have produced:
 one ``hmp run`` on a committed example project, through the real CLI. The
-project is the synthetic Dupuit aquifer of ``examples/projects/00_getting_started``
+project is the synthetic Dupuit aquifer of ``tests/fixtures/projects/getting_started``
 because it is the cheapest complete pipeline in the repository (four seconds,
 no network, no DEM) and it still writes every artifact the contract names.
 """
@@ -18,7 +18,7 @@ from tests.regression.golden_utils import assert_required_executables, run_hmp_c
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CHARACTERIZATION_PROJECT = (
-    REPO_ROOT / "examples" / "projects" / "00_getting_started" / "project.toml"
+    REPO_ROOT / "tests" / "fixtures" / "projects" / "getting_started" / "project.toml"
 )
 CHARACTERIZATION_RUN_NAME = "getting_started_dupuit"
 

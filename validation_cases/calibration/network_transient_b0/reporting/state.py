@@ -1,7 +1,7 @@
 """Mutable defaults for the network/transient HTML report.
 
-The B0 example project (``examples/projects/12_calibration_network_transient_b0``)
-is the historical default. Paths are loaded from
+The case folder holds the transient config and receives the real runs under
+``outputs/``. Paths are loaded from
 ``validation_cases/calibration/network_transient_b0/fixture.toml`` at import
 time so the validation fixture remains the source of truth.
 """
@@ -46,11 +46,11 @@ def _load_fixture() -> _B0Defaults:
     )
 
     example_root = REPO_ROOT / paths.get(
-        "example_root", "examples/projects/12_calibration_network_transient_b0"
+        "example_root", "validation_cases/calibration/network_transient_b0"
     )
     source_cfg = REPO_ROOT / paths.get(
         "source_transient_config",
-        "examples/projects/12_calibration_network_transient_b0/configs/truth_transient_discharge.toml",
+        "validation_cases/calibration/network_transient_b0/configs/truth_transient_discharge.toml",
     )
     return _B0Defaults(
         example_root=example_root,

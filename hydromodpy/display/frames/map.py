@@ -222,6 +222,8 @@ def data(subject: Run | Compared, panel: PanelRequest) -> MapData:
     frequency = panel.reduce == "frequency"
     if not frequency:
         values = variables.to_display(name, values, area=mesh.areas)
+    # An inactive cell holds no value, only the sentinel of a nodata pixel.
+    values = np.where(mesh.zones["domain"], values, np.nan)
     scale = "diverging" if difference else variables.scale(name)
     seen = values[np.isfinite(values)]
     if (

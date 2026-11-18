@@ -30,7 +30,7 @@ def _buffer_of(value):
 
 
 def test_dem_source_survives_section_assignment():
-    example = Path(__file__).parents[4] / "examples/projects/12_network_calibration_from_apis"
+    example = Path(__file__).parents[4] / "tests/fixtures/projects/nancon_from_apis"
     cfg = HydroModPyConfig.from_toml(example / "project.toml")
     assert cfg.geographic.catch_def == "from_outlet_coord"
     cfg.geographic = river_network_for_the_mesh(cfg)

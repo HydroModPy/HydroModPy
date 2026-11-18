@@ -72,7 +72,7 @@ SIGNATURE_RTOL = tol("double_execution_comparator_signature_fallback__rtol")
 SCALAR_RTOL = tol("double_execution_comparator_manifest_scalars__rtol")
 
 FROZEN_PROJECTS: tuple[str, ...] = (
-    "examples/projects/00_getting_started/project.toml",
+    "tests/fixtures/projects/getting_started/project.toml",
     "examples/projects/02_basic_features_and_overview_of_possibilities/project.toml",
     "examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/project.toml",
     "examples/projects/04_streamflow_intermittence_in_transient/project.toml",

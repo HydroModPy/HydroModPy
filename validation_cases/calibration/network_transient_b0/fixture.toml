@@ -12,10 +12,10 @@ schema = "hydromodpy.validation.calibration.network_transient_b0.v1"
 case_id = "12_calibration_network_transient_b0"
 
 [paths]
-# Example project root (relative to repo root).
-example_root = "examples/projects/12_calibration_network_transient_b0"
+# Case root (relative to repo root). Real runs land under its outputs/.
+example_root = "validation_cases/calibration/network_transient_b0"
 # Transient TOML used by the steady -> transient calibration workflow.
-source_transient_config = "examples/projects/12_calibration_network_transient_b0/configs/truth_transient_discharge.toml"
+source_transient_config = "validation_cases/calibration/network_transient_b0/configs/truth_transient_discharge.toml"
 # Real-runs subdirectory inside example_root.
 real_runs_subdir = "outputs/real_runs"
 # Web HTML subdirectory inside real_runs.

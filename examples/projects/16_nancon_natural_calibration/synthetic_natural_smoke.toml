@@ -1,4 +1,0 @@
-[geographic.catchment]
-kind = "from_outlet_coord"
-x_outlet = 4.5
-y_outlet = 0.0

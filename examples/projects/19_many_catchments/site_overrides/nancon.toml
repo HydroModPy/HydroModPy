@@ -1,4 +1,0 @@
-# The Nancon needs no override. The section of project.toml has no orientation
-# to set: its line runs from the outlet of each catchment, so it cuts the
-# Nancon valley the same way as the others. A site file stays here as the place
-# for a value that holds for this site only.

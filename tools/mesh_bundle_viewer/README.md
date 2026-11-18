@@ -84,14 +84,10 @@ mesh_bundle_viewer/
     summary.py
   runner/
     visualization_runner.py
-examples/
-  mesh_viewer/
+  examples/
     config_example.toml
+    default_bundle/
     sample_bundle/
-      ...
-outputs/
-  mesh_viewer/
-    .gitignore
 ```
 
 ## Public API
@@ -128,17 +124,18 @@ python -m mesh_bundle_viewer
 
 This default command uses:
 
-- `../examples/projects/08_mesh_viewer/config_example.toml`
-- `../examples/projects/08_mesh_viewer/sample_bundle/`
+- `examples/config_example.toml`
+- `examples/default_bundle/`, a mesh of two cells
 
-Outputs are written into `../outputs/mesh_viewer/`.
+Outputs are written into `../outputs/mesh_viewer/`, next to the package folder.
+`examples/sample_bundle/` is a larger mesh that the tests read.
 
 ## CLI Usage
 
 Standard usage:
 
 ```bash
-python -m mesh_bundle_viewer --config examples/projects/08_mesh_viewer/config_example.toml
+python -m mesh_bundle_viewer --config tools/mesh_bundle_viewer/examples/config_example.toml
 ```
 
 Available options:
@@ -154,7 +151,7 @@ Minimal Python usage:
 ```python
 from mesh_bundle_viewer.runner.visualization_runner import run_visualization_from_toml
 
-summary = run_visualization_from_toml("examples/projects/08_mesh_viewer/config_example.toml")
+summary = run_visualization_from_toml("tools/mesh_bundle_viewer/examples/config_example.toml")
 print(summary["cell_count"])
 ```
 
@@ -245,7 +242,7 @@ To vendor the viewer into another repository, copy at minimum:
 3. one TOML file pointing to that bundle
 
 If you want the zero-argument demo command `python -m mesh_bundle_viewer`
-to work out of the box, also copy one example pack under `examples/projects/08_mesh_viewer/`.
+to work out of the box, keep the `examples/` folder of the package.
 
 Typical layout:
 
@@ -271,14 +268,14 @@ project/
 Then run:
 
 ```bash
-python -m mesh_bundle_viewer --config examples/projects/08_mesh_viewer/config_example.toml
+python -m mesh_bundle_viewer --config tools/mesh_bundle_viewer/examples/config_example.toml
 ```
 
 ## Notes
 
 - `mesh_bundle_viewer/` is meant to be portable as a directory
-- example data and generated outputs intentionally live outside `mesh_bundle_viewer/` so the
-  module stays code-only
+- the small example pack lives in `examples/` inside the package, and generated outputs
+  go outside it
 - the standalone package is now the only implementation; there is no shim or
   compatibility wrapper to keep in sync elsewhere
 

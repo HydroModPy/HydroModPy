@@ -21,20 +21,20 @@ entry_config = "step1_minimal.toml"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/README.md"
 dest = "projects/04_streamflow_intermittence_in_transient/README.md"
-size = 5550
-sha256 = "08bfff4772052d4e324557d2f7c73691d9e144a24ac3dd6e07a9168a782c1487"
+size = 5712
+sha256 = "8e769f7192d99b1a52762c29f4f90cf7cb7a2e35e3ff71300e294324f09f7164"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/project.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/project.toml"
-size = 5309
-sha256 = "0e6f3f0ee67106795f0ca032921e05973a2ab484eb1a786a581534a108b8278f"
+size = 5665
+sha256 = "0f141e0f639e7aa9c5208c9e75323c73b36bc1db57680f425b8be46dde271b27"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
-size = 5290
-sha256 = "9cdcf6249d25c9f14f7dff5fa6b8d7f62ea802ecc4a2e074e74669fe0ccfcf30"
+size = 5296
+sha256 = "ea1ef35e02731f6d1987a828b70f6cf6c53a2ffe301ed77671b27780201a360c"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration.toml"
@@ -69,8 +69,8 @@ sha256 = "ec01692d9aef0aad7e0c4bf6e2e96480906c215e2394a1f134cd075da3031627"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_daily.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_daily.toml"
-size = 2152
-sha256 = "3ba20a237cff24c5462ed8a55fb103a34b9973100fd4e0605734bc6c8faccee3"
+size = 2318
+sha256 = "d1c903ccc289812a17287e5a34fe20f9345a5d2e82c8352e96b45f4c8d4a8212"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml"
@@ -129,8 +129,8 @@ sha256 = "95b1ea1427811e1d51d92a387b891780834c2cfce22bfc44071d496477f70347"
 [[example.data]]
 repo_path = "examples/data/recharge/recharge_custom_NANCON_20000101_20021231_M.csv"
 dest = "data/recharge/recharge_custom_NANCON_20000101_20021231_M.csv"
-size = 734
-sha256 = "b023d3c49527eb4e62040c2117c0c03d00d7a325179578ce02af35fb51c2f8d2"
+size = 1085
+sha256 = "bf1cba878a97d7718a6f55b4fcd04c39bddedd670ae9baf12c6bfe07743113da"
 
 [[example.data]]
 repo_path = "examples/data/recharge/recharge_custom_NANCON_REA_19900101_20201231_D.csv"
@@ -141,8 +141,8 @@ sha256 = "76abcc28c7971488f3760c4b0c9918932d0b5b690808a2529c14c0036fb1cc89"
 [[example.data]]
 repo_path = "examples/data/runoff/runoff_custom_NANCON_20000101_20021231_M.csv"
 dest = "data/runoff/runoff_custom_NANCON_20000101_20021231_M.csv"
-size = 733
-sha256 = "447f04f9cd17a4f8871f5ce0d093ba7df012f5a91393000bdc9b3a6817d7d284"
+size = 1087
+sha256 = "23ca336a402cc2045d28cba9e6bda8cd4ec018d5508112238ab59a8bda18a474"
 
 [[example.data]]
 repo_path = "examples/data/runoff/runoff_custom_NANCON_REA_19900101_20201231_D.csv"

@@ -23,8 +23,10 @@ Around the steps:
 
 - `project.toml`: the frozen reference model, with all the figures. Its `[site]` names the
   catchment and its gauge, `NANCON`: every station source and every calibration file reads
-  the gauge from there, so no station is written twice. Its `[metrics]` window, 2001-2002,
-  is where every run is scored; 2000 is spin-up.
+  the gauge from there, so no station is written twice. The recharge and the runoff are the
+  SIM2 means over the catchment. January 2000 is solved in steady state under its own
+  recharge, then the run goes on month by month. Its `[metrics]` window, 2001-2002, is where
+  every run is scored, and 2000 is spin-up.
 - `run_daily.toml`: the same model at a daily step.
 - `run_calibration.toml`: calibration of K, then Sy, by the published protocol.
 - `run_calibration_by_hand.toml`: the same calibration, written as two phases.
@@ -64,7 +66,7 @@ composite and the BD Topage calibrations take about an hour each.
 project from its own location, so it runs from any folder, and it can be stepped through cell
 by cell (`# %%`) in Spyder or VS Code.
 
-After `load_data` it draws the recharge and the runoff of the gauge, and after
+After `load_data` it draws the recharge and the runoff, and after
 `prepare_solver` the mesh on the relief. It then gives Sy three values, 0.001, 0.05 and 0.3,
 and keeps a run for each: `nancon_sy_small`, `nancon_intermittence_mf6` (the Sy of the file,
 so the run of `project.toml`) and `nancon_sy_large`. With Sy = 0.001 the water table moves by

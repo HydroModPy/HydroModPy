@@ -10,8 +10,6 @@ from hydromodpy.config.sites import is_sites_project
 from hydromodpy.core.config_kit.dump import dump_toml_with_comments
 from hydromodpy.core.toml_io.generator import generate_toml_from_instances
 
-_DESIGN_DRAFT_PROJECTS = {"03_groundwater_1d"}
-
 
 def _example_project_tomls() -> list[Path]:
     """Return the project files of the examples that load as one configuration.
@@ -23,8 +21,7 @@ def _example_project_tomls() -> list[Path]:
     return [
         path
         for path in sorted(project_root.glob("*/project.toml"))
-        if path.parent.name not in _DESIGN_DRAFT_PROJECTS
-        and not is_sites_project(tomllib.loads(path.read_text(encoding="utf-8")))
+        if not is_sites_project(tomllib.loads(path.read_text(encoding="utf-8")))
     ]
 
 

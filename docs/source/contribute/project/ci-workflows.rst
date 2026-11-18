@@ -22,8 +22,9 @@ order they matter:
   ``tests/unit/architecture/``: the layer matrix, the run layouts, the public
   surface, the code rules and the gate that plays two runs in two threads of one
   process.
-- ``Characterization / produced run`` runs one real ``hmp run`` of the example 00
-  aquifer and reads back only what it left on disk.
+- ``Characterization / produced run`` runs one real ``hmp run`` of the synthetic
+  aquifer in ``tests/fixtures/projects/getting_started`` and reads back only what
+  it left on disk.
 - ``Tests / fast marker`` runs the ``fast`` tests on Python 3.11, 3.12 and 3.13,
   then the port tests with every solver binary installed and
   ``HMP_REQUIRE_BINARIES`` set, so a missing binary fails instead of skipping.
