@@ -6,3 +6,4 @@ CANUT_GAPS,-1.678,48.130,EPSG:4326,Canut avec lacunes,m3/s,false
 CANUT_LS,-1.690,48.126,EPSG:4326,Canut Litre par seconde,L/s,false
 RENNES01,-1.750,48.200,EPSG:4326,Station Rennes hors emprise,m3/s,false
 NANCON,389285.910,6816518.749,EPSG:2154,Nancon,m3/s,false
+CANUT,327816.965,6777886.670,EPSG:2154,Canut,m3/s,false

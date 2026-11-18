@@ -193,6 +193,20 @@ def test_a_mesh_without_layer_interfaces_has_no_section(stored_run, monkeypatch)
         data(stored_run, variable="head")
 
 
+def test_an_inactive_cell_on_the_line_is_left_out(stored_run, monkeypatch):
+    real = section.read_mesh
+
+    def without_cell_7(run):
+        mesh = real(run)
+        domain = mesh.zones["domain"].copy()
+        domain[7] = False
+        return replace(mesh, zones={**mesh.zones, "domain": domain})
+
+    monkeypatch.setattr(section, "read_mesh", without_cell_7)
+    table = data(stored_run, variable="head").table
+    assert list(table.loc[table["layer"] == 0, "cell"]) == [4, 5, 6]
+
+
 def test_a_head_section_without_a_water_table_draws_the_cells_alone(stored_run, monkeypatch):
     stored = section.stored_field
 

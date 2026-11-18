@@ -80,7 +80,7 @@ FROZEN_PROJECTS: tuple[str, ...] = (
 """The four frozen projects of the characterization net.
 
 Chosen for coverage per second, and all four committed: a synthetic structured
-grid on MODFLOW-NWT; a small conceptual DEM through WhiteboxTools delineation,
+grid on MODFLOW-NWT; a small conceptual DEM taken whole as the domain,
 MODFLOW 6 and particle tracking; a real coastal DEM over a heterogeneous
 aquifer; and a monthly transient run on a regional DEM. Steady and transient,
 synthetic and delineated, both flow engines. Together they run twice in about

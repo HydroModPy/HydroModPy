@@ -905,6 +905,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Fixed
 
+- A section that crosses inactive cells, such as the nodata border of a DEM taken whole as the domain, leaves them out. It drew their sentinel base of -9999 m in the frame and in the label.
 - A GeoTIFF exported into another CRS reads `resolution` in the units of that CRS. `resolution = 0.0005` with `crs = "EPSG:4326"` asked for 23 million pixels a side and the export failed.
 - An export that fails after the seal no longer stops the figures. They are drawn, then the run exits with the export error.
 - `engine = ["static", "interactive"]` writes the PNG and the HTML page during a run, where it wrote the PNG alone. A series of one period is skipped with its reason, where it drew an empty panel, and `hmp show <run> --figure <name> --time <date>` draws that date.

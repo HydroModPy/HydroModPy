@@ -76,8 +76,7 @@ import hydromodpy as hmp
 run = hmp.run("step4_transient.toml").open()
 ```
 
-This is also what `py1_run_and_plot.py` of the example does, before it draws its own
-figure. {doc}`next` lists the scripts.
+{doc}`next` says what the script `py1_run_and_plot.py` of the example does.
 :::
 
 ::::

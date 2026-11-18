@@ -1,20 +1,22 @@
-# HydroModPy - example 01: simplified example presented in the paper
+# Example 01: the Canut catchment (Ille-et-Vilaine), the case of the HydroModPy paper.
 #
-# Canut catchment (Brittany), steady MODFLOW 6 over five layers thickening with
-# depth, conductivity and storage decaying exponentially with depth, followed by
-# particle tracking.
+# Steady state, 350 mm/year of recharge, a 50 m aquifer in five layers that
+# thicken with depth, K and Sy that fall with depth, seepage at the ground
+# surface, and particles that show where the seepage water comes from.
+# MODFLOW 6 solves the flow and its PRT tracks the particles.
 #
-#   hmp run examples/projects/01_simplified_example_presented_in_the_paper/project.toml
+#   hmp run project.toml
 
 [site]
 name = "canut"
+gauge = "CANUT"
 
 [workflow]
 mode = "simulation"
 
 [simulation]
-name = "canut_paper_mf6"
-description = "Canut catchment, steady MODFLOW 6, depth-decaying five-layer aquifer with particle tracking."
+name = "canut_example_01"
+description = "Canut catchment, steady state, five layers, K and Sy falling with depth, particle tracking."
 
 [[simulation.process]]
 id = "flow_main"
@@ -26,61 +28,62 @@ id = "particles"
 kind = "transport"
 solvers = ["modflow6_prt"]
 
-
+# The catchment is cut out of a regional 75 m DEM, upstream of the outlet,
+# after the depressions of the DEM are breached. The domain is the box around
+# the catchment widened by 10 % of the square root of its area.
 [geographic]
 crs_project = "EPSG:2154"
+dem_correc_type = "breach"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
 x_outlet = 327816.965
 y_outlet = 6777886.670
 snap_dist = "150 m"
-buff_area = "10%"
+buff_area = "10% of sqrt(area)"
 
-[geographic.river_network]
-enabled = true
-threshold_area_km2 = 0.5
-
-
+# 50 m under the ground surface, in five layers. Each layer is 1.5 times
+# thicker than the one above it.
 [domain.depth_model]
 kind = "constant_thickness"
-thickness = "50.0 m"
-
+thickness = "50 m"
 
 [domain.layers]
 genmtd_lay = "decay"
 nlay = 5
 lay_decay = 1.5
 
-
+# The mapped streams and the gauge are drawn on the figures and exported. The
+# model reads neither.
 [data]
-types = ["dem", "recharge"]
+types = ["dem", "hydrography", "hydrometry"]
 
 [[data.dem.sources]]
 source = "file"
-path = "../../data/dem/DEM_armorican_massif.tif"
+path = "workspace:DEM_armorican_massif.tif"
 
-# 350 mm/year over the catchment.
-[[data.recharge.sources]]
-source = "synthetic"
-values = [0.96]
+[[data.hydrography.sources]]
+source = "file"
+path = "workspace:canut_stream_network.gpkg"
 
+[[data.hydrometry.sources]]
+source = "file"
+path = "workspace:."
 
 [flow]
 flow_regime = "steady"
 param_list = ["K", "Sy"]
 
+# A weathered and fractured bedrock: K and Sy fall as exp(-depth / 20 m), so
+# they halve every 14 m.
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
 value = 2e-5
 
-# Fractured aquifer: the weathered zone conducts, the deep bedrock does not.
-# exp(-depth / 20 m) is about half the surface value at 14 m depth.
 [flow.param.K.field_vertical_profile]
 kind = "exponential"
-characteristic_depth = "20.0 m"
-min_factor = 1e-3
+characteristic_depth = "20 m"
 
 [flow.param.Sy.field]
 kind = "homogeneous"
@@ -89,65 +92,109 @@ value = 0.01
 
 [flow.param.Sy.field_vertical_profile]
 kind = "exponential"
-characteristic_depth = "20.0 m"
-min_factor = 1e-2
+characteristic_depth = "20 m"
 
+# Every cell drains at the ground surface. The conductance follows K,
+# C = K * cell area / 1 m.
 [flow.bc.drainage]
-kind = "drain"
 
-
+# 350 mm/year.
 [flow.sinks_sources.recharge]
-[transport.modflow6prt.parameters]
-release_zone = "domain_nonriver"
+units = "mm/day"
+values = [0.9589041096]
+
+# One particle in each cell of the box, carried by the flow until it leaves
+# the aquifer, most of them in a seepage cell. The porosity is Sy at the top.
+[transport.modflow6_prt]
+release_zone = "domain"
 porosity = 0.01
-max_particles = 300
-track_time_step = 30.0
-stop_time = 36500.0
 release_times = [0.0]
+stop_time = "1000 years"
 
-
-[modflow6.runtime]
-mf6_ims_complexity = "MODERATE"
-
-# Five layers thickening with depth.
+# The figures land in runs/canut_example_01/figures/. Each one that applies
+# and fails stops the run, so a broken figure cannot go unseen.
 [display]
 on_error = "raise"
+
 [[display.figure]]
 preset = "watershed_id_card"
 
 [[display.figure]]
 variable = "topography"
-overlays = ["mesh", "outline", "outlet"]
+overlays = ["mesh", "outline", "network", "outlet", "stations"]
+
+# K from west to east through the middle of the box, and Sy from north to
+# south. Both fall with depth.
+[[display.figure]]
+variable = "hydraulic_conductivity"
+type = "section"
+name = "conductivity_west_east"
+line = [[318900.0, 6776625.0], [328600.0, 6776625.0]]
+scale = "log"
+
+[[display.figure]]
+variable = "specific_yield"
+type = "section"
+name = "specific_yield_north_south"
+line = [[323775.0, 6779400.0], [323775.0, 6773850.0]]
+scale = "log"
 
 [[display.figure]]
 variable = "watertable_elevation"
+overlays = ["outline", "network"]
 
 [[display.figure]]
 variable = "watertable_depth"
+overlays = ["seepage", "outline"]
+limits = [0.0, 10.0]
+line = [[323850.0, 6779400.0], [323850.0, 6773850.0]]
+
+# North to south through the catchment, on the dashed line of the map above.
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "section_north_south"
+line = [[323850.0, 6779400.0], [323850.0, 6773850.0]]
 
 [[display.figure]]
-variable = "seepage_mask"
+variable = "outflow_drain"
+overlays = ["outline", "network"]
+
+[[display.figure]]
+variable = "drain_accumulation_flux"
+scale = "log"
+overlays = ["outline"]
 
 [[display.figure]]
 preset = "particle_tracks"
 
 [[display.figure]]
+preset = "particle_tracks"
+name = "particle_tracks_over_travel_time"
+variable = "travel_time_to_exit"
+
+[[display.figure]]
 preset = "residence_time_distribution"
 
-# The paper section runs west to east through the catchment.
-[[display.figure]]
-variable = "watertable_elevation"
-type = "section"
-name = "cross_section"
-# orientation = "we" has no equivalent: the line runs from the outlet
+# What lands in runs/canut_example_01/exports/, ready for QGIS or a spreadsheet.
 
-[[display.figure]]
-variable = "hydraulic_conductivity"
-type = "section"
-# orientation = "we" has no equivalent: the line runs from the outlet
+# The catchment, its box and the mapped streams: GeoPackage.
+[[export]]
+variable = ["watershed", "watershed_box_buff", "hydrographic_network_reference"]
 
-[[display.figure]]
-variable = "simulated_active_network"
+# The DEM of the model: GeoTIFF.
+[[export]]
+variable = "watershed_dem"
 
-[[display.figure]]
-preset = "water_budget"
+# The water table, its depth, the seepage cells and the drain flow: one GeoTIFF each.
+[[export]]
+variable = ["watertable_elevation", "watertable_depth", "seepage_mask", "outflow_drain"]
+time = "first"
+
+# The water budget: CSV.
+[[export]]
+variable = "budget"
+
+# The particle tracks, one line per particle with its travel time in years: GeoPackage.
+[[export]]
+variable = "pathlines"

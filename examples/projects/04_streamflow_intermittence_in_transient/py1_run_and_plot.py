@@ -1,101 +1,144 @@
-"""Run step4_transient.toml from Python, then draw a figure HydroModPy does
-not offer: the area of the catchment where the water table reaches the
-surface, month by month, against the discharge at the outlet.
+"""Play project.toml in the lab, one step at a time, then give Sy three values and keep a run
+for each. The recharge and the runoff are drawn after `load_data`, the mesh on the relief after
+`prepare_solver`. For each Sy the script finds the months when the catchment seeps the least
+and the most, and HydroModPy draws the seepage cells and the water table of these two months,
+the share of the run each cell seeps, and the discharge against the gauge.
 
     python py1_run_and_plot.py
 """
 
+# %% Setup
+
 from pathlib import Path
 
-import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
 import hydromodpy as hmp
 
 HERE = Path(__file__).resolve().parent
+FIGURES = HERE / "summary" / "figures"
+FIGURES.mkdir(parents=True, exist_ok=True)
+# South to north through the outlet, across the valley.
+SECTION = [[389175.0, 6815000.0], [389175.0, 6826000.0]]
 
-# %% The run
+# %% Open the lab
 
-# The same as `hmp run step4_transient.toml`, figures and exports included.
-# An unchanged file is not computed again: the run of the last execution comes
-# back. An edited file writes a new run, nancon_step4_transient_v2, _v3...
-run = hmp.run(HERE / "step4_transient.toml").open()
-print(run.name)
+lab = hmp.Lab(HERE / "project.toml")
+print(lab.steps[["step", "status"]].to_string(index=False))
 
-# %% The data
+# %% The catchment and its forcing
 
-# The fields are stored by stress period, without a date. Period i runs from
-# edges[i] to edges[i + 1]: each month is named by its first day.
-months = run.periods.edges[:-1]
+state = lab.advance("load_data")
+print(state.geographic)
+print(state.data)
 
-# Simulated discharge, the mean of the month, and gauged discharge, daily,
-# averaged over the same months. Both in m3/s.
-q_sim = pd.Series(run.read("discharge").to_numpy(), index=months)
-q_obs = run.read("discharge_obs").resample("MS").mean().reindex(months)
+# The recharge and the runoff of the gauge, one value per month in mm/day. The model takes
+# the recharge, and the runoff is added to the drain flow to give the discharge.
+forcing = pd.DataFrame(
+    {
+        name: getattr(state.data, name).points[0].data.set_index("datetime")["value"]
+        for name in ("recharge", "runoff")
+    }
+)
+print(forcing.describe().round(2).to_string())
+fig, ax = plt.subplots(figsize=(7, 3))
+ax.plot(forcing.index, forcing["recharge"], color="dodgerblue", lw=2, label="recharge")
+ax.plot(forcing.index, forcing["runoff"], color="navy", lw=2, label="runoff")
+ax.set_ylabel("mm/day")
+ax.legend()
+fig.savefig(FIGURES / "recharge_and_runoff.png", dpi=150, bbox_inches="tight")
 
-# The mesh covers the rectangle around the catchment: count the cells of the
-# catchment only. The mesh is the DEM grid, row by row, hence the ravel of the
-# mask.
-seepage = run.read("seepage_mask").to_numpy() > 0  # (months, cells)
-in_catchment = run.catchment_mask.ravel()
-cell_km2 = run.grid.cell_size**2 / 1e6
-area = pd.Series((seepage & in_catchment).sum(axis=1) * cell_km2, index=months)
+# %% The mesh on the relief, before the solve
 
-# Seepage area as a power law of the discharge, A = a Q^b, as Godsey and
-# Kirchner (2014) write the length of the active network. The year 2000 is the
-# spin-up of the model: it is left out.
-kept = months.year >= 2001
-b, log_a = np.polyfit(np.log(q_sim[kept]), np.log(area[kept]), 1)
-print(f"exponent b = {b:.2f}")
-
-# %% The figure
-
-fig, axes = plt.subplot_mosaic(
-    [["q", "fit"], ["area", "fit"]],
-    figsize=(12, 6),
-    width_ratios=[1.7, 1],
-    constrained_layout=True,
+# A run stopped at `prepare_solver` stores the ground of every cell, so it draws the mesh.
+state = lab.advance("prepare_solver")
+print(state.model)
+before = lab.run(until_step="prepare_solver")
+print(
+    before.figure(
+        "topography",
+        overlays=["mesh", "outline", "network", "outlet"],
+        save=FIGURES / "mesh_on_relief.png",
+    )
 )
 
-ax = axes["q"]
-ax.plot(months, q_obs, color="k", lw=1, label="gauged")
-ax.plot(months, q_sim, color="tab:blue", label="simulated")
-ax.set_yscale("log")
-ax.set_yticks([0.3, 0.5, 1, 2], ["0.3", "0.5", "1", "2"])
-ax.minorticks_off()
-ax.set_ylabel("discharge (m³/s)")
-ax.tick_params(labelbottom=False)
-ax.legend()
+# %% Three values of Sy, one run each
 
-ax = axes["area"]
-ax.fill_between(months, area, color="tab:orange", alpha=0.5)
-ax.set_ylabel("seepage area (km²)")
-ax.sharex(axes["q"])
-ax.xaxis.set_major_locator(mdates.YearLocator())
+# Sy sets how much water the aquifer stores for a metre of water table. Each run writes the
+# figures and the files of project.toml. Sy = 0.05 is the value of the file, so its run is
+# the run of project.toml.
+SY = {"small": 0.001, "file": 0.05, "large": 0.3}
+runs = {}
+for label, sy in SY.items():
+    # With Sy = 0.001 the water table moves by metres in a month, and MODFLOW 6 needs four
+    # time steps per month to converge. That run takes about three minutes.
+    steps = 4 if label == "small" else 1
+    lab.set({"Sy": sy, "simulation.time.substeps_per_period": steps})
+    runs[label] = lab.run(None if label == "file" else f"nancon_sy_{label}")
+lab.close()
 
-ax = axes["fit"]
-points = ax.scatter(q_sim[kept], area[kept], c=months[kept].month, cmap="twilight", vmin=1, vmax=12)
-q = np.geomspace(q_sim[kept].min(), q_sim[kept].max(), 50)
-ax.plot(q, np.exp(log_a) * q**b, color="k", lw=1, label=rf"$A \propto Q^{{{b:.2f}}}$")
-ax.set_xscale("log")
-ax.set_yscale("log")
-ax.set_xticks([0.3, 0.5, 1, 2], ["0.3", "0.5", "1", "2"])
-ax.set_yticks([1, 2, 3, 4], ["1", "2", "3", "4"])
-ax.minorticks_off()
-ax.set_xlabel("simulated discharge (m³/s)")
-ax.set_ylabel("seepage area (km²)")
-ax.set_title("2001-2002")
-ax.legend()
-fig.colorbar(points, ax=ax, label="month", ticks=[1, 4, 7, 10])
+# %% The months of least and most seepage
 
-fig.suptitle(f"{run.name}: water table at the surface and discharge")
+# The fields are stored by month. Each month is named by its first day, and the figures take
+# the middle of the month. Only the cells of the catchment are counted.
+rows = []
+for label, run in runs.items():
+    months = run.periods.edges[:-1]
+    seeps = run.read("seepage_mask").to_numpy()[:, run.catchment_mask.ravel()] > 0
+    share = pd.Series(seeps.mean(axis=1) * 100, index=months)
+    scores = run.metrics.set_index("metric")["value"]
+    rows.append(
+        {
+            "Sy": SY[label],
+            "least (%)": share.min(),
+            "in": share.idxmin().strftime("%Y-%m"),
+            "most (%)": share.max(),
+            "in ": share.idxmax().strftime("%Y-%m"),
+            "NSE": scores["nse"],
+            "NSE log": scores["nse_log"],
+        }
+    )
+    for word, month in (("least", share.idxmin()), ("most", share.idxmax())):
+        middle = (month + pd.Timedelta(days=14)).strftime("%Y-%m-%d")
+        print(
+            run.figure(
+                "seepage_mask",
+                time=middle,
+                overlays=["outline"],
+                save=FIGURES / f"seepage_sy_{label}_{word}.png",
+            )
+        )
+        print(
+            run.figure(
+                "watertable_elevation",
+                type="section",
+                time=middle,
+                line=SECTION,
+                save=FIGURES / f"section_sy_{label}_{word}.png",
+            )
+        )
+# A small Sy lets the water table follow each month, so the network swells in winter and
+# nearly dries in summer. A large Sy smooths the year.
+print(pd.DataFrame(rows).set_index("Sy").round(2).to_string())
 
-# A figure a script draws from a run is derived, not sealed: it goes to
-# summary/figures/, never into the run, whose figures/ holds the [display] list.
-out = HERE / "summary" / "figures" / f"{run.name}_seepage_vs_discharge.png"
-out.parent.mkdir(parents=True, exist_ok=True)
-fig.savefig(out, dpi=150)
-print(out)
-plt.show()
+# %% How long each cell seeps, and the discharge
+
+# The share of the 36 months each cell seeps, then the simulated discharge against the gauge
+# on a log axis, then the seepage share of the catchment over time beside the discharge.
+for label, run in runs.items():
+    print(
+        run.figure(
+            "simulated_active_network",
+            reduce="frequency",
+            overlays=["outline", "network"],
+            save=FIGURES / f"persistence_sy_{label}.png",
+        )
+    )
+    print(run.figure("hydrograph", scale="log", save=FIGURES / f"discharge_sy_{label}.png"))
+    print(run.figure("network_expansion", save=FIGURES / f"network_expansion_sy_{label}.png"))
+
+# %% The files for QGIS
+
+for path in runs["file"].exports:
+    print(path)

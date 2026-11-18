@@ -21,8 +21,8 @@ entry_config = "step1_minimal.toml"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/README.md"
 dest = "projects/04_streamflow_intermittence_in_transient/README.md"
-size = 5975
-sha256 = "980831a258b9449c5394f617194623aa9c4c81806ebcf368f52d04913e00a61f"
+size = 5550
+sha256 = "08bfff4772052d4e324557d2f7c73691d9e144a24ac3dd6e07a9168a782c1487"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/project.toml"
@@ -33,38 +33,8 @@ sha256 = "0e6f3f0ee67106795f0ca032921e05973a2ab484eb1a786a581534a108b8278f"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
-size = 3599
-sha256 = "073807851c3d7890f9e8c23c151dbdfaf792d139bd5c511d3bb5223f00114b23"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py2_edit_parameters.py"
-dest = "projects/04_streamflow_intermittence_in_transient/py2_edit_parameters.py"
-size = 3231
-sha256 = "b21f3ccf8463f6f63027a1b7b90ec3adf617fa9b7664cae333edd818768b9233"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py3_read_exports.py"
-dest = "projects/04_streamflow_intermittence_in_transient/py3_read_exports.py"
-size = 5300
-sha256 = "c0d6766359ae3f0708c0e2289c78e4a575ead1939dfb485859bbaf99dced863b"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py4_sweep_k.py"
-dest = "projects/04_streamflow_intermittence_in_transient/py4_sweep_k.py"
-size = 3039
-sha256 = "dae062dc4d98098244e842335252166c451cb6074234b400f9a981f1ed75bbac"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py5_catalog.py"
-dest = "projects/04_streamflow_intermittence_in_transient/py5_catalog.py"
-size = 2766
-sha256 = "41fb590623b1f29e9d95df9f555196aa64ad64b6aefdf0a66482306b9ba6e018"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py6_monthly_maps.py"
-dest = "projects/04_streamflow_intermittence_in_transient/py6_monthly_maps.py"
-size = 3166
-sha256 = "e2dff06ba9bdb95b6d7ee6f15e7c3d26e49fc6576df4cd00e3784d27ed2869cf"
+size = 5290
+sha256 = "9cdcf6249d25c9f14f7dff5fa6b8d7f62ea802ecc4a2e074e74669fe0ccfcf30"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration.toml"

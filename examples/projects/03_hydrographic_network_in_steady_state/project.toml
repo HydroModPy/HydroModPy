@@ -1,12 +1,12 @@
-# HydroModPy - example 03: hydrographic network in steady state
+# Example 03: the stream network a water table feeds, Canut catchment (Ille-et-Vilaine).
 #
-# Canut catchment (Brittany), steady MODFLOW 6 over a 50 m aquifer in five
-# layers. Three networks side by side: the observed one (BD Topage), the one
-# the DEM delineates by flow accumulation, and the one the water table
-# sustains. Raise or lower K and the simulated active network grows or shrinks;
-# run_manual.py drives that sweep.
+# Steady state, 1.17 mm/day of recharge, a 50 m aquifer in five layers of
+# equal thickness, seepage at the ground surface. Where the water table
+# reaches the ground the aquifer seeps, and the seepage cells draw a network
+# beside the mapped one. py1_run_and_plot.py changes K from 1e-8 to 1e-3 m/s
+# and follows how this network grows and shrinks. MODFLOW 6 solves the flow.
 #
-#   hmp run examples/projects/03_hydrographic_network_in_steady_state/project.toml
+#   hmp run project.toml
 
 [site]
 name = "canut"
@@ -15,73 +15,54 @@ name = "canut"
 mode = "simulation"
 
 [simulation]
-name = "canut_steady_mf6"
-description = "Canut catchment, steady-state MODFLOW 6, five-layer 50 m aquifer, observed and simulated stream networks."
+name = "canut_example_03"
+description = "Canut catchment, steady state, five layers, the seepage network beside the mapped one."
 
 [[simulation.process]]
 id = "flow_main"
 kind = "flow"
 solvers = ["modflow6"]
 
+# The catchment is cut out of a regional 75 m DEM, upstream of the outlet,
+# after the depressions of the DEM are breached. The domain is the box around
+# the catchment widened by 10 % of the square root of its area.
 [geographic]
 crs_project = "EPSG:2154"
+dem_correc_type = "breach"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
 x_outlet = 327816.965
 y_outlet = 6777886.670
 snap_dist = "150 m"
-# "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
-buff_area = "10%"
+buff_area = "10% of sqrt(area)"
 
-# Reach cells delineated from the DEM: what the generated-network figures draw.
-[geographic.river_network]
-enabled = true
-threshold_area_km2 = 0.5
-
-
+# 50 m under the ground surface, in five layers of 10 m.
 [domain.depth_model]
 kind = "constant_thickness"
-thickness = "50.0 m"
-
+thickness = "50 m"
 
 [domain.layers]
 nlay = 5
 
-
+# The mapped streams are compared with the seepage network. The model does
+# not read them.
 [data]
-types = ["dem", "recharge", "geology", "hydrography"]
+types = ["dem", "hydrography"]
 
 [[data.dem.sources]]
 source = "file"
-path = "../../data/dem/DEM_armorican_massif.tif"
+path = "workspace:DEM_armorican_massif.tif"
 
-# BRGM 1:1 000 000 geology, context only: no parameter is zoned on it.
-[[data.geology.sources]]
-source = "file"
-path = "../../data/geology/GEO1M.shp"
-code_field = "CODE_LEG"
-
-# The observed network. This is what gives the run its reference hydrographic
-# role, and with it the comparison figures.
 [[data.hydrography.sources]]
-source = "bdtopage"
-
-# Monthly recharge climatology of the Canut, mm/day. The steady run uses its
-# mean, 1.17 mm/day.
-[[data.recharge.sources]]
-source = "synthetic"
-values = [0.333, 0.667, 1.000, 1.333, 1.667, 2.000, 2.000, 1.667, 1.333, 1.000, 0.667, 0.333]
-start_date = "2000-01-01"
-freq = "MS"
-periods = 12
-
+source = "file"
+path = "workspace:canut_stream_network.gpkg"
 
 [flow]
 flow_regime = "steady"
 param_list = ["K", "Sy"]
 
-# run_manual.py sweeps K from 1e-8 to 1e-3 m/s to show the active network respond.
+# py1_run_and_plot.py sweeps K from 1e-8 to 1e-3 m/s.
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
@@ -92,65 +73,63 @@ kind = "homogeneous"
 unit = "-"
 value = 0.1
 
-# No explicit value: the solver derives the drain conductance from K.
+# Every cell drains at the ground surface. The conductance follows K,
+# C = K * cell area / 1 m.
 [flow.bc.drainage]
-kind = "drain"
 
-
+# 10, 20, 30, 40, 50, 60, 60, 50, 40, 30, 20 and 10 mm per month, divided by
+# 30 days. The steady state takes their mean, 1.17 mm/day.
 [flow.sinks_sources.recharge]
-enabled = true
-[modflow6.runtime]
-mf6_ims_complexity = "MODERATE"
+units = "mm/day"
+values = [1.1666666667]
 
+# The figures land in runs/canut_example_03/figures/. Each one that applies
+# and fails stops the run, so a broken figure cannot go unseen.
 [display]
 on_error = "raise"
+
 [[display.figure]]
 preset = "watershed_id_card"
 
 [[display.figure]]
 variable = "topography"
-overlays = ["mesh", "outline", "outlet"]
-name = "mesh_map"
-
-[[display.figure]]
-variable = "watertable_elevation"
+overlays = ["mesh", "outline", "network", "outlet"]
 
 [[display.figure]]
 variable = "watertable_depth"
+overlays = ["seepage", "outline"]
+limits = [0.0, 10.0]
+line = [[323775.0, 6779400.0], [323775.0, 6773850.0]]
 
+# North to south through the middle of the box, on the dashed line above.
 [[display.figure]]
-variable = "seepage_mask"
+variable = "watertable_elevation"
+type = "section"
+name = "section_north_south"
+line = [[323775.0, 6779400.0], [323775.0, 6773850.0]]
 
-[[display.figure]]
-variable = "topography"
-overlays = ["relief", "network"]
-name = "hydrographic_network_reference"
-
-[[display.figure]]
-variable = "topography"
-overlays = ["relief", "generated_network"]
-name = "hydrographic_network_generated"
-
-[[display.figure]]
-preset = "network_comparison"
-
+# The seepage cells under the mapped streams, then the flow they carry
+# downstream, then where the two networks agree, cell by cell.
 [[display.figure]]
 variable = "simulated_active_network"
-name = "simulated_active_network"
-
-[[display.figure]]
-variable = "simulated_active_network"
-overlays = ["relief", "network"]
-name = "simulated_active_network_reference_overlay"
+overlays = ["relief", "network", "outline"]
 
 [[display.figure]]
 variable = "drain_accumulation_flux"
 scale = "log"
+overlays = ["network", "outline"]
 
 [[display.figure]]
-variable = "watertable_elevation"
-type = "section"
-name = "cross_section"
+variable = "network_agreement"
+overlays = ["outline"]
 
-[[display.figure]]
-preset = "water_budget"
+# What lands in runs/canut_example_03/exports/, ready for QGIS or a spreadsheet.
+
+# The catchment and the mapped streams: GeoPackage.
+[[export]]
+variable = ["watershed", "hydrographic_network_reference"]
+
+# The water table, its depth and the seepage cells: one GeoTIFF each.
+[[export]]
+variable = ["watertable_elevation", "watertable_depth", "seepage_mask"]
+time = "first"

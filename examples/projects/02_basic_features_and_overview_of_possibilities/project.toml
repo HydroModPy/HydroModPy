@@ -1,20 +1,22 @@
-# HydroModPy - example 02: basic features and overview of possibilities
+# Example 02: a conceptual relief, and the main features of HydroModPy on it.
 #
-# A small conceptual DEM delineated from its outlet and solved steady with
-# MODFLOW 6. Entirely offline, it exercises the standard figure set in under a
-# second. run_manual.py sweeps the recharge to show the domain respond.
+# The domain is the whole DEM, 5 km by 5 km at 75 m, with no download. Steady
+# state, a recharge that changes from cell to cell, an aquifer whose base
+# mirrors the relief under sea level, ten layers, K in three bands of depth,
+# seepage at the ground surface, and particles. MODFLOW 6 solves the flow and
+# its PRT tracks the particles.
 #
-#   hmp run examples/projects/02_basic_features_and_overview_of_possibilities/project.toml
+#   hmp run project.toml
+
+[site]
+name = "conceptual"
 
 [workflow]
 mode = "simulation"
 
-[site]
-name = "conceptual_demo"
-
 [simulation]
-name = "conceptual_dem_mf6"
-description = "Conceptual DEM domain, steady MODFLOW 6, full standard figure set."
+name = "conceptual_example_02"
+description = "Conceptual relief, steady state, recharge per cell, ten layers, K by depth, particle tracking."
 
 [[simulation.process]]
 id = "flow_main"
@@ -26,127 +28,155 @@ id = "particles"
 kind = "transport"
 solvers = ["modflow6_prt"]
 
-
+# The domain is the DEM itself: each cell with an elevation is a cell of the
+# model, and the others stay outside.
 [geographic]
 crs_project = "EPSG:2154"
 
-# Delineating from the lowest cell masks the DEM nodata border, which the
-# direct catch_def = "dem" mode does not.
 [geographic.catchment]
-kind = "from_outlet_coord"
-x_outlet = 142687.4
-y_outlet = 6849096.4
-snap_dist = "150 m"
-buff_area = "10%"
+kind = "dem"
 
-
-# An absolute base well under sea level, so the aquifer is thick under the highs
-# and thin under the lows, the way the legacy example mirrored the topography.
+# The base of the aquifer is the relief turned upside down under sea level,
+# base = -top, so the aquifer is twice as thick as the ground is high, from
+# 80 m under the valleys to 190 m under the hills. Ten layers, each one 1.2
+# times thicker than the one above it.
 [domain.depth_model]
-kind = "flat_substratum"
-substratum_elevation = "-78.0 m"
-
+kind = "raster_substratum"
 
 [domain.layers]
 genmtd_lay = "decay"
 nlay = 10
 lay_decay = 1.2
 
-
 [data]
-types = ["dem", "recharge"]
+types = ["dem", "substratum", "recharge"]
 
 [[data.dem.sources]]
 source = "file"
-path = "../../data/dem/conceptual_dem.tif"
+path = "workspace:conceptual_dem.tif"
 
-# mm/day. run_manual.py sweeps this for the dry / normal / wet cases.
+# The elevation of the base, -top in each cell.
+[[data.substratum.sources]]
+source = "file"
+path = "workspace:conceptual_base.tif"
+
+# One value per cell, drawn at random between 0 and 100 mm per month, 1.67
+# mm/day on average.
 [[data.recharge.sources]]
-source = "synthetic"
-values = [1.5]
-
+source = "file"
+path = "workspace:recharge_conceptual.tif"
+source_unit = "mm/day"
 
 [flow]
 flow_regime = "steady"
 param_list = ["K", "Sy"]
 
+# Three bands of depth: 1e-5 m/s in the first 30 m, 1e-7 m/s down to 100 m,
+# then 1e-8 m/s.
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
 value = 1e-5
 
-# Two conductivity bands, not a decay: the weathered first 30 m conduct, the
-# bedrock under them is a hundred times tighter.
 [flow.param.K.field_vertical_profile]
 kind = "tabulated"
 interpolation = "step"
-depths = [0.0, 30.0]
-factors = [1.0, 0.01]
+depths = [0.0, 30.0, 100.0]
+factors = [1.0, 0.01, 0.001]
 
 [flow.param.Sy.field]
 kind = "homogeneous"
 unit = "-"
 value = 0.1
 
+# Every cell drains at the ground surface. The conductance follows K,
+# C = K * cell area / 1 m.
 [flow.bc.drainage]
-kind = "drain"
-
 
 [flow.sinks_sources.recharge]
-[transport.modflow6prt.parameters]
+
+# One particle in each cell, carried by the flow until it leaves the aquifer.
+# The porosity is Sy.
+[transport.modflow6_prt]
 release_zone = "domain"
 porosity = 0.1
-max_particles = 250
-track_time_step = 365.0
-stop_time = 3650000.0
 release_times = [0.0]
+stop_time = "10000 years"
 
-
-[modflow6.runtime]
-mf6_ims_complexity = "MODERATE"
-
-# Ten layers thickening with depth.
+# The figures land in runs/conceptual_example_02/figures/. Each one that
+# applies and fails stops the run, so a broken figure cannot go unseen.
 [display]
 on_error = "raise"
+
 [[display.figure]]
 variable = "topography"
-overlays = ["mesh", "outline", "outlet"]
+overlays = ["mesh", "outline"]
 
 [[display.figure]]
 variable = "recharge"
-layer = "sum"
+overlays = ["outline"]
+
+# K from west to east through the middle of the relief.
+[[display.figure]]
+variable = "hydraulic_conductivity"
+type = "section"
+name = "conductivity_west_east"
+line = [[140025.0, 6846996.0], [145050.0, 6846996.0]]
+scale = "log"
 
 [[display.figure]]
 variable = "watertable_elevation"
+overlays = ["outline"]
 
 [[display.figure]]
 variable = "watertable_depth"
+overlays = ["seepage", "outline"]
+limits = [0.0, 10.0]
+line = [[140025.0, 6846996.0], [145050.0, 6846996.0]]
 
 [[display.figure]]
-variable = "seepage_mask"
+variable = "watertable_elevation"
+type = "section"
+name = "section_west_east"
+line = [[140025.0, 6846996.0], [145050.0, 6846996.0]]
+
+# The seepage per unit area, then the flow it accumulates downstream.
+[[display.figure]]
+variable = "outflow_drain"
+overlays = ["outline"]
+limits = [0.0, 20.0]
 
 [[display.figure]]
 variable = "drain_accumulation_flux"
 scale = "log"
+overlays = ["outline"]
 
 [[display.figure]]
 preset = "particle_tracks"
 
 [[display.figure]]
+preset = "particle_tracks"
+name = "particle_tracks_over_travel_time"
+variable = "travel_time_to_exit"
+
+[[display.figure]]
 preset = "residence_time_distribution"
 
-[[display.figure]]
-variable = "watertable_elevation"
-type = "section"
-name = "cross_section"
+# What lands in runs/conceptual_example_02/exports/, ready for QGIS or a spreadsheet.
 
-[[display.figure]]
-variable = "hydraulic_conductivity"
-type = "section"
+# The domain: GeoPackage.
+[[export]]
+variable = "watershed"
 
-[[display.figure]]
-preset = "water_budget"
+# The water table, its depth, the seepage cells and the drain flow: one GeoTIFF each.
+[[export]]
+variable = ["watertable_elevation", "watertable_depth", "seepage_mask", "outflow_drain"]
+time = "first"
 
-[[display.figure]]
-variable = "mass_balance.percent_error"
-type = "series"
+# The water budget: CSV.
+[[export]]
+variable = "budget"
+
+# The particle tracks, one line per particle with its travel time in years: GeoPackage.
+[[export]]
+variable = "pathlines"

@@ -60,28 +60,20 @@ composite and the BD Topage calibrations take about an hour each.
 
 ## From Python
 
-The same files can be driven from a script. Each script finds the project from its own
-location, so it runs from any folder, and it can be stepped through cell by cell (`# %%`) in
-Spyder or VS Code.
+`py1_run_and_plot.py` plays `project.toml` one step at a time in a `hmp.Lab`. It finds the
+project from its own location, so it runs from any folder, and it can be stepped through cell
+by cell (`# %%`) in Spyder or VS Code.
 
-1. `py1_run_and_plot.py`: runs `step4_transient.toml` with `hmp.run`, then draws a figure of
-   its own, the seepage area of the catchment against the discharge.
-2. `py2_edit_parameters.py`: loads `project.toml` as a Python object, changes K and Sy, runs
-   the variant and compares it with the reference.
-3. `py3_read_exports.py`: redraws a figure from the files of `runs/<name>/exports/` alone
-   (GeoPackage, GeoTIFF, CSV, NetCDF), without importing HydroModPy. It needs the exports of
-   `step5_export.toml`.
-4. `py4_sweep_k.py`: five values of K, one `hmp.run` each on `project.toml` with K set on
-   top, the Python form of `hmp run project.toml --set flow.param.K.field.value=...`. The
-   discharge does not tell the K values apart, the seepage area does.
-5. `py5_catalog.py`: opens the project with `hmp.open`, lists its cases (`proj.cases`),
-   reads the scores of the runs of the site, redraws a figure of the catalog at other dates
-   and exports a state the TOML did not ask for.
-6. `py6_monthly_maps.py`: the twelve months of 2002 on one sheet and the 36 months as a GIF,
-   with the cells where the water table reaches the surface drawn one by one.
-
-Scripts 5 and 6 read the run of `project.toml` without running it: run `hmp run project.toml`
-first, or `py2_edit_parameters.py`, which runs it.
+After `load_data` it draws the recharge and the runoff of the gauge, and after
+`prepare_solver` the mesh on the relief. It then gives Sy three values, 0.001, 0.05 and 0.3,
+and keeps a run for each: `nancon_sy_small`, `nancon_intermittence_mf6` (the Sy of the file,
+so the run of `project.toml`) and `nancon_sy_large`. With Sy = 0.001 the water table moves by
+metres in a month, and MODFLOW 6 needs four time steps per month to converge. For each run the
+script prints the months when the catchment seeps the least and the most, with the NSE of the
+discharge, and draws the seepage cells and a section of the water table for these two months,
+the share of the 36 months each cell seeps, the discharge against the gauge, and the seepage
+share of the catchment over time. It takes about five minutes. Played again, it writes the
+next version of each run, `_v2`.
 
 ## Where the outputs are
 
@@ -98,7 +90,7 @@ each promoted run. The API calibration has its own, dated 2019.
   engine caches a mesh
 - a calibration: its trials under `sessions/<name>/`, its best trial promoted to
   `runs/<name>/`
-- figures the scripts draw: `summary/figures/`
+- figures the script draws: `summary/figures/`
 
 `<name>` is the name of the run: the `[simulation] name` of the file you ran, for example
 `nancon_step5_export`. A second run of an edited file is `<name>_v2`.

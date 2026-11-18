@@ -49,23 +49,17 @@ to it. {doc}`../../reference/calibration-methods` lists the methods and their op
 {doc}`../../understand/network-metrics` explains the network criterion, and
 {doc}`../../understand/how-sure` says what the result can and cannot say.
 
-## The Python scripts
+## The Python script
 
-Six scripts sit next to the TOML files. Each finds the project from its own location, so you
-can run it from any folder, or step through it cell by cell (`# %%`) in Spyder or VS Code.
-They need the runs they read; the second column says which.
-
-| Script | What it does | Needs |
-|---|---|---|
-| `py1_run_and_plot.py` | Runs `step4_transient.toml` with `hmp.run`, then draws a figure of your own: the seepage area of the catchment against the discharge | the example files |
-| `py2_edit_parameters.py` | Loads `project.toml` as a Python object, changes K and Sy, runs the variant and compares it with the reference | the example files. Two runs of about a minute each |
-| `py3_read_exports.py` | Redraws a figure from the exported files alone (GeoPackage, GeoTIFF, CSV, NetCDF), without importing HydroModPy | the exports of step 5 |
-| `py4_sweep_k.py` | Five values of K on one `Project`, which builds the mesh once. The discharge does not tell the K apart, the seepage area does | the example files. Five runs of about a minute each |
-| `py5_catalog.py` | Opens the catalog of the project, compares the scores of the runs, redraws a figure at other dates and exports a state the TOML did not ask for | a run of `project.toml` |
-| `py6_monthly_maps.py` | The twelve months of 2002 on one sheet, and the 36 months as a GIF | a run of `project.toml` |
-
-`hmp run project.toml` makes the run that scripts 5 and 6 read, and `py2_edit_parameters.py`
-makes it too. The scripts are the starting point of your own: copy one and change it.
+`py1_run_and_plot.py` sits next to the TOML files. It finds the project from its own location,
+so you can run it from any folder, or step through it cell by cell (`# %%`) in Spyder or VS Code.
+It plays `project.toml` one step at a time in a {doc}`lab <../../how-to/work-in-the-lab>`. It
+draws the recharge and the runoff after `load_data` and the mesh on the relief after
+`prepare_solver`. It then gives Sy three values, 0.001, 0.05 and 0.3, and keeps a run for each.
+For each run it finds the months when the catchment seeps the least and the most, and draws the
+seepage cells and the water table of these two months, the share of the run each cell seeps
+and the discharge against the gauge. It takes about five minutes. The script is the starting
+point of your own: copy it and change it.
 
 ## The daily model
 

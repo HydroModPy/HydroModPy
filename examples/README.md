@@ -23,10 +23,10 @@ needs.
 | # | Folder | Theme | Regime | Runtime |
 |---|---|---|---|---|
 | 00 | [`00_quick_test_of_wide_hydromodpy_capabilities`](projects/00_quick_test_of_wide_hydromodpy_capabilities/) | Aber catchment, two pumping wells, particle tracks | monthly transient | ~5 s |
-| 01 | [`01_simplified_example_presented_in_the_paper`](projects/01_simplified_example_presented_in_the_paper/) | the paper walkthrough: Canut, depth-decaying five-layer aquifer | steady | ~35 s |
-| 02 | [`02_basic_features_and_overview_of_possibilities`](projects/02_basic_features_and_overview_of_possibilities/) | the whole chain on a conceptual domain, fully offline | steady | ~10 s |
-| 03 | [`03_hydrographic_network_in_steady_state`](projects/03_hydrographic_network_in_steady_state/) | observed, delineated and simulated stream networks side by side | steady | ~45 s |
-| 04 | [`04_streamflow_intermittence_in_transient`](projects/04_streamflow_intermittence_in_transient/) | seepage expanding and contracting with the seasons, Nancon | monthly transient | ~1 min |
+| 01 | [`01_simplified_example_presented_in_the_paper`](projects/01_simplified_example_presented_in_the_paper/) | the case of the paper: Canut, five layers, K and Sy falling with depth, particle tracks | steady + PRT | ~1 min |
+| 02 | [`02_basic_features_and_overview_of_possibilities`](projects/02_basic_features_and_overview_of_possibilities/) | a conceptual relief taken whole: recharge per cell, base under sea level, K by depth, particle tracks, fully offline | steady + PRT | ~25 s |
+| 03 | [`03_hydrographic_network_in_steady_state`](projects/03_hydrographic_network_in_steady_state/) | the network a water table feeds, Canut, ten values of K solved in the lab | steady | ~35 s |
+| 04 | [`04_streamflow_intermittence_in_transient`](projects/04_streamflow_intermittence_in_transient/) | seepage expanding and contracting with the seasons, Nancon, three values of Sy kept from the lab | monthly transient | ~1 min, script ~5 min |
 | 05 | [`05_piezometry_in_a_heterogeneous_coastal_aquifer`](projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/) | coastal water table between a recharge mound and the sea | steady | ~5 s |
 | 06 | [`06_particle_tracking_and_residence_times`](projects/06_particle_tracking_and_residence_times/) | where the seepage water comes from, and how old it is | steady + PRT | ~5 s |
 | 07 | [`07_analytical_solution_for_streamflow_recession`](projects/07_analytical_solution_for_streamflow_recession/) | recession against the late-time Boussinesq 1904 solution | transient | ~2 s |
@@ -44,7 +44,7 @@ hmp run examples/projects/<folder>/project.toml
 
 ### Suggested reading order
 
-1. **02** - the smallest complete `project.toml`, one second, no download.
+1. **02** - a conceptual relief, no download, and other inputs tried from Python.
 2. **01** - the paper case: delineation, a layered aquifer, particle tracks.
 3. **03** - what a water table does to a stream network.
 4. **04** - the same question in time rather than in space.
@@ -108,6 +108,7 @@ root, `../../data/dem/...`, which reads the same file and is sealed as
 | `recharge/`, `runoff/`, `etp/`, `precipitation/`, `temperature/` | forcings |
 | `hydrometry/`, `piezometry/`, `water_quality/`, `intermittency/` | observations |
 | `geology/`, `masks/`, `watershed_polygon/`, `wells/` | context layers |
+| `substratum/` | the base of an aquifer, read by `raster_substratum` |
 | `pyhelp/` | land-surface model inputs, consumed by a script rather than a TOML |
 
 Provider caches (`bdtopage_*.gpkg`, `*_sim2_*.nc`, `*_hubeau_*.csv`) are

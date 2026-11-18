@@ -111,6 +111,7 @@ def data(subject: Run, panel: PanelRequest) -> SectionData:
     intersection of the line with each face polygon of ``read_mesh``, so their
     lengths sum to the length of the line inside the mesh. A line that runs along an
     edge shared by two cells is kept for the lower cell index, so pieces never overlap.
+    The pieces of inactive cells are dropped.
 
     ``time`` is one instant, ``"last"`` when unset, and a static field ignores it.
     A list of instants is split by ``render`` through ``facet = "time"`` and refused
@@ -139,6 +140,8 @@ def data(subject: Run, panel: PanelRequest) -> SectionData:
         raise FigureNotApplicable("The mesh holds no layer interfaces, so it has no section.")
     trace = _trace(panel, mesh)
     pieces = _pieces(mesh, trace)
+    # An inactive cell has no ground and no base, only the sentinel of a nodata pixel.
+    pieces = pieces[mesh.zones["domain"][pieces["cell"].to_numpy()]].reset_index(drop=True)
     if not len(pieces):
         raise FigureNotApplicable("The line does not cross the mesh.")
     cells = pieces["cell"].to_numpy()
