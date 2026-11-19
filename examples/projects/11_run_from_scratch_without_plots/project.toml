@@ -1,15 +1,14 @@
-# HydroModPy - example 11: run from scratch, without plots
+# Example 11: run from scratch, without a single figure, on the Canut catchment (Ille-et-Vilaine).
 #
-# Canut catchment delineated on the fly from the regional DEM, steady MODFLOW 6
-# on a three-layer 50 m aquifer, with particle tracking. Nothing is drawn: the
-# run exists for the artifacts it leaves behind, which is what a batch or a
-# headless machine needs.
+# The catchment is cut out of the regional DEM from its outlet, then a steady
+# state under 350 mm/year of recharge is solved over a 50 m aquifer in three
+# equal layers, with a uniform K, seepage at the ground surface, and particles.
+# MODFLOW 6 solves the flow and its PRT tracks the particles. Nothing is drawn:
+# the run exists for the files it leaves behind, which is what a batch job or a
+# machine with no screen needs.
 #
-# Read the results back with the catalog rather than with a figure:
-#
-#   hmp run examples/projects/11_run_from_scratch_without_plots/project.toml
-#   hmp show canut_headless_mf6
-#
+#   hmp run project.toml
+
 [site]
 name = "canut"
 
@@ -17,8 +16,8 @@ name = "canut"
 mode = "simulation"
 
 [simulation]
-name = "canut_headless_mf6"
-description = "Canut catchment, steady MODFLOW 6, three-layer 50 m aquifer, no figure rendered."
+name = "canut_example_11"
+description = "Canut catchment, steady state, three layers, particle tracking, files only and no figure."
 
 [[simulation.process]]
 id = "flow_main"
@@ -30,43 +29,42 @@ id = "particles"
 kind = "transport"
 solvers = ["modflow6_prt"]
 
+# The catchment is cut out of a regional 75 m DEM, upstream of the outlet,
+# after the depressions of the DEM are breached. The domain is the box around
+# the catchment widened by 10 % of the square root of its area.
 [geographic]
 crs_project = "EPSG:2154"
+dem_correc_type = "breach"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
 x_outlet = 327816.965
 y_outlet = 6777886.670
 snap_dist = "150 m"
-buff_area = "10%"
+buff_area = "10% of sqrt(area)"
 
-
+# 50 m under the ground surface, in three layers of the same thickness.
 [domain.depth_model]
 kind = "constant_thickness"
-thickness = "50.0 m"
-
+thickness = "50 m"
 
 [domain.layers]
+genmtd_lay = "constant"
 nlay = 3
 
-
+# Only the DEM. The recharge is written below.
 [data]
-types = ["dem", "recharge"]
+types = ["dem"]
 
 [[data.dem.sources]]
 source = "file"
-path = "../../data/dem/DEM_armorican_massif.tif"
-
-# 350 mm/year.
-[[data.recharge.sources]]
-source = "synthetic"
-values = [0.9589]
-
+path = "workspace:DEM_armorican_massif.tif"
 
 [flow]
 flow_regime = "steady"
 param_list = ["K", "Sy"]
 
+# The same K and the same Sy everywhere and at every depth.
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
@@ -77,31 +75,54 @@ kind = "homogeneous"
 unit = "-"
 value = 0.01
 
+# Every cell drains at the ground surface. The conductance follows K,
+# C = K * cell area / 1 m.
 [flow.bc.drainage]
-kind = "drain"
 
-
+# 350 mm/year.
 [flow.sinks_sources.recharge]
-[transport.modflow6prt.parameters]
-release_zone = "domain_nonriver"
+units = "mm/day"
+values = [0.9589041096]
+
+# One particle in each cell of the box, carried by the flow until it leaves
+# the aquifer, most of them in a seepage cell. The porosity is 1 %. PRT tracks
+# forward only, so a particle gives the time its water needs to reach the stream
+# from the cell where it entered.
+[transport.modflow6_prt]
+release_zone = "domain"
 porosity = 0.01
-max_particles = 300
-track_time_step = 30.0
-stop_time = 36500.0
 release_times = [0.0]
+stop_time = "1000 years"
 
-
+# No figure is drawn and no figure is asked for.
 [display]
 enabled = false
 
-# The artifacts the run is for: one NetCDF of the gridded fields and the
-# catchment series as CSV, next to the Zarr and Parquet the catalog keeps.
+# What lands in runs/canut_example_11/exports/, ready for QGIS or a spreadsheet.
+# A block says what and when, and the format follows the data.
+
+# The catchment and its box: GeoPackage.
 [[export]]
-variable = "all"
-format = "csv"
+variable = ["watershed", "watershed_box_buff"]
 
-
+# The DEM of the model: GeoTIFF.
 [[export]]
-variable = ["head"]
-format = "netcdf"
+variable = "watershed_dem"
 
+# The water table, its depth, the seepage cells and the drain flow: one GeoTIFF each.
+[[export]]
+variable = ["watertable_elevation", "watertable_depth", "seepage_mask", "outflow_drain"]
+time = "first"
+
+# The same fields in one NetCDF file.
+[[export]]
+variable = ["watertable_elevation", "watertable_depth", "seepage_mask"]
+file = "fields.nc"
+
+# The water budget and the discharge at the outlet: CSV.
+[[export]]
+variable = ["budget", "discharge"]
+
+# The particle tracks, one line per particle with its travel time in years: GeoPackage.
+[[export]]
+variable = "pathlines"

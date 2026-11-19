@@ -1,29 +1,16 @@
-# HydroModPy - example 10, stage two: find K from the observed stream network
+# Example 10, K from the mapped stream network.
 #
-# Same catchment, same PyHELP recharge as project.toml, which this file
-# inherits. Only the conductivity changes, and it is searched rather than
-# written: the criterion is the signed gap between the network the water table
-# sustains and the mapped one, driven to zero by bisection. No discharge
-# observation enters it, which is the point on an ungauged Alpine headwater.
+# The same catchment and the same PyHELP recharge as project.toml, which this file inherits.
+# Only the conductivity changes, and it is searched. No discharge is observed on this Alpine
+# headwater, so the search has only the mapped network to go by. The criterion is the signed
+# gap between the length of the network that the water table sustains and the length of the
+# mapped one. A K too small lets the water table reach the ground nearly everywhere. A K too
+# large keeps it deep and leaves the streams dry. The gap changes sign between the two, and
+# a bisection on K finds where it is zero. The method is the one of Abherve et al. (2023),
+# 10.5194/hess-27-3221-2023.
 #
-#   hmp calibrate examples/projects/10_coupling_with_land_surface_model_pyhelp/run_calibration_k.toml
-#
-# This is the v2 form of the legacy dichotomy loop (ex10, v1.0.0): the same
-# root, K/R at the zero of the signed gap, run by the calibration engine
-# instead of by a hand-written while loop. It is not a bit-for-bit replica,
-# and the settings below depart from it on purpose:
-#   - model.weighting = "area" is NOT the legacy script's rule. ex10 and the v1
-#     `MatchingStreams` class both average one point per pixel (one cell, one
-#     vote); "area" over-weights nothing there and is this file's own choice,
-#     recommended once the mesh is refined along the streams.
-#   - model.seepage_threshold = 1e-4 has no equivalent in ex10, which uses a purely
-#     geometric seepage test (dem - head < 0), tau = 0.
-#   - map.position_accuracy = "50 m" floors L_ref; ex10 hard-codes
-#     GRID_RES = 75 m into roptim's Table 1 analogue and never floors it.
-#   - bounds are on K itself, [1e-7, 1e-4] m/s, not on K/R as ex10 declares
-#     them (K/R in [1, 1000], KRmin/KRmax, ex10:643-648): the two are only the
-#     same search once R is known, and R is read back from the model, not
-#     fixed in the file.
+#   hmp check run_calibration_k.toml
+#   hmp run run_calibration_k.toml
 
 base_config = "project.toml"
 
@@ -31,30 +18,32 @@ base_config = "project.toml"
 mode = "calibration"
 
 [simulation]
-name = "urse_network_k"
-description = "Urse catchment, K from the hydrographic-network criterion, PyHELP recharge."
-
+name = "urse_example_10_k"
+description = "Urse catchment, K from the mapped stream network, PyHELP recharge."
 
 [calibration]
 seed = 42
+# The best trial is replayed as a full run, with its figures and its exports.
 save_runs = "best_n"
 save_best_n = 1
 
+# K / recharge from 1 to 1000. The recharge is 2.38e-8 m/s, so K goes from 2.4e-8 to 2.4e-5 m/s.
 [calibration.parameters.K]
-bounds = [1e-7, 1e-4]
+bounds = [2.4e-8, 2.4e-5]
 
+# The network is scored on the cells of the catchment, at the end of the run.
 [calibration.outputs.seepage_network]
 support = "network"
 time = "last"
 
-# No bound on the scored catchment. At the 25 m DEM pixel the delineated polygon
-# (6.17 km2) and the catchment read on the descent graph (6.49 km2) differ by
-# 9.5 per cent, because the DEM is conditioned twice and the two disagree along
-# the divide. The outlet is right, so refusing the search here protects nothing.
+# The polygon of the catchment, 6.17 km2, and the catchment that the flow directions of the
+# DEM give, 6.5 km2, differ by 7.7 %, because the DEM and the polygon disagree along the
+# divide. The outlet is the same, so the search goes on.
 [calibration.outputs.seepage_network.verdict]
 max_catchment_mismatch = false
 validity_length = "auto"
 
+# The mapped network, the one to match. A simulated cell within 50 m of it counts as on it.
 [calibration.outputs.seepage_network.map]
 complete = "urse_stream_network.gpkg"
 position_accuracy = "50 m"
@@ -62,38 +51,32 @@ position_accuracy = "50 m"
 [calibration.outputs.seepage_network.model]
 seepage_threshold = 0.0001
 weighting = "area"
+
 [[calibration.objective_blocks]]
-name = "abherve_gap"
+name = "network_gap"
 metric = "distance_gap"
 uses_outputs = ["seepage_network"]
 
+# The search stops when the interval of K is narrower than 1 % of its middle.
 [[calibration.phases]]
 name = "steady_conductivity"
 method = "bisection"
-max_trials = 20
+max_trials = "auto"
 parameters = ["K"]
-objective_blocks = ["abherve_gap"]
+objective_blocks = ["network_gap"]
 
 [calibration.phases.method_options]
 rel_tol = 0.01
 sweep_points = 7
 
-
+# The figures of the run and the ones that only a search has: the root search, the
+# parameter against the cost, and the progress of the search.
 [display]
 on_error = "raise"
-[[display.figure]]
-variable = "seepage_mask"
-
-[[display.figure]]
-variable = "simulated_active_network"
-overlays = ["relief", "network"]
 
 [[display.figure]]
 variable = "downslope_distance"
 scale = "log"
-
-[[display.figure]]
-variable = "network_agreement"
 
 [[display.figure]]
 preset = "root_search"

@@ -15,55 +15,43 @@ hmp doctor               # environment diagnosis
 
 ## The suite
 
-Twelve examples ported from the v1 example scripts of tag `v1.0.0`, plus one
-built on public services only (13 in all), all solved with **MODFLOW 6**. Each folder is
-self-contained: a `README.md`, a `project.toml`, and the scripts the case
-needs.
+The twelve examples of HydroModPy version 1, tag `v1.0.0`, remade for this version and all
+solved with MODFLOW 6. Each folder holds a `project.toml`, a Python script that plays it step
+by step in `hmp.Lab` and draws or prints what each step built, and a `README.md`.
 
-| # | Folder | Theme | Regime | Runtime |
+| # | Folder | Theme | Regime | Run |
 |---|---|---|---|---|
-| 00 | [`00_quick_test_of_wide_hydromodpy_capabilities`](projects/00_quick_test_of_wide_hydromodpy_capabilities/) | Aber catchment, two pumping wells, particle tracks | monthly transient | ~5 s |
+| 00 | [`00_quick_test_of_wide_hydromodpy_capabilities`](projects/00_quick_test_of_wide_hydromodpy_capabilities/) | Aber catchment, two pumping wells, particle tracks | monthly transient + PRT | ~5 s |
 | 01 | [`01_simplified_example_presented_in_the_paper`](projects/01_simplified_example_presented_in_the_paper/) | the case of the paper: Canut, five layers, K and Sy falling with depth, particle tracks | steady + PRT | ~1 min |
-| 02 | [`02_basic_features_and_overview_of_possibilities`](projects/02_basic_features_and_overview_of_possibilities/) | a conceptual relief taken whole: recharge per cell, base under sea level, K by depth, particle tracks, fully offline | steady + PRT | ~25 s |
+| 02 | [`02_basic_features_and_overview_of_possibilities`](projects/02_basic_features_and_overview_of_possibilities/) | a conceptual relief taken whole: recharge per cell, base under sea level, K by depth | steady + PRT | ~25 s |
 | 03 | [`03_hydrographic_network_in_steady_state`](projects/03_hydrographic_network_in_steady_state/) | the network a water table feeds, Canut, ten values of K solved in the lab | steady | ~35 s |
-| 04 | [`04_streamflow_intermittence_in_transient`](projects/04_streamflow_intermittence_in_transient/) | seepage expanding and contracting with the seasons, Nancon, three values of Sy kept from the lab | monthly transient | ~1 min, script ~5 min |
-| 05 | [`05_piezometry_in_a_heterogeneous_coastal_aquifer`](projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/) | coastal water table between a recharge mound and the sea | steady | ~5 s |
-| 06 | [`06_particle_tracking_and_residence_times`](projects/06_particle_tracking_and_residence_times/) | where the seepage water comes from, and how old it is | steady + PRT | ~5 s |
-| 07 | [`07_analytical_solution_for_streamflow_recession`](projects/07_analytical_solution_for_streamflow_recession/) | recession against the late-time Boussinesq 1904 solution | transient | ~2 s |
+| 04 | [`04_streamflow_intermittence_in_transient`](projects/04_streamflow_intermittence_in_transient/) | seepage expanding and contracting with the seasons, Nancon, three values of Sy | monthly transient | ~1.5 min |
+| 05 | [`05_piezometry_in_a_heterogeneous_coastal_aquifer`](projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/) | Gouville: a coastal strip in two zones of K, the sea level and a piezometer | daily transient | ~40 s |
+| 06 | [`06_particle_tracking_and_residence_times`](projects/06_particle_tracking_and_residence_times/) | Lasset: where the seepage water comes from, and how old it is | steady + PRT | ~30 s |
+| 07 | [`07_analytical_solution_for_streamflow_recession`](projects/07_analytical_solution_for_streamflow_recession/) | a hillslope recession against the Boussinesq solution | daily transient | ~15 s |
 | 08 | [`08_exponential_distribution_of_residence_times`](projects/08_exponential_distribution_of_residence_times/) | travel times against the exponential law of a well-mixed store | steady + PRT | ~5 s |
-| 09 | [`09_transport_model_for_an_agricultural_catchment`](projects/09_transport_model_for_an_agricultural_catchment/) | nitrate through an agricultural headwater, MODFLOW 6 GWT | monthly transient | ~8 min |
-| 10 | [`10_coupling_with_land_surface_model_pyhelp`](projects/10_coupling_with_land_surface_model_pyhelp/) | recharge computed by PyHELP, then K found from the network | steady + calibration | ~3 min |
-| 11 | [`11_run_from_scratch_without_plots`](projects/11_run_from_scratch_without_plots/) | headless run: artifacts only, no figure | steady + PRT | ~25 s |
-| 12 | [`12_network_calibration_from_apis`](projects/12_network_calibration_from_apis/) | Nancon from one outlet coordinate: DEM, network, gauge and recharge fetched, K found from the full BD Topage network | steady + calibration | ~3 min |
+| 09 | [`09_transport_model_for_an_agricultural_catchment`](projects/09_transport_model_for_an_agricultural_catchment/) | nitrate through an agricultural headwater, Kervidy, MODFLOW 6 GWT | transient + GWT | ~20 min |
+| 10 | [`10_coupling_with_land_surface_model_pyhelp`](projects/10_coupling_with_land_surface_model_pyhelp/) | Urse: the flow under a recharge grid computed by PyHELP, then K from the network | steady + calibration | ~40 s |
+| 11 | [`11_run_from_scratch_without_plots`](projects/11_run_from_scratch_without_plots/) | a run that writes files and draws nothing | steady + PRT | ~25 s |
 
-Run any of them the same way:
+Run any of them from its folder:
 
 ```bash
-hmp run examples/projects/<folder>/project.toml
+hmp run project.toml
+python py1_run_and_plot.py
 ```
+
+The script of example 11 is `py1_run.py`, since it draws nothing.
 
 ### Suggested reading order
 
-1. **02** - a conceptual relief, no download, and other inputs tried from Python.
-2. **01** - the paper case: delineation, a layered aquifer, particle tracks.
-3. **03** - what a water table does to a stream network.
-4. **04** - the same question in time rather than in space.
-5. **07** and **08** - two synthetic cases where the answer is known in closed
-   form, so the solver can be checked rather than illustrated.
-6. **09** and **10** - the two couplings: a solute, and a land surface model.
-7. **12** - no file at all: every input from a public service, then K from the
-   mapped network.
-
-## One project, many cases
-
-A project with a `[sites]` section is a plan: each row of its site table is a catchment,
-each recipe a way to run it, and every pair is one case. `hmp check` checks every
-case, `hmp run --dry-run` prints the plan, `hmp run` runs it.
-
-| # | Folder | Theme |
-|---|---|---|
-| 09 | [`09_comparison_workflow`](projects/09_comparison_workflow/) | one catchment, three values of K as three recipes, then `hmp diff` on the three runs |
-| 19 | [`19_many_catchments`](projects/19_many_catchments/) | two Breton catchments on public data, a plain run and a short calibration each, then `hmp campaign collect` |
+1. **00** - a quick tour: wells, particles, the lab.
+2. **02** - a conceptual relief, no download, and other inputs tried from Python.
+3. **01** - the paper case: delineation, a layered aquifer, particle tracks.
+4. **03** and **04** - what a water table does to a stream network, in space then in time.
+5. **07** and **08** - two synthetic cases where the answer is known in closed form, so the
+   solver can be checked rather than illustrated.
+6. **05**, **06**, **09** and **10** - a coast, travel times, a solute and a land surface model.
 
 ## Where a run puts its results
 
@@ -119,25 +107,4 @@ regenerated on demand and stay out of version control.
 The v1 example scripts the suite above was ported from, with their original
 data, live in the history under tag `v1.0.0`, folder `examples/`, also at
 <https://github.com/HydroModPy/HydroModPy/tree/v1.0.0/examples>. They are not
-runnable against the current API. Each ported example states in its own README what it changed
-and why.
-
-## Other projects
-
-`projects/` holds 27 folders in all. The 13 of the suite and the two `[sites]` projects above are the
-maintained examples. The other 12 are test fixtures and development projects that tests of the
-repository read, so they stay, but they are not part of the suite and follow their own conventions:
-
-| Folder | Read by |
-|---|---|
-| `00_getting_started`, `01_calibration` | the characterization, partial-run and replay tests |
-| `02_nancon_watershed`, `06_vire_selune`, `16_nancon_natural_calibration` | the catchment-report tests |
-| `03_groundwater_1d` | nothing, a small 1D case |
-| `04_data_overview` | the TOML loader test |
-| `08_mesh_viewer` | the mesh bundle viewer tool and its tests |
-| `12_calibration_network_transient_b0` | the B0 calibration smoke tests and its validation case |
-| `13_transport_mf6_gwt_disv_visual_guard`, `14_transport_nancon_gwt_visual_guard` | the transport signature and solver-pair tests |
-| `21_nancon_network_calibration` | the calibration replication and preflight tests |
-
-Other projects were moved out of the repository (`03_canut_watershed`, `05_nancon_data_overview`,
-`07_mesh_gallery`, `20_atelier_nancon`). They are no longer part of a checkout.
+runnable against the current API.

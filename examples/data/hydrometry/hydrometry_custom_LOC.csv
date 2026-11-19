@@ -7,3 +7,4 @@ CANUT_LS,-1.690,48.126,EPSG:4326,Canut Litre par seconde,L/s,false
 RENNES01,-1.750,48.200,EPSG:4326,Station Rennes hors emprise,m3/s,false
 NANCON,389285.910,6816518.749,EPSG:2154,Nancon,m3/s,false
 CANUT,327816.965,6777886.670,EPSG:2154,Canut,m3/s,false
+KERVIDY,265545.208,6783317.640,EPSG:2154,Kervidy at Naizin,m3/s,false

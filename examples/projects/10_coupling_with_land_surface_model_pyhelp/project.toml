@@ -1,15 +1,11 @@
-# HydroModPy - example 10: coupling with a land surface model (PyHELP)
+# Example 10: coupling with a land surface model, on the Urse catchment (Switzerland, Alps).
 #
-# Urse catchment (Switzerland, EPSG:2056, CH1903+/LV95), 6 km2 of Alpine
-# grassland. The recharge is not a number written here: it is the daily
-# percolation PyHELP computes from three years of precipitation, air
-# temperature and solar radiation, cell by cell, exported as a grid.
+# Steady state on 6.2 km2 of Alpine grassland, 50 m of aquifer in one layer, and a recharge
+# that a land surface model computed. PyHELP turned three years of rain, air temperature and
+# solar radiation into a grid of daily percolation, 40 by 40 cells of 250 m, over 2021-2023.
+# The groundwater model takes the mean of that grid. MODFLOW 6 solves the flow.
 #
-#   python examples/projects/10_coupling_with_land_surface_model_pyhelp/build_pyhelp_recharge.py
-#   hmp run examples/projects/10_coupling_with_land_surface_model_pyhelp/project.toml
-#
-# The K below is the one the legacy dichotomy converged on. run_calibration_k.toml
-# searches it again from the observed stream network.
+#   hmp run project.toml
 
 [site]
 name = "urse"
@@ -18,12 +14,11 @@ name = "urse"
 mode = "simulation"
 
 [simulation]
-name = "urse_pyhelp_mf6"
-description = "Urse catchment, steady MODFLOW 6 forced by a PyHELP recharge grid."
+name = "urse_example_10"
+description = "Urse catchment, steady state, one layer, recharge from a PyHELP grid."
 
-# The three years PyHELP covers: a gridded forcing is selected on the run
-# window, so a steady run still has to say which window it averages. It is one
-# stress period over that window, whatever step a file would write, so none is.
+# The three years the PyHELP grid covers. A steady run is one stress period, but a gridded
+# forcing is cut on the window of the run before it is averaged, so the window is needed.
 [simulation.time]
 start_datetime = "2021-01-01"
 end_datetime = "2023-12-31"
@@ -33,50 +28,51 @@ id = "flow_main"
 kind = "flow"
 solvers = ["modflow6"]
 
-
+# The catchment is a polygon drawn on the Swiss grid (CH1903+/LV95). The domain is the box
+# around it widened by 20 % of the square root of its area, about 500 m on each side.
 [geographic]
 crs_project = "EPSG:2056"
 
 [geographic.catchment]
 kind = "from_polyg_shp"
-polyg_shp_path = "../../data/watershed_polygon/urse_watershed.gpkg"
-buff_area = "20%"
+polyg_shp_path = "workspace:urse_watershed.gpkg"
+buff_area = "20% of sqrt(area)"
 
-[geographic.river_network]
-enabled = true
-threshold_area_km2 = 0.2
-
-
+# One layer, 50 m thick under the ground, with no decay of K with depth.
 [domain.depth_model]
 kind = "constant_thickness"
 thickness = "50.0 m"
 
-
 [data]
 types = ["dem", "hydrography", "recharge"]
 
+# A 25 m DEM of the Alps, from 1000 to 3700 m.
 [[data.dem.sources]]
 source = "file"
-path = "../../data/dem/DEM_urse_25m.tif"
+path = "workspace:DEM_urse_25m.tif"
 
-# The observed network, what the calibration compares the seepage against.
+# The mapped stream network. The model does not read it. It is drawn over the maps and it is
+# what the calibration file compares the simulated network with.
 [[data.hydrography.sources]]
 source = "file"
-path = "../../data/hydrography/urse_stream_network.gpkg"
+path = "workspace:urse_stream_network.gpkg"
 
-# The PyHELP output: a daily recharge grid at 250 m over the run window. The
-# steady solve uses its mean, around 800 mm/year.
+# The daily percolation below the root zone that PyHELP computed, in mm/day. The cells of the
+# grid are 250 m wide, ten times the cells of the model, and each cell of the model takes the
+# value of the grid cell under it. PyHELP ran with one rain series and one soil, so all the
+# cells of the grid hold the same series, about 750 mm/year.
 [[data.recharge.sources]]
 source = "file"
-path = "../../data/recharge/recharge_pyhelp_urse.nc"
+path = "workspace:recharge_pyhelp_urse.nc"
 source_unit = "mm/day"
-
 
 [flow]
 flow_regime = "steady"
-param_list = ["K", "Sy"]
+param_list = ["K", "Sy", "Ss"]
 
-# 3.11e-6 m/s, the optimum of the legacy network calibration.
+# 3.1e-6 m/s, a K / recharge of 122, with the water table 31 m under the ground on average and
+# the seepage in 3 % of the catchment. run_calibration_k.toml searches K on the mapped network
+# and finds 4.3e-6 m/s.
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
@@ -87,19 +83,24 @@ kind = "homogeneous"
 unit = "-"
 value = 0.01
 
-# No explicit value: the drain conductance stays proportional to K, which is
-# what makes the seepage extent depend on K/R alone.
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+# Every cell drains at the ground surface. The conductance follows K,
+# C = K * cell area / 1 m, so the extent of the seepage depends on the ratio K / recharge.
 [flow.bc.drainage]
-kind = "drain"
 
-
+# The mean over 2021-2023 of the daily grid, taken because the run is steady.
 [flow.sinks_sources.recharge]
-[modflow6.runtime]
-mf6_ims_complexity = "COMPLEX"
 
-
+# The figures land in runs/urse_example_10/figures/. Each one that applies and fails stops
+# the run, so a broken figure cannot go unseen.
 [display]
 on_error = "raise"
+
+# The catchment, its relief and the mesh of the model.
 [[display.figure]]
 preset = "watershed_id_card"
 
@@ -108,37 +109,61 @@ variable = "topography"
 overlays = ["mesh", "outline", "outlet"]
 name = "mesh_map"
 
+# The recharge each cell receives, the mean of the PyHELP grid over the three years.
 [[display.figure]]
 variable = "recharge"
-layer = "sum"
 
+# The water table, how deep it lies under the ground, and where it reaches the ground. The
+# seepage cells are the stream network the model sustains.
 [[display.figure]]
 variable = "watertable_elevation"
+overlays = ["outline"]
 
 [[display.figure]]
 variable = "watertable_depth"
+overlays = ["outline", "network"]
 
 [[display.figure]]
 variable = "seepage_mask"
+overlays = ["outline", "network"]
 
+# The mapped network on the relief, then the network the water table sustains, alone and
+# over the mapped one.
 [[display.figure]]
 variable = "topography"
 overlays = ["relief", "network"]
-name = "hydrographic_network_reference"
+name = "mapped_network"
 
 [[display.figure]]
 variable = "simulated_active_network"
-name = "simulated_active_network"
 
 [[display.figure]]
 variable = "simulated_active_network"
 overlays = ["relief", "network"]
-name = "simulated_active_network_reference_overlay"
+name = "simulated_over_mapped_network"
 
+# Where the simulated network and the mapped one agree.
+[[display.figure]]
+variable = "network_agreement"
+
+# The water table from west to east through the outlet, at y = 1 133 790 m. The catchment
+# has no outlet in its configuration, so the line is written.
 [[display.figure]]
 variable = "watertable_elevation"
 type = "section"
 name = "cross_section"
+line = [[2795210.0, 1133790.0], [2798885.0, 1133790.0]]
 
-[[display.figure]]
-preset = "water_budget"
+# What lands in runs/urse_example_10/exports/, ready for QGIS or a spreadsheet.
+
+# The catchment and the mapped network: GeoPackage.
+[[export]]
+variable = ["watershed", "hydrographic_network_reference"]
+
+# The water table, its depth, the seepage cells and the recharge: one GeoTIFF each.
+[[export]]
+variable = ["watertable_elevation", "watertable_depth", "seepage_mask", "recharge"]
+
+# The water budget: CSV.
+[[export]]
+variable = "budget"

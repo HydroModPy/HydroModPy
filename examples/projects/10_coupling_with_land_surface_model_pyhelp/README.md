@@ -1,121 +1,85 @@
-# 10 - Coupling with a land surface model (PyHELP)
+# Example 10: coupling with a land surface model on the Urse catchment
 
-Urse catchment (Switzerland, EPSG:2056 CH1903+/LV95), 6 km² of Alpine
-grassland. The recharge is not a number written in the TOML: it is the daily
-percolation **PyHELP** computes cell by cell from three years of
-precipitation, air temperature and solar radiation.
+The Urse catchment (Switzerland, EPSG:2056), 6.2 km² of Alpine grassland between 1800 and 3400 m.
+The land surface model PyHELP computed the recharge, a grid of daily percolation over 2021-2023
+from the rain, the air temperature and the solar radiation, and `examples/data/recharge/recharge_pyhelp_urse.nc`
+holds that grid. This example models the groundwater flow it forces: steady state, MODFLOW 6, one
+layer 50 m thick, K of 3.1e-6 m/s, seepage at the ground surface. A second file searches K on the
+mapped stream network, with no discharge observation. A run takes about 40 s.
 
-**Steady-state** flow with **MODFLOW 6**, then a search for the hydraulic
-conductivity from the **hydrographic-network criterion**, with no discharge
-data at all.
+## The files
 
-## Run
+- `project.toml`: the model, its figures and its exports.
+- `py1_run_and_plot.py`: plays `project.toml` step by step in a `hmp.Lab`. It draws the daily and
+  monthly recharge of the PyHELP grid after `load_data`, the mesh on the relief after
+  `prepare_solver`, and prints the recharge that MODFLOW 6 reads in each cell. It solves, tries K
+  ten times smaller and ten times larger to show how the seepage follows K divided by the
+  recharge, keeps the model as a run, and asks the run for two more figures: the depth of the
+  water table under the mapped streams, and a section from south to north.
+- `run_calibration_k.toml`: inherits `project.toml` and searches K.
+
+The DEM, the catchment polygon, the mapped network and the recharge grid are read from the shared
+`data/` folder of the workspace, by `workspace:` names.
+
+## Commands
+
+From this folder:
 
 ```bash
-# 1. the land surface model produces the recharge grid
-python examples/projects/10_coupling_with_land_surface_model_pyhelp/build_pyhelp_recharge.py
-
-# 2. the groundwater flow it forces
-hmp run examples/projects/10_coupling_with_land_surface_model_pyhelp/project.toml
-
-# 3. the conductivity, searched on the observed network
-hmp calibrate examples/projects/10_coupling_with_land_surface_model_pyhelp/run_calibration_k.toml
+hmp run project.toml
+python py1_run_and_plot.py
+hmp run run_calibration_k.toml
+hmp export urse_example_10 --list
 ```
 
-Step 1 is optional: the grid it produces is shipped as
-`examples/data/recharge/recharge_pyhelp_urse.nc`. Re-running it is how you
-change a soil or vegetation parameter and watch the recharge move; it also
-draws the yearly and monthly totals to `.pyhelp/pyhelp_recharge.png`, an input
-diagnostic no registry figure covers.
+Run a file twice and nothing is computed the second time. The script keeps a run of its own each
+time it is played, so it writes the next version, `urse_example_10_v2`.
 
-Runtimes: PyHELP about 25 s (98 columns, 1095 days), the MODFLOW 6 run about
-2 min (28 470 cells).
+## The model
 
-## Data
+The catchment is a polygon drawn on the Swiss grid. The domain is the box around it, widened by
+20 % of the square root of its area, about 500 m on each side, cut on a 25 m DEM: 196 rows and 147
+columns, 28 470 active cells. The last row and the last column of the box lie outside the DEM and
+are not active. K is homogeneous, Sy is 0.01 and Ss is 1e-5 m⁻¹. Every cell drains at the ground
+surface with a conductance C = K × cell area / 1 m, so the extent of the seepage depends on K
+divided by the recharge.
 
-| File | Family | Role |
-|---|---|---|
-| `dem/DEM_urse_25m.tif` | dem | 25 m DEM of the catchment |
-| `dem/DEM_urse_250m.tif` | dem | 250 m DEM, geometry of the PyHELP grid |
-| `watershed_polygon/urse_watershed.gpkg` | - | catchment outline, defines the domain |
-| `hydrography/urse_stream_network.gpkg` | hydrography | observed network, reference of the criterion |
-| `pyhelp/urse_precipitation.csv` | - | PyHELP forcing, daily precipitation 2021-2023 |
-| `pyhelp/urse_air_temperature.csv` | - | PyHELP forcing, air temperature |
-| `pyhelp/urse_solar_radiation.csv` | - | PyHELP forcing, solar radiation |
-| `pyhelp/urse_grid_base.csv` | - | PyHELP grid template (soil, vegetation) |
-| `recharge/recharge_pyhelp_urse.nc` | recharge | PyHELP **output**, model input |
+## The recharge
 
-PyHELP is not a HydroModPy process: it has no TOML surface, it is a
-preparation step. `build_pyhelp_recharge.py` is its declaration.
-PyHELP lives in `hydromodpy_annex/`, which is not in the wheel, so step 1
-runs from a checkout of the repository. The script puts the repository root
-on `sys.path` itself.
+PyHELP is a column model. It computes one water balance per cell, and its percolation under the
+root zone is the recharge. Here it ran with one rain series and one soil, so the 1600 cells of the
+grid hold the same series. The recharge is zero from December to April, then it follows the rain and
+the melt: 685, 638 and 929 mm in 2021, 2022 and 2023. The mean
+is 750.9 mm/year.
 
-## The coupling
+The run declares a `[simulation.time]` window even though it is steady. A gridded forcing is cut
+on the window of the run before it is averaged, so a steady run has to say which three years it
+averages. Without the window the cut is empty and the aquifer would be solved with no recharge.
 
-PyHELP is a 1D column model: one daily water balance per cell, whose
-percolation below the root zone is the recharge. The grid is deliberately at
-250 m, ten times coarser than the groundwater model: running one column per
-25 m cell buys nothing, and PyHELP knows no lateral transfer.
+## The water table
 
-Mean recharge obtained: about **800 mm/year**.
-
-The run declares a `[simulation.time]` window even though it is steady. A
-gridded forcing is selected on the run window before it is averaged, so a
-steady run still has to say which three years it averages; without a window
-the selection is empty and the aquifer is solved with no recharge at all. The
-window carries no step: a steady run is one stress period over the whole
-window, whatever step a file would write.
-
-PyHELP only runs the cells inside the catchment polygon, while the groundwater
-domain is the catchment plus a 20% buffer ring. `build_pyhelp_recharge.py`
-extends the grid over that ring with the value of the nearest modeled cell:
-not a measurement, the least-wrong extension of one.
+With K = 3.1e-6 m/s the water table lies 32 m under the ground on average over the catchment and
+reaches the ground in 3.1 % of its cells. The discharge at the outlet is about 13 200 m³/day. A K
+ten times smaller lets the water table reach the ground in a third of the catchment, and a K ten
+times larger leaves almost no seepage. This is what the calibration uses.
 
 ## The calibration
 
-`run_calibration_k.toml` inherits `project.toml` through `base_config` and
-redefines only what changes. The criterion is the signed gap between the
-network the water table sustains and the mapped one, driven to zero by
-bisection on log K (the method of Abhervé et al.). It is the v2 form of the
-hand-written `while diff > gap` loop of the legacy example, with the same
-objective.
+`run_calibration_k.toml` compares the stream network that the water table sustains with the mapped
+one. The criterion is the signed gap between the two, and a bisection on K drives it to zero. The
+search takes 14 solves and about 50 s, and ends on K = 3.9e-6 m/s, a K divided by the recharge of
+165. The gap does not reach zero. It jumps between two neighbouring values of K, because a cell
+either seeps or it does not, so the search stops when the bracket of K is 1 % wide.
 
-The drain conductance stays proportional to K (`[flow.bc.drainage]` with no
-`value`), without which the criterion loses the K/R invariance it rests on.
+## What a run writes
 
-## Figures
-
-| Figure | What it shows |
-|---|---|
-| `watershed_id_card` | catchment identity card |
-| `mesh_map` | solver grid |
-| `recharge_map` | PyHELP recharge per cell |
-| `piezometric_map` | water-table elevation |
-| `watertable_depth_map` | water-table depth |
-| `seepage_map` | seepage areas |
-| `hydrographic_network_reference` | observed network |
-| `simulated_active_network` | network the water table sustains |
-| `simulated_active_network_reference_overlay` | the two superimposed |
-| `cross_section` | topography / water table section |
-| `water_budget` | budget per component |
-
-## Differences with the legacy example
-
-| Point | legacy | here |
-|---|---|---|
-| Solver | MODFLOW-NWT | MODFLOW 6 |
-| Calibration | `while` loop written in the script | declarative `[calibration]`, `bisection` method |
-| Objective | `MatchingStreams` class (WhiteboxTools chain) | `metric = "distance_gap"`, same criterion |
-| Diagnostics | a `df_optim` table built by hand | catalog tables + calibration figures |
-
-Three library fixes came with this port, all in the path between PyHELP and
-the data layer, which nothing had ever exercised end to end:
-
-- the NetCDF export named its recharge variable `rechg`, a name the data layer
-  cannot look up; it is now `recharge`, like the family that consumes it;
-- that NetCDF declared neither a CF grid mapping on its fields nor a nodata
-  attribute that survives decoding, so it was refused on load;
-- a gridded forcing was read by taking the first data variable of the file,
-  which on any CF dataset is the scalar grid-mapping variable rather than the
-  field, and on a multi-field export could be any of them.
+- `runs/urse_example_10/figures/`: the catchment card, the mesh on the topography, the recharge,
+  the water table, its depth and the seepage cells with the mapped streams, the mapped network, the
+  simulated network alone and over the mapped one, where the two agree, and a section from west to
+  east.
+- `runs/urse_example_10/exports/`: the catchment and the mapped network as GeoPackage, the water
+  table, its depth, the seepage cells and the recharge as one NetCDF that QGIS opens, and the
+  water budget as CSV.
+- `sessions/urse_example_10_k/`: the trials of the calibration and its figures, the root search,
+  the parameter against the cost and the progress of the search.
+- `summary/`: the figures the script draws, outside the sealed run.

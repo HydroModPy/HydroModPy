@@ -1,71 +1,67 @@
-# 06 - Particle tracking and residence times
+# Example 06: particle tracking and residence times on the Lasset catchment
 
-Lasset catchment (eastern Pyrenees, EPSG:2154), delineated from its outlet on
-a regional 75 m DEM. **Steady-state** groundwater flow with **MODFLOW 6** over
-ten layers thickening with depth above a **flat substratum at 1000 m**,
-hydraulic conductivity decaying exponentially with depth, followed by particle
-tracking with **MODFLOW 6 PRT**.
+The Lasset catchment (Pyrenees), 3.8 km² cut out of a regional 75 m DEM. Steady state under
+1.17 mm/day of recharge, an aquifer whose base is flat at 1000 m, cut in ten layers that thicken
+with depth, a K that falls with depth, seepage at the ground surface, and particles that give the
+travel time of the water. MODFLOW 6 solves the flow and its particle tracking PRT follows the
+water. A run takes about 30 s.
 
-Particles released over the domain terminate where the water table outcrops:
-their pathlines say which recharge feeds the seepage areas, and their travel
-times give the residence-time distribution of the aquifer.
+## The files
 
-## Run
+- `project.toml`: the model, its figures and its exports.
+- `py1_run_and_plot.py`: plays `project.toml` step by step in a `hmp.Lab`. It prints the
+  catchment, the DEM and the mesh as they are built, draws the mesh on the relief, and prints for
+  each of the ten layers its thickness and the K that MODFLOW 6 will read. It then solves, keeps
+  the model as a run and asks the run for two more figures: the pathlines over the water-table
+  depth, and a section from west to east through the outlet. The script ends with the travel
+  times of the particles, counted in a log-log plot of their own.
+
+The DEM is read from the shared `data/` folder of the workspace, by a `workspace:` name. The
+recharge is written in `project.toml`.
+
+## Commands
+
+From this folder:
 
 ```bash
-hmp run examples/projects/06_particle_tracking_and_residence_times/project.toml
+hmp run project.toml
+python py1_run_and_plot.py
+hmp export lasset_example_06 --list
 ```
 
-Runtime: about 4 s (3432 cells over 10 layers, 500 particles).
+Run the file twice and nothing is computed the second time. The script keeps a run of its own
+each time it is played, so it writes the next version, `lasset_example_06_v2`.
 
-## Data
+## The model
 
-| File | Family | Role |
-|---|---|---|
-| `dem/regional_dem_lasset.tif` | dem | 75 m DEM, a 20 km window centered on the outlet |
-| synthetic recharge | recharge | monthly climatology, mean 1.17 mm/d |
+The base of the aquifer is an elevation, 1000 m, and not a thickness under the ground. The
+aquifer is 120 m thick under the valleys and more than 1300 m thick under the crests. Each layer
+is 1.5 times thicker than the one above it, so the first is 6.6 m thick on average and the last
+254 m. K is 1e-6 m/s at the ground surface and falls as exp(-depth / 50 m) down to a floor four
+decades lower. It is read at the middle of each layer. Sy is 0.01 and the porosity of the
+particles is 0.01.
 
-The DEM is a window cut from the legacy regional raster (30 MB covering the
-whole Pyrenean range): 20 km a side is ample for a 4 km by 5 km catchment, and
-the file drops to 240 KB.
+The recharge is the mean of a monthly series of 10, 20, 30, 40, 50, 60, 60, 50, 40, 30, 20 and
+10 mm per month, divided by 30 days.
 
-## The flat substratum
+## The particles
 
-`kind = "flat_substratum"` sets an absolute base elevation, not a thickness
-below the topography: the aquifer is thin under the crests and thick under the
-valleys. That is what makes the deep paths long and the shallow ones short,
-and therefore what spreads the residence-time distribution.
+PRT tracks forward only. One particle starts at the top of each cell of the box and travels with
+the flow until it leaves the aquifer, most of them in a seepage cell. Its travel time is the time
+its water needs to go from the cell where it entered to the stream. The deep paths under the
+crests are long and the shallow ones short, so the travel times spread over four decades. Half of
+the particles leave within 3 years, nine in ten within 12 years, and a few take thousands of
+years. The distribution of the travel times departs from an exponential law, which is the
+distribution of a homogeneous aquifer.
 
-## Figures
+## What a run writes
 
-| Figure | What it shows |
-|---|---|
-| `watershed_id_card` | catchment identity card |
-| `mesh_map` | solver grid |
-| `piezometric_map` | water-table elevation |
-| `watertable_depth_map` | water-table depth + seepage + particles |
-| `seepage_map` | seepage areas |
-| `accumulation_map` | accumulated drainage flux |
-| `particle_tracks` | pathlines colored by travel time |
-| `residence_time_distribution` | travel-time density against the exponential law |
-| `cross_section` | topography / water table / aquifer base section |
-| `water_budget` | budget per component |
-
-The distribution departs clearly from the exponential beyond `t/tau = 1`: the
-conductivity decaying with depth cuts the long tail a homogeneous aquifer
-would produce.
-
-## Differences with the legacy example
-
-| Point | legacy | here |
-|---|---|---|
-| Solver | MODFLOW-NWT + MODPATH6 | MODFLOW 6 + PRT |
-| Tracking direction | backward, from 5 boreholes | forward, from the domain |
-| Release | 50 particles (5 boreholes x 10 layers) | 500 particles over the domain |
-
-MODFLOW 6 PRT only tracks forward. The legacy example released 50 particles in
-five boreholes addressed by hard-coded pixel indices and traced them back to
-their recharge areas; released over the domain and tracked forward, those are
-the same pathlines drawn from the other end, and every one of them carries a
-travel time. Backward tracking needs the MODFLOW-NWT + MODPATH pair, still
-available through `solvers = ["modpath"]`.
+- `runs/lasset_example_06/figures/`: the catchment card, the mesh on the topography, the water
+  table, its depth with the seepage cells, a section from north to south, the drain flow and the
+  flow it accumulates downstream, the particle tracks alone and over the travel time to the
+  exit, the map of the travel time of each cell, and the distribution of the travel times.
+- `runs/lasset_example_06/exports/`: the catchment and its box as GeoPackage, the DEM, the water
+  table, its depth, the seepage cells and the drain flow as GeoTIFF, the water budget as CSV,
+  and the particle tracks as GeoPackage, one line per particle with its travel time in years.
+  Every file opens in QGIS or a spreadsheet.
+- `summary/`: the figures the script draws, outside the sealed run.

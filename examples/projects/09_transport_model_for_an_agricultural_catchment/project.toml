@@ -1,95 +1,112 @@
-# HydroModPy - example 09: transport model for an agricultural catchment
+# Example 09: nitrate in the aquifer of the Kervidy catchment at Naizin (Morbihan).
 #
-# Kervidy-Naizin catchment (Brittany, EPSG:2154), a long-observed agricultural
-# headwater. Monthly transient MODFLOW 6 over a drought year, coupled to a
-# MODFLOW 6 GWT model that carries nitrate: the aquifer starts at 100 mg/L and
-# the recharge brings 50 mg/L in, with a two-year first-order decay.
+# A synthetic drought year 2003 in weekly stress periods: recharge falls only in
+# January, February, November and December. The aquifer holds 100 mg/L of
+# nitrate at the start, the recharge brings 50 mg/L, and the nitrate decays
+# with a mean life of two years. MODFLOW 6 solves the flow, its GWT model
+# carries the nitrate, and its PRT tracks particles that give the travel time
+# of the water.
 #
-# The theme is what the aquifer does to a solute the land surface applies: how
-# long the old water keeps feeding the stream, and where the concentration
-# stays high when the recharge stops for eight months.
-#
-#   hmp run examples/projects/09_transport_model_for_an_agricultural_catchment/project.toml
+#   hmp run project.toml
 
+# The catchment. Its gauge is the station of the discharge and of the runoff
+# series below.
 [site]
 name = "naizin"
+label = "Le Kervidy à Naizin"
+gauge = "KERVIDY"
 
 [workflow]
 mode = "simulation"
 
 [simulation]
-name = "naizin_nitrate_mf6"
-description = "Naizin catchment, monthly transient 2003, MODFLOW 6 flow and GWT nitrate transport."
+name = "naizin_example_09"
+description = "Kervidy catchment at Naizin, weekly transient 2003, nitrate transport and particle tracking."
 
+# Fifty-two weekly stress periods, one time step each.
 [simulation.time]
 start_datetime = "2003-01-01"
-end_datetime = "2003-12-31"
-step_value = "1 month"
-substeps_per_period = 5
+end_datetime = "2003-12-30"
+step_value = "7 days"
 
 [[simulation.process]]
 id = "flow_main"
 kind = "flow"
 solvers = ["modflow6"]
 
+# After the flow, GWT carries the nitrate and PRT tracks the particles. Both
+# read the flow of each week.
 [[simulation.process]]
-id = "transport_main"
+id = "transport"
 kind = "transport"
-solvers = ["modflow6"]
+solvers = ["modflow6", "modflow6_prt"]
 
-
+# The catchment is cut out of a 25 m DEM, upstream of the outlet, after the
+# depressions of the DEM are breached. The domain is the box around the
+# catchment widened by 20 % of the square root of its area.
 [geographic]
 crs_project = "EPSG:2154"
+dem_correc_type = "breach"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
 x_outlet = 265545.208
 y_outlet = 6783317.640
 snap_dist = "50 m"
-buff_area = "20%"
+buff_area = "20% of sqrt(area)"
 
-[geographic.river_network]
-enabled = true
-threshold_area_km2 = 0.2
-
-
+# The base of the aquifer is flat at sea level, so the aquifer is about 100 m
+# thick under the valley and 130 m under the crests. Ten layers, each 1.2 times
+# thicker than the one above it.
 [domain.depth_model]
 kind = "flat_substratum"
-substratum_elevation = "0.0 m"
-
+substratum_elevation = "0 m"
 
 [domain.layers]
 genmtd_lay = "decay"
-nlay = 5
+nlay = 10
 lay_decay = 1.2
 
-
 [data]
-types = ["dem", "hydrography", "recharge"]
+types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
 
 [[data.dem.sources]]
 source = "file"
-path = "../../data/dem/DEM_naizin_25m.tif"
+path = "workspace:DEM_naizin_25m.tif"
 
-# BD Topage 2024, with the perennial / intermittent attribute the catchment is
-# studied for.
+# The mapped streams of BD Topage, drawn on the figures. The model does not
+# read them.
 [[data.hydrography.sources]]
 source = "file"
-path = "../../data/hydrography/naizin_stream_network.gpkg"
+path = "workspace:naizin_stream_network.gpkg"
 
-# A drought year: recharge only from November to February, mm/day. A tenth of
-# it is routed to runoff rather than to the aquifer.
+# The discharge gauged at the outlet, drawn against the simulated one.
+[[data.hydrometry.sources]]
+source = "file"
+path = "workspace:."
+
+# A drought year: 2 mm/day in January, February, November and December, and
+# nothing from March to October.
 [[data.recharge.sources]]
 source = "synthetic"
 values = [2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0]
 freq = "MS"
 
+# The runoff is a tenth of the recharge. It does not enter the aquifer and is
+# added to the drain flow to give the discharge.
+[[data.runoff.sources]]
+source = "file"
+path = "workspace:."
 
 [flow]
 flow_regime = "transient"
-param_list = ["K", "Sy", "Ss"]
+# The first week is solved in steady state under the mean recharge of the
+# year, so the drought starts from a water table in balance.
 first_period_steady = true
+param_list = ["K", "Sy", "Ss"]
 
+# K is 5e-5 m/s at the ground surface and falls as exp(-depth / 15 m), down to
+# 1e-8 m/s. It is read at the middle of each layer.
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
@@ -97,9 +114,11 @@ value = 5e-5
 
 [flow.param.K.field_vertical_profile]
 kind = "exponential"
-characteristic_depth = "15.0 m"
+characteristic_depth = "15 m"
 min_factor = 2e-4
 
+# Sy is 0.02 at the ground surface and falls as exp(-depth / 30 m), down to
+# 0.001.
 [flow.param.Sy.field]
 kind = "homogeneous"
 unit = "-"
@@ -107,92 +126,141 @@ value = 0.02
 
 [flow.param.Sy.field_vertical_profile]
 kind = "exponential"
-characteristic_depth = "30.0 m"
+characteristic_depth = "30 m"
 min_factor = 0.05
 
-# The legacy 1e-10 sits under the schema floor: storage is carried by Sy here.
 [flow.param.Ss.field]
 kind = "homogeneous"
 unit = "m-1"
-value = 1e-9
+value = 1e-10
 
+# Every cell drains at the ground surface. The conductance follows K,
+# C = K * cell area / 1 m.
 [flow.bc.drainage]
-kind = "drain"
 
-
-# Concentrations in kg/m3: 0.1 is 100 mg/L in the aquifer at the start, 0.05 is
-# 50 mg/L in the recharge. MODFLOW 6 GWT runs on the SI seconds clock, so the
-# first-order decay rate is a per-second one: 1.585e-8 /s is a two-year
-# mean life. disp_transh and disp_transv are ratios of disp_long, so the
-# transverse dispersivities are 0.5 m and 0.05 m.
-
+# The first week is solved under the mean recharge of the year.
 [flow.sinks_sources.recharge]
-[transport.modflow6gwt.parameters]
+
+# The nitrate in kg/m3: 0.1 is 100 mg/L in the aquifer at the start, 0.05 is
+# 50 mg/L in the recharge. The figures draw it in mg/L. The rates of GWT are
+# per second: a decay of
+# 1.5855e-8 /s is a mean life of two years, and the diffusion is 1e-10 m2/s.
+# The longitudinal dispersivity is 5 m. The transverse ones are given as
+# ratios of it, so they are 2.5 m across and 0.25 m down. No porosity is
+# given, so the porosity of each cell is its Sy. TVD keeps the fronts sharp.
+[transport.modflow6]
 spc_name = "NO3"
 sconc_init = 0.1
 sconc_input = 0.05
-porosity = 0.02
 disp_long = 5.0
-disp_transh = 0.1
-disp_transv = 0.01
+disp_transh = 0.5
+disp_transv = 0.05
 diffu_coeff = 1e-10
 react_order = 1
-rate_decay = 1.5854e-8
+rate_decay = 1.5855e-8
+scheme = "TVD"
 
+# One particle in 2000 columns spread over the box, released at the start of
+# the year and carried by the flow until it leaves the aquifer. The porosity
+# of each cell is its Sy, as for the nitrate. PRT tracks forward
+# only, so the travel time of a particle is the time its water needs to reach
+# the stream from the cell where it entered. After the last week the particles
+# go on with the flow of December.
+[transport.modflow6_prt]
+release_zone = "domain"
+max_particles = 2000
+release_times = [0.0]
+stop_time = "1000 years"
 
-[modflow6.runtime]
-mf6_ims_complexity = "COMPLEX"
-
-# Five layers thickening with depth: the transport model solves on the flow
-# mesh, and ten layers over a monthly year of nitrate is an example nobody
-# waits for.
+# The figures land in runs/naizin_example_09/figures/. Each one that applies
+# and fails stops the run, so a broken figure cannot go unseen.
 [display]
 on_error = "raise"
+
 [[display.figure]]
 preset = "watershed_id_card"
 
 [[display.figure]]
 variable = "topography"
 overlays = ["mesh", "outline", "outlet"]
-name = "mesh_map"
 
-[[display.figure]]
-variable = "watertable_elevation"
-
-[[display.figure]]
-variable = "watertable_depth"
-
-[[display.figure]]
-variable = "seepage_mask"
-
-# The end of the drought, when the concentration pattern is most contrasted.
-[[display.figure]]
-variable = "concentration"
-layer = 0
-time = 9
-name = "concentration_map"
-
-# Concentration over the whole run, one box per time, in kg/m3.
-[[display.figure]]
-variable = "concentration"
-type = "groups"
-by = "time"
-name = "concentration_boxplot"
-
-[[display.figure]]
-variable = "topography"
-overlays = ["relief", "network"]
-name = "hydrographic_network_reference"
-
-[[display.figure]]
-variable = "simulated_active_network"
-
+# The discharge against the gauge, and the water budget of each week.
 [[display.figure]]
 preset = "hydrograph"
 
-[[display.figure]]  # replaces flux_timeseries, water_budget
+[[display.figure]]
 preset = "water_budget"
 
+# The water table at the end of October, after eight dry months.
 [[display.figure]]
-variable = "mass_balance.percent_error"
-type = "series"
+variable = "watertable_depth"
+overlays = ["seepage", "outline"]
+time = "2003-10-25"
+
+[[display.figure]]
+variable = "simulated_active_network"
+reduce = "frequency"
+overlays = ["outline", "network"]
+
+# The nitrate that the seepage cells bring to the streams, at the end of
+# January, then at the end of October.
+[[display.figure]]
+variable = "concentration_seepage"
+overlays = ["outline", "network"]
+time = "2003-01-25"
+name = "seepage_nitrate_january"
+
+[[display.figure]]
+variable = "concentration_seepage"
+overlays = ["outline", "network"]
+time = "2003-10-25"
+name = "seepage_nitrate_october"
+
+# The nitrate in every layer at the end of October, on a section from west to
+# east across the valley. Under the crests the water table lies below the
+# first layer, and its dry cells hold no meaningful value.
+[[display.figure]]
+variable = "concentration"
+type = "section"
+time = "2003-10-25"
+line = [[264000.0, 6784200.0], [267000.0, 6784200.0]]
+limits = [30.0, 100.0]
+name = "nitrate_section_october"
+
+# How long the water released in each cell needs to reach a seepage cell, on
+# a log scale, under the pathlines of the particles.
+[[display.figure]]
+variable = "travel_time_to_exit"
+scale = "log"
+limits = [0.1, 100.0]
+overlays = ["outline", "seepage", "pathlines"]
+
+# What lands in runs/naizin_example_09/exports/, ready for QGIS or a
+# spreadsheet.
+
+# The catchment and the mapped streams: GeoPackage.
+[[export]]
+variable = ["watershed", "hydrographic_network_reference"]
+
+# The water table, its depth and the seepage cells at the end of October: one
+# GeoTIFF each.
+[[export]]
+variable = ["watertable_elevation", "watertable_depth", "seepage_mask"]
+time = "2003-10-25"
+
+# The nitrate of the seepage cells at the end of the year: GeoTIFF.
+[[export]]
+variable = "concentration_seepage"
+time = "last"
+
+# Simulated and gauged discharge, and the water budget: CSV.
+[[export]]
+variable = ["discharge", "discharge_obs"]
+
+[[export]]
+variable = "budget"
+
+# The particle tracks, one line per particle with its travel time in years:
+# GeoPackage.
+[[export]]
+variable = "pathlines"
