@@ -45,5 +45,5 @@ the run of `project.toml`, so after `hmp run` the script writes the next version
   tracks as GeoPackage, one line per particle with its travel time.
 - `summary/`: the figures the script draws, outside the sealed run.
 
-K is read at the middle of each layer, so a layer that crosses 30 m or 100 m of depth holds
-two values of K.
+Each layer takes the band of K of its base, so a layer that ends below 30 m holds 1e-7 m/s
+where another of the same rank, thinner, still holds 1e-5 m/s.

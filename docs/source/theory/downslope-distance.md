@@ -109,11 +109,11 @@ as `basin_mismatch`. A wrong outlet closes the basin of D on the same wrong bran
 so only the first one shows it. Above
 {toml}`max_catchment_mismatch|calibration.outputs.<name>.verdict.max_catchment_mismatch`,
 5 per cent by default, the search is refused before its first solve. On the Nançon
-the gap is 0.4 per cent on the default grid of 21 406 cells, 3.8 and 2.8 per cent on
-grids of 60 and 80 cells a side, and 1.5 and 2.4 per cent on Voronoi meshes of 200
-and 100 m that follow the smoothed outline. It passes 5 per cent on grids of 30 and
-45 cells a side (11.0 and 6.8), on a Voronoi mesh of 400 m (6.3) and on the grid of
-120 cells a side (5.6), where the outlet closes on another branch. $L_{cap}$ is
+the gap is 0.2 per cent on the default grid of 27 004 cells, 4.2, 3.0, 2.1 and 4.2 per
+cent on grids of 45, 60, 80 and 120 cells a side, and 0.2 per cent on a Voronoi mesh of
+100 m that follows the smoothed outline. It passes 5 per cent on the grid of 30 cells a
+side (9.4), on a Voronoi mesh of 400 m (6.6) and on a Voronoi mesh of 200 m (11.2),
+where the outlet closes on another branch. $L_{cap}$ is
 static: it is the value an unreachable cell takes in the means
 ({ref}`downslope-means`).
 
@@ -554,40 +554,39 @@ warning, because the reach under it leaves the map and $K$ reads higher. A map t
 wanders a cell off its talwegs below its heads gives the same $K$ to the last bit
 under the heads rule, and $K$ 11.6 per cent low under the crossing rule.
 
-**On the Nançon.** The default grid of 21 406 cells, protocol 1.3, recharge over
-2000 to 2002, with the 29 heads the cut map holds, none lost, is below. One root over
-four decades of $K$ in each case.
+**On the Nançon.** The default grid of 27 004 cells, protocol 1.3, recharge over
+2000 to 2002, with the 29 heads the cut map holds, none lost (31 under D4), is below.
+One root over four decades of $K$ in each case.
 
 | Case | $K$ (m/s) | `Sy` | NSE | $J$ (m) | $D_{optim}$ (m) | Mapped cells | $K$ where $\lvert J \rvert$ is under one cell |
 |---|---|---|---|---|---|---|---|
-| Heads, D8 | 7.96e-5 | 0.0441 | 0.9392 | -0.81 | 104.1 | 473 | 6.92e-5 to 8.63e-5 |
-| Crossing, D8 | 8.11e-5 | 0.0432 | 0.9393 | -1.99 | 114.0 | 496 | 6.98e-5 to 9.90e-5 |
-| Heads, D4 | 6.94e-5 | 0.0441 | 0.9395 | -1.80 | 100.8 | 662 | 6.31e-5 to 8.47e-5 |
+| Heads, D8 | 1.01e-4 | 0.0253 | 0.9580 | -1.46 | 105.0 | 471 | 7.82e-5 to 1.09e-4 |
+| Crossing, D8 | 1.06e-4 | 0.0253 | 0.9576 | 2.63 | 112.2 | 496 | 7.65e-5 to 1.26e-4 |
+| Heads, D4 | 8.82e-5 | 0.0253 | 0.9588 | 2.89 | 98.0 | 659 | 8.11e-5 to 1.13e-4 |
 
-The two rules agree on $K$. The 1.8 per cent between them is the size of the tie under
-heads, where five trials from 7.92e-5 to 8.06e-5 m/s read the same $J$. Heads
-misses 97 cells and adds 169 where crossing misses 194 and adds 238, and its root is
-sharper: $\lvert J \rvert$ stays under a tenth of a cell over 1.8 per cent of $K$,
-against 6.2 per cent.
+The two rules agree on $K$. The 5.5 per cent between them is about the size of the tie
+under heads, where trials from 1.01e-4 to 1.06e-4 m/s read the same $J$. Heads misses 99
+cells and adds 167 where crossing misses 195 and adds 232, and its root is no sharper:
+$\lvert J \rvert$ stays under a tenth of a cell over about 6 per cent of $K$ under both rules.
 
-D4 moves $K$ by 12.9 per cent, far more than the tie. Its root sits on a step of the
-curve, where $J$ falls by 62 m over 0.5 per cent of $K$, and $D_{optim}$ is not
+D4 moves $K$ by 12.4 per cent, far more than the tie. Its root sits just above a step of the
+curve, where $J$ falls by 62 m over 0.2 per cent of $K$, and $D_{optim}$ is not
 comparable, because the walk differs. It draws 40 per cent more cells, and its catchment
-leaves the outline by 1.2 per cent against 0.4. On a twin whose valleys run along the
+leaves the outline by 1.1 per cent against 0.2. On a twin whose valleys run along the
 grid diagonal it leaves the outline by 17 per cent, which the bound refuses, and with
 the bound lifted it lands 4.5 per cent off against 2.4 per cent for D8. On valleys
 along the grid axes the two are equal.
 
-The hydrograph does not decide. NSE moves by 3e-4 over these three values of $K$,
+The hydrograph does not decide. NSE moves by 1.2e-3 over these three values of $K$,
 and `Sy` stays within the 5 per cent the search stops on.
 
-**The visible flow.** In the two-bound mode, $K$ depends on the flow a reach must carry to count as a stream. On the Nançon with the BD Topage maps, the mean of the two roots is 1.19e-5, 7.68e-6 and 3.98e-6 m/s at 0.5, 1 and 2 L/s, a factor of 3. Most of it comes from the root on the complete map, 2.98e-6, 1.42e-6 and 4.64e-7 m/s, because $\lvert J \rvert$ stays under one cell over more than a decade of $K$ there. The root on the permanent map moves less, 4.79e-5, 4.16e-5 and 3.41e-5 m/s, but its $D_{optim}$ is over 220 m, past the bound of 150 m. The two roots lie 1.2 to 1.9 decades apart, so their mean meets neither map. Quote each root with its visible flow.
+**The visible flow.** In the two-bound mode, $K$ depends on the flow a reach must carry to count as a stream. On the Nançon with the BD Topage maps, the mean of the two roots is 1.73e-5, 1.29e-5 and 7.80e-6 m/s at 0.5, 1 and 2 L/s, a factor of 2.2. Most of it comes from the root on the complete map, 4.97e-6, 2.95e-6 and 1.32e-6 m/s, because $\lvert J \rvert$ stays under one cell over half a decade of $K$ or more there. The root on the permanent map moves less, 6.01e-5, 5.61e-5 and 4.61e-5 m/s, but its $D_{optim}$ is over 260 m, past the bound of 150 m. The two roots lie 1.1 to 1.5 decades apart, so their mean meets neither map. Quote each root with its visible flow.
 
-**K and Sy on two maps.** A twin whose two maps come from a run at a known $K$ and `Sy` finds $K$ to a few per cent. It does not find `Sy`. Over a factor of 16 in `Sy`, $\lvert J \rvert$ stays under one cell on both maps at the true $K$, and two of three search methods return a `Sy` near 80 per cent high. Where the two maps are nearly the same, $K$ lands 32 per cent high and `Sy` 70 per cent low at a cost of zero. On the Nançon only the permanent root follows `Sy`, with a slope of 0.57 in log-log. The two roots meet at $K$ = 5.0e-6 m/s and `Sy` = 0.0033, which is below the usual range. There NSE falls from 0.93 to 0.64 and the NSE on log discharge from 0.92 to -0.17. So the route is allowed, and it is not recommended. A minimiser on one parameter is refused, because the same trials give 1e-7 m/s, the search bound, where the root search gives 7.68e-6.
+**K and Sy on two maps.** A twin whose two maps come from a run at a known $K$ and `Sy` finds $K$ to a few per cent. It does not find `Sy`. Over a factor of 16 in `Sy`, $\lvert J \rvert$ stays under one cell on both maps at the true $K$, and two of three search methods return a `Sy` near 80 per cent high. Where the two maps are nearly the same, $K$ lands 32 per cent high and `Sy` 70 per cent low at a cost of zero. On the Nançon only the permanent root follows `Sy`, with a slope of 0.61 in log-log. The two roots meet at $K$ = 9.1e-6 m/s and `Sy` = 0.0040, which is below the usual range. There NSE falls from 0.96 to 0.77 and the NSE on log discharge from 0.98 to 0.43. So the route is allowed, and it is not recommended. A minimiser on one parameter is refused, because the same trials give 1e-7 m/s, the search bound, where the root search gives 1.29e-5.
 
-**The step of D4.** The 12.9 per cent of D4 comes from one cell. It lies on a hillslope at 170 m, and it dries between $K$ = 6.895e-5 and 6.910e-5 m/s. With it go 37 cells of stream under D4 and 27 under D8, all absent from the map. Under D4 this takes $J_{signed}$ from +60 to -1.8 m, so the root falls there. D8 loses the same cell at the same $K$, and $J_{signed}$ stays positive, from 82 to 31 m. A solver closure a hundred times tighter gives the same $J$, so the step belongs to the model and not to the solver. Under D4, $K$ is set by that one cell, and its narrow band is apparent precision.
+**The step of D4.** The 12.4 per cent of D4 comes from one cell. It lies on a hillslope at 170 m, and it dries between $K$ = 8.697e-5 and 8.715e-5 m/s. With it go 37 cells of stream under D4 and 27 under D8, all absent from the map. Under D4 this takes $J_{signed}$ from +65 to +3.0 m, within 3 m of zero, and the root falls just above it. D8 loses the same cell at the same $K$, and $J_{signed}$ stays positive, from 83 to 34 m. A solver closure a hundred times tighter gives the same $J$, so the step belongs to the model and not to the solver. Under D4, $K$ is set by that one cell, and its narrow band is apparent precision.
 
-**Comparing structures.** Two structures compare only at an equal balance, so a plain bisection closes the root of $J$ at each one and gives its $D_{optim}$. On the Nançon, thicknesses of 10 to 90 m give $D_{optim}$ of 142, 171, 104, 110 and 111 m, each in 24 solves at a width of 8, with $K \cdot \bar B$ within 14 per cent from 17 to 90 m, as the ratio $T/\bar N$ predicts. One step of $J$ moves $D_{optim}$ by 34 m at 17.3 m, so a smaller gap between two structures says nothing. Scoring $D_{optim}$ without the balance finds 95 m, with a network 48 per cent longer than the map.
+**Comparing structures.** Two structures compare only at an equal balance, so a plain bisection closes the root of $J$ at each one and gives its $D_{optim}$. On the Nançon, thicknesses of 10 to 90 m give $D_{optim}$ of 142, 168, 107, 112 and 123 m, each in 24 solves at a width of 8, except 10 m, whose root lies above the search bound of $K$ and costs 27. Between 17.3 and 90 m, $K \cdot \bar B$ stays within 13 per cent, as the ratio $T/\bar N$ predicts. One step of $J$ moves $D_{optim}$ by 30 m at 17.3 m, so a smaller gap between two structures says nothing. Scoring $D_{optim}$ without the balance finds 105 m at $J$ = +24 m, with a network 21 per cent longer than the map.
 
 **Triangles.** The twin has no triangle column. With XT3D and Newton, MODFLOW 6 keeps cycling by 2 to 5 cm on one border triangle, whatever the under-relaxation. Without Newton it closes, and the side triangles then seep beside the talweg. The network is wider than one cell, so no map of lines can equal it. The Voronoi column, whose cells follow the talwegs, passes.
 

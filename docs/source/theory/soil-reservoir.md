@@ -257,9 +257,9 @@ and $\tau = 0$ gives $O_t = I_t$. The limit of 30 days leaves the slow response 
 constant applies to the whole catchment, whatever the depth of the water table.
 
 On example 04, 2016 to 2020, with K = 3.16e-5 m/s and Sy = 0.04, a delay of 5 days raises the NSE
-of the daily discharge from 0.57 to 0.79 and moves the July to September bias from +0.006 to
-+0.015 m3/s. A delay of 30 days, run at the monthly step, brings that bias from 0.000 to
-+0.058 m3/s, so the summer floor comes back.
+of the daily discharge from 0.58 to 0.79 and moves the July to September bias from -0.002 to
++0.007 m3/s. A delay of 30 days, run at the monthly step, brings that bias from -0.007 to
++0.050 m3/s, so the summer floor comes back.
 
 ### Routing and delay of the runoff
 
@@ -405,8 +405,8 @@ The residual ETP goes to the MODFLOW 6 evapotranspiration package, which draws i
 table. This needs a [flow.sinks_sources.etp] table. The rate falls linearly to zero at
 {toml}`extinction_depth|flow.sinks_sources.etp.extinction_depth` below the drain elevation of the
 cell. The default of 2 m is our choice, and this depth matters for the low flows. On example 04,
-from 1 m to 2 m, the July to September bias of the discharge goes from +0.017 to 0.000 m3/s and the
-lowest monthly flow of 2019 from 0.174 to 0.151 m3/s, for 0.153 gauged.
+from 1 m to 2 m, the July to September bias of the discharge goes from +0.009 to -0.007 m3/s and the
+lowest monthly flow of 2019 from 0.167 to 0.147 m3/s, for 0.153 gauged.
 
 The runoff goes where a loaded runoff would go, to the stream networks, the lakes and the discharge
 that a calibration compares with the gauge. A file that also loads a runoff through

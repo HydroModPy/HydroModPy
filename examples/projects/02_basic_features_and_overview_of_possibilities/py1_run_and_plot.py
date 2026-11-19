@@ -47,8 +47,8 @@ print(before.figure("topography", overlays=["mesh", "outline"], save=FIGURES / "
 
 # %% The ten layers and their K
 
-# The MODFLOW 6 model is written, not solved. K is read at the middle of each layer, so a
-# layer that crosses 30 m or 100 m of depth holds two values of K.
+# The MODFLOW 6 model is written, not solved. Each layer takes the band of K of its base,
+# and a layer of one rank is thicker under the hills, so it may hold two values of K.
 built = lab.solve(build_only=True)
 mf6 = built["flow_main::modflow6"].solver_model
 active = mf6.dis.idomain.array[0] > 0
@@ -59,7 +59,7 @@ k = mf6.npf.k.array[:, active]
 layers = pd.DataFrame(
     {
         "thickness (m)": (tops - bases).mean(axis=1),
-        "middle depth (m)": (ground - (tops + bases) / 2).mean(axis=1),
+        "base depth (m)": (ground - bases).mean(axis=1),
         "K 1e-5 (%)": (np.isclose(k, 1e-5) * 100).mean(axis=1),
         "K 1e-7 (%)": (np.isclose(k, 1e-7) * 100).mean(axis=1),
         "K 1e-8 (%)": (np.isclose(k, 1e-8) * 100).mean(axis=1),

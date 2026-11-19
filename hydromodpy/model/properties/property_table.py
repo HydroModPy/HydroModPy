@@ -26,6 +26,7 @@ from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.properties.field_spatial import WeightedAverageFieldDiscretization
 from hydromodpy.model.properties.property_ids import FLOW_PROPERTY_IDS
 from hydromodpy.model.properties.raster_cells import RasterCells, raster_cells
+from hydromodpy.model.properties.vertical_profile import layer_profile_depths
 from hydromodpy.model.properties.zone_fractions import ZoneFractions, zone_fractions
 from hydromodpy.model.time.regime import normalize_flow_regime
 
@@ -277,7 +278,7 @@ def map_flow_properties(
     profiles: Mapping[str, object],
     domain: object,
     cell_mesh: PlanarCellMesh,
-    layer_depths: np.ndarray,
+    layer_interfaces: np.ndarray,
     properties: tuple[str, ...],
     required: frozenset[str] | set[str],
     optional_fill_values: Mapping[str, float] | None = None,
@@ -286,8 +287,9 @@ def map_flow_properties(
     """Map the properties named in ``properties`` onto the cells of ``cell_mesh``.
 
     ``profiles`` is ``Model.properties.profiles``, a ``FieldParam`` by parameter id.
-    ``layer_depths`` is ``(nlay, n_cells)``, the depth below the top of each
-    layer center. Each mapped property ``p`` gives ``p`` ``(nlay, n_cells)`` and
+    ``layer_interfaces`` is ``(nlay + 1, n_cells)`` in m, the ground then the base
+    of each layer. Each parameter reads its profile at the depth its ``depth_at``
+    names (``layer_profile_depths``). Each mapped property ``p`` gives ``p`` ``(nlay, n_cells)`` and
     ``p_value`` ``(n_cells,)``, the values at depth zero (``hk``, ``hk_value``,
     ...). A property with no profile is mapped from
     ``optional_fill_values`` when it is not required, and left out when no fill
@@ -296,10 +298,13 @@ def map_flow_properties(
     override of a property outside ``properties`` is refused, since the solver
     would drop it.
     """
-    depths = np.asarray(layer_depths, dtype=float)
+    interfaces = np.asarray(layer_interfaces, dtype=float)
     n_cells = int(cell_mesh.n_cells)
-    if depths.ndim != 2 or depths.shape[1] != n_cells:
-        raise ValueError(f"layer_depths must have shape (nlay, {n_cells}), got {depths.shape}")
+    if interfaces.ndim != 2 or interfaces.shape[0] < 2 or interfaces.shape[1] != n_cells:
+        raise ValueError(
+            f"layer_interfaces must have shape (nlay + 1, {n_cells}), got {interfaces.shape}"
+        )
+    shape = (interfaces.shape[0] - 1, n_cells)
     if not isinstance(profiles, Mapping):
         raise TypeError("profiles must be a mapping of parameter id to FieldParam")
     overrides = dict(runtime_overrides or {})
@@ -329,7 +334,7 @@ def map_flow_properties(
         if not any(alias in profiles for alias in aliases) and canonical not in required:
             fill = fill_values.get(canonical)
             if fill is not None:
-                out[name] = np.full(depths.shape, fill, dtype=float)
+                out[name] = np.full(shape, fill, dtype=float)
                 out[f"{name}_value"] = np.full(n_cells, fill, dtype=float)
             continue
         selected, param = _resolve_field_param(
@@ -351,6 +356,7 @@ def map_flow_properties(
                 fractions_by_zone=fractions.by_zone(),
             )
         out[f"{name}_value"] = _cell_values(param, discretization, cell_mesh, name, 0.0)
+        depths = layer_profile_depths(param.vertical_profile, interfaces)
         out[name] = np.vstack(
             [_cell_values(param, discretization, cell_mesh, name, depth) for depth in depths]
         )

@@ -66,7 +66,8 @@ flow_regime = "steady"
 param_list = ["K", "Sy"]
 
 # K is 1e-6 m/s at the ground surface and falls as exp(-depth / 50 m), down to
-# a floor four decades lower.
+# a floor four decades lower. The first layer takes the value at the ground, and
+# each layer below reads it at the depth of its base.
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
@@ -76,6 +77,7 @@ value = 1e-6
 kind = "exponential"
 characteristic_depth = "50 m"
 min_factor = 1e-4
+depth_at = "surface_then_base"
 
 [flow.param.Sy.field]
 kind = "homogeneous"

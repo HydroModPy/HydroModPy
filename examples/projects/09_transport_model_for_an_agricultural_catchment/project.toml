@@ -105,8 +105,11 @@ flow_regime = "transient"
 first_period_steady = true
 param_list = ["K", "Sy", "Ss"]
 
-# K is 5e-5 m/s at the ground surface and falls as exp(-depth / 15 m), down to
-# 1e-8 m/s. It is read at the middle of each layer.
+# K is 5e-5 m/s at the ground surface and falls with depth, faster under the
+# hills, where the weathered rock is thin: the decay length is 15 m where the
+# ground is at 93 m or lower and 1 m where it is at 136 m or higher, and goes
+# linearly between. K stops at 1e-8 m/s. The first layer takes the value at the
+# ground, and each layer below reads it at the depth of its base.
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
@@ -115,10 +118,14 @@ value = 5e-5
 [flow.param.K.field_vertical_profile]
 kind = "exponential"
 characteristic_depth = "15 m"
+characteristic_depth_high = "1 m"
+ground_low = "93 m"
+ground_high = "136 m"
 min_factor = 2e-4
+depth_at = "surface_then_base"
 
-# Sy is 0.02 at the ground surface and falls as exp(-depth / 30 m), down to
-# 0.001.
+# Sy is 0.02 at the ground surface and falls the same way, with a decay length
+# of 30 m in the valley and 10 m on the hills, down to 0.001.
 [flow.param.Sy.field]
 kind = "homogeneous"
 unit = "-"
@@ -127,7 +134,11 @@ value = 0.02
 [flow.param.Sy.field_vertical_profile]
 kind = "exponential"
 characteristic_depth = "30 m"
+characteristic_depth_high = "10 m"
+ground_low = "93 m"
+ground_high = "136 m"
 min_factor = 0.05
+depth_at = "surface_then_base"
 
 [flow.param.Ss.field]
 kind = "homogeneous"

@@ -72,7 +72,7 @@ flow_regime = "steady"
 param_list = ["K", "Sy"]
 
 # Three bands of depth: 1e-5 m/s in the first 30 m, 1e-7 m/s down to 100 m,
-# then 1e-8 m/s.
+# then 1e-8 m/s. Each layer takes the band of its base.
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
@@ -83,6 +83,7 @@ kind = "tabulated"
 interpolation = "step"
 depths = [0.0, 30.0, 100.0]
 factors = [1.0, 0.01, 0.001]
+depth_at = "base"
 
 [flow.param.Sy.field]
 kind = "homogeneous"

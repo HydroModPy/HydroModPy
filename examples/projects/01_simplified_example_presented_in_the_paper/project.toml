@@ -75,7 +75,7 @@ flow_regime = "steady"
 param_list = ["K", "Sy"]
 
 # A weathered and fractured bedrock: K and Sy fall as exp(-depth / 20 m), so
-# they halve every 14 m.
+# they halve every 14 m. Each layer reads them at the depth of its top.
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
@@ -84,6 +84,7 @@ value = 2e-5
 [flow.param.K.field_vertical_profile]
 kind = "exponential"
 characteristic_depth = "20 m"
+depth_at = "top"
 
 [flow.param.Sy.field]
 kind = "homogeneous"
@@ -93,6 +94,7 @@ value = 0.01
 [flow.param.Sy.field_vertical_profile]
 kind = "exponential"
 characteristic_depth = "20 m"
+depth_at = "top"
 
 # Every cell drains at the ground surface. The conductance follows K,
 # C = K * cell area / 1 m.

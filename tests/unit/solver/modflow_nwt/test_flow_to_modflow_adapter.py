@@ -94,6 +94,7 @@ class Homogeneous:
     """A flow parameter with one value everywhere."""
 
     is_heterogeneous = False
+    vertical_profile = {"kind": "none"}
 
     def __init__(self, value: float) -> None:
         self.value = value

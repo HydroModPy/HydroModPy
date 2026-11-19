@@ -90,7 +90,7 @@ print(
 
 # `solve(build_only=True)` writes the MODFLOW 6 model without solving it. Its packages hold
 # what the solver will read: one row per layer and one column per cell. K and Sy follow
-# exp(-depth / 20 m), taken at the middle of each layer.
+# exp(-depth / 20 m), taken at the top of each layer.
 built = lab.solve(build_only=True)
 mf6 = built["flow_main::modflow6"].solver_model
 ground = mf6.dis.top.array
@@ -99,7 +99,7 @@ tops = np.vstack([ground, bases[:-1]])
 layers = pd.DataFrame(
     {
         "thickness (m)": (tops - bases).mean(axis=1),
-        "middle depth (m)": (ground - (tops + bases) / 2).mean(axis=1),
+        "top depth (m)": (ground - tops).mean(axis=1),
         "K (m/s)": mf6.npf.k.array.mean(axis=1),
         "Sy": mf6.sto.sy.array.mean(axis=1),
     },

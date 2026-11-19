@@ -912,6 +912,19 @@ NEW_FIELDS: dict[str, tuple[Any, str]] = {
     "data.property_map": (_UNSET, "an unset table declares no map, and no parameter reads one"),
     "flow.param.<id>.field.map": (None, "only a field of kind 'raster', new too, reads a map"),
     "flow.param.<id>.field.mean": (_UNSET, "only a field of kind 'raster', new too, takes a mean"),
+    "flow.param.<id>.field_vertical_profile.depth_at": (
+        "middle",
+        "the middle of the layer is where every profile was read before the key",
+    ),
+    "flow.param.<id>.field_vertical_profile.characteristic_depth_high": (
+        _UNSET,
+        "unset, the decay length is characteristic_depth everywhere, as before",
+    ),
+    "flow.param.<id>.field_vertical_profile.ground_low": (_UNSET, "read only with the high length"),
+    "flow.param.<id>.field_vertical_profile.ground_high": (
+        _UNSET,
+        "read only with the high length",
+    ),
 }
 
 

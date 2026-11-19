@@ -107,7 +107,7 @@ first_clim = 0.5
 [flow.sinks_sources.wells.W1]
 units = "m3/day"
 location = { kind = "absolute_xy", x = 152700.0, y = 6858225.0, layer = 0 }
-flux = [-2000, 0, -1000, 0, 0, 0, 0, 0, 0, -5000, 0, 0]
+flux = [-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 [flow.sinks_sources.wells.W2]
 units = "m3/day"

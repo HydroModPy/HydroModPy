@@ -70,7 +70,7 @@ print(
 # what the solver will read: one row per layer and one column per cell. The base is flat at
 # 1000 m, so the aquifer is 120 m thick under the valleys and more than 1300 m under the
 # crests, and each layer is 1.5 times thicker than the one above it. K falls as
-# exp(-depth / 50 m), taken at the middle of each layer. Each value is the mean over the cells
+# exp(-depth / 50 m), at the ground for the first layer and at the base of the others. Each value is the mean over the cells
 # of the box.
 built = lab.solve(build_only=True)
 mf6 = built["flow_main::modflow6"].solver_model
@@ -80,7 +80,7 @@ tops = np.vstack([ground, bases[:-1]])
 layers = pd.DataFrame(
     {
         "thickness (m)": (tops - bases).mean(axis=1),
-        "middle depth (m)": (ground - (tops + bases) / 2).mean(axis=1),
+        "base depth (m)": (ground - bases).mean(axis=1),
         "K (m/s)": mf6.npf.k.array.mean(axis=1),
     },
     index=pd.RangeIndex(1, len(bases) + 1, name="layer"),
@@ -94,7 +94,9 @@ print(layers.to_string(float_format="{:.3g}".format))
 # ground.
 head = lab.read("head").to_numpy().ravel()
 seep = head >= ground
-print(f"water table from {head.min():.1f} to {head.max():.1f} m, mean depth {(ground - head).mean():.1f} m")
+print(
+    f"water table from {head.min():.1f} to {head.max():.1f} m, mean depth {(ground - head).mean():.1f} m"
+)
 print(f"seepage in {seep.mean() * 100:.1f} % of the cells of the box")
 print(f"discharge at the outlet: {float(lab.read('discharge').squeeze()) * 86400:.0f} m3/day")
 

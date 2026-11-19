@@ -109,7 +109,8 @@ def test_a_field_table_that_says_nothing_usable_is_refused(payload, match):
         (
             _k(3.5, field_vertical_profile={"kind": "exponential", "characteristic_depth": 50.0, "min_factor": 0.01}),
             _k(3.5) | {"vertical_profile": {"kind": "exponential", "characteristic_depth": 50.0,
-                                            "min_factor": 0.01, "interpolation": "linear"}},
+                                            "min_factor": 0.01, "interpolation": "linear",
+                                            "depth_at": "middle"}},
         ),
     ],
     ids=["homogeneous", "inline-unit", "drops-zone-keys", "drops-the-scalar", "profile-alias"],

@@ -23,9 +23,11 @@ from pydantic import BaseModel
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.persistence import CalibrationPersistence
+from hydromodpy.calibration.report import FrozenParameter
 from hydromodpy.calibration.runners import trial as trial_module
 from hydromodpy.calibration.runners.lanes import TrialParents
 from hydromodpy.calibration.runners.promotion import promote_session
+from hydromodpy.calibration.runners.staged_runner import _freeze_into_baseline
 from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.calibration.runners.trial import (
     TrialContext,
@@ -1016,6 +1018,45 @@ def test_promotion_fork_rebuilds_flow(tmp_path: Path, pipeline: _Pipeline) -> No
     assert pipeline.bindings == bindings + 1
     assert fork.ctx.setup.model is None
     assert fork.ctx.setup.flow.parameters["K"].value == pytest.approx(2e-5)
+
+
+SY_PARAM = CalibParameter("Sy", 0.01, 0.3, path="flow.param.Sy.field.value", units="-")
+
+
+def _sy_after_a_freeze(tmp_path: Path, pipeline: _Pipeline, frozen: CalibParameter) -> TrialContext:
+    """Stage two of a staged calibration: Sy sampled, ``frozen`` held by stage one."""
+    context = _prepared(tmp_path, paths={"Sy": SY_PARAM.path, frozen.name: frozen.path})
+    return _with_the_model_built(
+        replace(context, parameter_space=ParameterSpace([SY_PARAM])), pipeline
+    )
+
+
+def test_frozen_k_reaches_derived_model(tmp_path: Path, pipeline: _Pipeline) -> None:
+    # The staged runner writes K into base_cfg after the Model is built, so a
+    # trial that rebuilt Sy alone solved at the K of the file.
+    k_param = CalibParameter("K", 1e-7, 1e-3, path=K_PATH, units="m/s")
+    prepared = _sy_after_a_freeze(tmp_path, pipeline, k_param)
+    assert prepared.model_from_profiles
+    assert prepared.profile_ids() == ("Sy", "K")
+    _freeze_into_baseline(prepared, [FrozenParameter(parameter=k_param, value=4e-5, phase="k")])
+
+    trial = prepared.fork({"Sy": 0.2}, derive_model=True).ctx.setup.model
+    promoted = prepared.fork({"Sy": 0.2}).ctx.setup.flow
+
+    for parameters in (trial.properties.profiles, promoted.parameters):
+        assert parameters["K"].value == pytest.approx(4e-5)
+        assert parameters["Sy"].value == pytest.approx(0.2)
+
+
+def test_frozen_non_profile_keeps_full_fork(tmp_path: Path, pipeline: _Pipeline) -> None:
+    # A frozen recharge factor is no profile: the Model built before the freeze
+    # would carry the factor of the file, so the trials build their own.
+    factor = CalibParameter("f", 0.5, 2.0, path="flow.sinks_sources.recharge.factor")
+    prepared = _sy_after_a_freeze(tmp_path, pipeline, factor)
+
+    assert prepared.model_from_profiles is False
+    assert prepared.downstream_steps[1].calls == 0
+    assert prepared.fork({"Sy": 0.2}, derive_model=True).ctx.setup.model is None
 
 
 LIGHT_KEPT = [

@@ -48,7 +48,7 @@ def resolve_flow_property_arrays(
         profiles=profiles,
         domain=domain,
         cell_mesh=solver_mesh.cell_mesh,
-        layer_depths=solver_mesh.layer_center_depths(),
+        layer_interfaces=np.vstack([solver_mesh.top.reshape(1, -1), solver_mesh.botm]),
         properties=properties,
         required=required,
         optional_fill_values=optional_fill_values,

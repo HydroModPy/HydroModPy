@@ -1130,6 +1130,13 @@ versions = ">=2.0.0a1,<=2.0.0rc1"
 quantities = ["fields@network_agreement", "fields@downslope_distance"]
 text = "The fields network_agreement and downslope_distance of a run compared the simulated network with the complete map, whatever map the calibration scored. They now read the map in the cost of the sealed output, the permanent one under map.calibrate_on = \"permanent\". On a run that sealed several network outputs they read the output and the window of the phase that promoted it, where they read the first output. On a 64.6 km2 catchment calibrated on the permanent map, the cells mapped only go from 966 to 128, the count of the best trial. No sealed number moves, the two fields are rebuilt when read."
 
+[[bug]]
+id = "staged_trials_solved_at_the_k_of_the_file"
+since = "2.0.0"
+versions = ">=2.0.0a5,<=2.0.0rc1"
+quantities = ["heads@modflow6", "fluxes@modflow6", "heads@modflow_nwt", "fluxes@modflow_nwt", "heads@boussinesq", "fluxes@boussinesq", "heads@linear_reservoir", "fluxes@linear_reservoir", "metrics"]
+text = "In a staged calibration, a phase that samples property profiles only built its model once, before the values an earlier phase froze were written, and each trial rebuilt only the profiles it sampled. So the trials of the later phase, and a run promoted from a kept solve, solved at the value of the file while config.resolved.toml showed the frozen one. Each trial now rebuilds the frozen profiles too, and a frozen value that is no profile builds the model per trial. On example 04 with K frozen at 1.006e-4 m/s, the Sy stage solved at the 5e-5 m/s of project.toml and found Sy 0.0266 with NSE 0.962; at the frozen K it finds Sy 0.0253 with NSE 0.958. The phase scored on heads and the one scored on crossings gave the same Sy trials to the last digit, they now differ."
+
 [[recipe]]
 id = "geotiff_resolution_in_the_output_crs"
 since = "2.0.0"

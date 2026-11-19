@@ -49,7 +49,7 @@ def resolve_flow_property_arrays(
         profiles=profiles,
         domain=domain,
         cell_mesh=cell_mesh,
-        layer_depths=np.zeros((1, cell_mesh.n_cells), dtype=float),
+        layer_interfaces=np.zeros((2, cell_mesh.n_cells), dtype=float),
         properties=properties,
         required=required,
         runtime_overrides=resolve_flow_property_runtime_overrides(

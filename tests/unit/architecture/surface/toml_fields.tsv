@@ -910,8 +910,12 @@ flow.param.field.values_csv_file	Path | None	None	stable
 flow.param.field.values_source	Literal['inline', 'csv']	'inline'	stable
 flow.param.field_vertical_profile	table | None	None	stable
 flow.param.field_vertical_profile.characteristic_depth	float | None	None	stable
+flow.param.field_vertical_profile.characteristic_depth_high	float | None	None	stable
+flow.param.field_vertical_profile.depth_at	Literal['middle', 'top', 'base', 'surface_then_base']	'middle'	stable
 flow.param.field_vertical_profile.depths	list[float] | None	None	stable
 flow.param.field_vertical_profile.factors	list[float] | None	None	stable
+flow.param.field_vertical_profile.ground_high	float | None	None	stable
+flow.param.field_vertical_profile.ground_low	float | None	None	stable
 flow.param.field_vertical_profile.interpolation	Literal['linear', 'step']	'linear'	stable
 flow.param.field_vertical_profile.kind	Literal['none', 'exponential', 'tabulated']	'none'	stable
 flow.param.field_vertical_profile.min_factor	float | None	None	stable

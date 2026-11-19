@@ -38,8 +38,8 @@ The base of the aquifer is an elevation, 1000 m, and not a thickness under the g
 aquifer is 120 m thick under the valleys and more than 1300 m thick under the crests. Each layer
 is 1.5 times thicker than the one above it, so the first is 6.6 m thick on average and the last
 254 m. K is 1e-6 m/s at the ground surface and falls as exp(-depth / 50 m) down to a floor four
-decades lower. It is read at the middle of each layer. Sy is 0.01 and the porosity of the
-particles is 0.01.
+decades lower. The first layer takes the value at the ground, and each layer below reads it at
+the depth of its base. Sy is 0.01 and the porosity of the particles is 0.01.
 
 The recharge is the mean of a monthly series of 10, 20, 30, 40, 50, 60, 60, 50, 40, 30, 20 and
 10 mm per month, divided by 30 days.

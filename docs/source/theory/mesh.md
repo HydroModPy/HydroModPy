@@ -97,15 +97,15 @@ discharge support, the catchment area fraction, the outlet search of the build a
 mask of the network criterion. Without a smoothed outline these steps read the delineated
 polygon.
 
-On example 04 (DEM of 75 m, catchment of 64.6 km²), the outline goes from 423 to 160 vertices.
-The area moves by -0.08 % and no point moves by more than 0.81 pixel. With the catchment as the
-domain and a `cell_size` of 100 m, the Voronoi cells with an isoperimetric quotient under 0.6
-(4π times the area over the squared perimeter) go from 118 to 5 out of about 7300. On the
-`triangle` engine the gain shows with the buffer as the domain. The mesh goes from 27 918 to
-24 002 cells, and the triangles with a corner under 20 degrees from 144 to 0. With the catchment
-or a box as the domain, the count barely changes, and a few triangles stay along the outline
-(4 under 20 degrees out of 21 000 on example 04). A cell that touches the outline can change
-side on a band of 0.8 pixel at most.
+On example 04 (DEM of 75 m, catchment of 64.6 km²), the outline goes from 421 to 160 vertices.
+The area moves by -0.05 % and no point moves by more than 0.81 pixel. With the catchment as the
+domain, a `cell_size` of 100 m and no river in the mesh, the Voronoi cells with an isoperimetric
+quotient under 0.6 (4π times the area over the squared perimeter) go from 114 to 6 out of about
+6500. On the `triangle` engine the gain shows with the buffer as the domain. The mesh goes from
+8815 to 8027 cells, and the triangles with a corner under 20 degrees from 61 to 0. With the
+catchment as the domain the count falls from 7263 to 6673 cells, with a box it does not move, and
+neither has a corner under 20 degrees. A cell that touches the outline can change side on a band
+of 0.8 pixel at most.
 
 ### The size field
 
@@ -530,11 +530,10 @@ neighboring cells, and give -0.67 % and -2.0 %.
 
 On example 04 the polygon is the staircase of the DEM, so it cuts no cell of the grid and every
 share is 0 or 1. The totals still differ a little from the budget line, because the basin of D
-and the polygon disagree on whole cells. The basin holds 34 cells outside the polygon (0.19 km²),
-and the polygon holds 8 cells outside the basin (0.045 km²). The recharge over the catchment is
-0.23 % below the line of the budget, and the seepage 1.2 % below, mostly through river cells near
-the outlet that the polygon leaves out. A cut cell needs a triangle or a Voronoi mesh, or a grid
-coarser than the DEM.
+and the polygon disagree on whole cells. The basin holds 13 cells outside the polygon (0.073 km²),
+and the polygon holds 12 cells outside the basin (0.068 km²). The recharge over the catchment is
+0.01 % below the line of the budget, and the seepage is equal to it within 0.01 %. A cut cell
+needs a triangle or a Voronoi mesh, or a grid coarser than the DEM.
 
 A synthetic domain has no catchment polygon and no outlet. It stores no share, its basin of D
 is the largest basin of the domain, and `budget_over` without a polygon and `catchment_mean` refuse it.

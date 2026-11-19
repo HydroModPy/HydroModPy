@@ -57,7 +57,7 @@ def test_cell_centers_are_vertex_means():
     assert centers[1] == pytest.approx([1.5, 0.5])
 
 
-def test_layer_thicknesses_and_center_depths():
+def test_layer_thicknesses():
     mesh = solver_mesh_from_structured_arrays(
         nrow=1,
         ncol=2,
@@ -66,26 +66,10 @@ def test_layer_thicknesses_and_center_depths():
     )
 
     thickness = mesh.layer_thicknesses()
-    depths = mesh.layer_center_depths()
 
     assert thickness.shape == (2, 2)
     assert thickness[0] == pytest.approx([4.0, 4.0])  # 10 -> 6
     assert thickness[1] == pytest.approx([6.0, 6.0])  # 6 -> 0
-    assert depths[0] == pytest.approx([2.0, 2.0])  # top 10 - center 8
-    assert depths[1] == pytest.approx([7.0, 7.0])  # top 10 - center 3
-
-
-def test_center_depths_are_never_negative():
-    # A cell whose bottom lies above its top (a nodata-like inversion) has no depth below zero.
-    mesh = solver_mesh_from_structured_arrays(
-        nrow=1,
-        ncol=2,
-        top=np.array([[10.0, 10.0]]),
-        botm=np.array([[[6.0, 12.0]], [[0.0, 14.0]]]),
-    )
-
-    assert (mesh.layer_center_depths() >= 0.0).all()
-    assert mesh.layer_center_depths()[0, 0] == pytest.approx(2.0)
 
 
 def test_row_0_is_at_the_north_like_modflow():

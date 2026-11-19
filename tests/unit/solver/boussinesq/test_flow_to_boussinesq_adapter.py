@@ -115,7 +115,8 @@ def _solver_mesh_inputs(monkeypatch: pytest.MonkeyPatch, model: Model) -> dict:
 def test_zero_value_is_refused(monkeypatch, name, regime, match) -> None:
     """A value of zero, as on a cell no zone of its support covers."""
     uncovered = SimpleNamespace(
-        to_mesh_field=lambda mesh, label, depth: SimpleNamespace(cell_values=np.zeros(4))
+        vertical_profile={"kind": "none"},
+        to_mesh_field=lambda mesh, label, depth: SimpleNamespace(cell_values=np.zeros(4)),
     )
     model = _model(regime, profiles={**_profiles(), name: uncovered})
     if match is None:

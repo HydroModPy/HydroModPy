@@ -9,15 +9,18 @@ and positive downward.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, get_args
 
 import numpy as np
 
+from hydromodpy.core.config_kit.field_param.sections import VerticalProfileDepthAt
 from hydromodpy.core.units.registry import UREG
 from hydromodpy.model.properties.mesh_cells import cell_values
 
 SUPPORTED_VERTICAL_PROFILE_MODES = ("none", "exponential", "tabulated")
 SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS = ("linear", "step")
+GRADED_KEYS = ("characteristic_depth_high", "ground_low", "ground_high")
+"""The keys that grade the decay length of an exponential profile with the ground elevation."""
 
 
 def _length_to_m(value: object, *, label: str) -> float:
@@ -55,6 +58,11 @@ def normalize_vertical_profile(
 
     if mode == "none":
         return {"kind": "none"}
+    depth_at = str(vertical_profile.get("depth_at", "middle")).strip().lower()
+    if depth_at not in get_args(VerticalProfileDepthAt):
+        allowed = ", ".join(get_args(VerticalProfileDepthAt))
+        raise ValueError(f"Unsupported vertical_profile depth_at '{depth_at}'. Allowed: {allowed}")
+    placed = {} if depth_at == "middle" else {"depth_at": depth_at}
 
     if mode == "exponential":
         if "characteristic_depth" not in vertical_profile:
@@ -80,7 +88,21 @@ def normalize_vertical_profile(
         }
         if min_factor is not None:
             normalized["min_factor"] = float(min_factor)
-        return normalized
+        graded = [key for key in GRADED_KEYS if vertical_profile.get(key) is not None]
+        if graded:
+            if len(graded) != len(GRADED_KEYS):
+                raise KeyError(f"vertical_profile needs {', '.join(GRADED_KEYS)} together")
+            high = _length_to_m(vertical_profile["characteristic_depth_high"], label="high")
+            low_ground = _length_to_m(vertical_profile["ground_low"], label="ground_low")
+            high_ground = _length_to_m(vertical_profile["ground_high"], label="ground_high")
+            if not np.isfinite(high) or high <= 0.0:
+                raise ValueError("vertical_profile.characteristic_depth_high must be > 0")
+            if high_ground <= low_ground:
+                raise ValueError("vertical_profile.ground_high must be above ground_low")
+            normalized.update(
+                characteristic_depth_high=high, ground_low=low_ground, ground_high=high_ground
+            )
+        return {**normalized, **placed}
 
     # The mode check above leaves "tabulated" as the only mode here.
     if "depths" not in vertical_profile:
@@ -112,11 +134,14 @@ def normalize_vertical_profile(
             f"Unsupported vertical_profile interpolation '{interpolation}'. Allowed: {allowed}"
         )
 
+    if any(vertical_profile.get(key) is not None for key in GRADED_KEYS):
+        raise ValueError(f"{', '.join(GRADED_KEYS)} grade an exponential profile only")
     return {
         "kind": "tabulated",
         "depths": depths.tolist(),
         "factors": factors.tolist(),
         "interpolation": interpolation,
+        **placed,
     }
 
 
@@ -167,6 +192,40 @@ def vertical_factor(vertical_profile: Mapping[str, Any], depth=0.0):
     return np.asarray(out, dtype=float)
 
 
+def layer_profile_depths(vertical_profile: Mapping[str, Any], interfaces) -> np.ndarray:
+    """Return the depth at which each layer reads the profile, shape (nlay, n_cells).
+
+    ``interfaces`` is (nlay + 1, n_cells) in m, the ground then the base of each
+    layer. ``depth_at`` picks the middle (the default), the top or the base of the
+    layer, or ``surface_then_base``: the ground for the first layer and the base for
+    the others. A depth is never negative. A graded exponential profile scales the
+    depth of each cell by characteristic_depth over the decay length of its ground,
+    the length going linearly from ground_low to ground_high, so the factor
+    exp(-depth / characteristic_depth) of the profile is exp(-depth / length).
+    """
+    z = np.asarray(interfaces, dtype=float)
+    if z.ndim != 2 or z.shape[0] < 2:
+        raise ValueError(f"interfaces must have shape (nlay + 1, n_cells), got {z.shape}")
+    ground, tops, bases = z[0], z[:-1], z[1:]
+    point = {
+        "top": tops,
+        "middle": 0.5 * (tops + bases),
+        "base": bases,
+        "surface_then_base": np.vstack([ground[None, :], bases[1:]]),
+    }
+    depth = np.maximum(0.0, ground - point[str(vertical_profile.get("depth_at", "middle"))])
+    if vertical_profile.get("characteristic_depth_high") is None:
+        return depth
+    low = float(vertical_profile["characteristic_depth"])
+    high = float(vertical_profile["characteristic_depth_high"])
+    length = np.interp(
+        ground,
+        [float(vertical_profile["ground_low"]), float(vertical_profile["ground_high"])],
+        [low, high],
+    )
+    return depth * low / length
+
+
 def apply_vertical_profile(vertical_profile: Mapping[str, Any], surface_values, *, depth=0.0):
     """Multiply surface values by the profile factor at ``depth``."""
     factor = vertical_factor(vertical_profile, depth)
@@ -194,6 +253,7 @@ __all__ = [
     "SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS",
     "SUPPORTED_VERTICAL_PROFILE_MODES",
     "apply_vertical_profile",
+    "layer_profile_depths",
     "mesh_vertical_factor",
     "normalize_depth",
     "normalize_vertical_profile",

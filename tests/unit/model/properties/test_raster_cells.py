@@ -210,7 +210,7 @@ def test_an_active_cell_off_the_map_is_refused_by_name(tmp_path):
     profiles = {"K": _raster_profile("K", "k_map", unit="m/day").reading(surface)}
     mapped = map_flow_properties(
         profiles=profiles, domain=None, cell_mesh=_grid(2, 1, 100.0),
-        layer_depths=np.zeros((1, 2)), properties=("K",), required={"K"},
+        layer_interfaces=np.zeros((2, 2)), properties=("K",), required={"K"},
     )  # fmt: skip
 
     np.testing.assert_allclose(mapped["hk"], [[1e-4, 0.0]])

@@ -163,12 +163,6 @@ class SolverMesh:
         tops = np.vstack([self.top.reshape(1, -1), self.botm[:-1]])
         return tops - self.botm
 
-    def layer_center_depths(self) -> np.ndarray:
-        """Return depth of layer centers below top, shape (nlay, n_cells), never negative."""
-        tops = np.vstack([self.top.reshape(1, -1), self.botm[:-1]])
-        centers_z = 0.5 * (tops + self.botm)
-        return np.maximum(0.0, self.top.reshape(1, -1) - centers_z)
-
     @property
     def inactive_mask(self) -> np.ndarray:
         """Return the cells that are not active, ``idomain <= 0``, shape (nlay, n_cells)."""

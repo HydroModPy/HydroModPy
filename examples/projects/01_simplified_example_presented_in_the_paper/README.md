@@ -12,8 +12,9 @@ water. A run takes about a minute.
 - `py1_run_and_plot.py`: plays `project.toml` step by step in a `hmp.Lab`. After `load_data` it
   draws the regime of the Canut from the gauge, 1990 to 2019. After `prepare_solver` it draws the
   mesh on the relief and prints, for each of the five layers, its thickness and the K and Sy
-  that MODFLOW 6 will read. It then solves, keeps the model as a run and asks the run for two
-  more figures: K from north to south, and the water-table depth under the particle tracks.
+  that MODFLOW 6 will read, each taken at the top of the layer. It then solves, keeps the model
+  as a run and asks the run for two more figures: K from north to south, and the water-table
+  depth under the particle tracks.
 
 The DEM, the mapped streams and the gauge are read from the shared `data/` folder of the
 workspace. The model reads only the DEM. The streams and the gauge are drawn and exported.

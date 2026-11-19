@@ -28,6 +28,9 @@ RasterMean = Literal["arithmetic", "geometric", "harmonic"]
 """How the pixels a cell covers make the value of the cell, for a field of kind 'raster'."""
 VerticalProfileMode = Literal["none", "exponential", "tabulated"]
 VerticalProfileInterpolation = Literal["linear", "step"]
+VerticalProfileDepthAt = Literal["middle", "top", "base", "surface_then_base"]
+"""Where a layer reads its vertical profile: its middle, its top, its base, or the ground for the
+first layer and the base for the others."""
 
 # Sentinel `default_unit` for `parse_scalar_and_unit` when no sibling `unit` is
 # declared: it lets a bare numeric string ("1e-4", no inline unit) through
@@ -388,6 +391,40 @@ class FieldVerticalProfileSection(HydroModelBase):
             )
         ),
     )
+    characteristic_depth_high: Annotated[LengthMeters | None, Profile.USER] = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Optional decay length for kind 'exponential' where the ground stands at or "
+            "above ground_high. characteristic_depth then holds at or below ground_low, "
+            "and the decay length goes linearly from one to the other with the ground "
+            "elevation of the cell. A weathered zone that thins under the hills is "
+            "written so. Requires ground_low and ground_high."
+        ),
+    )
+    ground_low: Annotated[LengthMeters | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Ground elevation (m) at and below which characteristic_depth holds, with "
+            "characteristic_depth_high."
+        ),
+    )
+    ground_high: Annotated[LengthMeters | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Ground elevation (m) at and above which characteristic_depth_high holds, "
+            "above ground_low."
+        ),
+    )
+    depth_at: Annotated[VerticalProfileDepthAt, Profile.USER] = Field(
+        default="middle",
+        description=(
+            "Where each layer reads the profile: at the depth of its middle, its top or "
+            "its base, or 'surface_then_base': the first layer takes the value at the "
+            "ground and each layer below reads it at its base. A thick layer reads one "
+            "value, so the choice moves its K and Sy."
+        ),
+    )
     depths: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
         min_length=1,
@@ -414,6 +451,21 @@ class FieldVerticalProfileSection(HydroModelBase):
     def _validate_kind_payload(self):
         if self.kind == "none":
             return self
+
+        graded = (self.characteristic_depth_high, self.ground_low, self.ground_high)
+        if any(value is not None for value in graded):
+            if self.kind != "exponential":
+                raise ValueError(
+                    "field_vertical_profile.characteristic_depth_high, ground_low and "
+                    "ground_high grade an exponential profile only: write kind = 'exponential'"
+                )
+            if any(value is None for value in graded):
+                raise ValueError(
+                    "field_vertical_profile.characteristic_depth_high, ground_low and "
+                    "ground_high go together: write the three"
+                )
+            if self.ground_high <= self.ground_low:
+                raise ValueError("field_vertical_profile.ground_high must be above ground_low")
 
         if self.kind == "exponential":
             if self.characteristic_depth is None:

@@ -44,10 +44,13 @@ three times: alone in about 4 minutes, then beside GWT and beside PRT in about 6
 ## The model
 
 The first week is solved in steady state under the mean recharge of the year, 0.65 mm/day, so
-the drought starts from a water table in balance. K is 5e-5 m/s at the ground and falls as
-exp(-depth / 15 m) down to 1e-8 m/s. Sy is 0.02 at the ground and falls as exp(-depth / 30 m)
-down to 0.001. Both are read at the middle of each layer. The runoff is a tenth of the recharge.
-It does not enter the aquifer and is added to the drain flow to give the discharge.
+the drought starts from a water table in balance. K is 5e-5 m/s at the ground and falls with
+depth, faster under the hills: its decay length is 15 m where the ground stands at 93 m or lower
+and 1 m where it stands at 136 m or higher, down to 1e-8 m/s. Sy is 0.02 at the ground and falls
+the same way, with a decay length of 30 m in the valley and 10 m on the hills, down to 0.001.
+The first layer takes both at the ground, and each layer below at its base. The runoff is a
+tenth of the recharge. It does not enter the aquifer and is added to the drain flow to give the
+discharge.
 
 ## The nitrate
 
@@ -55,9 +58,9 @@ The nitrate is written in kg/m3 in `project.toml`, 0.1 for 100 mg/L, and the fig
 mg/L. GWT counts time in seconds, so the decay rate is 1.5855e-8 /s for a mean life of two years
 and the diffusion is 1e-10 m²/s. The longitudinal dispersivity is 5 m, and the transverse ones
 are ratios of it, 0.5 across and 0.05 down. No porosity is given, so each cell takes its Sy as
-porosity, and HydroModPy warns about it. The nitrate of the seepage cells falls from 97 mg/L to
-81 mg/L over the wet weeks of the winter, then by about 0.7 mg/L a week through the dry months
-as the old water decays, and ends the year at 53 mg/L.
+porosity, and HydroModPy warns about it. The nitrate of the seepage cells falls from 96 mg/L to
+76 mg/L over the wet weeks of the winter, then by about 0.6 mg/L a week through the dry months
+as the old water decays, down to 50 mg/L in December.
 
 ## The particles
 
@@ -65,7 +68,7 @@ PRT tracks forward only. One particle starts in each of 2000 columns spread over
 travels with the flow until it leaves the aquifer, most of them in a seepage cell. After the last
 week the particles go on with the flow of December. The travel time of a particle is the time its
 water needs to reach the stream from the cell where it entered. Half of the particles leave
-within 1.2 years and nine in ten within 4.4 years.
+within 0.8 years and nine in ten within 2 years.
 
 ## What a run writes
 

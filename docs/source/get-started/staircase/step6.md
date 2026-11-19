@@ -104,7 +104,7 @@ recharge to MODFLOW      350.1             296.9            495.0
 unmet ETP 131.3 mm/year, offered to EVT: the water table gives it only where it is shallow
 recharge July-September: 0.000 mm/day
 recharge for other ru, mm/year: 50 mm 443.0 | 100 mm 388.8 | 150 mm 350.1 | 200 mm 314.5 | 250 mm 280.2
-gauged discharge NANCON: 326.5 mm/year on 2192 of 2192 days, catchment 64.62 km2
+gauged discharge NANCON: 326.5 mm/year on 2192 of 2192 days, catchment 64.63 km2
 ```
 
 The first launch needs network access for the SIM2 rain and ETP. The downloads are cached.

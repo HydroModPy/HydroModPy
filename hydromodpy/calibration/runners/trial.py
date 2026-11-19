@@ -322,8 +322,15 @@ class TrialContext:
     model_from_profiles: bool = False
 
     def profile_ids(self) -> tuple[str, ...]:
-        """Return the ``[flow.param]`` ids the calibrated paths move, in the order first seen."""
-        return _profile_ids(self.calibrated_paths(), self.base_cfg)
+        """Return the ``[flow.param]`` ids a trial rebuilds, in the order first seen.
+
+        The sampled paths and every path of ``override_paths``, which holds the
+        values an earlier phase froze. The staged runner writes those into
+        ``base_cfg`` after the ``Model`` is built, so their profiles are rebuilt
+        too, or the trial solves at the value of the file.
+        """
+        paths = [*self.calibrated_paths(), *self.override_paths.values()]
+        return _profile_ids(paths, self.base_cfg)
 
     def calibrated_paths(self) -> list[str]:
         """Return the configuration path each calibrated value is written to."""

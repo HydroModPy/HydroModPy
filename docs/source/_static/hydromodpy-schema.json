@@ -6872,6 +6872,84 @@
           "title": "Min Factor",
           "x-hmp-profile": "user"
         },
+        "characteristic_depth_high": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+                  "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+                  "type": "string"
+                }
+              ],
+              "gt": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional decay length for kind 'exponential' where the ground stands at or above ground_high. characteristic_depth then holds at or below ground_low, and the decay length goes linearly from one to the other with the ground elevation of the cell. A weathered zone that thins under the hills is written so. Requires ground_low and ground_high.",
+          "title": "Characteristic Depth High",
+          "x-hmp-profile": "user"
+        },
+        "ground_low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Ground elevation (m) at and below which characteristic_depth holds, with characteristic_depth_high.",
+          "title": "Ground Low",
+          "x-hmp-profile": "user"
+        },
+        "ground_high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Ground elevation (m) at and above which characteristic_depth_high holds, above ground_low.",
+          "title": "Ground High",
+          "x-hmp-profile": "user"
+        },
+        "depth_at": {
+          "default": "middle",
+          "description": "Where each layer reads the profile: at the depth of its middle, its top or its base, or 'surface_then_base': the first layer takes the value at the ground and each layer below reads it at its base. A thick layer reads one value, so the choice moves its K and Sy.",
+          "enum": [
+            "middle",
+            "top",
+            "base",
+            "surface_then_base"
+          ],
+          "examples": [
+            "middle"
+          ],
+          "title": "Depth At",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
         "depths": {
           "anyOf": [
             {

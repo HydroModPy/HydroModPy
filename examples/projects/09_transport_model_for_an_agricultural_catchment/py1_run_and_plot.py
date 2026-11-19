@@ -94,7 +94,7 @@ print(
 # `solve(build_only=True)` writes the MODFLOW 6 flow model without solving it. Its packages
 # hold what the solver will read: one row per layer and one column per cell. The base is flat
 # at 0 m and each layer is 1.2 times thicker than the one above it. K and Sy fall with depth,
-# taken at the middle of each layer. The nitrate moves through the pores of Sy, which serves
+# faster under the hills, at the ground for the first layer and at the base of the others. The nitrate moves through the pores of Sy, which serves
 # as porosity. Each value is the mean over the cells of the box.
 built = lab.solve(build_only=True)
 mf6 = built["flow_main::modflow6"].solver_model
@@ -104,7 +104,7 @@ tops = np.vstack([ground, bases[:-1]])
 layers = pd.DataFrame(
     {
         "thickness (m)": (tops - bases).mean(axis=1),
-        "middle depth (m)": (ground - (tops + bases) / 2).mean(axis=1),
+        "base depth (m)": (ground - bases).mean(axis=1),
         "K (m/s)": mf6.npf.k.array.mean(axis=1),
         "Sy": mf6.sto.sy.array.mean(axis=1),
     },
