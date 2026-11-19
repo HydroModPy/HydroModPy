@@ -26,7 +26,7 @@ from ._hmp import run_main as _run
 
 pytestmark = pytest.mark.fast
 
-EXAMPLE_04 = Path("examples/projects/04_streamflow_intermittence_in_transient")
+NANCON = Path("tests/fixtures/projects/nancon_intermittence")
 
 # Relative to the repository root, where pytest runs from: the CLI shortens the network output's
 # absolute, resolved source to this when it sits under the working directory.
@@ -273,7 +273,7 @@ def test_list_phases_runs_no_search(monkeypatch, tmp_path, capsys) -> None:
 
 
 def test_the_protocol_file_lists_a_network_row_and_a_hydrograph_block_row(capsys) -> None:
-    lines = printed_phases(EXAMPLE_04 / "run_calibration.toml", capsys).splitlines()
+    lines = printed_phases(NANCON / "run_calibration.toml", capsys).splitlines()
 
     assert lines[0].startswith("0\tsteady_conductivity\tbisection\t")
     assert lines[1] == (
@@ -290,8 +290,8 @@ def test_the_protocol_file_lists_a_network_row_and_a_hydrograph_block_row(capsys
 
 
 def test_the_protocol_written_by_hand_lists_what_the_protocol_lists(capsys) -> None:
-    protocol = printed_phases(EXAMPLE_04 / "run_calibration.toml", capsys)
-    by_hand = printed_phases(EXAMPLE_04 / "run_calibration_by_hand.toml", capsys)
+    protocol = printed_phases(NANCON / "run_calibration.toml", capsys)
+    by_hand = printed_phases(NANCON / "run_calibration_by_hand.toml", capsys)
 
     assert by_hand == protocol
 

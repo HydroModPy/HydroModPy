@@ -56,12 +56,12 @@ user_guide/cli-reference.rst  reference/cli/index
 
 # Getting started
 getting_started/choose-your-first-workflow.rst  get-started/index
-getting_started/cli-quickstart.rst              get-started/staircase/step1
+getting_started/cli-quickstart.rst              get-started/example-04
 getting_started/concepts_in_5_min.rst           get-started/concepts
-getting_started/data-overview-walkthrough.rst   get-started/staircase/index
+getting_started/data-overview-walkthrough.rst   get-started/example-04
 getting_started/index.rst                       get-started/index
-getting_started/nancon-tutorial.rst             get-started/staircase/index
-getting_started/simulation-walkthrough.rst      get-started/staircase/index
+getting_started/nancon-tutorial.rst             get-started/example-04
+getting_started/simulation-walkthrough.rst      get-started/example-04
 
 # Theory
 theory/calibration/calibration-methods.rst                                         reference/calibration-methods
@@ -97,7 +97,7 @@ theory/solvers/solver-capability-matrix.rst                                     
 theory/solvers/vertical-representation-and-storage-assumptions.rst                 theory/groundwater-flow
 theory/solvers/worked-modflow-case-dupuit-fixed-head-1d.rst                        theory/validation
 theory/solvers/worked-modflow-case-linearized-unconfined-recharge-periodic-1d.rst  theory/validation
-theory/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt.rst                get-started/staircase/step4
+theory/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt.rst                get-started/example-04
 theory/streams_and_seepage/conceptual-model.rst                                    understand/stream-network
 theory/streams_and_seepage/downslope-distance-calibration.rst                      theory/downslope-distance
 theory/streams_and_seepage/index.rst                                               understand/stream-network
@@ -141,7 +141,7 @@ user_guide/workflows/comparison.rst                      reference/cli/show
 user_guide/workflows/index.rst                           get-started/concepts
 user_guide/workflows/overview.rst                        reference/parameters/overview
 user_guide/workflows/regional_lab.rst                    get-started/many-catchments
-user_guide/workflows/simulation.rst                      get-started/staircase/index
+user_guide/workflows/simulation.rst                      get-started/example-04
 user_guide/workflows/site_selection.rst                  reference/cli/site
 user_guide/workflows/stream-network-calibration.rst      reference/parameters/calibration/outputs
 user_guide/workflows/testbed.rst                         get-started/many-catchments
@@ -549,7 +549,7 @@ capability_gallery/cases/mesh_sample_bundle.rst                                 
 capability_gallery/cases/mesh_zoom_panels_naizin_10km2.rst                                               theory/mesh
 capability_gallery/cases/modflow6_gmsh_mesh_catchment.rst                                                theory/mesh
 capability_gallery/cases/modflow6_irregular_tri_xt3d_method_choice.rst                                   theory/solvers/xt3d-on-irregular-disv-meshes
-capability_gallery/cases/nancon_transient_nwt.rst                                                        get-started/staircase/step4
+capability_gallery/cases/nancon_transient_nwt.rst                                                        get-started/example-04
 capability_gallery/cases/regional_lab_headwater_100km2_backend_compare_recipe.rst                        get-started/many-catchments
 capability_gallery/cases/regional_lab_headwater_100km2_dry_plan.rst                                      get-started/many-catchments
 capability_gallery/cases/regional_lab_headwater_100km2_mf6_reference_recipe.rst                          get-started/many-catchments
@@ -564,7 +564,7 @@ capability_gallery/geometry.rst                                                 
 capability_gallery/hydraulic_properties.rst                                                              reference/parameters/flow/param
 capability_gallery/index.rst                                                                             reference/figure-requests
 capability_gallery/mesh.rst                                                                              theory/mesh
-capability_gallery/simulation.rst                                                                        get-started/staircase/index
+capability_gallery/simulation.rst                                                                        get-started/example-04
 capability_gallery/simulation_comparison.rst                                                             reference/cli/show
 capability_gallery/validation.rst                                                                        theory/validation
 
@@ -620,3 +620,11 @@ contribute/architecture/data_loading/index.rst                                  
 contribute/architecture/field/index.rst                                                          contribute/architecture/packages/model
 about/changes-during-the-alphas.md                about/changelog
 reference/figures.md                              reference/figure-requests
+get-started/staircase/index.md                    get-started/example-04
+get-started/staircase/step1.md                    get-started/example-04
+get-started/staircase/step2.md                    get-started/example-04
+get-started/staircase/step3.md                    get-started/example-04
+get-started/staircase/step4.md                    get-started/example-04
+get-started/staircase/step5.md                    get-started/example-04
+get-started/staircase/step6.md                    get-started/example-04
+get-started/staircase/next.md                     get-started/example-04

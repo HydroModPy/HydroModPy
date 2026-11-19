@@ -463,8 +463,8 @@ holds every engine to 10 % of the expected count on a uniform size. With lines t
 25 m along the rivers in a background of 150 m, the count over the integral is 1.00 for `voronoi`
 and 1.35 for `triangle`.
 
-Example 04 declares no `[mesh]` section. The header of `step1_minimal.toml` counts 21406 cells
-of 75 m, about $120\ \mathrm{km^2}$, and does not say if the inactive cells are in. The same
+Example 04 declares no `[mesh]` section. Its box holds 172 by 157 cells of 75 m, 27004 cells and
+about $152\ \mathrm{km^2}$, inactive cells included. The same
 count means a {toml}`mesh.cell_size` of 75 m for each engine, with Voronoi generators about 81 m
 apart and triangles of about 114 m. A real mesh refines near the interfaces, so the count of a
 run is the $\mathrm{ncpl}$ of its DISV file. Also, $N_S$ counts the whole raster box, while a

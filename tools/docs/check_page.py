@@ -9,7 +9,7 @@ For each page (Markdown or reStructuredText under docs/source):
 - every ``{doc}`` or ``:doc:`` target, every card ``:link:`` and every relative
   Markdown link points to a page that exists;
 - every TOML block parses, and a block that writes a section of the file
-  validates against ``HydroModPyConfig`` once merged onto ``step1_minimal.toml``
+  validates against ``HydroModPyConfig`` once merged onto ``project.toml``
   of example 04. A block whose first line is ``# not checked: <reason>`` is
   skipped, for a block that shows a mistake on purpose. A whole file of the
   catchment report is read by its own model, as ``hmp show RUN --report`` reads it;

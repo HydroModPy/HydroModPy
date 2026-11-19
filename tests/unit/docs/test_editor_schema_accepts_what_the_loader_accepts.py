@@ -28,6 +28,7 @@ from hydromodpy.schema.config_schema import editor_schema, export_schema
 
 ROOT = Path(__file__).resolve().parents[3]
 EXAMPLE = ROOT / "examples" / "projects" / "04_streamflow_intermittence_in_transient"
+FIXTURES = ROOT / "tests" / "fixtures" / "projects"
 SCHEMA_PATH = ROOT / "docs" / "source" / "_static" / "hydromodpy-schema.json"
 
 
@@ -60,8 +61,9 @@ def _problems(validator: Draft202012Validator, text: str) -> list[str]:
 # nothing to say about it.
 EXAMPLE_FILES = sorted(
     p
-    for p in EXAMPLE.rglob("*.toml")
-    if not {"runs", "sessions"} & set(p.relative_to(EXAMPLE).parts)
+    for folder in (EXAMPLE, FIXTURES / "nancon_steps", FIXTURES / "nancon_intermittence")
+    for p in folder.rglob("*.toml")
+    if not {"runs", "sessions"} & set(p.relative_to(folder).parts)
 )
 
 
@@ -69,12 +71,12 @@ def test_the_example_corpus_is_found() -> None:
     assert len(EXAMPLE_FILES) >= 10
 
 
-@pytest.mark.parametrize("path", EXAMPLE_FILES, ids=lambda p: p.name)
+@pytest.mark.parametrize("path", EXAMPLE_FILES, ids=lambda p: f"{p.parent.name}/{p.name}")
 def test_every_example_file_validates(validator: Draft202012Validator, path: Path) -> None:
     assert _problems(validator, path.read_text(encoding="utf-8")) == []
 
 
-@pytest.mark.parametrize("path", EXAMPLE_FILES, ids=lambda p: p.name)
+@pytest.mark.parametrize("path", EXAMPLE_FILES, ids=lambda p: f"{p.parent.name}/{p.name}")
 def test_the_published_schema_validates_every_example_file(path: Path) -> None:
     import json
 
@@ -162,7 +164,7 @@ class TestTaplo:
         )
         return done.returncode
 
-    @pytest.mark.parametrize("path", EXAMPLE_FILES, ids=lambda p: p.name)
+    @pytest.mark.parametrize("path", EXAMPLE_FILES, ids=lambda p: f"{p.parent.name}/{p.name}")
     def test_every_example_file_lints(self, tmp_path: Path, path: Path) -> None:
         assert self._lint(tmp_path, path.read_text(encoding="utf-8")) == 0
 

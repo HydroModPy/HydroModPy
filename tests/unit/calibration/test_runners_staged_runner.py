@@ -1965,18 +1965,16 @@ def test_scoring_sentence_per_stage() -> None:
     ) in text
 
 
-# Example 04 writes its protocol out as phases, and the two must run the same search.
+# The nancon_intermittence fixture writes its protocol out as phases, and the two must run the same search.
 
 
-EXAMPLE_04 = Path(__file__).resolve().parents[3] / (
-    "examples/projects/04_streamflow_intermittence_in_transient"
-)
+NANCON = Path(__file__).resolve().parents[2] / "fixtures/projects/nancon_intermittence"
 
 
 @pytest.fixture(scope="module")
 def calibrations():
-    protocol = HydroModPyConfig.from_toml(EXAMPLE_04 / "run_calibration.toml").calibration
-    by_hand = HydroModPyConfig.from_toml(EXAMPLE_04 / "run_calibration_by_hand.toml").calibration
+    protocol = HydroModPyConfig.from_toml(NANCON / "run_calibration.toml").calibration
+    by_hand = HydroModPyConfig.from_toml(NANCON / "run_calibration_by_hand.toml").calibration
     return protocol, by_hand
 
 

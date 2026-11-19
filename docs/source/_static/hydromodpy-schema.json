@@ -6948,6 +6948,12 @@
           ],
           "title": "Depth At",
           "type": "string",
+          "value_docs": {
+            "base": "The depth of the base of the layer.",
+            "middle": "The depth of the middle of the layer.",
+            "surface_then_base": "0 for the first layer, the depth of its base for the others.",
+            "top": "The depth of the top of the layer, 0 for the first one."
+          },
           "x-hmp-profile": "user"
         },
         "depths": {

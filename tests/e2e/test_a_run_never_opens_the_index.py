@@ -2,7 +2,7 @@
 
 ``Catalog.__init__`` is patched to raise for the whole worker (the dispatch of
 the simulation workflow, which claims the directory, runs the thirteen steps
-and seals the run). Step 1 of example 04 solves on a real MODFLOW 6 model in a
+and seals the run). Step 1 of the nancon_steps fixture solves on a real MODFLOW 6 model in a
 disposable workspace. Afterwards ``runs/<case>/`` carries its seal and its
 outcome, and ``.hmp/index.duckdb`` does not exist: the index is derived by
 the launcher once the worker has returned, never by the run.

@@ -14,99 +14,27 @@ schema_version = 1
 id = "04"
 directory = "04_streamflow_intermittence_in_transient"
 title = "Streamflow intermittence in transient"
-summary = "Nancon catchment, MODFLOW 6. Six layered step files, from the shortest config that solves to a daily run with a soil reservoir, then the calibration files and six Python scripts."
-runtime = "15 to 25 s for step 1, 1 to 2 min for steps 4 and 5, about 18 min for step 6"
-entry_config = "step1_minimal.toml"
+summary = "Nancon catchment, MODFLOW 6, monthly transient 2000-2002. The seepage network grows in winter and shrinks in summer, and a Python script plays the model step by step and tries three values of Sy."
+runtime = "about 1.5 min for project.toml, about 6 min for py1_run_and_plot.py"
+entry_config = "project.toml"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/README.md"
 dest = "projects/04_streamflow_intermittence_in_transient/README.md"
-size = 5712
-sha256 = "8e769f7192d99b1a52762c29f4f90cf7cb7a2e35e3ff71300e294324f09f7164"
+size = 2827
+sha256 = "ca5a08f97b47e9ace5fa59c6ed31990aa132732af7e967b34ef5c1252c543b51"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/project.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/project.toml"
-size = 5665
-sha256 = "0f141e0f639e7aa9c5208c9e75323c73b36bc1db57680f425b8be46dde271b27"
+size = 4983
+sha256 = "30419e3bc33141f2109b93a47c418898f00e064292e2b447c6e8387eadd5837d"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
 size = 5296
 sha256 = "ea1ef35e02731f6d1987a828b70f6cf6c53a2ffe301ed77671b27780201a360c"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/run_calibration.toml"
-size = 1858
-sha256 = "c76abc39812859d13a49a8ebbfe44146144425f6970b042d8234d5bda59293d8"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_api_daily.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_api_daily.toml"
-size = 6458
-sha256 = "1196835ebf080a24412eca35a38335b2ed565d11b7eecb6fe0ad69583b0d4fc1"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_bdtopage.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_bdtopage.toml"
-size = 5158
-sha256 = "60f7c79766d430f75625dc4a812a749eeb9be063e785b769d87d33148abfa8c7"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml"
-size = 2821
-sha256 = "c683a6d9d71135d7fcc7dec885cfd3e1ee0926705d771c012c0cd728fb1f2e1f"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_composite.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_composite.toml"
-size = 3338
-sha256 = "ec01692d9aef0aad7e0c4bf6e2e96480906c215e2394a1f134cd075da3031627"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_daily.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/run_daily.toml"
-size = 2318
-sha256 = "d1c903ccc289812a17287e5a34fe20f9345a5d2e82c8352e96b45f4c8d4a8212"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/step1_minimal.toml"
-size = 2827
-sha256 = "d7878c8f611565015c3019f57ddffec1b9d09a58cc2099a482647123189cdef9"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step2_local_data.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/step2_local_data.toml"
-size = 1289
-sha256 = "89a5a5bdbd74c30082a3af3b5843e13dd9049fd92addac63d067245f25c9ba7f"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step3_api_data.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/step3_api_data.toml"
-size = 1567
-sha256 = "bb31564debdbfd7a16a6098850279aa41a7ff65037cea10fae0a315fd0fc7db4"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step4_transient.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/step4_transient.toml"
-size = 2361
-sha256 = "8fc317b2745657056a583fd90c8bcb529caff072d6d47991f21b2d0931f04317"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step5_export.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/step5_export.toml"
-size = 2313
-sha256 = "23eaff300ffc8304214f7462aede268aa6fec568730925867babb61abdb9a649"
-
-[[example.file]]
-repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step6_soil_reservoir.toml"
-dest = "projects/04_streamflow_intermittence_in_transient/step6_soil_reservoir.toml"
-size = 5016
-sha256 = "2ff161c3e59dff25f4fda51bcbf826775715ca2472b52aff6ab9e1fbf8009f7e"
 
 [[example.data]]
 repo_path = "examples/data/dem/DEM_armorican_massif.tif"
@@ -133,22 +61,10 @@ size = 1085
 sha256 = "bf1cba878a97d7718a6f55b4fcd04c39bddedd670ae9baf12c6bfe07743113da"
 
 [[example.data]]
-repo_path = "examples/data/recharge/recharge_custom_NANCON_REA_19900101_20201231_D.csv"
-dest = "data/recharge/recharge_custom_NANCON_REA_19900101_20201231_D.csv"
-size = 226475
-sha256 = "76abcc28c7971488f3760c4b0c9918932d0b5b690808a2529c14c0036fb1cc89"
-
-[[example.data]]
 repo_path = "examples/data/runoff/runoff_custom_NANCON_20000101_20021231_M.csv"
 dest = "data/runoff/runoff_custom_NANCON_20000101_20021231_M.csv"
 size = 1087
 sha256 = "23ca336a402cc2045d28cba9e6bda8cd4ec018d5508112238ab59a8bda18a474"
-
-[[example.data]]
-repo_path = "examples/data/runoff/runoff_custom_NANCON_REA_19900101_20201231_D.csv"
-dest = "data/runoff/runoff_custom_NANCON_REA_19900101_20201231_D.csv"
-size = 226475
-sha256 = "ce34f674eb53787883431b1535c1ce80834b8c136fb40a6b9faed83698662151"
 
 [[example.station]]
 dest = "data/hydrometry/hydrometry_custom_LOC.csv"
@@ -159,13 +75,5 @@ dest = "data/recharge/recharge_custom_LOC.csv"
 row = { "id" = "NANCON", "x" = "389285.91", "y" = "6816518.749", "crs" = "EPSG:2154", "name" = "Nancon", "unit" = "mm/day" }
 
 [[example.station]]
-dest = "data/recharge/recharge_custom_LOC.csv"
-row = { "id" = "NANCON_REA", "x" = "389285.91", "y" = "6816518.749", "crs" = "EPSG:2154", "name" = "Nancon areal mean (REA)", "unit" = "mm/day" }
-
-[[example.station]]
 dest = "data/runoff/runoff_custom_LOC.csv"
 row = { "id" = "NANCON", "x" = "389285.91", "y" = "6816518.749", "crs" = "EPSG:2154", "unit" = "mm/day" }
-
-[[example.station]]
-dest = "data/runoff/runoff_custom_LOC.csv"
-row = { "id" = "NANCON_REA", "x" = "389285.91", "y" = "6816518.749", "crs" = "EPSG:2154", "unit" = "mm/day" }

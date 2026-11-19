@@ -358,10 +358,8 @@ myst_substitutions = {
     ),
 }
 
-# The staircase of Get started reads the files of example 04.
-hmp_example_dir = str(
-    package_path / "examples" / "projects" / "04_streamflow_intermittence_in_transient"
-)
+# The pages that show a file of an example name it from examples/projects/.
+hmp_example_dir = str(package_path / "examples" / "projects")
 
 bibtex_bibfiles = ["theory/references.bib"]
 bibtex_default_style = "alpha"

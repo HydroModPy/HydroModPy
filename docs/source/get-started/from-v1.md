@@ -59,8 +59,8 @@ Every command takes `-w <workspace>`, and prints JSON with `--format json`. The 
 ## Moving a study
 
 1. Run `hmp workspace init` and put your input files in `~/hydromodpy/data/`.
-2. Write a `project.toml` with the site, the catchment, the depth and the data. The six files of
-   {doc}`the staircase <staircase/index>` show each step, from the shortest file that solves.
+2. Write a `project.toml` with the site, the catchment, the depth and the data.
+   {doc}`Example 04 <example-04>` shows a whole file, section by section.
 3. Run it with a steady regime first. Check the figures, then add the dates and the forcings.
 4. Compare with your v1 results through `hmp diff` or a notebook.
 

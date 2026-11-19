@@ -143,7 +143,7 @@ The runners are thin wrappers around two primitives of ``runners/trial.py``, for
    from hydromodpy.calibration.runners.trial import prepare_trials, run_trial_light
 
    paths = {"K": "flow.param.K.field.value"}
-   ctx = prepare_trials("run_calibration.toml", override_paths=paths)
+   ctx = prepare_trials("calibration.toml", override_paths=paths)
    result = run_trial_light(ctx, {"K": 1e-4}, objective="nse", variable="discharge")
 
 ``promote_trial`` of ``hydromodpy/project/calibrate.py`` turns one stored trial into a run. The

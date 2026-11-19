@@ -326,14 +326,14 @@ flow.sinks_sources.etp.first_clim
 solver.modflow6.process_specific.evt_extinction_depth
 ```
 
-The step of example 04, then the first period of its soil run:
+The step of example 04, then the rate of its steady first month:
 
 ```{hmp-resolved} simulation.time.step_value
-:config: project.toml
+:config: 04_streamflow_intermittence_in_transient/project.toml
 ```
 
-```{hmp-resolved} flow.first_period_steady
-:config: step6_soil_reservoir.toml
+```{hmp-resolved} flow.sinks_sources.recharge.first_clim
+:config: 04_streamflow_intermittence_in_transient/project.toml
 ```
 
 ## Checked by

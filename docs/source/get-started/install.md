@@ -164,7 +164,7 @@ may work; nothing checks it.
 | Windows | 3.11, 3.12, 3.13 | The same weekly job as macOS |
 
 The jobs install from a clone with `pip install -e ".[test,calibration]"`, not from PyPI, and
-they do not run the {doc}`staircase <staircase/index>`. The PETSc backend of the Boussinesq
+they do not run the examples. The PETSc backend of the Boussinesq
 solver is Linux only, and its smoke test is the only job that installs from conda-forge. The
 other solvers do not need it. The workflows are in `.github/workflows/` and described in
 {doc}`../contribute/project/ci-workflows`.

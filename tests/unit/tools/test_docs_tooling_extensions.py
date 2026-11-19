@@ -230,42 +230,6 @@ def test_a_removed_key_the_loader_refuses_keeps_the_block_breaking(
     assert 'tc-req">breaking' in html
 
 
-# ---------------------------------------------------------------- TOML diff
-
-
-def test_the_diff_of_two_files_is_taken_after_the_base_config_merge(
-    tmp_path: Path, ext_path: None
-) -> None:
-    import hmp_params
-
-    (tmp_path / "base.toml").write_text('[simulation]\nname = "a"\n\n[flow]\nk = 1.0\n')
-    (tmp_path / "child.toml").write_text('base_config = "base.toml"\n\n[simulation]\nname = "b"\n')
-    diff = hmp_params.resolved_toml_diff(tmp_path / "base.toml", tmp_path / "child.toml")
-    lines = diff.splitlines()
-    assert lines[:2] == ["--- base", "+++ child"]
-    assert '-name = "a"' in lines
-    assert '+name = "b"' in lines
-    assert not any("k = 1.0" in line and line[0] in "+-" for line in lines)
-
-
-def test_two_files_that_resolve_alike_give_an_empty_diff(tmp_path: Path, ext_path: None) -> None:
-    import hmp_params
-
-    (tmp_path / "a.toml").write_text('[simulation]\nname = "a"\n')
-    (tmp_path / "b.toml").write_text('base_config = "a.toml"\n')
-    assert hmp_params.resolved_toml_diff(tmp_path / "a.toml", tmp_path / "b.toml") == ""
-
-
-def test_the_staircase_diffs_resolve_on_the_real_files(ext_path: None) -> None:
-    import hmp_params
-
-    example = ROOT / "examples" / "projects" / "04_streamflow_intermittence_in_transient"
-    diff = hmp_params.resolved_toml_diff(
-        example / "step1_minimal.toml", example / "step2_local_data.toml"
-    )
-    assert '+name = "nancon_step2_local"' in diff.splitlines()
-
-
 # ---------------------------------------------------------------- API pages
 
 

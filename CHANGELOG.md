@@ -767,6 +767,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Removed
 
+- Example 04 ships `project.toml`, `py1_run_and_plot.py` and its README, as in version 1. Its six step files, its five calibration files and `run_daily.toml` are gone, and so are the staircase pages of Get started. One page, Example 04, walks through the file and the script, and the calibration guide uses the file of example 10.
 - The 70 figure classes of `hydromodpy.display.figures` and the modules that served them: `hydromodpy.display.figure`, `figure_registry`, `figure_table`, `figure_options`, `style`, `maps`, `png_metadata` and `hydromodpy.core.units.labels`. A figure is a request (`hydromodpy.display.request`) drawn by `hydromodpy.display.render`, and `hmp config figures` lists what can be asked. The page `reference/figures` redirects to `reference/figure-requests`.
 - `Run.figure_data`, `RunSet.figure_data` and `Session.figure_data`, added earlier in this version. Write `figure(..., data=True)`.
 - The keys and values that only a pre-release of 2.0 wrote no longer load. A file or a sealed run that holds one is refused with every such key it holds, each with its current name, and this version does not rewrite the file. The 175 forms are listed in `hydromodpy/config/prerelease_forms.txt`, which leaves in 2.2.0.

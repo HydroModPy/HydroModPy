@@ -34,7 +34,7 @@ bounds = [5e-3, 0.35]
 support = "network"
 
 [calibration.outputs.seepage_network.map]
-complete = "nancon_stream_network.gpkg"
+complete = "../../../../examples/data/hydrography/nancon_stream_network.gpkg"
 [calibration.protocol]
 name = "matching_hydrographic_network"
 # Stage two: each trial is a 36-month run, about one minute.

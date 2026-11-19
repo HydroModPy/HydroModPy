@@ -5,8 +5,8 @@ builds a model, the conversions from TOML to solver input, the methods it
 implements itself, and what it refuses. The equations of MODFLOW and of the
 literature are read at their source. A page gives external theory a few sentences
 and a citation, then says what HydroModPy does with it. Each page names the keys
-that set its terms; the steps of a run are in the
-{doc}`staircase <../get-started/staircase/index>`.
+that set its terms. A whole file is walked through in
+{doc}`example 04 <../get-started/example-04>`.
 
 ## Sources we build on
 
@@ -28,7 +28,6 @@ Take the soil reservoir. Each door says something different about it.
 | Place | What it says | Example |
 |---|---|---|
 | {doc}`User guide, the overview <../understand/what-it-computes>` | What it means, in plain words | Part of the rain never reaches the water table: the soil keeps it and plants take it back. |
-| {doc}`User guide, the staircase <../get-started/staircase/step6>` | How to do it | Switch the soil reservoir on, in step 6 of example 04. |
 | {toml}`Reference\|flow.sinks_sources.recharge.soil` | Every key, generated | `ru`: capacity of the store, in mm, default and range. |
 | {doc}`Theory <soil-reservoir>` | What HydroModPy computes, with its assumptions | $S_t = W_t - \mathrm{ETR}_t - X_t$, where $X_t$ is the water above $\mathrm{RU}$. |
 

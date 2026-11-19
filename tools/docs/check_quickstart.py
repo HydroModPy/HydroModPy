@@ -6,7 +6,7 @@ Usage:
 The page ``docs/source/get-started/index.md`` lists the commands of the Quick
 start and shows how a run ends:
 
-    Run completed: <name> [<id>] <n>s
+    Run completed: <name> [<id>] <n>s [<score>=<value> ...]
     next: hmp show <name> | hmp publish <name> --to <folder> | hmp export <name> --list
 
 This tool reads both from the page, so a change to the page is a change to the
@@ -68,15 +68,16 @@ def promised_lines(text: str) -> tuple[str, str]:
 def line_patterns(first: str, second: str) -> tuple[re.Pattern[str], re.Pattern[str]]:
     """Turn the two promised lines into patterns.
 
-    The run name, the eight-character id and the duration are the reader's. The
+    The run name, the eight-character id, the duration and the scores a run with a gauge
+    prints after it (``nse=0.97``) are the reader's. The
     name on the second line stands where the page writes the name of the first,
     and ``<other>`` stands for any run. Every name group must hold the same text.
     """
-    match = re.match(r"Run completed: (\S+) \[[0-9a-f]+\] \d+s$", first)
+    match = re.match(r"Run completed: (\S+) \[[0-9a-f]+\] \d+s(?: \S+=\S+)*$", first)
     if match is None:
         raise ValueError(f"cannot read the promised line: {first!r}")
     shown = match.group(1)
-    head = r"Run completed: (\S+) \[[0-9a-f]{8}\] \d+(?:\.\d+)?s"
+    head = r"Run completed: (\S+) \[[0-9a-f]{8}\] \d+(?:\.\d+)?s(?: \S+=\S+)*"
     tail = re.escape(second).replace(re.escape(shown), r"(\S+)").replace(r"<other>", r"\S+")
     tail = tail.replace(r"\<other\>", r"\S+")
     return re.compile(f"^{head}$"), re.compile(f"^{tail}$")

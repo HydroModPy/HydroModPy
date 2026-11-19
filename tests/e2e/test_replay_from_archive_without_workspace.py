@@ -1,6 +1,6 @@
 """A run published with its results and its inputs replays without the workspace it came from.
 
-Step 1 of example 04 runs in a first workspace and is published, which takes
+Step 1 of the nancon_steps fixture runs in a first workspace and is published, which takes
 its results and its inputs by default. Under a second disposable HOME, with no
 workspace and no data cache, ``hmp replay`` plays the copy again into a fresh
 project, its inputs read from ``inputs/`` by content. The replay is classed

@@ -30,7 +30,7 @@ support = "network"
 # that names no station observes the gauge.
 
 [calibration.outputs.seepage_network.map]
-complete = "nancon_stream_network.gpkg"
+complete = "../../../../examples/data/hydrography/nancon_stream_network.gpkg"
 [calibration.outputs.hydrograph]
 support = "point"
 variable = "discharge"

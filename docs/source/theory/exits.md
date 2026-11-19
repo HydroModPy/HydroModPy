@@ -125,7 +125,7 @@ solver.backend
 Example 04 declares the drains alone:
 
 ```{hmp-resolved} flow.bc
-:config: step4_transient.toml
+:config: 04_streamflow_intermittence_in_transient/project.toml
 ```
 
 ## In the code

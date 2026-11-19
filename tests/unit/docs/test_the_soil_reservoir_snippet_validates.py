@@ -14,7 +14,11 @@ from pathlib import Path
 import pytest
 
 PAGE = Path(__file__).resolve().parents[3] / "docs" / "source" / "theory" / "soil-reservoir.md"
-_BLOCK = re.compile(r"```\{hmp-toml\}\n(\[flow\.sinks_sources\.recharge\.soil\]\n.*?)```", re.S)
+# The block may open with the comment that tells tools.docs.check_page to skip it.
+_BLOCK = re.compile(
+    r"```\{hmp-toml\}\n(?:# not checked:[^\n]*\n)?(\[flow\.sinks_sources\.recharge\.soil\]\n.*?)```",
+    re.S,
+)
 
 
 def _block() -> str:

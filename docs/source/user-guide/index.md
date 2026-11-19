@@ -12,8 +12,7 @@ What HydroModPy does <../understand/what-it-computes>
 Install <../get-started/install>
 Quick start <../get-started/index>
 Concepts <../get-started/concepts>
-The staircase <../get-started/staircase/index>
-After the staircase <../get-started/staircase/next>
+Example 04 <../get-started/example-04>
 ```
 
 ```{toctree}
@@ -23,7 +22,7 @@ After the staircase <../get-started/staircase/next>
 Use your own files <../how-to/use-your-own-files>
 Work in the lab <../how-to/work-in-the-lab>
 Run step by step <../how-to/run-step-by-step>
-Calibrate on a network and a discharge <../get-started/calibrate-k>
+Calibrate K on a network <../get-started/calibrate-k>
 Write calibration phases <../how-to/write-calibration-phases>
 Long transient runs in windows <../how-to/long-transient-runs-in-windows>
 Many catchments <../get-started/many-catchments>

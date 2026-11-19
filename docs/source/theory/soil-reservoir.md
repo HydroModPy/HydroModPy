@@ -5,8 +5,8 @@ run. It is a water balance with one store per column. The store fills with the r
 water to the plants, and sends down what exceeds its capacity. This page gives the equations
 of `hydromodpy/model/soil/kernel.py`, what they assume and what they
 leave out. Only MODFLOW 6 accepts the reservoir, so a file that declares
-{toml}`flow.sinks_sources.recharge.soil` with another solver is refused. To set up a run, see
-{doc}`step 6 of the staircase <../get-started/staircase/step6>`.
+{toml}`flow.sinks_sources.recharge.soil` with another solver is refused. The reference page of
+that section lists every key a run sets.
 
 ## The water path
 
@@ -430,9 +430,11 @@ flow.sinks_sources.recharge.soil.spinup
 flow.sinks_sources.etp.extinction_depth
 ```
 
-A soil section with every key and a curve number. Its keys link to their card.
+A soil section with every key and a curve number. Its keys link to their card. A run that
+declares it also reads the rain and the ETP in `[data]`, and no recharge.
 
 ```{hmp-toml}
+# not checked: the section alone, without the rain and the ETP it reads
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"
 alpha = 0.45
@@ -471,6 +473,5 @@ hydromodpy.model.forcing.soil_grids
 
 ## See also
 
-- {doc}`../get-started/staircase/step6`: a run with the soil reservoir.
 - {toml}`flow.sinks_sources.recharge.soil`: the section as a reference page.
 - {doc}`index`: the other theory pages.

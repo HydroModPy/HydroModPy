@@ -11,7 +11,6 @@ from __future__ import annotations
 import html
 import json
 import re
-import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -694,36 +693,6 @@ class KnownKeysDirective(SphinxDirective):
 # ---------------------------------------------------------------- TOML blocks
 
 
-def deep_merge(base: dict, over: dict) -> dict:
-    out = dict(base)
-    for k, v in over.items():
-        if k.endswith("__append"):
-            key = k[: -len("__append")]
-            out[key] = list(out.get(key, [])) + list(v if isinstance(v, list) else [v])
-        elif k.endswith("__delete"):
-            continue
-        elif isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = deep_merge(out[k], v)
-        else:
-            out[k] = v
-    return out
-
-
-def load_chain(path: Path) -> dict:
-    try:
-        from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
-        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-
-        return load_toml_with_base_config(path, root=ROOT_CONFIG)
-    except ImportError:
-        pass
-    data = tomllib.loads(path.read_text())
-    base = data.pop("base_config", None)
-    if base:
-        return deep_merge(load_chain(path.parent / base), data)
-    return data
-
-
 def lookup(data: dict, concrete: str) -> Any:
     cur: Any = data
     for seg in concrete.split("."):
@@ -883,10 +852,7 @@ class TomlDirective(SphinxDirective):
                 body = '<div class="hmp-gap-line">...</div>'.join(parts)
             else:
                 body = toml_html(text, builder, self.env.docname)
-            caption = (
-                caption
-                or f"examples/projects/04_streamflow_intermittence_in_transient/{self.options['file']}"
-            )
+            caption = caption or f"examples/projects/{self.options['file']}"
         else:
             body = toml_html("\n".join(self.content), builder, self.env.docname)
         cap = (
@@ -895,96 +861,6 @@ class TomlDirective(SphinxDirective):
             else ""
         )
         return [raw(f'<div class="hmp-toml-wrap">{cap}{body}</div>')]
-
-
-class StepDirective(SphinxDirective):
-    """One step of the example 04 staircase, marked against what it inherits."""
-
-    required_arguments = 1
-
-    def run(self):
-        builder = current_builder()
-        path = S["example_dir"] / self.arguments[0]
-        text = path.read_text()
-        raw_data = tomllib.loads(text)
-        base_name = raw_data.get("base_config")
-        base = load_chain(path.parent / base_name) if base_name else {}
-        current = load_chain(path)
-        body = toml_html(
-            text, builder, self.env.docname, base=base if base_name else None, current=current
-        )
-        legend = (
-            '<div class="hmp-toml-cap"><code>'
-            + esc(self.arguments[0])
-            + "</code>"
-            + (
-                f' inherits <code>{esc(base_name)}</code> · <span class="mk-add">+</span> new · <span class="mk-chg">~</span> changed'
-                if base_name
-                else " · the base of the staircase"
-            )
-            + ' · <span class="hmp-muted">keys link to their card</span></div>'
-        )
-        return [raw(f'<div class="hmp-toml-wrap">{legend}{body}</div>')]
-
-
-def resolved_toml_diff(older: Path, newer: Path, context: int = 1) -> str:
-    """Unified diff of two example files, each resolved through the real loader.
-
-    Both files go through ``load_toml_with_base_config`` (the ``base_config`` chain
-    and the merge rules of the loader), then are written back as TOML with the keys
-    in the order the loader returns them, so the diff shows what a run would read.
-    There is no fallback loader: a file the loader refuses fails the build.
-    """
-    import difflib
-
-    import tomli_w
-
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-
-    def dump(path: Path) -> list[str]:
-        from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
-
-        return tomli_w.dumps(load_toml_with_base_config(path, root=ROOT_CONFIG)).splitlines()
-
-    lines = difflib.unified_diff(
-        dump(older), dump(newer), older.stem, newer.stem, n=context, lineterm=""
-    )
-    return "\n".join(lines)
-
-
-def base_chain(path: Path) -> list[Path]:
-    """The file and every ``base_config`` it inherits, so a build rereads them when one changes."""
-    chain = [path]
-    base = tomllib.loads(path.read_text()).get("base_config")
-    if base:
-        chain += base_chain((path.parent / base).resolve())
-    return chain
-
-
-class TomlDiffDirective(SphinxDirective):
-    """What a file of the example changes against another, both resolved by the loader.
-
-    ``{hmp-toml-diff} older.toml newer.toml``. A line starting with ``-`` is what the
-    older file resolves to, ``+`` what the newer one resolves to. The diff is
-    computed at build time, so it follows the files and cannot drift from them.
-    """
-
-    required_arguments = 2
-    option_spec = {"context": directives.nonnegative_int}
-
-    def run(self):
-        older, newer = (S["example_dir"] / name for name in self.arguments)
-        for path in (*base_chain(older), *base_chain(newer)):
-            self.env.note_dependency(str(path))
-        diff = resolved_toml_diff(older, newer, self.options.get("context", 1))
-        if not diff:
-            return [
-                nodes.paragraph(text=f"{newer.name} resolves to the same file as {older.name}.")
-            ]
-        block = nodes.literal_block(diff, diff)
-        block["language"] = "diff"
-        block["force"] = True
-        return [block]
 
 
 # ---------------------------------------------------------------- catalog, concepts, matrix, gates, changelog
@@ -1423,8 +1299,6 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_directive("hmp-index", IndexDirective)
     app.add_directive("hmp-known-keys", KnownKeysDirective)
     app.add_directive("hmp-toml", TomlDirective)
-    app.add_directive("hmp-step", StepDirective)
-    app.add_directive("hmp-toml-diff", TomlDiffDirective)
     app.add_directive("hmp-changelog", ChangelogDirective)
     app.add_directive("hmp-resolved", ResolvedDirective)
     import hmp_api

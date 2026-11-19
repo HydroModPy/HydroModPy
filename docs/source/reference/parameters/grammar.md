@@ -184,7 +184,7 @@ list keeps the order of the parent.
 
 ```{hmp-toml}
 :caption: one block of an inherited list changes
-base_config = "step1_minimal.toml"
+base_config = "project.toml"
 
 [[simulation.process__merge]]
 id = "flow_main"

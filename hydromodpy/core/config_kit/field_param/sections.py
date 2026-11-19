@@ -424,6 +424,14 @@ class FieldVerticalProfileSection(HydroModelBase):
             "ground and each layer below reads it at its base. A thick layer reads one "
             "value, so the choice moves its K and Sy."
         ),
+        json_schema_extra=field_metadata(
+            value_docs={
+                "middle": "The depth of the middle of the layer.",
+                "top": "The depth of the top of the layer, 0 for the first one.",
+                "base": "The depth of the base of the layer.",
+                "surface_then_base": "0 for the first layer, the depth of its base for the others.",
+            }
+        ),
     )
     depths: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,

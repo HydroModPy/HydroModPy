@@ -1,6 +1,6 @@
 """Every file a run writes lands in the directory of that run, and says whose it is.
 
-``hmp run step1_minimal.toml`` of example 04 renders figures and writes three
+``hmp run step1_minimal.toml`` of the nancon_steps fixture renders figures and writes three
 ``[[export]]`` blocks. Afterwards, nothing new exists in the project outside
 ``runs/<run>/`` but the reconstructible ``.hmp/`` and the cache pin
 ``hydromodpy.lock``; no ``share/``, ``outputs/``, ``figures/`` or ``reports/``

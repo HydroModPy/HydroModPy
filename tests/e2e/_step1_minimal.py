@@ -1,6 +1,6 @@
-"""Run step 1 of example 04 in a disposable workspace, under a disposable HOME.
+"""Run step 1 of the nancon_steps fixture in a disposable workspace, under a disposable HOME.
 
-The workspace holds the regional DEM of the example (hard-linked when the
+The workspace holds the regional DEM of the examples (hard-linked when the
 file system allows it) and a project made of ``project.toml`` and
 ``step1_minimal.toml``. The run goes through ``python -m hydromodpy``, as a
 user's would. MODFLOW 6 comes from the binaries of the machine cache, linked
@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-EXAMPLE = REPO / "examples" / "projects" / "04_streamflow_intermittence_in_transient"
+FIXTURE = REPO / "tests" / "fixtures" / "projects" / "nancon_steps"
 DEM = REPO / "examples" / "data" / "dem" / "DEM_armorican_massif.tif"
 MACHINE_BIN = Path.home() / ".cache" / "hydromodpy" / "bin"
 RUN_NAME = "nancon_step1_minimal"
@@ -45,9 +45,9 @@ def disposable_env(home: Path) -> dict[str, str]:
 
 
 def make_workspace(root: Path) -> Path:
-    """Return the project directory of a fresh workspace holding step 1 of example 04."""
+    """Return the project directory of a fresh workspace holding step 1 of the nancon_steps fixture."""
     if not DEM.is_file():
-        pytest.skip(f"the regional DEM of example 04 is not in this checkout: {DEM}")
+        pytest.skip(f"the regional DEM of the examples is not in this checkout: {DEM}")
     dem_dir = root / "data" / "dem"
     dem_dir.mkdir(parents=True)
     for source in (DEM, DEM.with_name(DEM.name + ".json")):
@@ -60,8 +60,8 @@ def make_workspace(root: Path) -> Path:
     (root / "workspace.toml").write_text("[workspace]\n", encoding="utf-8")
     project = root / "projects" / "nancon"
     project.mkdir(parents=True)
-    shutil.copy2(EXAMPLE / "step1_minimal.toml", project / "step1_minimal.toml")
-    shutil.copy2(EXAMPLE / "project.toml", project / "project.toml")
+    shutil.copy2(FIXTURE / "step1_minimal.toml", project / "step1_minimal.toml")
+    shutil.copy2(FIXTURE / "project.toml", project / "project.toml")
     return project
 
 

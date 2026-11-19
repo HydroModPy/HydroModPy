@@ -37,7 +37,7 @@ PETSc.
 
 ```toml
 # not checked: shows a pair that loads and that the run refuses
-base_config = "step4_transient.toml"
+base_config = "project.toml"
 
 [solver]
 backend = "boussinesq"

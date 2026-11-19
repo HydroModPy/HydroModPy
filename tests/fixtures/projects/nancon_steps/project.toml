@@ -1,0 +1,203 @@
+# Test fixture: Nancon, step 1 to 5 of the staircase, played by the e2e tests.
+# A test copies these files into a disposable workspace, so data paths are
+# workspace-relative (../../data).
+
+# Nancon catchment, monthly transient 2000-2002, MODFLOW 6. As recharge swings
+# between wet winters and dry summers, the seepage cells and the active network
+# expand and contract.
+#
+# The frozen reference of the example: the step files teach, this one is
+# compared. The run_calibration*.toml files calibrate it.
+#
+#   hmp run project.toml
+
+# The catchment. The gauge is the station of every series below: the discharge,
+# the recharge and the runoff read station NANCON, and the calibration files
+# score it, with no station named again. The recharge and the runoff are the
+# SIM2 means over the catchment. The uri is the Hub'Eau site code of the
+# catchment, the key that survives a move to another workspace.
+[site]
+name = "nancon"
+label = "Le Nançon à Lécousse"
+gauge = "NANCON"
+uri = "hubeau:J0014010"
+
+# The window every score of a run is read on. 2000 is spin-up: simulated, not
+# scored. The calibration files score the same window unless they write their own.
+[metrics]
+window = { start = "2001-01-01", end = "2002-12-31" }
+
+[simulation]
+name = "nancon_intermittence_mf6"
+description = "Nancon catchment, monthly transient 2000-2002, seasonal seepage intermittence."
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow6"]
+
+# The catchment is cut out of a regional 75 m DEM, upstream of the outlet,
+# after the depressions of the DEM are breached. The domain is the box around
+# the catchment widened by 10 % of the square root of its area.
+[geographic]
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
+kind = "from_outlet_coord"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10% of sqrt(area)"
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+
+
+[data]
+types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
+
+[[data.dem.sources]]
+source = "file"
+path = "../../data/dem/DEM_armorican_massif.tif"
+
+[[data.hydrography.sources]]
+source = "file"
+path = "../../data/hydrography/nancon_stream_network.gpkg"
+
+[[data.hydrometry.sources]]
+source = "file"
+path = "workspace:."
+
+[[data.recharge.sources]]
+source = "file"
+path = "workspace:."
+
+[[data.runoff.sources]]
+source = "file"
+path = "workspace:."
+
+
+[flow]
+param_list = ["K", "Sy", "Ss"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+# Seepage at the ground surface. No conductance is declared, so each drain
+# derives it from K, C = K * cell_area / drain_bed_thickness_m (1 m by default):
+# the drain follows K, which is why the network stage identifies K/R.
+[flow.bc.drainage]
+
+# January 2000 is solved in steady state under the recharge of January, so the
+# run starts from a wet winter water table.
+[flow.sinks_sources.recharge]
+first_clim = "first"
+
+[display]
+on_error = "raise"
+# Every one-instant figure draws October 2002, the driest month of the record.
+# The default, the last period, is a December with a nearly full network.
+
+# The catchment, what enters and leaves it, the gauge on a log axis, the water
+# table in a section and as depth, the seepage cells, then the share of the run
+# each reach is wet, the agreement with the mapped network and the distance to
+# the downslope crossing.
+#
+# The three figures with when = "session" are drawn for a calibration session
+# only: the root search of the downslope distance, the parameter against the
+# cost, and calibration_progress, the slide of the search. A plain `hmp run`
+# does not draw them.
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+preset = "water_budget"
+
+[[display.figure]]
+preset = "hydrograph"
+scale = "log"
+name = "hydrograph_log"
+
+# South to north through the outlet, so the section cuts the tributaries
+# across. The west-east default crosses the valley once, at the southern edge.
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+time = "2002-10-15"
+# orientation = "sn" has no equivalent: the line runs from the outlet
+
+[[display.figure]]
+variable = "watertable_depth"
+time = "2002-10-15"
+
+[[display.figure]]
+variable = "seepage_mask"
+time = "2002-10-15"
+
+[[display.figure]]  # replaces flow_persistence_map, flow_intermittence_map
+variable = "simulated_active_network"
+reduce = "frequency"
+# cycle = "2002" has no equivalent: reduce = frequency reads the whole run
+
+[[display.figure]]
+variable = "network_agreement"
+time = "2002-10-15"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+time = "2002-10-15"
+
+[[display.figure]]  # replaces downslope_distance_crossing, bisection_bracket_trace, matching_hydrographic_network_card
+preset = "root_search"
+when = "session"
+
+[[display.figure]]
+variable = ["trials.parameter", "trials.cost"]
+type = "xy"
+facet = "parameter"
+when = "session"
+
+[[display.figure]]
+preset = "calibration_progress"
+when = "session"
+
+# What each run writes to runs/<run>/exports/. The files based on this one inherit
+# the four blocks: a calibration writes them for every run it promotes.
+
+# The catchment and the mapped network: GeoPackage.
+[[export]]
+variable = ["watershed", "hydrographic_network_reference"]
+
+# The water table and the seepage cells of October 2002: one GeoTIFF each.
+[[export]]
+variable = ["watertable_depth", "seepage_mask"]
+time = "2002-10-15"
+
+# Simulated and gauged discharge over the run: CSV.
+[[export]]
+variable = ["discharge", "discharge_obs"]
+
+# The water budget of every period: CSV.
+[[export]]
+variable = "budget"

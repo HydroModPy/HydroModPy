@@ -33,7 +33,7 @@ time = "2002-10-15"
 # observes the gauge.
 
 [calibration.outputs.seepage_network.map]
-complete = "nancon_stream_network.gpkg"
+complete = "../../../../examples/data/hydrography/nancon_stream_network.gpkg"
 [calibration.outputs.hydrograph]
 support = "point"
 variable = "discharge"

@@ -11,21 +11,20 @@ Stages (``--stage``), each one idempotent:
 
 ``runs``
     Bootstrap the workspace (``hmp workspace init``, ``hmp example add 04``),
-    then run the staircase steps, the frozen reference, the two solver copies
-    of the reference and the two-stage calibration. A run that already exists
-    in the project catalog is not run again.
-    Steps 3 and 6 and the calibration need the network on their first run.
+    then run the reference, the two solver copies of the reference and the
+    two-stage calibration. A run that already exists in the project catalog is
+    not run again.
 ``figures``
     Draw each manifest row with ``run.figure(request=..., theme=...)`` and write the
-    manifest. The group ``targets`` writes the output of ``hmp config targets``
-    that the calibration guide quotes.
+    manifest.
 
 The ``solvers`` group draws the same figure from two copies of the reference, one
 solved by MODFLOW 6 and one by MODFLOW-NWT, both storing their fields at full
 precision. The default compact storage keeps 16 mantissa bits, a step of 1 to 2 mm
 at the heads of this catchment, larger than the gap between the solvers. The script
 writes both copies into the scratch project (``run_mf6_exact.toml``,
-``run_nwt_exact.toml``); the example ships no such file.
+``run_nwt_exact.toml``), and the calibration file too (``run_calibration.toml``).
+The example ships none of them.
 
 Run it from anywhere, never with the workspace inside the repository::
 
@@ -64,12 +63,11 @@ DPI = 150
 
 @dataclass(frozen=True)
 class RunSpec:
-    """One TOML file of the example, the run it writes and the step it belongs to."""
+    """One TOML file of the example, and the run it writes."""
 
     key: str
     toml: str
     run: str
-    step: int | None = None
     needs_network: bool = False
     note: str = ""
     args: tuple[str, ...] = ()
@@ -79,14 +77,6 @@ class RunSpec:
         return " ".join(["hmp run", self.toml, *self.args])
 
 
-STEPS: tuple[RunSpec, ...] = (
-    RunSpec("step1", "step1_minimal.toml", "nancon_step1_minimal", 1),
-    RunSpec("step2", "step2_local_data.toml", "nancon_step2_local", 2),
-    RunSpec("step3", "step3_api_data.toml", "nancon_step3_api", 3, True),
-    RunSpec("step4", "step4_transient.toml", "nancon_step4_transient", 4),
-    RunSpec("step5", "step5_export.toml", "nancon_step5_export", 5),
-    RunSpec("step6", "step6_soil_reservoir.toml", "nancon_soil_reservoir_daily", 6, True),
-)
 REFERENCE = RunSpec("reference", "project.toml", "nancon_intermittence_mf6")
 # The two copies of the reference the solvers group compares, written by solver_variant.
 SOLVER_MF6 = RunSpec(
@@ -109,7 +99,39 @@ CALIBRATION = RunSpec(
     needs_network=False,
     note="two stages, K on the mapped network then Sy on the gauge",
 )
-TARGETS_TXT = OUT_ROOT / "calibrate" / "targets.txt"
+# The calibration the Reading results page draws, written by calibration_file.
+CALIBRATION_TOML = """\
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_intermittence_mf6_calibrated"
+description = "Nancon, K from the mapped network then Sy from the gauge."
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+
+[calibration.outputs.seepage_network]
+support = "network"
+
+[calibration.outputs.seepage_network.map]
+complete = "nancon_stream_network.gpkg"
+
+[calibration.protocol]
+name = "matching_hydrographic_network"
+transient_max_trials = 30
+transient_precision = 0.05
+
+[display]
+figure__append = [
+    {variable = "discharge", type = "xy", observed = true, reference = ["one_to_one"]},
+]
+"""
 
 
 # -- shell helpers -------------------------------------------------------------
@@ -188,11 +210,13 @@ def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
     bootstrap_workspace(workspace, cores)
     project = workspace / "projects" / EXAMPLE_DIR
     done = _existing_runs(project)
-    for spec in (*STEPS, REFERENCE, *SOLVER_RUNS, CALIBRATION):
+    for spec in (REFERENCE, *SOLVER_RUNS, CALIBRATION):
         if only and spec.key not in only:
             continue
         if spec in SOLVER_RUNS:
             solver_variant(project, spec)
+        if spec is CALIBRATION:
+            (project / spec.toml).write_text(CALIBRATION_TOML, encoding="utf-8")
         probe = spec.run
         if probe in done:
             print(f"= {spec.toml}: run {probe} exists", flush=True)
@@ -308,18 +332,6 @@ def stage_figures(workspace: Path, only: set[str]) -> list[dict[str, Any]]:
     return rows
 
 
-def stage_targets(workspace: Path) -> None:
-    """Write what ``hmp config targets`` prints for the calibration file of the example."""
-    project = workspace / "projects" / EXAMPLE_DIR
-    command = [sys.executable, "-m", "hydromodpy", "config", "targets", CALIBRATION.toml]
-    done = subprocess.run(
-        command, cwd=project, env=_env(1), capture_output=True, text=True, check=True
-    )
-    TARGETS_TXT.parent.mkdir(parents=True, exist_ok=True)
-    TARGETS_TXT.write_bytes(done.stdout.encode())
-    print(f"  {TARGETS_TXT.relative_to(ROOT)}", flush=True)
-
-
 # -- manifest ------------------------------------------------------------------
 
 
@@ -364,8 +376,8 @@ def main(argv: list[str] | None = None) -> int:
         "--only",
         default="",
         help=(
-            "comma list: runs (step1..step6, reference, solver_mf6, solver_nwt, calibrated); "
-            "figures (understand, staircase, solvers, calibrate, targets)"
+            "comma list: runs (reference, solver_mf6, solver_nwt, calibrated); "
+            "figures (understand, solvers)"
         ),
     )
     args = parser.parse_args(argv)
@@ -379,8 +391,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.stage in ("figures", "all"):
         os.environ.setdefault("MPLBACKEND", "Agg")
         rows = stage_figures(workspace, only)
-        if not only or "targets" in only:
-            stage_targets(workspace)
         write_manifest(rows)
     return 0
 

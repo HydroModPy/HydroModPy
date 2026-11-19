@@ -160,20 +160,23 @@ $S_s$ is filled with zero. In a transient run, a missing one stops the run.
 Example 04 gives the three values, one for the whole catchment:
 
 ```{hmp-resolved} flow.param.K.field.value
-:config: step4_transient.toml
+:config: 04_streamflow_intermittence_in_transient/project.toml
 ```
 
 ```{hmp-resolved} flow.param.Sy.field.value
-:config: step4_transient.toml
+:config: 04_streamflow_intermittence_in_transient/project.toml
 ```
 
 ```{hmp-resolved} flow.param.Ss.field.value
-:config: step4_transient.toml
+:config: 04_streamflow_intermittence_in_transient/project.toml
 ```
 
 **A depth factor.** A property can carry a `field_vertical_profile`. The value
 of layer $j$ in a column is the value of the field times $f(d_j)$, where $d_j$ is
-the depth of the middle of the layer below $z_\mathrm{top}$. For
+the depth of the middle of the layer below $z_\mathrm{top}$. The key
+{toml}`depth_at|flow.param.K.field_vertical_profile.depth_at` moves that point to the top
+or the base of the layer, or takes the ground for the first layer and the base for the
+others (`surface_then_base`). A thick layer reads one value, so the choice moves its K. For
 `kind = "exponential"`:
 
 $$
@@ -182,7 +185,13 @@ f(d) = e^{-d/d_c}, \qquad \text{or } \max\bigl(e^{-d/d_c},\ f_\mathrm{min}\bigr)
 $$ (eq-depth-factor)
 
 Without {toml}`min_factor|flow.param.K.field_vertical_profile.min_factor`, the
-factor has no floor and tends to zero with depth. For `kind = "tabulated"`, the
+factor has no floor and tends to zero with depth. The decay length $d_c$ can also follow the
+ground elevation $z_\mathrm{top}$ of the column. With
+{toml}`characteristic_depth_high|flow.param.K.field_vertical_profile.characteristic_depth_high`,
+$d_c$ is the characteristic depth where the ground stands at or below
+{toml}`ground_low|flow.param.K.field_vertical_profile.ground_low`, the high one at or above
+{toml}`ground_high|flow.param.K.field_vertical_profile.ground_high`, and goes linearly
+between. A weathered zone that thins under the hills is written so. For `kind = "tabulated"`, the
 factor is a linear or stepwise interpolation of the table you give, equal to the
 first and last factor outside the table. With one layer, $d_j$ is half the
 thickness: the profile then gives one factor per cell and no variation with
@@ -233,7 +242,7 @@ store keeps $K_z$ and, when set, `K22` and the three angles with the other stati
 
 ```toml
 [flow]
-param_list = ["K", "Sy", "K22", "angle1", "angle2"]
+param_list = ["K", "Sy", "Ss", "K22", "angle1", "angle2"]
 
 [flow.param.K22.field]
 kind = "homogeneous"
@@ -342,7 +351,7 @@ of the balance is zero, the storage plays no part, and the heads settle where th
 forcing of that period puts them. Example 04 states the regime:
 
 ```{hmp-resolved} flow.flow_regime
-:config: step4_transient.toml
+:config: 04_streamflow_intermittence_in_transient/project.toml
 ```
 
 In the code: `sto_period_settings`.

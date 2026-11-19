@@ -13,7 +13,7 @@ run must come out the same both ways:
 * the metrics, apart from the solve time of the run;
 * the list of figures of the run in ``runs/``, a kept trial drawing none.
 
-The model is example 04 (the Nancon catchment) cut to one monthly transient
+The model is the Nancon catchment of the nancon_steps fixture cut to one monthly transient
 year on a 30 x 30 grid, with K on two fixed values and every trial promoted:
 the best to ``runs/kept_solve/``, the other to ``sessions/kept_solve/trials/``.
 """
@@ -30,7 +30,7 @@ import pytest
 from tests.regression.golden_utils import assert_required_executables
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_EXAMPLE = _REPO_ROOT / "examples" / "projects" / "04_streamflow_intermittence_in_transient"
+_FIXTURE = _REPO_ROOT / "tests" / "fixtures" / "projects" / "nancon_steps"
 
 _CALIBRATION = """\
 base_config = "project.toml"
@@ -117,7 +117,7 @@ def _project(root: Path) -> Path:
     project = root / "projects" / "p"
     project.mkdir(parents=True)
     (root / "data").symlink_to(_REPO_ROOT / "examples" / "data", target_is_directory=True)
-    shutil.copy(_EXAMPLE / "project.toml", project / "project.toml")
+    shutil.copy(_FIXTURE / "project.toml", project / "project.toml")
     (project / "calib.toml").write_text(_CALIBRATION, encoding="utf-8")
     return project
 

@@ -52,12 +52,12 @@ WHITELIST: tuple[ExampleSpec, ...] = (
         directory="04_streamflow_intermittence_in_transient",
         title="Streamflow intermittence in transient",
         summary=(
-            "Nancon catchment, MODFLOW 6. Six layered step files, from the shortest "
-            "config that solves to a daily run with a soil reservoir, then the "
-            "calibration files and six Python scripts."
+            "Nancon catchment, MODFLOW 6, monthly transient 2000-2002. The seepage "
+            "network grows in winter and shrinks in summer, and a Python script plays "
+            "the model step by step and tries three values of Sy."
         ),
-        runtime="15 to 25 s for step 1, 1 to 2 min for steps 4 and 5, about 18 min for step 6",
-        entry_config="step1_minimal.toml",
+        runtime="about 1.5 min for project.toml, about 6 min for py1_run_and_plot.py",
+        entry_config="project.toml",
     ),
 )
 

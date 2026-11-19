@@ -1,7 +1,7 @@
 # Concepts
 
-Six words name the things on disk. This page is the whole mental model you need before the
-{doc}`staircase <staircase/index>`.
+Six words name the things on disk. This page is the whole mental model you need before
+{doc}`example 04 <example-04>`.
 
 ```text
 ~/hydromodpy/                          workspace
@@ -19,7 +19,7 @@ Six words name the things on disk. This page is the whole mental model you need 
     │   └── .hmp/index.duckdb          the catalog, rebuilt from runs/ and sessions/
     └── 04_streamflow_intermittence_in_transient/
         ├── project.toml               [site] names the catchment
-        ├── step1_minimal.toml ...
+        ├── py1_run_and_plot.py        plays project.toml step by step
         ├── runs/                      one folder per run
         ├── sessions/                  one folder per calibration
         └── trash/                     what you deleted, until you empty it
@@ -74,8 +74,8 @@ commands. Deleting a run moves it to `trash/`; a deleted name is never given out
   {doc}`parameter reference <../reference/parameters/index>` groups the sections by the
   question they answer, and marks each key for the user, the developer or the expert (the
   [profiles](../reference/parameters/grammar.md#profiles)).
-- A file names a parent with `base_config` and writes only what changes. The staircase is
-  built this way. The merge rules are in the {doc}`grammar <../reference/parameters/grammar>`.
+- A file names a parent with `base_config` and writes only what changes. The merge rules are
+  in the {doc}`grammar <../reference/parameters/grammar>`.
 
-Next: the {doc}`quick start <index>`, or the {doc}`staircase <staircase/index>` if you have
-already run the demo.
+Next: the {doc}`quick start <index>`, or {doc}`example 04 <example-04>` if you have already run
+the demo.

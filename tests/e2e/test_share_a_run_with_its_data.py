@@ -1,7 +1,7 @@
 """A run shared with its data is imported by a colleague and replays with the same heads.
 
-Example 04 is installed in a first workspace (``hmp example add 04`` from this
-checkout) and step 5 runs there: it reads the regional DEM, the mapped network
+The nancon_steps fixture and its input files are copied into a first workspace
+and step 5 runs there: it reads the regional DEM, the mapped network
 of a GeoPackage and the station series of discharge, recharge and runoff. The
 run is published as a tar with its inputs and its results. Under a second
 disposable HOME, in a workspace that holds none of these files, the tar is
@@ -15,6 +15,7 @@ the project, through ``-w``.
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -28,7 +29,7 @@ pytestmark = pytest.mark.e2e
 FIELD_PRECISION_RTOL = 2.0**-10
 """Relative step of a float32 rounded to 16 significant bits (see tests/TOLERANCES.md)."""
 
-EXAMPLE = "04_streamflow_intermittence_in_transient"
+FIXTURE = REPO / "tests" / "fixtures" / "projects" / "nancon_steps"
 RUN_NAME = "nancon_step5_export"
 READ_FILES = (
     "data/dem/DEM_armorican_massif.tif",
@@ -36,6 +37,11 @@ READ_FILES = (
     "data/hydrometry/hydrometry_custom_NANCON_19820201_20220125_D.csv",
     "data/recharge/recharge_custom_NANCON_20000101_20021231_M.csv",
     "data/runoff/runoff_custom_NANCON_20000101_20021231_M.csv",
+)
+LOCATION_FILES = (
+    "data/hydrometry/hydrometry_custom_LOC.csv",
+    "data/recharge/recharge_custom_LOC.csv",
+    "data/runoff/runoff_custom_LOC.csv",
 )
 
 
@@ -50,11 +56,18 @@ def _ok(result, what: str) -> None:
 
 def test_a_run_shared_with_its_data_replays_elsewhere_with_the_same_heads(tmp_path) -> None:
     first = disposable_env(tmp_path / "home_first")
-    first["HMP_EXAMPLES_SOURCE"] = REPO.as_uri()
     source = tmp_path / "author"
     _ok(hmp("workspace", "init", str(source), cwd=tmp_path, env=first), "workspace init")
-    _ok(hmp("example", "add", "04", "-w", str(source), cwd=tmp_path, env=first), "example add")
-    project = source / "projects" / EXAMPLE
+    for relative in READ_FILES + LOCATION_FILES:
+        (source / relative).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(REPO / "examples" / relative, source / relative)
+        sidecar = REPO / "examples" / (relative + ".json")
+        if sidecar.is_file():
+            shutil.copy2(sidecar, source / (relative + ".json"))
+    project = source / "projects" / "nancon"
+    project.mkdir()
+    for step in ("project", "step1_minimal", "step2_local_data", "step4_transient", "step5_export"):
+        shutil.copy2(FIXTURE / f"{step}.toml", project / f"{step}.toml")
     _ok(hmp("run", "step5_export.toml", cwd=project, env=first), "run step 5")
     archive = tmp_path / "sim.tar"
     _ok(

@@ -394,7 +394,7 @@ time step
 
 TOML
   The plain-text format of the configuration file. One TOML file describes a whole run. The
-  files of example 04 are walked through in {doc}`/get-started/staircase/index`.
+  file of example 04 is walked through in {doc}`/get-started/example-04`.
 
 transient
   Computation where the recharge and the water table vary from one time step to the next.

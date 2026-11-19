@@ -38,7 +38,7 @@ from hydromodpy.schema.phrases import LANGS
 from tests._helpers.fake_solvers import fake_adapter
 
 REPO = Path(__file__).resolve().parents[3]
-EXAMPLE_04 = REPO / "examples" / "projects" / "04_streamflow_intermittence_in_transient"
+NANCON = REPO / "tests" / "fixtures" / "projects" / "nancon_intermittence"
 SYNTHETIC = {"source_mode": "synthetic"}
 LAKE = {"bedleak": 1e-6, "initial_stage": 10.0}
 K_PARAMETER = {
@@ -400,7 +400,7 @@ def test_plugin_fault_help(tmp_path: Path, isolated_solvers) -> None:
     ]
 
 
-# The files of example 04, and what a check of [display] imports
+# The files of the nancon_intermittence fixture, and what a check of [display] imports
 
 
 def _as_written(path: Path) -> dict[str, Any]:
@@ -416,9 +416,9 @@ def _as_written(path: Path) -> dict[str, Any]:
         "run_calibration_bdtopage.toml",
     ],
 )
-def test_example_04_files_have_no_error(name: str) -> None:
+def test_nancon_fixture_files_have_no_error(name: str) -> None:
     """The two calibration files leave their station to [site] gauge: no false error."""
-    path = EXAMPLE_04 / name
+    path = NANCON / name
 
     found = check(_as_written(path), partial=False, base=config_base_dir(path))
 
@@ -566,7 +566,7 @@ def test_codes_given_are_known(tmp_path: Path) -> None:
         for document, _, _ in DOCUMENTS.values()
         for diagnostic in check(document, base=tmp_path)
     }
-    for path in sorted(EXAMPLE_04.glob("*.toml")):
+    for path in sorted(NANCON.glob("*.toml")):
         given |= {d.code for d in check(_as_written(path), base=config_base_dir(path))}
 
     assert given <= CHECK_CODES
