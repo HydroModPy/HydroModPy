@@ -14,7 +14,7 @@ pagefind[bin]==1.5.2
 numpy>=2.4.4,<3
 pandas>=2.3.3,<3
 pandera>=0.31.1,<1
-pyarrow>=23.0.1,<24
+pyarrow>=23.0.1,<27
 scipy>=1.17.1,<2
 matplotlib>=3.10.8,<4
 shapely>=2.1,<3
@@ -23,7 +23,7 @@ pydantic-pint>=0.6,<1
 tomlkit>=0.14.0,<1
 tomli-w>=1.2.0,<2
 universal_pathlib>=0.2,<1
-filelock>=3.13,<4
+filelock>=3.13,<5
 platformdirs>=4,<5
 rich>=13.9.4,<16
 argcomplete>=3.5,<4
