@@ -131,7 +131,6 @@ _DOC_OPTIONAL_IMPORTS = [
     "flopy",
     "geopandas",
     "gmsh",
-    "h5py",
     "imageio",
     "meshio",
     "netCDF4",
@@ -142,18 +141,12 @@ _DOC_OPTIONAL_IMPORTS = [
     "sklearn",
     "cma",
     "optuna",
-    "ultraplot",
-    "vedo",
     "whitebox_workflows",
     "xarray",
     "dask",
-    "sqlalchemy",
     "zarr",
     "zstandard",
     "pandera",
-    "contextily",
-    "matplotlib_scalebar",
-    "colormap",
 ]
 autodoc_mock_imports = [name for name in _DOC_OPTIONAL_IMPORTS if find_spec(name) is None]
 

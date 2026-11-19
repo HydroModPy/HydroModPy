@@ -34,3 +34,17 @@ paths = [
 regexes = [
     '''^[0-9a-f]{64}$''',
 ]
+
+# A keyword argument bound to a module constant, such as remedy=TRANSIENT_REMEDY,
+# is a name and not a credential. The shape asks for words in capitals joined by
+# underscores and no digit, which a generated token does not have.
+[[rules.allowlists]]
+description = "A keyword argument bound to a constant name is not a credential."
+condition = "AND"
+regexTarget = "secret"
+paths = [
+    '''(^|/)hydromodpy/.*\.py$''',
+]
+regexes = [
+    '''^[a-z_]+=[A-Z]+(_[A-Z]+)+$''',
+]

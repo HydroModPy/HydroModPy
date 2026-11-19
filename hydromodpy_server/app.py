@@ -1,4 +1,4 @@
-"""Routes of the server: the verbs, the upload of a file and the jobs of the runs."""
+"""Routes of the server: the verbs, the upload and download of a file, the jobs of the runs."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import hashlib
 import inspect
 import json
 import math
+import mimetypes
 import multiprocessing
 import os
 import re
@@ -29,7 +30,7 @@ from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.runtime.image import image_of
 from hydromodpy.core.state.names import check_name
 from hydromodpy.project.environment import Environment
-from hydromodpy.project.request import REQUEST_SCHEMA, RunRequest
+from hydromodpy.project.request import REQUEST_SCHEMA, RunRequest, is_a_path
 
 IN_A_CHILD = frozenset({"run", "calibrate", "spinup", "replay"})
 IN_A_THREAD = frozenset(
@@ -49,6 +50,13 @@ class Refused(Exception):
     def __init__(self, status: int, message: str) -> None:
         super().__init__(message)
         self.status = status
+
+
+@dataclass(frozen=True)
+class File:
+    """A file of a project that an answer sends as its bytes."""
+
+    path: Path
 
 
 @dataclass
@@ -188,6 +196,24 @@ class Settings:
         finally:
             part.unlink(missing_ok=True)
         return {"path": f"inputs/{target.name}", "sha256": sha, "bytes": size}
+
+
+def project_file(place: Path, parts: list[str]) -> File:
+    """Return the file *parts* names below the project *place*, or refuse it.
+
+    A path that climbs, a link that leaves the project and a folder are refused.
+    """
+    text = "/".join(unquote(part) for part in parts)
+    if not text or _outside(text):
+        raise Refused(400, "a file is named by its path in the project")
+    path = (place / text).resolve()
+    if not path.is_relative_to(place.resolve()):
+        raise Refused(400, "the path names a file outside the project")
+    if path.is_dir():
+        raise Refused(400, f"{text} is a folder: name a file, or publish with format tar")
+    if not path.is_file():
+        raise Refused(404, f"no file {text} in this project")
+    return File(path)
 
 
 def upload_name(raw: str) -> str:
@@ -335,6 +361,9 @@ def arguments_of(
         )
     if verb not in OF_AN_ORGANISATION:
         _confined(verb, arguments, place)
+        if is_a_path(arguments.get("source")):
+            # A TOML file in the project may inherit a file outside it.
+            environment.require_chain(arguments["source"])
     signature = inspect.signature(getattr(hmp, verb))
     given = {"base": place, "workspace": place, "environment": environment, "headless": True}
     arguments.update({name: value for name, value in given.items() if name in signature.parameters})
@@ -395,12 +424,27 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001 - a fault of the library is said, not hidden
             traceback.print_exc(file=sys.stderr)
             status, payload = 500, refusal(exc)
+        if isinstance(payload, File):
+            self.send_file(payload.path)
+            return
         body = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def send_file(self, path: Path) -> None:
+        """Send the bytes of *path* by blocks, with its type guessed from its name."""
+        kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        with path.open("rb") as stream:
+            self.send_response(200)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(os.fstat(stream.fileno()).st_size))
+            self.send_header("Content-Disposition", f'attachment; filename="{path.name}"')
+            self.end_headers()
+            while block := stream.read(CHUNK):
+                self.wfile.write(block)
 
     def get(self, parts: list[str]) -> tuple[int, Any]:
         if parts == ["v1", "health"]:
@@ -410,6 +454,9 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts) == 5 and parts[0] == "v1" and parts[3] == "jobs":
             self.settings.place(parts[1], parts[2])
             return 200, self.settings.read_job(parts[1], parts[2], parts[4])
+        if len(parts) >= 5 and parts[0] == "v1" and parts[3] == "files":
+            place, _ = self.settings.place(parts[1], parts[2])
+            return 200, project_file(place, parts[4:])
         raise Refused(404, f"no route {self.path}")
 
     def post(self, parts: list[str]) -> tuple[int, Any]:

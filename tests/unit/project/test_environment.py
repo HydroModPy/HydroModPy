@@ -119,3 +119,37 @@ def test_no_file_reads_nothing(
 ) -> None:
     environment = Environment(credentials=None)
     environment.check(project_root=roots["project"], workspace_root=roots["workspace"])
+
+
+def _chain(tmp_path: Path, base: str) -> Path:
+    """Write a project file whose ``base_config`` is the TOML value *base*, and a file outside."""
+    (tmp_path / "other").mkdir(exist_ok=True)
+    (tmp_path / "other" / "secret.toml").write_text('[simulation]\nname = "other"\n')
+    (tmp_path / "project" / "inputs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project" / "common.toml").write_text("[simulation]\n")
+    file = tmp_path / "project" / "inputs" / "case.toml"
+    file.write_text(f"base_config = {base.format(tmp=tmp_path.as_posix())}\n")
+    return file
+
+
+CHAINS = {
+    "a base that climbs": ("'../../other/secret.toml'", False),
+    "an absolute base": ("'{tmp}/other/secret.toml'", False),
+    "a base list with one outside": ("['../common.toml', '../../other/secret.toml']", False),
+    "a base inside": ("'../common.toml'", True),
+}
+
+
+@pytest.mark.parametrize(("base", "kept"), CHAINS.values(), ids=list(CHAINS))
+def test_require_chain_bounds_each_base(tmp_path: Path, base: str, kept: bool) -> None:
+    file = _chain(tmp_path, base)
+    environment = Environment(bounds=Bounds(allowed_roots=(tmp_path / "project",)))
+    if kept:
+        environment.require_chain(file)
+        return
+    with pytest.raises(BoundsError, match="reading a base_config file"):
+        environment.require_chain(file)
+
+
+def test_require_chain_without_roots_checks_nothing(tmp_path: Path) -> None:
+    Environment().require_chain(_chain(tmp_path, "'../../other/secret.toml'"))

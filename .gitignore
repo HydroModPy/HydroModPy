@@ -41,16 +41,10 @@ Pipfile.lock
 __pypackages__/
 
 # ──────────────────────────────────────────────
-# IDE, editor, AI assistants
+# IDE and editor
 # ──────────────────────────────────────────────
 .vscode/
 .idea/
-.claude/
-.codex
-GEMINI.md
-.agents
-AGENTS.md
-.orchestrator/
 .spyderproject
 .spyproject
 .ropeproject
@@ -215,10 +209,6 @@ tests/regression/**/hydromodpy.lock
 
 # Large generated comparison payloads kept out of Git.
 validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/comparison/lu_boundary_step_same_support/
-examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.json
-examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/observables.csv
-docs/_dev_notes/diagnostics/boussinesq_*/
-docs/_dev_notes/diagnostics/boussinesq_*.csv
 
 # Generated images from output directories
 **/output/*.png
@@ -249,48 +239,16 @@ z/
 *.old
 *.prof
 tools/vendor/
-.tmp_lock_repro
-.tmp_launcher*
-**/_tmp_outputs_env*
 scratch_*/
-mesh-sim-int-*/
-river_trace_smoke_*/
 validation_cases/**/.__validation_runtime_*.toml
 hydromodpy_annex/preprocess/catchment_identification_scan/._run*.toml
-
-# Codex CI artifacts
-.codex_*/
-codex_pytest_tmp*/
-codex_validation_*/
-.codex_test_durations.xml
-.codex_test_durations_sorted.csv
-
-# HydroModPy temp prefixes
-hmp_geo_*/
-hmp_wbw_*/
 
 # ──────────────────────────────────────────────
 # Reports & profiling
 # ──────────────────────────────────────────────
 reports*/
 timing_reports/
-_profile_launcher_*/
-_profiling_out/
 meta_review_output/
-reporting/calibration_profiling_*_after_solver_reuse/
-reporting/**/_postprocess/_rasters/
-
-# Local generated validation outputs
-out/**/validation/**/rch_*_modflownwt/
-out/**/validation/**/transient_modflownwt/
-out/**/validation/**/boussinesq_hillsl_*/mesh_bundle/
-out/**/figures/flux_budget_comparison.png
-out/**/figures/flux_timeseries.png
-out/**/figures/head_point_timeseries.png
-out/**/figures/head_snapshots.png
-out/**/figures/outflow_components.png
-out/**/head_point_timeseries.csv
-out/**/summary_metrics.csv
 
 # ──────────────────────────────────────────────
 # OS / misc
@@ -304,58 +262,15 @@ uv.lock
 
 old/*
 
-# ──────────────────────────────────────────────
-# WIP / alternate-version architecture diagrams
-# Canonical (tracked) diagrams do not carry these suffixes.
-# ──────────────────────────────────────────────
-docs/source/contribute/architecture/**/diagrams/*_v2.wsd
-docs/source/contribute/architecture/**/diagrams/*_as_built*.wsd
-docs/source/contribute/architecture/overview/diagrams/global_architecture_*.wsd
-docs/source/contribute/architecture/overview/diagrams/diagram_composant_fin*.wsd
-docs/source/contribute/architecture/overview/global-architecture-component-diagram.rst
-docs/source/contribute/architecture/overview/global-architecture-component-traceability-v2.rst
-
-# Local-only test-suite overhaul working notes (plan/report/continuation).
-docs/_dev_notes/test_suite_overhaul_*.md
-
-# Lakeres refact review (2026-07-03) local-only artifacts and junk to keep out of history.
-/modflow/
-/data_tempo/
-/MESH_DISCRETIZATION_RESEARCH.md
-/abaque_cheze_mobilisable_extended.csv
-/LAKERES_REFACT_CHANGES.md
-/ANALYSE_APPLIED_GROUNDWATER_MODELING.md
-docs/_dev_notes/
-catalog.duckdb.bak.*
-catalog.duckdb.pre_*
-catalog.duckdb.preexisting_corrupt
-examples/projects/**/catalog.duckdb.bak.*
-examples/projects/**/catalog.duckdb.pre_*
-
-# CLI --set/--overlay materialized effective configs (temporary)
-*.effective.*.toml
-
-# Chèze reservoir working data (large rasters / meshes / blobs — not versioned)
+# Chèze reservoir working data, large rasters and blobs kept out of git.
 examples/data/dem/DEM_cheze_*.tif
 examples/data/dem/DEM_ille_vilaine_*.tif
 examples/data/dem/DEM_ille_vilaine_*.tif.aux.xml
 examples/data/blobs/
 examples/data/cutoff_wall/
-examples/projects/19_cheze_reservoir/mesh/
-
-# Local scratch copies of old example material (multi-GB, never versioned).
-# The root-anchored `old/*` rule above does not reach nested directories.
-examples/old/
 
 # Underscore-prefixed scratch config drafts kept next to an example project.
 examples/projects/**/_*.toml
-
-# Files the dev line keeps out of history (three of them are tracked there,
-# so their rule is inert; kept as declared rather than second-guessed).
-validity_frame/examples/testbed_real_example.py
-docs/class_diagrams/architecture_condensee_corrigee.png
-docs/class_diagrams/architecture_condensee_corrigee.puml
-examples/data/hydrography/bdtopage_-1.2451_48.3618_-1.1072_48.4651.gpkg
 
 # Local pyright config: machine-specific interpreter path
 pyrightconfig.json

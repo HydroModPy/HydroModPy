@@ -33,7 +33,8 @@ Put a proxy in front
 The server has no authentication. Put it behind a proxy that authenticates each user and lets an
 organisation reach only its own path ``/v1/<org>/``. Inside one organisation, a call reads and
 writes only under its project: the server passes the project as the one allowed root of the
-call, and it refuses a path argument that is absolute or climbs with ``..``.
+call, and it refuses a path argument that is absolute or climbs with ``..``. A TOML file whose
+``base_config`` chain leaves the project is refused before the file outside is read.
 
 Routes
 ------
@@ -46,6 +47,7 @@ Routes
   200. ``run``, ``calibrate``, ``spinup`` and ``replay`` answer 202 with a job.
 - ``GET /v1/<org>/<project>/jobs/<job>`` gives the state of a job of this project.
 - ``PUT /v1/<org>/<project>/inputs/<name>`` uploads a file under ``inputs/`` and answers 201.
+- ``GET /v1/<org>/<project>/files/<path>`` sends a file of the project as its bytes.
 
 The body of a verb is a JSON object of its keyword arguments, 16 MiB at most. The server fills
 ``base``, ``workspace``, ``environment`` and ``headless`` itself and refuses them in the body.
@@ -84,6 +86,22 @@ The file is written through ``<root>/.inbox/`` and renamed under ``inputs/`` as
 ``<sha256[:8]>_<name>``, with the name in lower case and its odd characters turned into ``_``.
 The same bytes give the same answer. Other bytes under a taken name are refused with 409. A
 ``source = "file"`` block of a document then names ``inputs/5c859d8b_rain.csv``.
+
+Get the results
+---------------
+
+An answer names each file it wrote by its path in the project, such as
+``runs/<run>/exports/head.tif``. A ``GET`` of ``/v1/<org>/<project>/files/`` followed by that path
+sends the bytes, with a type guessed from the name. This is how an export, a figure from ``show``
+with ``save``, a report or a tar from ``publish`` reaches the client. A folder is refused with 400,
+so publish it with ``format = "tar"`` first. A path or a link that leaves the project is refused
+too.
+
+A run can also push its exports on its own. An ``[[export]]`` block that names ``deliver_to``
+sends each file it wrote once the run is sealed, to a folder of the project or to an ``ftp://``,
+``ftps://`` or ``sftp://`` address. The host must be one of ``--allow-host`` and its identity
+comes from ``<org>.toml`` in ``--credentials-dir``. Each attempt is a line of
+``published.jsonl``, and ``export`` with ``deliver`` resends what is not delivered yet.
 
 In Docker
 ---------

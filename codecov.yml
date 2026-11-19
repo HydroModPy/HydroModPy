@@ -24,13 +24,10 @@ coverage:
         threshold: 5%
         if_ci_failed: error
 
-# One flag per test tier so the dashboard can report them side by side.
+# One flag per test tier that uploads its coverage, so the dashboard can
+# report them side by side. The fast regression job uploads none.
 flags:
   unit:
-    paths:
-      - hydromodpy/
-    carryforward: true
-  regression-fast:
     paths:
       - hydromodpy/
     carryforward: true
@@ -57,7 +54,6 @@ ignore:
   - "docs/"
   - "examples/"
   - "validation_cases/"
-  - "hydromodpy/**/examples/"
   - "hydromodpy_annex/"
 
 comment:

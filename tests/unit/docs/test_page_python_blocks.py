@@ -41,9 +41,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SOURCE = REPO_ROOT / "docs" / "source"
 PAGE_DIRS = ("get-started",)
 MANIFEST = Path(__file__).with_name("page_python_blocks.toml")
-# The pages held 8 blocks when the guides were removed. Far fewer means the
-# reader stopped finding them.
-FLOOR = 6
+# The pages held 2 blocks when Get started was rewritten around example 04.
+# Fewer means the reader stopped finding them.
+FLOOR = 2
 
 
 def _manifest() -> dict[str, Any]:

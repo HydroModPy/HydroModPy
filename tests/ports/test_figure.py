@@ -40,8 +40,12 @@ from ._installed_probe import REPO_ROOT
 
 EXAMPLE = REPO_ROOT / "tests/regression/frozen_runs/v2.0.0/current/projects/example"
 
-DRAWN_FLOOR = 34
-"""Distinct names the example draws, measured at 34 on 129 names on 2026-11-13."""
+DRAWN_FLOOR = 31
+"""Distinct names the example draws, measured at 31 on 2026-11-19.
+
+It was 34 until a series of one period was refused. The two runs of the example are
+steady, so budget, discharge, hydrograph and water_budget are refused on them now.
+"""
 
 VARIABLES = [
     name

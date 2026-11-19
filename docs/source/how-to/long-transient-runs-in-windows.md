@@ -15,8 +15,8 @@ The steady first period takes the recharge of the first period, for the reason g
 flow_regime = "transient"
 
 [simulation.time]
-start_datetime = "2010-01-01"
-end_datetime = "2019-12-31"
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
 step_value = "1 day"
 window_length = "1 year"
 

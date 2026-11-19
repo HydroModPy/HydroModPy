@@ -9,12 +9,14 @@ rights a call plays, not what the call computes.
 
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
 from hydromodpy.core.exceptions import CredentialsError
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.state.portable import state_dir
+from hydromodpy.core.toml_io.loader import base_configs_of, read_toml
 from hydromodpy.project.credentials import load_credentials
 
 CREDENTIALS_FILENAME = "credentials.toml"
@@ -64,6 +66,30 @@ class Environment:
             credentials,
             forbidden_roots=(Path(project_root), Path(workspace_root)),
         )
+
+    def require_chain(self, path: Path | str) -> None:
+        """Refuse a TOML file whose ``base_config`` chain leaves the allowed roots.
+
+        Each file is checked before it is read, so a refused one is never
+        opened. A file that does not parse stops the walk there: the read of
+        the verb names the fault. Without named roots nothing is checked.
+        """
+        if self.bounds.allowed_roots is None:
+            return
+        seen: set[Path] = set()
+        waiting = [Path(path).expanduser().resolve()]
+        while waiting:
+            current = waiting.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            self.bounds.require_path(current, why="reading a base_config file")
+            try:
+                raw = read_toml(current)
+                waiting.extend(base_configs_of(current, raw))
+            except (OSError, tomllib.TOMLDecodeError, TypeError, ValueError):
+                # The read of the verb refuses this file with its own words.
+                continue
 
     def flags(self) -> tuple[str, ...]:
         """Return this environment as the ``--credentials``, ``--allow-host`` and

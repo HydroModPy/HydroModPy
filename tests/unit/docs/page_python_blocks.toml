@@ -11,14 +11,8 @@
 example-run = "starts a run of an example 04 file, which needs the example data (92 MiB) and a solver"
 
 [blocks]
+"get-started/example-04.md" = { "1" = "example-run" }
 "get-started/install.md" = { "1" = "run" }
-"get-started/staircase/index.md" = { "1" = "example-run" }
-"get-started/staircase/step1.md" = { "1" = "example-run" }
-"get-started/staircase/step2.md" = { "1" = "example-run" }
-"get-started/staircase/step3.md" = { "1" = "example-run" }
-"get-started/staircase/step4.md" = { "1" = "example-run" }
-"get-started/staircase/step5.md" = { "1" = "example-run" }
-"get-started/staircase/step6.md" = { "1" = "example-run" }
 
 # Files an executed block reads, written into its empty folder first.
 [files]

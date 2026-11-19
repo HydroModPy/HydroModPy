@@ -37,6 +37,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Added
 
+- The HTTP server sends a file of a project with `GET /v1/<org>/<project>/files/<path>`, the path an answer gave: an export, a saved figure, a report or a tar from `publish`. A folder, an absent file and a path or a link that leaves the project are refused.
 - `[flow.param.<id>.field_vertical_profile]` takes `depth_at = "top"`, `"middle"`, `"base"` or `"surface_then_base"` (the ground for the first layer, the base for the others), the depth at which each layer reads its profile, the middle by default as before. An exponential profile takes `characteristic_depth_high`, `ground_low` and `ground_high`: its decay length then goes linearly with the ground elevation from `characteristic_depth` to `characteristic_depth_high`, for a weathered zone that thins under the hills.
 - `hmp.Lab("project.toml")` builds a model in memory one step at a time. `lab.advance()` plays a step, `lab.state` shows the objects built so far, `lab.steps` shows which steps are built, stale or pending, and `lab.set(K=5e-5)` changes a value so that only the steps that read it play again. `lab.force` puts an object the configuration cannot say, such as a mesh built by hand, and `lab.release` takes it back.
 - `hmp.Lab(run)` opens a run from `hmp.open`, sealed or with its facts, in the lab, with the configuration the run kept. It builds nothing until `lab.advance`, and `lab.run` writes a new run in the same project.
@@ -711,6 +712,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The tests index lists the real folders of `tests/` as tiers: `scenarios`, `refusals`, `ports` and `processes` join, `contract` leaves.
 - Pytest markers `whitebox` and `windows` replace the hand-written lists of Whitebox test files and the Windows `skipif`; `HMP_REQUIRE_WINDOWS` turns a skipped Windows test into a failure.
 - The `test` extra asks `coverage[toml]>=7.10`, which `patch = ["subprocess"]` and the removal proof need.
+- The base install no longer pulls `contextily` or `h5py`, which no module of the package imports. The `fair` extra keeps `pystac` alone, and `rocrate` and `stac-validator` move to `test`, where the conformance tests use them. The `performance` extra drops `polars` and `uuid-utils`, and `dev` adds `mypy`. Building from source needs setuptools 77 or later, the first that reads the SPDX licence string.
+- The Docker image carries `NOTICE` again, and `NOTICE` names the TeX Gyre Heros fonts the wheel ships. ruff is pinned to 0.17.6 in the `dev` extra, the pre-commit hook and the CI, and gitleaks moves to 8.30.1 in both.
 - 6 122 unit test functions leave `tests/unit`, 73 637 lines of 336 027, and no file is removed. Each line and each branch of the library that one of them ran is still run by at least two other unit tests, and the unit suite covers the same 116 419 lines and 31 569 branches as before. A test that compares a number within a tolerance, a test named for a sign, a unit, a sentinel, a budget or an analytical solution, and the last test of a file stay whatever the coverage says. Equal coverage is not equal detection: two tests that run the same lines with different values do not check the same thing.
 - The unit tests are rewritten so that one file tests one source module and reads from top to bottom: a docstring that says what the module computes with its units, the small physical cases, the tables of cases with one row per case, the refusals last. `tests/unit` goes from 262 390 to 236 605 lines and from 1 335 to 1 274 files. Of the 9 855 test functions left, 1 571 keep a name of more than seven words, against 10 861 of 16 805 before, the `class Test...` wrappers go from 659 to 10 and the files named after a sentence from 105 to 5. Every case still runs (19 033 against 18 672) and the unit suite covers 116 425 lines and 31 570 branches, 6 lines and 1 branch more than before. The docs, the Boussinesq smoke scripts and `tests/TOLERANCES.md` name the new files.
 - 118 helpers, fixtures and tables of `tests/` that no test called any more are removed, 1 078 lines in 64 files.
@@ -1006,6 +1009,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Security
 
+- The HTTP server refuses a TOML file whose `base_config` chain leaves the project, before the file outside is read. An uploaded TOML could read the configuration of another organisation through `..` or an absolute `base_config`. `Environment.require_chain` holds the check.
 - `Pillow` now starts at 13.0.0, the first version with the 2026 security fixes.
 
 ### Numbers

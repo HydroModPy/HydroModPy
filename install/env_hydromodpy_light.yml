@@ -3,10 +3,8 @@ channels:
   - conda-forge
 dependencies:
   - python>=3.11,<3.14
-  - contextily
   - flopy
   - geopandas
-  - h5py
   - imageio
   - matplotlib
   - netcdf4
@@ -20,7 +18,6 @@ dependencies:
   - pytest-xdist
   - sphinx
   - pyproj
-  - pyshp
   - rasterio
   - rioxarray
   - cma
@@ -30,7 +27,6 @@ dependencies:
   - scipy
   - xarray
   - xugrid
-  - pysheds
   - dask
   - pip
   - pip:

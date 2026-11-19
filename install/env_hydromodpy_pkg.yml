@@ -2,11 +2,9 @@ name: hydromodpy-dev
 channels:
   - conda-forge
 dependencies:
-  - contextily
   - flopy
   - geopandas
   - graphviz
-  - h5py
   - imageio
   - ipykernel
   - ipython
@@ -25,7 +23,6 @@ dependencies:
   - sphinx
   - plotly
   - pyproj
-  - pyshp
   - python>=3.11,<3.14
   - rasterio
   - rioxarray
@@ -39,7 +36,6 @@ dependencies:
   - xarray
   - xugrid
   - pyside6
-  - pysheds
   - pip
   - pip:
       - gmsh

@@ -1,4 +1,4 @@
-![logo](https://github.com/HydroModPy/HydroModPy/blob/61d654ca738c488480fd22aa01c2b1002984eac9/docs/readthedocs/source/images/logoHydroModPy_long.png)
+![logo](https://raw.githubusercontent.com/HydroModPy/HydroModPy/main/docs/source/_static/logoHydroModPy_long.png)
 
 **HydroModPy** is a Python toolbox for deploying catchment-scale shallow
 groundwater models. One TOML config drives MODFLOW 6, MODFLOW-NWT and
@@ -34,7 +34,9 @@ outputs.
 pip install hydromodpy
 ```
 
-Optional extras: `[ide]`, `[test]`, `[docs]`. Solver binaries
+Optional extras: `[calibration]` (CMA-ES), `[mesh]` (gmsh), `[mf6api]`
+(the MODFLOW 6 API), `[viz]`, `[metrics]`, `[sftp]`, and `[all]` for every
+one of them. Solver binaries
 (MODFLOW 6, MODFLOW-NWT, MODPATH, MT3D-USGS) are downloaded on demand into
 `~/.cache/hydromodpy/bin/` on first solver run, or eagerly with
 `hmp install-binaries`.
@@ -81,7 +83,7 @@ Browse it from the command line:
 ```bash
 hmp ls                    # every run of the project
 hmp show demo --detail    # metadata, metrics, parameters, store layout
-hmp show demo --figure piezometric_map # render one figure into runs/demo/figures/
+hmp show demo --figure watertable_elevation # draw one figure into runs/demo/figures/
 ```
 
 Or read it from Python:

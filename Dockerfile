@@ -11,12 +11,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
+# The wheel is pure Python, so the stage needs no compiler.
 WORKDIR /build
-COPY pyproject.toml MANIFEST.in README.md LICENSE ./
+COPY pyproject.toml MANIFEST.in README.md LICENSE NOTICE ./
 COPY hydromodpy ./hydromodpy
 RUN pip install --no-cache-dir build \
     && python -m build --wheel --outdir /build/dist

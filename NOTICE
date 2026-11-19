@@ -40,6 +40,13 @@ hydromodpy/catchment/administrative/departement.gpkg
   Outlines of the French departments, from IGN ADMIN EXPRESS COG CARTO.
   Licence Ouverte / Etalab 2.0. Attribution: IGN.
 
+hydromodpy/display/fonts/texgyreheros-regular.ttf, texgyreheros-bold.ttf
+  TeX Gyre Heros, copyright 2006-2009 B. Jackowski and J. M. Nowacki, GUST
+  e-foundry, https://www.gust.org.pl/projects/e-foundry/tex-gyre. GUST Font
+  License, that is the LaTeX Project Public License 1.3c or later. The files
+  are unchanged. The licence text ships
+  beside the fonts in LICENSE_TEXGYRE.txt.
+
 hydromodpy/results/zarr_store/data/cf_standard_names_v85.txt
   A curated subset of the CF Standard Name Table v85,
   https://cfconventions.org/. It is used under the terms of the CF

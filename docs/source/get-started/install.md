@@ -191,9 +191,9 @@ Add an extra between brackets: `pip install "hydromodpy[ide,mesh]"`.
 - `mesh`: `gmsh`.
 - `mf6api`: `modflowapi` and `xmipy`.
 - `viz`: `datashader` and `lttb`.
-- `fair`: `pystac`, `stac-validator` and `rocrate`. These serve every FAIR view: the RO-Crate
-  export of the package and, from a checkout of the repository, the STAC and PROV views of the
-  annex (`hmp export --as stac`), which declare no dependencies of their own.
+- `fair`: `pystac`. It checks the item that the STAC view of the annex writes
+  (`hmp export --as stac`). That view and the PROV view live in the annex, so they work from a
+  checkout of the repository only. The RO-Crate export of the package needs no extra.
 - `metrics`: `psutil`.
 - `sftp`: `paramiko`.
 - `all`: `calibration`, `mesh`, `mf6api`, `viz`, `fair`, `metrics` and `sftp`. The extras for people who work on HydroModPy itself are not in it.

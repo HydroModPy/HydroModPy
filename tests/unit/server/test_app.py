@@ -510,6 +510,9 @@ REFUSALS = {
         "outside the project",
     ),
     "an upload without a stem": ("PUT", "/v1/acme/island/inputs/.csv", b"x", 400, "no file name"),
+    "a file that climbs": ("GET", "/v1/acme/island/files/a/%2e%2e/%2e%2e/x", None, 400, "path"),
+    "a folder": ("GET", "/v1/acme/island/files/%2e", None, 400, "is a folder"),
+    "an absent file": ("GET", "/v1/acme/island/files/runs/a.tif", None, 404, "no file"),
 }
 
 
@@ -558,6 +561,40 @@ def test_upload_lands_with_digest(client: Client, settings: Settings) -> None:
     project = settings.root / "acme" / "projects" / "island"
     assert (project / name).read_bytes() == body
     assert list((settings.root / ".inbox").iterdir()) == []
+
+
+def test_download_sends_the_bytes(client: Client, settings: Settings) -> None:
+    project = settings.root / "acme" / "projects" / "island"
+    (project / "runs" / "a" / "exports").mkdir(parents=True)
+    (project / "runs" / "a" / "exports" / "head.csv").write_bytes(b"t,h\n0,1.5\n")
+    url = f"http://127.0.0.1:{client.port}/v1/acme/island/files/runs/a/exports/head.csv"
+    with urllib.request.urlopen(url, timeout=30) as answer:
+        assert answer.read() == b"t,h\n0,1.5\n"
+        assert answer.headers["Content-Type"] == "text/csv"
+
+
+def test_download_refuses_a_link_out(client: Client, settings: Settings, tmp_path: Path) -> None:
+    project = settings.root / "acme" / "projects" / "island"
+    (tmp_path / "secret.txt").write_text("x")
+    try:
+        (project / "link.txt").symlink_to(tmp_path / "secret.txt")
+    except OSError:
+        pytest.skip("symbolic links are not allowed here")
+    status, said = client.ask("GET", "/v1/acme/island/files/link.txt")
+    assert (status, "outside the project" in said["message"]) == (400, True)
+
+
+def test_check_refuses_a_base_config_outside(client: Client, settings: Settings) -> None:
+    other = settings.root / "bare" / "projects" / "q"
+    other.mkdir(parents=True)
+    (other / "secret.toml").write_text('[simulation]\nname = "other"\n')
+    project = settings.root / "acme" / "projects" / "island"
+    (project / "inputs").mkdir()
+    (project / "inputs" / "case.toml").write_text(
+        'base_config = "../../../../bare/projects/q/secret.toml"\n'
+    )
+    status, said = client.ask("POST", "/v1/acme/island/check", {"source": "inputs/case.toml"})
+    assert (status, said["code"]) == (422, BoundsError.code)
 
 
 def test_same_upload_twice(client: Client) -> None:

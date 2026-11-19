@@ -42,6 +42,9 @@ Five places must agree
        metadata answers. Keep it equal to ``pyproject.toml``.
    * - ``CHANGELOG.md``
      - A section ``## [vX.Y.Z] - YYYY-MM-DD`` (or the pre-release tag).
+   * - ``SECURITY.md``
+     - The table of supported versions, when the release opens a new line or
+       ends the support of an old one.
    * - The Git tag
      - ``vX.Y.Z``, equal to the version once the ``v`` is removed.
 
