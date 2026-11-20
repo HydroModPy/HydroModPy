@@ -1,8 +1,46 @@
 """Build the import graph for hydromodpy at top-level package granularity.
 
+Four mechanisms are resolved, each tagged by the ``kind`` field of an Edge:
+
+- ``from`` / ``import``   static ``import`` and ``from ... import`` statements,
+  relative imports resolved against the source module.
+- ``import_module``       ``import_module("dotted.path")`` with a literal
+  argument, called through a name this file bound at module scope with
+  ``from importlib import import_module [as X]``, or as an attribute of a name
+  it bound to the ``importlib`` module. The runtime form of an import
+  statement.
+- ``lazy_map``            a string value of a dict literal, or of a dict
+  comprehension (``f"module:{name}"``), that names a
+  submodule **that exists on disk**, optionally suffixed ``:Attribute``. This
+  is the PEP 562 lazy-attribute map (``_LAZY_IMPORTS``, ``_BUILTIN_PATHS``,
+  ``_MODULE_EXPORTS``, ...): a real cross-package edge that no import
+  statement declares.
+
+Three narrowings keep a string from minting an edge it does not carry. It must
+be the *whole* value, it must name a submodule rather than the bare package
+(``{"name": "hydromodpy"}`` in a provenance payload is a tool name), and for a
+dict value it must resolve to a module file or package directory. String
+arguments of arbitrary calls are deliberately **not** scanned: measured against
+this package, that rule reported ``getLogger("hydromodpy.warnings")`` and
+``os.path.join("hydromodpy.log")`` as ``core -> <root>`` edges.
+
+What remains, and is accepted: a dict value that names a real module of this
+package but is never imported -- an ownership table, a documentation index --
+is reported as an edge. The scanner cannot tell that dict from a lazy-attribute
+map without trusting a variable name, and naming a module of a forbidden layer
+is itself the coupling the matrix exists to catch. Three forms stay invisible
+because resolving them would mean guessing: a computed module name,
+``import_module(".relative", package=...)``, and a binding this file does not
+show, such as ``from importlib import *`` or an alias bound inside a function.
+Every one of the 24 bindings in this package is a module-level
+``from importlib import import_module``.
+
+A file that does not parse raises :class:`UnparsableSource`. A scanner that
+silently skips what it cannot read reports zero violations for the wrong reason.
+
 Library entry points:
     scan_package(pkg_root)            -> list[Edge]
-    parse_imports(py)                 -> list[(lineno, kind, dotted)]
+    parse_imports(py, pkg_root)       -> list[(lineno, kind, dotted)]
     package_of(py, pkg_root)          -> str | None
     submodule_path(py, pkg_root)      -> str
 
@@ -19,10 +57,23 @@ from __future__ import annotations
 import ast
 import json
 import pathlib
+import re
 import sys
 from collections import Counter
 from dataclasses import asdict, dataclass
-from functools import cache, lru_cache
+from functools import cache
+
+
+class UnparsableSource(Exception):
+    """Raised when a file under the scanned package cannot be read or parsed."""
+
+
+#: A dotted module path, optionally suffixed with ``:Attribute``. Anchored on
+#: both ends so only a string that is *entirely* a module reference matches.
+DYNAMIC_TARGET_RE = re.compile(
+    r"^(?P<module>[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)"
+    r"(?::[A-Za-z_][A-Za-z0-9_]*)?$"
+)
 
 
 @dataclass(frozen=True)
@@ -49,6 +100,25 @@ def _top_level_packages(pkg_root: pathlib.Path) -> frozenset[str]:
     )
 
 
+@cache
+def sibling_packages(pkg_root: pathlib.Path) -> frozenset[str]:
+    """Return the folders beside the package named ``<package>_*`` that hold Python.
+
+    Found on disk, so a new sibling needs no list. A namespace folder without
+    ``__init__.py``, like the annex, counts.
+    """
+    prefix = f"{pkg_root.name}_"
+    return frozenset(
+        p.name
+        for p in pkg_root.parent.iterdir()
+        if p.is_dir() and p.name.startswith(prefix) and next(p.rglob("*.py"), None) is not None
+    )
+
+
+def _names_a_sibling(module: str, siblings: frozenset[str]) -> bool:
+    return module.split(".")[0] in siblings
+
+
 def package_of(path: pathlib.Path, pkg_root: pathlib.Path) -> str | None:
     """Return the top-level package this .py file belongs to.
 
@@ -69,78 +139,271 @@ def submodule_path(path: pathlib.Path, pkg_root: pathlib.Path) -> str:
     return ".".join([pkg_root.name, *path.relative_to(pkg_root).with_suffix("").parts])
 
 
-def parse_imports(py: pathlib.Path, pkg_root: pathlib.Path) -> list[tuple[int, str, str]]:
-    """Return (lineno, kind, module_dotted) for each absolute import targeting pkg_root.
+def parse_source(py: pathlib.Path) -> ast.Module:
+    """Parse *py*, or raise :class:`UnparsableSource` naming the file.
 
-    Resolves relative imports against the source module path. Also matches
-    ``hydromodpy_annex`` so the one-way rule can be checked.
+    Failing loudly is the point: a skipped file is a blind spot that reads
+    exactly like a clean file in the gate's output.
+    """
+    try:
+        return ast.parse(py.read_text(encoding="utf-8"), filename=str(py))
+    except (SyntaxError, UnicodeDecodeError, ValueError, OSError) as exc:
+        raise UnparsableSource(f"{py}: {exc}") from exc
+
+
+def _module_of_literal(
+    value: str,
+    pkg_name: str,
+    siblings: frozenset[str],
+    *,
+    require_submodule: bool = False,
+) -> str | None:
+    """Return the module a string literal names, or ``None`` when it names none.
+
+    ``require_submodule`` rejects the bare package name. A dict value of
+    exactly ``"hydromodpy"`` is a tool name far more often than an import
+    target -- ``results/record/manifest.py`` writes one into every provenance payload --
+    whereas ``import_module("hydromodpy")`` is unambiguous.
+    """
+    matched = DYNAMIC_TARGET_RE.match(value)
+    if matched is None:
+        return None
+    module = matched.group("module")
+    for root in (pkg_name, *sorted(siblings)):
+        if module.startswith(f"{root}."):
+            return module
+        if module == root and not require_submodule:
+            return module
+    return None
+
+
+def _text_of(value: ast.expr) -> str | None:
+    """Return the string a dict value holds, or ``None`` when it is not a string.
+
+    A value like ``f"hydromodpy.project.api:{name}"`` gives the module before the
+    colon, because the name after it changes from one key to the next.
+    """
+    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+        return value.value
+    if isinstance(value, ast.JoinedStr) and len(value.values) == 2:
+        head, tail = value.values
+        if (
+            isinstance(head, ast.Constant)
+            and isinstance(head.value, str)
+            and head.value.endswith(":")
+            and isinstance(tail, ast.FormattedValue)
+        ):
+            return head.value[:-1]
+    return None
+
+
+def _module_exists(module: str, pkg_root: pathlib.Path) -> bool:
+    """Return whether *module* resolves to a file or a package on disk.
+
+    The scanned package and its sibling folders share a parent, so one base
+    covers all of them.
+    """
+    candidate = pkg_root.parent.joinpath(*module.split("."))
+    return (candidate / "__init__.py").is_file() or candidate.with_suffix(".py").is_file()
+
+
+@dataclass(frozen=True)
+class _ImportlibNames:
+    """The names a module bound to ``import_module`` and to ``importlib`` itself."""
+
+    functions: frozenset[str]
+    modules: frozenset[str]
+
+
+def _importlib_names(tree: ast.Module) -> _ImportlibNames:
+    """Return the module-scope names this file bound to importlib.
+
+    Module scope only, and only names the file actually binds. Seeding the set
+    with the bare name would mint an edge from any unrelated function called
+    ``import_module``, and honoring a binding made inside one function would
+    let a parameter of the same name in another function mint one too.
+    """
+    functions: set[str] = set()
+    modules: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module == "importlib":
+            for alias in node.names:
+                if alias.name == "import_module":
+                    functions.add(alias.asname or alias.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "importlib" or alias.name.startswith("importlib."):
+                    modules.add(alias.asname or alias.name.split(".")[0])
+    return _ImportlibNames(frozenset(functions), frozenset(modules))
+
+
+def _import_module_literal(node: ast.Call, names: _ImportlibNames) -> str | None:
+    """Return the literal argument of an ``import_module`` call, if it has one.
+
+    The receiver of an attribute call is checked, not only its name: an
+    unrelated ``loader.import_module(...)`` is not an import of this package.
+    """
+    func = node.func
+    if isinstance(func, ast.Attribute):
+        if func.attr != "import_module":
+            return None
+        if not isinstance(func.value, ast.Name) or func.value.id not in names.modules:
+            return None
+    elif isinstance(func, ast.Name):
+        if func.id not in names.functions:
+            return None
+    else:
+        return None
+    argument: ast.expr | None = node.args[0] if node.args else None
+    if argument is None:
+        argument = next((kw.value for kw in node.keywords if kw.arg == "name"), None)
+    if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+        return argument.value
+    return None
+
+
+def _import_from_target(
+    node: ast.ImportFrom,
+    pkg_name: str,
+    siblings: frozenset[str],
+    src_parts: list[str],
+) -> str | None:
+    """Return the module an ``ImportFrom`` targets, relative imports resolved."""
+    if node.level > 0:
+        base = src_parts[: -node.level]
+        if node.module:
+            base = [*base, *node.module.split(".")]
+        module = ".".join(base)
+    else:
+        module = node.module or ""
+    if (
+        module == pkg_name
+        or module.startswith(f"{pkg_name}.")
+        or _names_a_sibling(module, siblings)
+    ):
+        return module
+    return None
+
+
+def _targets(
+    tree: ast.Module,
+    pkg_root: pathlib.Path,
+    src_dotted: str,
+) -> list[tuple[ast.AST, int, str, str]]:
+    """Return ``(node, lineno, kind, module)`` for every import edge in *tree*.
+
+    The node travels with the edge so the caller can judge the scope it sits in
+    from its ancestry rather than from its line number.
     """
     pkg_name = pkg_root.name
-    annex_name = f"{pkg_name}_annex"
-    edges: list[tuple[int, str, str]] = []
-    try:
-        tree = ast.parse(py.read_text(encoding="utf-8"), filename=str(py))
-    except (SyntaxError, UnicodeDecodeError):
-        return edges
-
-    src_dotted = submodule_path(py, pkg_root)
+    siblings = sibling_packages(pkg_root)
     src_parts = src_dotted.split(".")
+    importlib_names = _importlib_names(tree)
+    found: dict[tuple[int, str, str], tuple[ast.AST, int, str, str]] = {}
+
+    def keep(node: ast.AST, lineno: int, kind: str, module: str) -> None:
+        found.setdefault((lineno, kind, module), (node, lineno, kind, module))
 
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
-            if node.level > 0:
-                base = src_parts[: -node.level]
-                if node.module:
-                    base = [*base, *node.module.split(".")]
-                module = ".".join(base)
-            else:
-                module = node.module or ""
-            if module.startswith(f"{pkg_name}.") or module == pkg_name:
-                edges.append((node.lineno, "from", module))
-            elif module.startswith(annex_name):
-                edges.append((node.lineno, "from", module))
+            module = _import_from_target(node, pkg_name, siblings, src_parts)
+            if module is not None:
+                keep(node, node.lineno, "from", module)
         elif isinstance(node, ast.Import):
             for alias in node.names:
                 name = alias.name
-                if name.startswith(f"{pkg_name}.") or name == pkg_name:
-                    edges.append((node.lineno, "import", name))
-                elif name.startswith(annex_name):
-                    edges.append((node.lineno, "import", name))
-    return edges
+                if (
+                    name == pkg_name
+                    or name.startswith(f"{pkg_name}.")
+                    or _names_a_sibling(name, siblings)
+                ):
+                    keep(node, node.lineno, "import", name)
+        elif isinstance(node, ast.Call):
+            literal = _import_module_literal(node, importlib_names)
+            if literal is None:
+                continue
+            module = _module_of_literal(literal, pkg_name, siblings)
+            if module is not None:
+                keep(node, node.lineno, "import_module", module)
+        elif isinstance(node, (ast.Dict, ast.DictComp)):
+            for value in node.values if isinstance(node, ast.Dict) else [node.value]:
+                text = _text_of(value)
+                if text is None:
+                    continue
+                module = _module_of_literal(text, pkg_name, siblings, require_submodule=True)
+                if module is not None and _module_exists(module, pkg_root):
+                    keep(value, value.lineno, "lazy_map", module)
+    return [found[key] for key in sorted(found)]
 
 
-def _collect_in_function_lines(tree: ast.AST) -> set[int]:
-    in_func: set[int] = set()
+def parse_imports(py: pathlib.Path, pkg_root: pathlib.Path) -> list[tuple[int, str, str]]:
+    """Return (lineno, kind, module_dotted) for each import targeting pkg_root.
+
+    Covers the static statements, ``import_module`` on a literal, and the
+    string values of dict literals. Resolves relative imports against the
+    source module path. Also matches the sibling folders (``hydromodpy_*``)
+    so the one-way rule can be checked.
+    """
+    tree = parse_source(py)
+    src_dotted = submodule_path(py, pkg_root)
+    return [
+        (lineno, kind, module) for _, lineno, kind, module in _targets(tree, pkg_root, src_dotted)
+    ]
+
+
+def _parent_map(tree: ast.AST) -> dict[int, ast.AST]:
+    """Map each node's id to its parent, in one pass."""
+    parents: dict[int, ast.AST] = {}
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            for child in ast.walk(node):
-                if isinstance(child, (ast.Import, ast.ImportFrom)):
-                    in_func.add(child.lineno)
-    return in_func
+        for child in ast.iter_child_nodes(node):
+            parents[id(child)] = node
+    return parents
 
 
-def _collect_type_checking_lines(tree: ast.AST) -> set[int]:
-    in_tc: set[int] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.If):
-            test = node.test
-            is_tc = False
-            if isinstance(test, ast.Name) and test.id == "TYPE_CHECKING":
-                is_tc = True
-            elif isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING":
-                is_tc = True
-            if is_tc:
-                for child in ast.walk(node):
-                    if isinstance(child, (ast.Import, ast.ImportFrom)):
-                        in_tc.add(child.lineno)
-    return in_tc
+def _is_type_checking_test(test: ast.expr) -> bool:
+    if isinstance(test, ast.Name):
+        return test.id == "TYPE_CHECKING"
+    return isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
 
 
-def _target_package(module: str, pkg_name: str, top_level: set[str]) -> str:
+def _scope_flags(node: ast.AST, parents: dict[int, ast.AST]) -> tuple[bool, bool]:
+    """Return ``(in_function, in_type_checking)`` from the node's ancestry.
+
+    Ancestry, not line number: two edges can share a line, and the ``else``
+    branch of ``if TYPE_CHECKING:`` is ordinary runtime code that a line-keyed
+    collector flagged as type-checking only.
+
+    Only the *body* of a function defers. A decorator expression and a default
+    argument value are evaluated when the ``def`` is executed, so an import
+    written there is as eager as one at module scope -- and eagerness is the
+    whole reason the flag exists.
+    """
+    in_function = False
+    in_type_checking = False
+    child = node
+    parent = parents.get(id(node))
+    while parent is not None:
+        if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if any(child is statement for statement in parent.body):
+                in_function = True
+        elif isinstance(parent, ast.Lambda):
+            if child is parent.body:
+                in_function = True
+        elif isinstance(parent, ast.If) and _is_type_checking_test(parent.test):
+            if any(child is statement for statement in parent.body):
+                in_type_checking = True
+        child = parent
+        parent = parents.get(id(parent))
+    return in_function, in_type_checking
+
+
+def _target_package(
+    module: str, pkg_name: str, top_level: frozenset[str], siblings: frozenset[str]
+) -> str:
     if module == pkg_name:
         return "<root>"
-    if module.startswith(f"{pkg_name}_annex"):
-        return "<annex>"
+    if _names_a_sibling(module, siblings):
+        return "<sibling>"
     parts = module.split(".")
     if len(parts) < 2:
         return "<root>"
@@ -148,9 +411,37 @@ def _target_package(module: str, pkg_name: str, top_level: set[str]) -> str:
     return head if head in top_level else "<root>"
 
 
+def _edges_of(
+    py: pathlib.Path, pkg_root: pathlib.Path, src_pkg: str, src_module: str
+) -> list[Edge]:
+    tree = parse_source(py)
+    targets = _targets(tree, pkg_root, src_module)
+    if not targets:
+        return []
+    top_level = _top_level_packages(pkg_root)
+    siblings = sibling_packages(pkg_root)
+    parents = _parent_map(tree)
+    edges: list[Edge] = []
+    for node, lineno, kind, module in targets:
+        in_function, in_type_checking = _scope_flags(node, parents)
+        edges.append(
+            Edge(
+                src_file=str(py),
+                src_pkg=src_pkg,
+                src_module=src_module,
+                lineno=lineno,
+                kind=kind,
+                target_module=module,
+                tgt_pkg=_target_package(module, pkg_root.name, top_level, siblings),
+                in_function=in_function,
+                in_type_checking=in_type_checking,
+            )
+        )
+    return edges
+
+
 def scan_package(pkg_root: pathlib.Path) -> list[Edge]:
     """Scan every .py file under ``pkg_root`` and return one Edge per import."""
-    top_level = _top_level_packages(pkg_root)
     edges: list[Edge] = []
     for py in sorted(pkg_root.rglob("*.py")):
         if "__pycache__" in py.parts:
@@ -158,31 +449,23 @@ def scan_package(pkg_root: pathlib.Path) -> list[Edge]:
         src_pkg = package_of(py, pkg_root)
         if src_pkg is None:
             continue
-        raw = parse_imports(py, pkg_root)
-        if not raw:
+        edges.extend(_edges_of(py, pkg_root, src_pkg, submodule_path(py, pkg_root)))
+    return edges
+
+
+def scan_sibling(sibling: str, pkg_root: pathlib.Path) -> list[Edge]:
+    """Return one Edge per import of ``pkg_root`` written in a sibling folder.
+
+    ``src_pkg`` is the sibling's name and ``tgt_pkg`` the package of
+    ``pkg_root`` it reads, ``<root>`` for the facade.
+    """
+    root = pkg_root.parent / sibling
+    edges: list[Edge] = []
+    for py in sorted(root.rglob("*.py")):
+        if "__pycache__" in py.parts:
             continue
-        try:
-            tree = ast.parse(py.read_text(encoding="utf-8"), filename=str(py))
-        except (SyntaxError, UnicodeDecodeError):
-            continue
-        in_func = _collect_in_function_lines(tree)
-        in_tc = _collect_type_checking_lines(tree)
-        src_module = submodule_path(py, pkg_root)
-        src_file = str(py)
-        for lineno, kind, module in raw:
-            edges.append(
-                Edge(
-                    src_file=src_file,
-                    src_pkg=src_pkg,
-                    src_module=src_module,
-                    lineno=lineno,
-                    kind=kind,
-                    target_module=module,
-                    tgt_pkg=_target_package(module, pkg_root.name, top_level),
-                    in_function=lineno in in_func,
-                    in_type_checking=lineno in in_tc,
-                )
-            )
+        src_module = ".".join([sibling, *py.relative_to(root).with_suffix("").parts])
+        edges.extend(_edges_of(py, pkg_root, sibling, src_module))
     return edges
 
 

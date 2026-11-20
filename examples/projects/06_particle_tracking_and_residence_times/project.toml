@@ -1,0 +1,184 @@
+# Example 06: particle tracking and residence times on the Lasset catchment (Pyrenees).
+#
+# Steady state, 1.17 mm/day of recharge, a 100 m thick aquifer under a flat
+# substratum cut in ten layers that thicken with depth, a K that falls with
+# depth, seepage at the ground surface, and particles that give the travel
+# times of the water. MODFLOW 6 solves the flow and its PRT tracks the particles.
+#
+#   hmp run project.toml
+
+[site]
+name = "lasset"
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "lasset_example_06"
+description = "Lasset catchment, steady state, ten layers, K falling with depth, particle tracking and residence times."
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow6"]
+
+[[simulation.process]]
+id = "particles"
+kind = "transport"
+solvers = ["modflow6_prt"]
+
+# The catchment is cut out of a regional 75 m DEM, upstream of the outlet,
+# after the depressions of the DEM are breached. The domain is the box around
+# the catchment widened by 50 % of the square root of its area.
+[geographic]
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
+kind = "from_outlet_coord"
+x_outlet = 601020.0
+y_outlet = 6193860.0
+snap_dist = "200 m"
+buff_area = "50% of sqrt(area)"
+
+# The base of the aquifer is flat at 1000 m, not a thickness under the ground.
+# The aquifer is thin under the valleys and thick under the crests, so the deep
+# paths are long and the shallow ones short. Ten layers, each 1.5 times thicker
+# than the one above it.
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = "1000 m"
+
+[domain.layers]
+genmtd_lay = "decay"
+nlay = 10
+lay_decay = 1.5
+
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "file"
+path = "workspace:regional_dem_lasset.tif"
+
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+
+# K is 1e-6 m/s at the ground surface and falls as exp(-depth / 50 m), down to
+# a floor four decades lower. The first layer takes the value at the ground, and
+# each layer below reads it at the depth of its base.
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 1e-6
+
+[flow.param.K.field_vertical_profile]
+kind = "exponential"
+characteristic_depth = "50 m"
+min_factor = 1e-4
+depth_at = "surface_then_base"
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.01
+
+# Every cell drains at the ground surface. The conductance follows K,
+# C = K * cell area / 1 m.
+[flow.bc.drainage]
+
+# The mean of a monthly series of 10, 20, 30, 40, 50, 60, 60, 50, 40, 30, 20 and
+# 10 mm per month, divided by 30 days.
+[flow.sinks_sources.recharge]
+units = "mm/day"
+values = [1.1666666667]
+
+# One particle in each cell of the box, carried by the flow until it leaves the
+# aquifer, most of them in a seepage cell. The porosity is 1 %. PRT tracks
+# forward only, so the travel time of a particle is the time its water needs to
+# reach the stream from the cell where it entered.
+[transport.modflow6_prt]
+release_zone = "domain"
+porosity = 0.01
+release_times = [0.0]
+stop_time = "10000 years"
+
+# The figures land in runs/lasset_example_06/figures/. Each one that applies
+# and fails stops the run, so a broken figure cannot go unseen.
+[display]
+on_error = "raise"
+
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+
+[[display.figure]]
+variable = "watertable_elevation"
+overlays = ["outline"]
+
+# The water is deep under the crests and shallow in the valleys. The dashed
+# line is the section below.
+[[display.figure]]
+variable = "watertable_depth"
+overlays = ["seepage", "outline"]
+limits = [0.0, 100.0]
+line = [[600300.0, 6195600.0], [600300.0, 6190800.0]]
+
+# North to south over the two summits of the box, on the dashed line above.
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "section_north_south"
+line = [[600300.0, 6195600.0], [600300.0, 6190800.0]]
+
+# The drain flow that each cell passes on downstream.
+[[display.figure]]
+variable = "drain_accumulation_flux"
+scale = "log"
+overlays = ["outline"]
+
+[[display.figure]]
+preset = "particle_tracks"
+
+# How long the water released in each cell needs to reach a seepage cell.
+[[display.figure]]
+variable = "travel_time_to_exit"
+scale = "log"
+limits = [1.0, 1000.0]
+overlays = ["seepage", "outline"]
+
+# The same pathlines over the travel time.
+[[display.figure]]
+preset = "particle_tracks"
+name = "particle_tracks_over_travel_time"
+variable = "travel_time_to_exit"
+
+[[display.figure]]
+preset = "residence_time_distribution"
+
+# What lands in runs/lasset_example_06/exports/, ready for QGIS or a spreadsheet.
+
+# The catchment and its box: GeoPackage.
+[[export]]
+variable = ["watershed", "watershed_box_buff"]
+
+# The DEM of the model: GeoTIFF.
+[[export]]
+variable = "watershed_dem"
+
+# The water table, its depth, the seepage cells, and the drain flow: one GeoTIFF each.
+[[export]]
+variable = ["watertable_elevation", "watertable_depth", "seepage_mask", "outflow_drain"]
+time = "first"
+
+# The water budget: CSV.
+[[export]]
+variable = "budget"
+
+# The particle tracks, one line per particle with its travel time in years: GeoPackage.
+[[export]]
+variable = "pathlines"

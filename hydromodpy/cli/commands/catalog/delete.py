@@ -1,86 +1,110 @@
-"""``hmp catalog delete`` - thin wrapper around the ``catalog`` worker."""
+"""``hmp catalog delete`` - move a run or a session to the project trash."""
 
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
+from datetime import UTC, datetime
 
-from hydromodpy.cli._conventions import add_sim_ref, confirm_parser, workspace_parser
-from hydromodpy.cli.helpers import (
-    EXIT_NOT_FOUND,
-    EXIT_SIGINT,
-    EXIT_USAGE,
+from hydromodpy.cli.conventions import (
+    add_sim_ref,
+    confirm_parser,
+    dry_run_parser,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
 )
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.cli.exit_codes import confirm
+from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of
 
 NAME: str = "delete"
-HELP: str = "Move a simulation to the trash (reversible); --now to purge permanently"
+HELP: str = "Move a run or a session to the trash (reversible); --now to remove it for good"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), confirm_parser()],
-        epilog="Examples:\n  hmp catalog delete ab12cd34 -y\n  hmp catalog delete ab12cd34 --now -y",
+        parents=[
+            workspace_parser(),
+            confirm_parser(),
+            dry_run_parser(),
+            format_parser(),
+            verbosity_parser(),
+        ],
+        epilog=(
+            "The reference is the directory: a bare name is runs/<name> exactly, and\n"
+            "a bare name whose stem has other versions is refused with the list.\n"
+            "\n"
+            "Examples:\n"
+            "  hmp catalog delete baseline_v2 -y\n"
+            "  hmp catalog delete sessions/calibration -y\n"
+            "  hmp catalog delete baseline_daily --now -y"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_sim_ref(parser)
     parser.add_argument(
+        "--site",
+        default=None,
+        help="Narrow an @-selector (@last, @best:nse) to the runs of one site",
+    )
+    parser.add_argument(
         "--now",
         action="store_true",
-        help="Permanently purge now (cascade + remove storage) instead of trashing",
+        help="Remove the directory for good: a tombstone keeps its name from being reused",
     )
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Act on a pinned run",
+        help="Go past the pin and the stale attempt: act on a pinned directory, or on one whose "
+        "attempt stopped beating",
     )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import delete_simulation, trash_simulation
-    from hydromodpy.cli.helpers import exit_code_for
+    from hydromodpy.results.catalog.discovery import resolve_rel_dir
+    from hydromodpy.results.trash import trash_run
 
-    workspace_root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
+    root = project_root_of(args)
+    rel_dir = resolve_rel_dir(root, args.sim_ref, site=args.site, unambiguous=True)
+    facts = {"rel_dir": rel_dir, "removed_for_good": args.now}
+    if args.dry_run:
+        verb = "remove for good" if args.now else "move to the trash"
+        emit(
+            args,
+            "catalog delete",
+            {**facts, "applied": False},
+            table=lambda: print(f"would {verb} {rel_dir}"),
+        )
+        return
+    verb = "Remove for good" if args.now else "Trash"
+    confirm(args, f"{verb} {rel_dir}?", doing=verb.lower())
 
-    verb = "Permanently purge" if args.now else "Trash"
-    if not args.yes:
-        if not sys.stdin.isatty():
-            print(
-                f"Refusing to {verb.lower()} without -y in non-interactive mode.", file=sys.stderr
-            )
-            sys.exit(EXIT_USAGE)
-        try:
-            resp = input(f"{verb} simulation {args.sim_ref!r}? [y/N] ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            print("\nAborted.", file=sys.stderr)
-            sys.exit(EXIT_SIGINT)
-        if resp not in {"y", "yes"}:
-            print("Aborted.", file=sys.stderr)
-            sys.exit(EXIT_SIGINT)
+    now = datetime.now(UTC)
+    from hydromodpy.results.catalog.indexer import reindex_if_indexed
+    from hydromodpy.results.trash import remove_for_good
 
-    try:
+    if args.now:
+        trashed = remove_for_good(root, rel_dir, now=now, force=args.force)
+    else:
+        trashed = trash_run(root, rel_dir, now=now, force=args.force)
+
+    reindex_if_indexed(root)
+
+    def table() -> None:
         if args.now:
-            result = delete_simulation(args.sim_ref, workspace=workspace_root, keep_storage=False)
-            for removed_path in result["removed_paths"]:
-                print(f"  removed: {removed_path}")
-            print(f"Purged simulation {result['sim_id']}")
+            print(f"removed {rel_dir}; its name stays taken (trash/tombstones.txt)")
         else:
-            result = trash_simulation(args.sim_ref, workspace=workspace_root, force=args.force)
-            sid8 = result["sim_id"][:8]
             print(
-                f"moved to trash [{sid8}]. Bytes freed at 'hmp catalog trash --empty'. "
-                f"Restore: hmp catalog restore {sid8}"
+                f"moved {rel_dir} to trash/{trashed.name}. Restore: hmp catalog restore {rel_dir}"
             )
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except Exception as exc:  # noqa: BLE001 - map PinnedRunError / resolver errors
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+
+    emit(
+        args,
+        "catalog delete",
+        {**facts, "applied": True, "trashed_to": None if args.now else trashed},
+        table=table,
+    )

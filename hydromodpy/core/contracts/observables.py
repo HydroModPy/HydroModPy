@@ -6,14 +6,12 @@ Parquet. A trial evaluates in lightweight mode, where the extraction step is
 short-circuited and only the native solver files exist, so the adapter is the
 only thing that can answer.
 
-Not to be confused with ``analysis/comparison/runtime/observables.py``, which
-reads a run that has already been written and serves the comparison report.
-The two never meet: this one is a request made of a live run, that one is a
-query over stored results.
+A run that has already been written is read through ``Run`` instead: this one
+is a request made of a live run, that one is a query over stored results.
 
 Why ``core``: ``solver``, ``calibration``, ``results`` and ``analysis`` share
 no layer but ``core`` and ``schema``, and all four have to agree on what an
-observable is. ``core/contracts/solver_registry.py`` is the same pattern.
+observable is.
 
 The contract is a batch: an adapter receives every request for a run at once,
 so it opens each binary file once instead of once per request, and a backend
@@ -24,7 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
@@ -65,18 +63,6 @@ class ObservableRequest:
     key: str | None = None
     cell: tuple[int, int, int] | None = None
     times: TimeSelector = "all"
-
-    diagonal_neighbors: bool = False
-    """Route this observable's accumulation over shared nodes, not shared edges.
-
-    It only reaches an observable the solver has to ROUTE, the discharge at a
-    cell and the area it drains. A descent restricted to shared edges cannot
-    follow a talweg that runs diagonally across a square grid: measured on a
-    synthetic diagonal valley, the most accumulated cell collects 6.6 per cent of
-    the domain under shared edges and 100 per cent under shared nodes. It is a
-    field on the request rather than a constant in the solver so that the rule the
-    stream-network criterion is given and the rule the discharge is routed on
-    cannot drift apart."""
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -175,6 +161,19 @@ def select_time_indices(n_times: int, selector: TimeSelector) -> np.ndarray:
     return resolved
 
 
+def time_selector_of(time: Any) -> TimeSelector:
+    """Return the selector an observable request carries for a declared ``time``.
+
+    A series output reads ``"all"``, ``"first"`` or ``"last"``. Any other value,
+    a network output's date or a list of explicit dates, comes back as ``"all"``:
+    the adapter then serves the whole run and the selection happens on values,
+    because an undated answer has no timestamp to match a date against (D224).
+    Kept identical rather than fixed, because fixing it changes numbers that
+    already exist.
+    """
+    return time if time in ("all", "first", "last") else "all"
+
+
 __all__ = (
     "ObservableRequest",
     "ObservableResult",
@@ -182,4 +181,5 @@ __all__ = (
     "TimeSelector",
     "require_unique_request_ids",
     "select_time_indices",
+    "time_selector_of",
 )

@@ -5,15 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.tracking import InputFile
-from hydromodpy.data.managers.base_config import BaseVariableConfig
-from hydromodpy.data.variables.timeseries_variable_config import (
+from hydromodpy.core.tracking.input_file import InputFile
+from hydromodpy.data.families.base_config import BaseVariableConfig
+from hydromodpy.data.families.timeseries_config import (
     SparseStationFallbackMixin,
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    registered_section_source,
 )
 
 
@@ -23,27 +25,56 @@ class HydrometrySourceConfig(
     """Configuration for one hydrometry data source.
 
     Hydrometry sources load river discharge or stage time series. Use
-    ``custom`` for local station files and ``hubeau`` for the French Hub'Eau
+    ``file`` for local station files and ``hubeau`` for the French Hub'Eau
     hydrometry API. Station filters, spatial masks, and units are declared at
     source level.
     """
 
-    source: Annotated[Literal["custom", "hubeau"], Profile.USER] = Field(
-        ..., description="Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API."
+    source: Annotated[str, Profile.USER] = Field(
+        default="hubeau",
+        description=(
+            "Data provider: 'file' for user files, or the id of a source registered for "
+            "the hydrometry section, such as 'hubeau' for the Hub'Eau API."
+        ),
     )
 
-    # --- Custom source fields ---
+    @field_validator("source")
+    @classmethod
+    def _check_the_source_is_served_for_hydrometry(cls, source: str) -> str:
+        return registered_section_source(source, "hydrometry")
+
+    # --- File source fields ---
     path: Annotated[
         Path | None,
         Profile.USER,
         InputFile(role="hydrometry", category="data"),
-    ] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
+    ] = Field(
+        default=None,
+        description="Directory containing location file and chronicle CSVs.",
+        json_schema_extra=field_metadata(site_scoped=True),
+    )
 
     # --- API source fields ---
     product: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').",
+        default="QmnJ",
+        description="Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HIXnJ').",
     )
+
+    @field_validator("product")
+    @classmethod
+    def _validate_product(cls, product: str | None) -> str | None:
+        if product is not None:
+            if product == "QixM":
+                product = "QIXM"
+            from hydromodpy.data.variables.hydrometry.apis.hubeau import PRODUCTS
+
+            if product not in PRODUCTS:
+                allowed = ", ".join(f"'{p}'" for p in sorted(PRODUCTS))
+                raise ValueError(
+                    f"Hub'Eau product {product!r} is not supported. Use one of {allowed}."
+                )
+        return product
+
     require_observations: Annotated[bool, Profile.DEV] = Field(
         default=True,
         description=(
@@ -61,14 +92,15 @@ class HydrometrySourceConfig(
             "observation in the window do not count against it, so a preview run over a "
             "larger territory gets this many stations carrying data, not this many tried."
         ),
+        json_schema_extra={"unit": "-"},
     )
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> HydrometrySourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles)."
+                    "File source requires 'path' (directory with location + chronicles)."
                 )
         if self.source == "hubeau":
             if self.product is None:
@@ -134,7 +166,7 @@ class HydrometryConfig(BaseVariableConfig):
             date_end=end,
             sources=[
                 HydrometrySourceConfig(
-                    source="custom",
+                    source="file",
                     path=Path(path),
                     col_id=col_id,
                     col_x=col_x,

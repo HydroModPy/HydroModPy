@@ -1,0 +1,64 @@
+# Import rules inside hydromodpy/data, described on the page
+# docs/source/contribute/architecture/packages/data.rst.
+# Checked by test_package_layouts.py.
+
+# Each subpackage of hydromodpy/data lists the subpackages of hydromodpy/data it
+# may import. A subpackage may always import itself. "<init>" is the package
+# facade, hydromodpy/data/__init__.py. What lies outside hydromodpy/data
+# (core, schema, catchment, mesh, model) is the business of layer_matrix.yaml.
+#
+# Rows are written lowest first: a row names only rows written above it, so
+# this table cannot allow a cycle.
+allowed:
+  contracts:  []
+  schemas:    []
+  provenance: []
+  source:     [contracts, provenance]
+  common:     [contracts, schemas, source]
+  ingest:     [contracts, schemas, common]
+  families:   [contracts, common, ingest, provenance, source]
+  variables:  [contracts, schemas, source, common, ingest, provenance, families]
+  sites:      [variables, source]
+  loading:    [contracts, schemas, source, common, ingest, provenance, families, variables]
+  workspace:  [schemas, common, ingest, provenance, loading]
+  request:    [contracts, schemas, source, common, ingest, provenance, families, variables, loading, workspace]
+  "<init>":   [loading, request]
+
+# Rule 6: the source registry names the built-in source classes by a dotted
+# path written as text, imported on first lookup, so that a third-party plugin
+# joins the same table. Only these files may name a module that way.
+text_paths:
+  - hydromodpy/data/source/registry.py
+  - hydromodpy/data/source/__init__.py
+
+# Rule 2: what another layer of hydromodpy may import from hydromodpy/data.
+# A pattern ending in ".*" names a package and every module under it; a "*"
+# anywhere else stands for exactly one name. Everything else is private to
+# hydromodpy/data: families, common, schemas, the registry and the store of loading, and
+# the inside of the variables.
+public:
+  - hydromodpy.data
+  - hydromodpy.data.contracts.*
+  - hydromodpy.data.source.*
+  - hydromodpy.data.provenance.*
+  - hydromodpy.data.ingest.*
+  - hydromodpy.data.workspace.*
+  - hydromodpy.data.request.*
+  - hydromodpy.data.sites.*
+  - hydromodpy.data.variables.*.config
+  - hydromodpy.data.variables.*.variable
+  - hydromodpy.data.variables.sim2_series
+  - hydromodpy.data.variables.forcing_series
+  - hydromodpy.data.variables.lake_series
+  - hydromodpy.data.variables.user_rasters
+  - hydromodpy.data.variables.dem.resolver
+  - hydromodpy.data.variables.hydrography.resolver
+  - hydromodpy.data.variables.crossings.resolver
+  - hydromodpy.data.variables.hydrography.apis.bdtopage
+  - hydromodpy.data.variables.geology.io
+  - hydromodpy.data.variables.*.read
+  - hydromodpy.data.loading.inputs
+  - hydromodpy.data.loading.config_schema
+  - hydromodpy.data.loading.loader
+  - hydromodpy.data.loading.plan
+  - hydromodpy.data.loading.planner

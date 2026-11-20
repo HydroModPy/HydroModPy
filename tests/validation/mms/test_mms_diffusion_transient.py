@@ -1,13 +1,15 @@
 """MMS benchmark: 1D diffusion transient with ``exp(-pi^2 D t) sin(pi x)``.
 
+Compared with: the manufactured solution `h(x, t) = exp(-pi^2 D t) sin(pi x)` and the expected orders: 2 in space, 1 in time for backward Euler.
+
 Governing PDE on ``[0, 1]`` with Dirichlet 0/0 and initial condition
 ``h(x, 0) = sin(pi x)``::
 
     h_t - D h_xx = 0
 
 The manufactured solution ``h(x, t) = exp(-pi^2 D t) sin(pi x)`` is an
-exact eigenfunction of the Laplacian with no forcing. The discretisation
-combines the standard second-order centred-space stencil with either
+exact eigenfunction of the Laplacian with no forcing. The discretization
+combines the standard second-order centered-space stencil with either
 backward Euler (first-order in time) or Crank-Nicolson (second-order in
 time) for the temporal update. Two refinement studies are run:
 
@@ -21,9 +23,9 @@ Scope, read this before citing the result
 -----------------------------------------
 This file imports nothing from ``hydromodpy``. It verifies the *scheme* on a
 stencil assembled inside the test, which is what MMS is for: it establishes
-that the discretisation written here converges at its theoretical order. It
+that the discretization written here converges at its theoretical order. It
 does **not** exercise HydroModPy's own assembly, so a passing run here is not
-evidence that the production discretisation is second-order.
+evidence that the production discretization is second-order.
 
 What does cover the production path is the analytical tier
 (``tests/validation/analytical/``): Theis, Hantush and Ogata-Banks run a real
@@ -38,7 +40,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from .conftest import l2_error, run_mms_convergence
+from .conftest import assert_order, l2_error, run_mms_convergence
+
+NOT_APPLICABLE = {
+    "*": "The test assembles its own space and time stencils and imports nothing from hydromodpy, so there is no HydroModPy solver to run. It verifies the convergence orders of those stencils.",
+}
 
 D = 1.0  # diffusion coefficient (unit strength keeps numbers O(1))
 T_FINAL = 0.1  # final time - several e-folding times for D = 1
@@ -64,7 +70,7 @@ def _solve_diffusion_1d(
     Returns ``(x, u_final, dx, dt)`` where ``x`` contains boundary nodes and
     ``u_final`` the solution at ``t = n_steps * dt`` on the same grid.
     Backward Euler (``"be"``) is first-order in time, Crank-Nicolson
-    (``"cn"``) is second-order. The spatial stencil is centred second order
+    (``"cn"``) is second-order. The spatial stencil is centered second order
     in both cases.
     """
     if n_cells < 3:
@@ -126,10 +132,7 @@ def test_mms_diffusion_transient_space_converges_at_order_two() -> None:
     assert np.all(np.diff(errors) < 0.0), (
         f"Spatial MMS errors should decrease, got {errors.tolist()}"
     )
-    assert abs(result.order - 2.0) < 0.2, (
-        f"Expected second-order spatial convergence, observed slope {result.order:.3f} "
-        f"(errors={errors.tolist()})"
-    )
+    assert_order(result, 2.0, 0.2, "grid spacing dx")
 
 
 @pytest.mark.validation
@@ -145,7 +148,4 @@ def test_mms_diffusion_transient_time_converges_at_order_one() -> None:
     assert np.all(np.diff(errors) < 0.0), (
         f"Temporal MMS errors should decrease, got {errors.tolist()}"
     )
-    assert abs(result.order - 1.0) < 0.2, (
-        f"Expected first-order temporal convergence (backward Euler), "
-        f"observed slope {result.order:.3f} (errors={errors.tolist()})"
-    )
+    assert_order(result, 1.0, 0.2, "time step dt")

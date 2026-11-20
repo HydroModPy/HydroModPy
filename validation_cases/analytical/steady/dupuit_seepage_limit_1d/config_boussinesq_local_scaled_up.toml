@@ -1,0 +1,11 @@
+# Default local engine on the scaled_up scenario.
+[flow]
+
+[flow.ic]
+kind = "custom"
+value = 4.0
+
+[solver.boussinesq]
+max_iterations = 300
+tol_residual_inf = 1e-6
+tol_state_update_inf = 1e-9

@@ -13,7 +13,10 @@ from validation_cases.shared import load_case_metadata
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "lu_recharge_step_1d"
 NX = 40
-NY = 3
+# Square cells (dx = dy = 2.5 m). On right triangles of unequal sides the
+# two-point flux of the solver is not consistent and acts as a conductance
+# error: with NY = 3 the recharge step ended 1.1e-2 m off, against 8e-4 m here.
+NY = 4
 LENGTH_X_M = 100.0
 WIDTH_Y_M = 10.0
 
@@ -40,10 +43,7 @@ def run_boussinesq_linearized_unconfined_recharge_step_case(
 
     flow_section = {
         "flow_regime": "transient",
-        "runtime_backend": str(runtime_backend),
-        "ic": {"type": "custom", "value": base_head_m},
-        "active_sinks_sources": ["recharge"],
-        "active_bc": ["west_side", "east_side"],
+        "ic": {"kind": "custom", "value": base_head_m},
         "sinks_sources": {
             "recharge": {
                 "values": recharge_rate_m_s,
@@ -56,10 +56,11 @@ def run_boussinesq_linearized_unconfined_recharge_step_case(
             "east_side": {"value": base_head_m},
         },
     }
+    boussinesq_settings: dict[str, object] = {"backend": str(runtime_backend)}
     if surface_interaction_model is not None:
-        flow_section["surface_interaction_model"] = str(surface_interaction_model)
+        boussinesq_settings["surface_interaction_model"] = str(surface_interaction_model)
     if str(surface_interaction_model or "").strip().lower() == "ts_vi_obstacle":
-        flow_section.update(
+        boussinesq_settings.update(
             {
                 "ts_vi_steps_per_period": 4,
                 "ts_vi_adapt": False,
@@ -68,7 +69,7 @@ def run_boussinesq_linearized_unconfined_recharge_step_case(
             }
         )
     if str(surface_interaction_model or "").strip().lower() == "vi_obstacle":
-        flow_section.update(
+        boussinesq_settings.update(
             {
                 "vi_substeps_per_period": 4,
                 "vi_substep_on_failure": False,
@@ -91,6 +92,7 @@ def run_boussinesq_linearized_unconfined_recharge_step_case(
         hydraulic_conductivity_m_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         storage_coefficient=float(reference_cfg["specific_yield"]),
         flow_section=flow_section,
+        boussinesq_settings=boussinesq_settings,
         plan_name="Boussinesq recharge-step validation",
         plan_description="Transient uniform recharge step on a 1D strip",
         public_solver_label=public_solver_label,

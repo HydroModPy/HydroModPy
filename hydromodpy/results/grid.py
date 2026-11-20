@@ -1,11 +1,10 @@
-"""Scalar spatial metadata for a simulation: cell size, shape, extent.
+"""Scalar metadata of the DEM raster a simulation was built from: pixel size, shape, extent.
 
-Exposed as :attr:`hydromodpy.results.run.Run.grid`. Provides the
-scalars typically needed when post-processing or plotting a
-distributed simulation without reaching for the raw DEM transform.
-
-Lumped simulations (e.g. GR4J, ``solver_category == "lumped"``) raise
-``RuntimeError`` because they have no spatial discretisation.
+Exposed as :attr:`hydromodpy.results.run.view.Run.grid`. It describes the DEM
+raster, never the cells of the model: a mesh is not obliged to follow the
+pixels. The cells of a run, their centers and their areas are read from
+:attr:`hydromodpy.results.run.view.Run.mesh`. A global model on the one-cell mesh
+gets the same answer, for the one pixel its DEM stores.
 """
 
 from __future__ import annotations
@@ -13,12 +12,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 from hydromodpy.results.run.geographic import crs_proj_from_metadata
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 __all__ = ["Grid", "build_grid"]
@@ -26,12 +23,12 @@ __all__ = ["Grid", "build_grid"]
 
 @dataclass(frozen=True, slots=True)
 class Grid:
-    """Scalar spatial metadata for a regular-in-plan simulation.
+    """Scalar metadata of the DEM raster of a simulation.
 
     Attributes
     ----------
     cell_size : float
-        DEM pixel size in metres (uniform for ``dis`` / ``disv``).
+        DEM pixel size in meters.
     shape : tuple[int, int]
         DEM raster shape as ``(nrow, ncol)``.
     extent : tuple[float, float, float, float]
@@ -42,8 +39,13 @@ class Grid:
     catchment_area_m2 : float
         Catchment area from the watershed delineation polygon (m²),
         i.e. ``catch_area`` stored in the catalog converted to m².
-        For a mask-consistent area use
-        ``int(run.catchment_mask.sum()) * grid.cell_size ** 2``.
+        For the area of the catchment as the run saw it, sum
+        ``run.mesh.cell_areas()`` over ``run.catchment_mask``, which is one
+        value per face. For the polygon area on the mesh, weigh the same
+        areas by ``views.catchment_weights(run)``, the share of each face
+        inside the polygon. ``int(run.catchment_mask.sum()) * grid.cell_size ** 2``
+        holds only for a run sealed before the basin of D was stored and whose
+        cells are the DEM pixels, where the mask is the DEM raster mask.
     """
 
     cell_size: float
@@ -52,36 +54,19 @@ class Grid:
     crs: str | None
     catchment_area_m2: float
 
-    def cell_centers_xy(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return ``(xs, ys)`` flat arrays of cell-centre coordinates.
-
-        Row-major ordering matches the flat cell-field layout used by Zarr
-        readers (row 0 first, then row 1, etc.). Each array has length
-        ``nrow * ncol``.
-        """
-        nrow, ncol = int(self.shape[0]), int(self.shape[1])
-        xmin, xmax, ymin, ymax = (float(v) for v in self.extent)
-        cs = float(self.cell_size)
-        x_centres = xmin + (np.arange(ncol) + 0.5) * cs
-        y_centres = ymax - (np.arange(nrow) + 0.5) * cs
-        xs = np.tile(x_centres, nrow)
-        ys = np.repeat(y_centres, ncol)
-        return xs, ys
-
 
 def build_grid(run: Run) -> Grid:
     """Read scalar grid metadata for ``run`` from the catalog + DEM transform.
 
+    A global model on the one-cell mesh answers like any run, from the one
+    pixel its DEM stores.
+
     Raises
     ------
     RuntimeError
-        If the simulation is lumped (no spatial grid), or if the required
-        entries (``dem_res``, ``nrow``, ``ncol``) are missing from
-        ``geographic_metadata``.
+        If the required entries (``dem_res``, ``nrow``, ``ncol``) are missing
+        from ``geographic_metadata``.
     """
-    if run._load_row().get("solver_category") == "lumped":
-        raise RuntimeError("lumped simulation has no spatial grid")
-
     meta = run._catalog.read_geographic_metadata(run._sim_id)
     missing = [k for k in ("dem_res", "nrow", "ncol") if k not in meta]
     if missing:

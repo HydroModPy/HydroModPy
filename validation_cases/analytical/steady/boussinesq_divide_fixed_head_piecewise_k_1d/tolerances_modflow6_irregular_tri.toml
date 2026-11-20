@@ -1,4 +1,12 @@
 [head_profile]
-rmse = 0.39
-max_abs_error = 0.52
+rmse = 0.024
+max_abs_error = 0.035
 row_spread = 1e-9
+
+[doc]
+reason = """
+Twice the error measured on the 176-triangle strip: RMSE 1.2e-2 m, max error
+1.7e-2 m. The heads are posed at the mean centroid of the triangles that own a
+boundary edge, and the reference is averaged over the same x bins as the
+model. The row spread is zero by construction: the loader tiles one profile.
+"""

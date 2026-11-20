@@ -1,0 +1,182 @@
+"""The depth models of ``[domain]``, the four ways to place the base of the aquifer.
+
+Each model has its own ``kind``: ``constant_thickness``, ``flat_substratum``,
+``raster_substratum`` and ``raster_thickness``. The first two need no file. The two raster
+models read a raster from ``[data.substratum]``, which ``build.py`` reads.
+"""
+
+from __future__ import annotations
+
+from typing import Annotated, Literal, TypeAlias
+
+from pydantic import Field
+
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.units.types import LengthMeters
+
+
+class ConstantThicknessDepthModel(HydroModelBase):
+    """
+    Vertical model using one constant thickness below topography.
+
+    Bottom elevation is computed cell-wise as:
+    ``bottom = top_surface - thickness``.
+    """
+
+    kind: Annotated[Literal["constant_thickness"], Profile.USER] = Field(
+        default="constant_thickness",
+        description=(
+            "Depth-model kind discriminator. Use 'constant_thickness' to define "
+            "bottom as top-thickness."
+        ),
+    )
+    thickness: Annotated[LengthMeters, Profile.USER] = Field(
+        default=50.0,
+        gt=0.0,
+        description=(
+            "Constant aquifer thickness applied below topography (canonical metres). "
+            "Accepts inline units, e.g. '0.2 km'."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                # No bounds: the range a thickness may take is a property of the
+                # site, so the file states it, and the registry refuses a bound
+                # past 0 .. 10 km. Log space because the thickness enters the
+                # transmissivity T = K * d as a factor, like K itself, and a search
+                # between 5 and 300 m covers almost two decades.
+                search_space="log",
+                sampling="log_uniform",
+                units="m",
+                description="Aquifer thickness below the topography, one value everywhere.",
+            )
+        ),
+    )
+
+
+class FlatSubstratumDepthModel(HydroModelBase):
+    """
+    Vertical model using one flat (constant-elevation) substratum.
+
+    Bottom elevation is constant over the whole domain:
+    ``bottom = substratum_elevation``.
+    """
+
+    kind: Annotated[Literal["flat_substratum"], Profile.USER] = Field(
+        default="flat_substratum",
+        description=(
+            "Depth-model kind discriminator. "
+            "Use 'flat_substratum' to define one constant bottom elevation."
+        ),
+    )
+    substratum_elevation: Annotated[LengthMeters, Profile.USER] = Field(
+        default=0.0,
+        description=(
+            "Flat substratum elevation applied over the full domain (canonical metres). "
+            "Accepts inline units, e.g. '40 m'. This is an ABSOLUTE elevation, not a "
+            "depth below topography: where the land surface drops under it, no aquifer "
+            "is left. Use 'constant_thickness' to follow the relief instead."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                # No bounds: an elevation range belongs to the site, and the
+                # registry refuses a bound past -500 .. 9000 m. Linear space and a
+                # uniform sampling because an elevation has no natural zero: it can be
+                # negative, and a meter matters as much at 10 m as at 100 m.
+                search_space="identity",
+                sampling="uniform",
+                units="m",
+                description="Elevation of the flat substratum, one value everywhere.",
+            )
+        ),
+    )
+
+
+class RasterDepthModel(HydroModelBase):
+    """
+    What the two raster depth models share.
+
+    Both read the raster ``[data.substratum]`` declares. It is reprojected onto
+    the grid of the top surface and must cover every cell of the domain: the
+    whole catchment for ``geographic.domain_extent = "watershed"``, the whole
+    buffered box for ``"box"``. The substratum it places is shifted by
+    ``offset``, then capped at ``top - min_thickness``.
+    """
+
+    kind: str
+    offset: Annotated[LengthMeters, Profile.USER] = Field(
+        default=0.0,
+        description=(
+            "Vertical shift added to the substratum everywhere (canonical metres). "
+            "Positive raises it, so it thins the aquifer. One number to move the whole "
+            "surface, for a sensitivity test for example. Accepts inline units, e.g. '-5 m'."
+        ),
+    )
+    min_thickness: Annotated[LengthMeters, Profile.USER] = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "Smallest aquifer thickness kept under the top (canonical metres). Where "
+            "the raster places the substratum higher than top - min_thickness, it is "
+            "lowered to that level and a warning counts the cells."
+        ),
+    )
+
+
+class RasterSubstratumDepthModel(RasterDepthModel):
+    """
+    Vertical model reading the substratum elevation from a raster.
+
+    The raster twin of ``flat_substratum``: ``bottom = raster + offset``.
+    """
+
+    kind: Annotated[Literal["raster_substratum"], Profile.USER] = Field(
+        default="raster_substratum",
+        description=(
+            "Depth-model kind discriminator. Use 'raster_substratum' when the raster "
+            "declared under [data.substratum] holds the elevation of the substratum "
+            "(metres, same datum as the DEM)."
+        ),
+    )
+
+
+class RasterThicknessDepthModel(RasterDepthModel):
+    """
+    Vertical model reading the aquifer thickness from a raster.
+
+    The raster twin of ``constant_thickness``:
+    ``bottom = top - scale * raster + offset``.
+    """
+
+    kind: Annotated[Literal["raster_thickness"], Profile.USER] = Field(
+        default="raster_thickness",
+        description=(
+            "Depth-model kind discriminator. Use 'raster_thickness' when the raster "
+            "declared under [data.substratum] holds the aquifer thickness below the "
+            "top surface (metres)."
+        ),
+    )
+    scale: Annotated[float, Profile.USER] = Field(
+        default=1.0,
+        gt=0.0,
+        description="Factor applied to the thickness raster (dimensionless).",
+        json_schema_extra={"unit": "-"},
+    )
+
+
+RASTER_DEPTH_MODEL_KINDS = frozenset({"raster_substratum", "raster_thickness"})
+"""The depth-model kinds that read the ``[data.substratum]`` raster."""
+
+
+DepthModelConfig: TypeAlias = Annotated[
+    ConstantThicknessDepthModel
+    | FlatSubstratumDepthModel
+    | RasterSubstratumDepthModel
+    | RasterThicknessDepthModel,
+    Field(
+        discriminator="kind",
+        description="Discriminated union of depth-model variants selected by the kind tag.",
+    ),
+]

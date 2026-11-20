@@ -1,0 +1,81 @@
+# Nancon, the method of run_calibration.toml written out as two phases. It runs
+# the same trials; only the citation a protocol run records is lost.
+# `hmp calibrate run_calibration.toml --expand` prints what this file follows.
+#
+#   hmp calibrate run_calibration_by_hand.toml --list-phases   same lines as run_calibration.toml
+#   hmp run       run_calibration_by_hand.toml                 both phases, in order
+
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_intermittence_mf6_by_hand"
+description = "Nancon, K from the mapped network then Sy from the gauge."
+
+[calibration]
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+
+# An output is a simulated quantity with its observation.
+[calibration.outputs.seepage_network]
+support = "network"
+
+# The record of the gauge of [site], on the simulated months: a point output
+# that names no station observes the gauge.
+
+[calibration.outputs.seepage_network.map]
+complete = "../../../../examples/data/hydrography/nancon_stream_network.gpkg"
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+
+# A block scores outputs with one metric. Eq. 1: the network gap in meters,
+# zero when the simulated network reaches as far as the mapped one.
+[[calibration.objective_blocks]]
+name = "network_extension"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+# NSE on log discharge, which weights the recessions where storage shows.
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["hydrograph"]
+
+# Phase one: K alone, one steady period over 2000-2002, bisection on log K.
+[[calibration.phases]]
+name = "steady_conductivity"
+description = "Match the simulated seepage network to the mapped one by moving K, steady state over the record."
+parameters = ["K"]
+regime = "steady"
+objective_blocks = ["network_extension"]
+method = "bisection"
+max_trials = "auto"   # the bisection budgets its own worst case
+
+# Phase two: Sy alone, monthly transient, K from phase one. It does not start
+# if phase one did not converge.
+[[calibration.phases]]
+name = "transient_storage"
+description = "Read Sy from the observed hydrograph, K frozen, transient, scored over [metrics] window, 2001-01-01 to 2002-12-31."
+parameters = ["Sy"]
+regime = "transient"
+objective_blocks = ["hydrograph"]
+method = "scipy_nelder_mead"
+max_trials = 30
+precision = 0.05
+depends_on = "steady_conductivity"
+# No window: the phase scores [metrics] window of project.toml,
+# 2001-2002, as the protocol writes it. 2000 is spin-up.
+
+# The figures and the exports of project.toml, for the best run of each
+# phase, plus the gauged discharge against the simulated one, month by month.
+[display]
+figure__append = [
+    {variable = "discharge", type = "xy", observed = true, reference = ["one_to_one"]},
+]

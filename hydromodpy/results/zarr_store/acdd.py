@@ -1,9 +1,13 @@
 """ACDD-1.3 root-attribute composition for Zarr stores.
 
-Source of values is the DuckDB ``simulations`` row plus ``runs_environment``
-plus an optional workspace ``[project]`` table parsed from ``workspace.toml``.
-The composer is pure: it consumes plain dicts and returns a plain dict, so it
-stays easy to unit-test and to drive from any catalog backend.
+Source of values is the row the seal builds from the facts of the run, its
+host snapshot, and an optional ``[project]`` table parsed from
+``workspace.toml``. The composer is pure: it consumes plain dicts and returns
+a plain dict, so it stays easy to unit-test. The identity attributes
+(``project``, the site, and ``processing_level``, from the label) are not
+composed here: :meth:`hydromodpy.results.identity.Identity.apply_to_zarr`
+poses them at the seal, the one rule for every file of a run. A run that
+states no licence is ``LicenseRef-undetermined``, as in its Parquet footers.
 """
 
 from __future__ import annotations
@@ -11,23 +15,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.zarr_store.constants import CF_CONVENTIONS, ZARR_SCHEMA_VERSION
-
-# ACDD-1.3 Highly Recommended attributes (11 entries, per ACDD §2.6.1).
-HIGHLY_RECOMMENDED = (
-    "title",
-    "summary",
-    "keywords",
-    "keywords_vocabulary",
-    "Conventions",
-    "id",
-    "naming_authority",
-    "creator_name",
-    "creator_email",
-    "creator_institution",
-    "creator_url",
-)
 
 
 def _isoformat(value: Any) -> str:
@@ -44,20 +34,19 @@ def compose_acdd_root_attrs(
     runs_env: dict[str, Any] | None,
     project_table: dict[str, Any] | None = None,
     geographic_bounds: dict[str, float] | None = None,
-    history_lines: list[str] | None = None,
 ) -> dict[str, Any]:
     """Return the ACDD/CF root attributes for one simulation.
 
-    ``sim_row``: the ``simulations`` DB row as a dict. Recognised keys are
+    ``sim_row``: the row of the run as a dict. Recognized keys are
     ``sim_id``, ``name``, ``description``, ``project``, ``solver``,
-    ``study_area_name``, ``period_start``, ``period_end``, ``time_unit``,
+    ``period_start``, ``period_end``, ``time_unit``,
     ``crs_wkt``, ``crs_epsg``, ``bbox_xmin``, ``bbox_ymin``, ``bbox_xmax``,
     ``bbox_ymax``, ``contact_email``, ``doi``, ``scientific_objective``,
     ``creator_institution``, ``creator_url``, ``naming_authority``,
-    ``keywords``, ``license``, ``processing_level``, ``time_coverage_duration``,
+    ``keywords``, ``license``, ``time_coverage_duration``,
     ``time_coverage_resolution``.
 
-    ``runs_env``: a ``runs_environment`` row dict. Recognised: ``user_name``,
+    ``runs_env``: the host snapshot of the run. Recognized: ``user_name``,
     ``hostname``, ``hydromodpy_version``, ``git_commit``, ``rng_seed``,
     ``solver_binary_sha256``, ``solver_version_text``.
 
@@ -66,10 +55,9 @@ def compose_acdd_root_attrs(
     sim_row lacks a value.
 
     ``geographic_bounds``: optional ``{lat_min, lat_max, lon_min, lon_max,
-    vertical_min, vertical_max}`` reprojected in WGS84 / metres.
+    vertical_min, vertical_max}`` reprojected in WGS84 / meters.
 
-    ``history_lines``: optional list of ISO-prefixed history entries; the
-    composer adds the current ``finalize`` timestamp at the end.
+    The history holds the current ``finalize`` timestamp.
     """
     sim = dict(sim_row or {})
     env = dict(runs_env or {})
@@ -98,11 +86,9 @@ def compose_acdd_root_attrs(
     if solver:
         keywords_default = f"{keywords_default}, {solver}"
     keywords = pick("keywords") or keywords_default
-    license_value = pick("license") or "CC-BY-4.0"
+    license_value = pick("license") or UNDETERMINED_LICENSE
 
-    history_chain = list(history_lines or [])
-    history_chain.append(f"{now_iso}: hydromodpy finalize")
-    history = " ; ".join(history_chain)
+    history = f"{now_iso}: hydromodpy finalize"
 
     duration_iso = pick("time_coverage_duration")
     resolution_iso = pick("time_coverage_resolution") or _iso_resolution(sim.get("time_unit"))
@@ -132,7 +118,7 @@ def compose_acdd_root_attrs(
         "keywords_vocabulary": str(pick("keywords_vocabulary") or "GCMD Science Keywords"),
         "id": str(sim.get("sim_id") or ""),
         "naming_authority": str(pick("naming_authority") or "org.hydromodpy.catalog"),
-        "creator_name": str(pick("creator_name", "user_name")),
+        "creator_name": str(pick("creator_name")),
         "creator_email": str(pick("creator_email", "contact_email")),
         "creator_institution": str(pick("creator_institution")),
         "creator_url": str(pick("creator_url")),
@@ -140,28 +126,22 @@ def compose_acdd_root_attrs(
         "history": history,
         "source": "; ".join(source_parts),
         "references": str(pick("references", "doi")),
-        "project": str(pick("project")),
-        "processing_level": str(pick("processing_level") or "Modeled L2"),
         "license": str(license_value),
         "comment": str(comment),
         "date_modified": now_iso,
         "metadata_link": str(metadata_link),
         # Publisher trio (ACDD §2.6.4).
-        "publisher_name": str(pick("publisher_name") or pick("creator_name", "user_name")),
+        "publisher_name": str(pick("publisher_name") or pick("creator_name")),
         "publisher_email": str(pick("publisher_email", "creator_email", "contact_email")),
         "publisher_url": str(pick("publisher_url", "creator_url")),
         # Vocabularies (ACDD §2.6.3 + CF §2.6.1).
         "standard_name_vocabulary": str(
             pick("standard_name_vocabulary") or "CF Standard Name Table v85"
         ),
-        "cdm_data_type": str(pick("cdm_data_type") or "Grid"),
-        # Geospatial bounds (WGS84 by convention).
-        "geospatial_lat_min": lat_min,
-        "geospatial_lat_max": lat_max,
-        "geospatial_lon_min": lon_min,
-        "geospatial_lon_max": lon_max,
-        "geospatial_vertical_min": float(bounds.get("vertical_min", float("nan"))),
-        "geospatial_vertical_max": float(bounds.get("vertical_max", float("nan"))),
+        # The primary variables live on an unstructured UGRID face index. The
+        # Unidata CDM feature types have no value for that, and ``Grid`` is the
+        # one value that is affirmatively wrong.
+        "cdm_data_type": str(pick("cdm_data_type") or "UGRID"),
         # Units + resolution + bounds geometry (ACDD §2.6.4).
         "geospatial_lat_units": str(pick("geospatial_lat_units") or "degrees_north"),
         "geospatial_lat_resolution": str(pick("geospatial_lat_resolution")),
@@ -172,8 +152,6 @@ def compose_acdd_root_attrs(
         "geospatial_bounds": geospatial_bounds_wkt,
         "geospatial_bounds_crs": str(pick("geospatial_bounds_crs") or "EPSG:4326"),
         # Temporal coverage.
-        "time_coverage_start": _isoformat(sim.get("period_start")),
-        "time_coverage_end": _isoformat(sim.get("period_end")),
         "time_coverage_duration": str(duration_iso),
         "time_coverage_resolution": str(resolution_iso),
         # HydroModPy-specific provenance (additive).
@@ -184,6 +162,38 @@ def compose_acdd_root_attrs(
         "hydromodpy_rng_seed": int(env["rng_seed"]) if env.get("rng_seed") is not None else -1,
         "zarr_schema_version": ZARR_SCHEMA_VERSION,
     }
+    # ACDD reads an absent attribute as unknown and a present one as declared,
+    # so an identity nobody gave stays out rather than becoming an empty string
+    # or, worse, the Unix account that happened to run the process.
+    for key in ("creator_name", "publisher_name"):
+        if not attrs[key]:
+            del attrs[key]
+
+    # A run with no simulated period declares no temporal extent. Writing the
+    # registration instant here published the wall clock of the execution as
+    # the period the data covers, on 25 of 89 stores.
+    for key, source in (
+        ("time_coverage_start", sim.get("period_start")),
+        ("time_coverage_end", sim.get("period_end")),
+    ):
+        value = _isoformat(source)
+        if value:
+            attrs[key] = value
+
+    # Geospatial bounds (WGS84 degrees by ACDD definition). An unknown bound is
+    # omitted, never written as NaN: JSON has no NaN token, so a bare one makes
+    # ``zarr.json`` unparseable for every strict reader, and the key would claim
+    # a coverage nobody computed.
+    for key, value in (
+        ("geospatial_lat_min", lat_min),
+        ("geospatial_lat_max", lat_max),
+        ("geospatial_lon_min", lon_min),
+        ("geospatial_lon_max", lon_max),
+        ("geospatial_vertical_min", float(bounds.get("vertical_min", float("nan")))),
+        ("geospatial_vertical_max", float(bounds.get("vertical_max", float("nan")))),
+    ):
+        if value == value:  # NaN check
+            attrs[key] = value
     return attrs
 
 
@@ -222,4 +232,4 @@ def _iso_resolution(time_unit: Any) -> str:
     }.get(name, "")
 
 
-__all__ = ["compose_acdd_root_attrs", "HIGHLY_RECOMMENDED"]
+__all__ = ["compose_acdd_root_attrs"]

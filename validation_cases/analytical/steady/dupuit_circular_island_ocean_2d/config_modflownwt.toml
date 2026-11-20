@@ -14,11 +14,8 @@ coverage_policy = "ignore"
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
-
-[workspace]
-project_root = "."
 
 [geographic]
 source_mode = "synthetic"
@@ -44,6 +41,9 @@ island_radius = "200.0 m"
 kind = "flat_substratum"
 substratum_elevation = -5.0
 
+[domain.layers]
+nlay = 1
+
 [data]
 types = ["oceanic", "recharge"]
 inference_mode = "strict"
@@ -55,8 +55,6 @@ value = 0.0
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["ocean"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -65,7 +63,7 @@ kind = "homogeneous"
 value = "5e-6 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "1.0 m"
 
 [flow.bc.ocean]
@@ -78,16 +76,6 @@ first_clim = "mean"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [1.0]
-runoff_ratio = 0.0
-
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 61
-ny = 61
-resampling = "nearest"
-
-[modflownwt.sgrid.vertical]
-nlay = 1
 
 [display]
 enabled = false

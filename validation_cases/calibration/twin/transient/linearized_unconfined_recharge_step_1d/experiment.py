@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from validation_cases.calibration.shared.definitions import (
@@ -12,7 +13,12 @@ from validation_cases.calibration.shared.definitions import (
     TwinOutputSpec,
     TwinParameterTarget,
 )
-from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
+from validation_cases.calibration.shared.solver_variants import (
+    TWIN_SOLVERS,
+    VARIANTS,
+    case_id_for,
+    config_builder,
+)
 
 CASE_DIR = (
     Path(__file__).resolve().parents[4]
@@ -22,17 +28,14 @@ CASE_DIR = (
 )
 
 
-def build_simulation_config(path: Path, project_root: Path) -> None:
+def build_simulation_config(path: Path) -> None:
     """Write one MODFLOW 6 simulation config for the transient twin benchmark."""
-    from validation_cases.shared.runtime import _dump_toml
-
-    payload = _merge_toml_payloads(
-        _read_toml(CASE_DIR / "config_modflownwt.toml"),
-        _read_toml(CASE_DIR / "config_modflow6.toml"),
-    )
-    payload.setdefault("workspace", {})["project_root"] = str(project_root)
-    payload.setdefault("simulation", {})["name"] = "transient_lu_truth"
-    path.write_text(_dump_toml(payload), encoding="utf-8", newline="\n")
+    config_builder(
+        "modflow6",
+        case_dir=CASE_DIR,
+        common_files=("config_modflownwt.toml",),
+        run_id="transient_lu_truth",
+    )(path)
 
 
 def _gp_mapping_profile(*, seed: int = 13) -> CalibrationMethodProfile:
@@ -61,7 +64,7 @@ def _cma_es_profile(*, seed: int = 13) -> CalibrationMethodProfile:
         method_kwargs={
             "sigma0": 0.22,
             "popsize": 10,
-            "max_evaluations": 40,
+            "max_trials": 40,
             "seed": int(seed),
             "normalize": True,
         },
@@ -69,13 +72,13 @@ def _cma_es_profile(*, seed: int = 13) -> CalibrationMethodProfile:
     )
 
 
-def _optuna_profile(*, seed: int = 13, max_iter: int = 40) -> CalibrationMethodProfile:
+def _optuna_profile(*, seed: int = 13, max_trials: int = 40) -> CalibrationMethodProfile:
     """Return one compact Optuna/TPE profile for transient K+Sy recovery."""
     return CalibrationMethodProfile(
         name="optuna",
         method_kwargs={
             "sampler": "tpe",
-            "max_iter": int(max_iter),
+            "max_trials": int(max_trials),
             "seed": int(seed),
         },
         persist_model_distribution=True,
@@ -150,7 +153,7 @@ def _da_mh_gp_profile(*, seed: int = 13) -> CalibrationMethodProfile:
         method_kwargs={
             "sigma_noise": 0.1,
             "n_init": 10,
-            "max_iter": 96,
+            "chain_length": 96,
             "burn_in": 24,
             "thin": 2,
             "proposal_sigma": 0.04,
@@ -186,14 +189,14 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"max_iter": 16, "seed": 11},
+            method_kwargs={"max_trials": 16, "seed": 11},
             persist_model_distribution=True,
         ),
-        _optuna_profile(seed=13, max_iter=40),
+        _optuna_profile(seed=13, max_trials=40),
         _cma_es_profile(seed=13),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
-            method_kwargs={"maxiter": 12, "xatol": 1.0e-6, "fatol": 1.0e-6},
+            method_kwargs={"max_trials": 12, "xatol": 1.0e-6, "fatol": 1.0e-6},
             persist_model_distribution=False,
         ),
         _gp_mapping_profile(seed=13),
@@ -232,15 +235,15 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"max_iter": 24},
+            method_kwargs={"max_trials": 24},
             persist_model_distribution=True,
             repeat_seeds=(11, 23, 37),
         ),
-        _optuna_profile(seed=13, max_iter=40),
+        _optuna_profile(seed=13, max_trials=40),
         _cma_es_profile(seed=13),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
-            method_kwargs={"maxiter": 12, "xatol": 1.0e-6, "fatol": 1.0e-6},
+            method_kwargs={"max_trials": 12, "xatol": 1.0e-6, "fatol": 1.0e-6},
             persist_model_distribution=False,
         ),
         _gp_mapping_profile(seed=13),
@@ -283,17 +286,17 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"max_iter": 24, "seed": 11},
+            method_kwargs={"max_trials": 24, "seed": 11},
             persist_model_distribution=True,
             success_metric="best_fit_or_distribution",
         ),
-        _optuna_profile(seed=13, max_iter=48),
+        _optuna_profile(seed=13, max_trials=48),
         CalibrationMethodProfile(
             name="cma_es",
             method_kwargs={
                 "sigma0": 0.24,
                 "popsize": 12,
-                "max_evaluations": 56,
+                "max_trials": 56,
                 "seed": 13,
                 "normalize": True,
             },
@@ -302,7 +305,7 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
         ),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
-            method_kwargs={"maxiter": 16, "xatol": 1.0e-6, "fatol": 1.0e-6},
+            method_kwargs={"max_trials": 16, "xatol": 1.0e-6, "fatol": 1.0e-6},
             persist_model_distribution=False,
             success_metric="best_fit",
         ),
@@ -326,7 +329,7 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
             method_kwargs={
                 "sigma_noise": 0.1,
                 "n_init": 12,
-                "max_iter": 128,
+                "chain_length": 128,
                 "burn_in": 32,
                 "thin": 2,
                 "proposal_sigma": 0.05,
@@ -358,3 +361,38 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
     output_specs=_TRANSIENT_FLUX_ONLY_OUTPUT_SPECS,
     objective_block_specs=_TRANSIENT_FLUX_ONLY_OBJECTIVE_BLOCK_SPECS,
 )
+
+
+def _case_for(base: TwinCalibrationCaseDefinition, column: str) -> TwinCalibrationCaseDefinition:
+    """Return the transient twin ``base`` on one solver column.
+
+    The time discretization, the recharge step and the fixed heads come from
+    ``config_modflownwt.toml`` for every column. Only the solver file changes,
+    and for the unstructured columns the triangle bundle of the case.
+    """
+    if column == "modflow6":
+        return base
+    variant = VARIANTS[column]
+    return replace(
+        base,
+        case_id=case_id_for(base.case_id, column),
+        solver_name=variant.solver_name,
+        build_simulation_config=config_builder(
+            column,
+            case_dir=CASE_DIR,
+            common_files=("config_modflownwt.toml",),
+            run_id="transient_lu_truth",
+        ),
+    )
+
+
+TRANSIENT_RECHARGE_STEP_TWIN_CASES = {
+    column: _case_for(TRANSIENT_RECHARGE_STEP_TWIN_CASE, column) for column in TWIN_SOLVERS
+}
+"""One K+Sy head and flux twin per solver column, keyed by the matrix column."""
+
+TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASES = {
+    column: _case_for(TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE, column)
+    for column in TWIN_SOLVERS
+}
+"""One flux-only noisy twin per solver column, keyed by the matrix column."""

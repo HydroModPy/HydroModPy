@@ -21,7 +21,7 @@ canonical unit.
 Example
 -------
 >>> from pydantic import BaseModel
->>> from hydromodpy.core.units import HydraulicConductivity
+>>> from hydromodpy.core.units.types import HydraulicConductivity
 >>> class Aquifer(BaseModel):
 ...     k: HydraulicConductivity
 >>> Aquifer(k="1e-4 m/s").k.to("m/s").magnitude
@@ -62,7 +62,7 @@ def _coerce_bare_number(unit: str):
     def _coerce(value: Any) -> Any:
         if isinstance(value, bool):
             # bool is a subclass of int; reject explicitly to catch typos.
-            raise TypeError("numeric field rejected boolean input")
+            raise ValueError("numeric field rejected boolean input")
         if isinstance(value, (int, float)):
             return f"{value} {unit}"
         return value
@@ -109,7 +109,7 @@ Length = Annotated[
     BeforeValidator(_coerce_bare_number("m")),
     PlainSerializer(_to_canonical_magnitude("m"), return_type=float, when_used="unless-none"),
 ]
-"""Length in metres. Accepts ``1.0``, ``"1.0 m"``, ``"100 cm"``, ..."""
+"""Length in meters. Accepts ``1.0``, ``"1.0 m"``, ``"100 cm"``, ..."""
 
 
 Area = Annotated[
@@ -118,7 +118,7 @@ Area = Annotated[
     BeforeValidator(_coerce_bare_number("m**2")),
     PlainSerializer(_to_canonical_magnitude("m**2"), return_type=float, when_used="unless-none"),
 ]
-"""Area in square metres."""
+"""Area in square meters."""
 
 
 Volume = Annotated[
@@ -127,7 +127,7 @@ Volume = Annotated[
     BeforeValidator(_coerce_bare_number("m**3")),
     PlainSerializer(_to_canonical_magnitude("m**3"), return_type=float, when_used="unless-none"),
 ]
-"""Volume in cubic metres."""
+"""Volume in cubic meters."""
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +238,7 @@ def _coerce_to_canonical_float(unit: str):
             return _safe_to_canonical(value)
         # Numeric input (but not bool): treated as canonical unit magnitude.
         if isinstance(value, bool):
-            raise TypeError("numeric field rejected boolean input")
+            raise ValueError("numeric field rejected boolean input")
         if isinstance(value, (int, float)):
             return float(value)
         # String input parsed via the shared pint registry.
@@ -266,7 +266,7 @@ def _coerce_to_canonical_float(unit: str):
                 except Exception as exc:
                     raise ValueError(str(exc)) from exc
                 return _safe_to_canonical(quantity)
-        raise TypeError(f"unsupported value for canonical-{unit} float: {value!r}")
+        raise ValueError(f"unsupported value for canonical-{unit} float: {value!r}")
 
     return _coerce
 
@@ -275,7 +275,14 @@ LengthMeters = Annotated[
     float,
     BeforeValidator(_coerce_to_canonical_float("m")),
 ]
-"""Length in metres expressed as ``float``. Accepts ``"100 m"``, ``"1 km"``, ``50.0``."""
+"""Length in meters expressed as ``float``. Accepts ``"100 m"``, ``"1 km"``, ``50.0``."""
+
+
+LengthMillimeters = Annotated[
+    float,
+    BeforeValidator(_coerce_to_canonical_float("mm")),
+]
+"""Length in millimeters expressed as ``float``. Accepts ``"120 mm"``, ``"12 cm"``, ``120``."""
 
 
 AreaSquareMeters = Annotated[
@@ -297,6 +304,13 @@ DurationSeconds = Annotated[
     BeforeValidator(_coerce_to_canonical_float("s")),
 ]
 """Duration in seconds expressed as ``float``. Accepts ``"1 day"``, ``"3600 s"``."""
+
+
+DurationDays = Annotated[
+    float,
+    BeforeValidator(_coerce_to_canonical_float("day")),
+]
+"""Duration in days expressed as ``float``. Accepts ``"5 days"``, ``"1 week"``, ``5``."""
 
 
 HydraulicConductivityMPerS = Annotated[
@@ -322,6 +336,7 @@ __all__ = [
     "Area",
     "AreaSquareMeters",
     "Dimensionless",
+    "DurationDays",
     "DurationSeconds",
     "FlowRate",
     "FluxDensityMPerS",
@@ -329,6 +344,7 @@ __all__ = [
     "HydraulicConductivityMPerS",
     "Length",
     "LengthMeters",
+    "LengthMillimeters",
     "SpecificStorage",
     "SpecificYield",
     "Time",

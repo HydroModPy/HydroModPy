@@ -1,0 +1,102 @@
+"""The environment of a launched case, and the thread budget its worker applies.
+
+Why
+---
+A child of the launcher is an ordinary ``hmp run <case>.toml``. What makes
+it a launched case is its environment, built here. The scratch folder of a
+run is not part of it, since a run keeps that folder in its own context and a
+child claims one of its own. The environment of a case differs from its
+parent's in three ways:
+
+- ``HMP_SET_*`` are removed. The plan rendered them into each case, and a
+  worker of the plan refuses them.
+- ``HMP_LAUNCHED_CASE`` says who launched the case. The worker then leaves
+  the index to the launcher, which refreshes it after every case.
+- ``HMP_THREADS_PER_CASE`` carries ``[sites.run] threads_per_case``. The
+  worker applies it at its entry (:func:`apply_thread_budget`): the native
+  thread pools of the process through ``threadpoolctl``, and the usual
+  variables for the processes it starts itself.
+
+A child has no data cache of its own. It writes its files and their sidecars in
+the shared ``data/`` folder, one station at a time under the file lock of the
+chronicle (:meth:`hydromodpy.data.provenance.sidecars.CacheIndex.chronicle`), so
+the launcher has nothing to merge.
+
+The same variables are what a scheduler script sets for each task.
+"""
+
+from __future__ import annotations
+
+import os
+from collections.abc import Mapping
+
+from hydromodpy.core.toml_io.overrides import ENV_SET_PREFIX
+
+LAUNCHED_ENV = "HMP_LAUNCHED_CASE"
+"""Who launched the case (``local``, ``slurm``); the launcher indexes, not the case."""
+
+THREADS_ENV = "HMP_THREADS_PER_CASE"
+"""Threads one launched case may use, set by the launcher or the array script."""
+
+THREAD_LIMIT_VARIABLES: tuple[str, ...] = (
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+)
+"""Variables the native libraries of the child processes read for their pool size."""
+
+
+def child_environment(
+    base: Mapping[str, str],
+    *,
+    threads_per_case: int,
+) -> dict[str, str]:
+    """Return the environment of one launched case, built from *base*."""
+    env = {key: value for key, value in base.items() if not key.startswith(ENV_SET_PREFIX)}
+    env[THREADS_ENV] = str(int(threads_per_case))
+    return env
+
+
+def threads_of(env: Mapping[str, str]) -> int | None:
+    """Return the thread budget *env* carries, or ``None`` when it carries none.
+
+    Raises :class:`ValueError` on a value that is not a positive integer.
+    """
+    text = env.get(THREADS_ENV, "").strip()
+    if not text:
+        return None
+    value = int(text)
+    if value < 1:
+        raise ValueError(f"{THREADS_ENV}={text!r}: a thread budget is a positive integer")
+    return value
+
+
+def apply_thread_budget(env: Mapping[str, str] | None = None) -> int | None:
+    """Bound the threads of this process to the budget of its case; return it.
+
+    Does nothing and returns ``None`` outside a launched case. Inside one, the
+    native pools already loaded are limited through ``threadpoolctl`` and the
+    limit variables are written into ``os.environ`` for the processes this
+    worker starts.
+    """
+    budget = threads_of(os.environ if env is None else env)
+    if budget is None:
+        return None
+    for name in THREAD_LIMIT_VARIABLES:
+        os.environ[name] = str(budget)
+    from threadpoolctl import threadpool_limits
+
+    threadpool_limits(limits=budget)
+    return budget
+
+
+__all__ = [
+    "LAUNCHED_ENV",
+    "THREADS_ENV",
+    "THREAD_LIMIT_VARIABLES",
+    "apply_thread_budget",
+    "child_environment",
+    "threads_of",
+]

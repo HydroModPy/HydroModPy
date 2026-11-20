@@ -9,9 +9,11 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveFloat, PositiveInt
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
+from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 
 
 class Modflow6RuntimeConfig(HydroModelBase):
@@ -39,10 +41,10 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "Re-print the whole head field, formatted as text, into the model "
             "listing at every output step. Nothing in the package reads it, and "
             "the binary head file already carries the same numbers. It costs "
-            "DISK, not time: measured on the Nancon at 25 m, 243 552 cells over "
-            "1826 daily steps wrote a 2.96 GB listing, but a one-variable-at-a-"
-            "time probe put its effect on the solve at -0.4 per cent, inside the "
-            "noise. Default false to stop producing the file, not to go faster. "
+            "DISK, not time: on a 25 m mesh of about 240 000 cells, 1826 daily steps "
+            "wrote a listing of about 3 GB, but a one-variable-at-a-time probe put "
+            "its effect on the solve at -0.4 per cent, inside the noise. Default "
+            "false to stop producing the file, not to go faster. "
             "The listing keeps its budget summaries and its convergence reports "
             "either way, and Mf6ListBudget reads those."
         ),
@@ -53,20 +55,20 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "Compute and write the cell-by-cell Darcy velocity (DATA-SPDIS). "
             "Required by particle tracking and by any velocity figure. The cost "
             "is the COMPUTATION, not the write: MODFLOW interpolates a velocity "
-            "vector per cell at every step. Measured on the Nancon at 25 m by "
-            "changing this switch alone, 4.64 -> 3.68 s per step, 20.7 per cent "
-            "of the solve. A calibration that only scores a discharge series "
+            "vector per cell at every step. Measured by changing this switch alone "
+            "on a 25 m mesh of about 240 000 cells, it is about a fifth of the "
+            "solve. A calibration that only scores a discharge series "
             "should turn it off."
         ),
     )
     save_saturation: Annotated[bool, Profile.EXPERT] = Field(
         default=True,
         description=(
-            "Compute and write the cell saturation (DATA-SAT). Measured on the "
-            "Nancon at 25 m by changing this switch alone, 4.64 -> 4.13 s per "
-            "step, 10.9 per cent of the solve. Same reasoning as "
-            "save_specific_discharge: the cost is the per-cell computation, and "
-            "the two together are worth 34.5 per cent."
+            "Compute and write the cell saturation (DATA-SAT). Measured by changing "
+            "this switch alone on a 25 m mesh of about 240 000 cells, it is about a "
+            "tenth of the solve. Same reasoning as save_specific_discharge: the cost "
+            "is the per-cell computation, and the two together are worth about a "
+            "third."
         ),
     )
     mf6_runner: Annotated[Literal["subprocess", "api"], Profile.EXPERT] = Field(
@@ -80,9 +82,9 @@ class Modflow6RuntimeConfig(HydroModelBase):
     mf6_api_timeout_s: Annotated[PositiveFloat | None, Profile.EXPERT] = Field(
         default=None,
         description=(
-            "Wall-clock budget (seconds) for an isolated libmf6 ('api' runner) solve "
-            "in parallel calibration; the child is killed past it so one stuck trial "
-            "cannot wedge the session. None keeps the built-in default (2400 s)."
+            "Wall-clock budget (seconds) of one trial of a parallel calibration, whichever "
+            "runner solves it; its worker is killed past it so one stuck trial cannot wedge "
+            "the session. None keeps the built-in default (14400 s)."
         ),
     )
     mf6_ims_complexity: Annotated[Literal["SIMPLE", "MODERATE", "COMPLEX"], Profile.EXPERT] = Field(
@@ -104,10 +106,12 @@ class Modflow6RuntimeConfig(HydroModelBase):
     mf6_outer_maximum: Annotated[PositiveInt, Profile.EXPERT] = Field(
         default=500,
         description="Maximum number of IMS outer iterations.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_inner_maximum: Annotated[PositiveInt, Profile.EXPERT] = Field(
         default=500,
         description="Maximum number of IMS inner iterations.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_inner_rclose: Annotated[PositiveFloat | None, Profile.EXPERT] = Field(
         default=None,
@@ -116,11 +120,57 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "None keeps the complexity-preset default."
         ),
     )
+    mf6_backtracking_number: Annotated[int | None, Profile.EXPERT] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "IMS residual-reduction backtracking: maximum number of backtracking "
+            "steps tried per outer iteration (BACKTRACKING_NUMBER). Zero turns "
+            "backtracking off. None keeps the complexity-preset default (20 for "
+            "COMPLEX). Backtracking can stall the outer loop when a boundary "
+            "package feeds flow back to another (DRN to MVR to SFR); setting 0 "
+            "then often converges faster."
+        ),
+        json_schema_extra=field_metadata(unit="-"),
+    )
     mf6_linear_acceleration: Annotated[Literal["CG", "BICGSTAB"] | None, Profile.EXPERT] = Field(
         default=None,
         description=(
             "IMS linear acceleration: CG for symmetric matrices, BICGSTAB for the "
             "non-symmetric Newton formulation. None keeps the preset default."
+        ),
+    )
+    mf6_preconditioner_levels: Annotated[PositiveInt | None, Profile.EXPERT] = Field(
+        default=None,
+        description=(
+            "IMS ILUT fill: entries kept per row of each incomplete factor. A fill "
+            "as wide as the matrix band, with a zero drop tolerance, gives a "
+            "complete factorization. None keeps the preset default (5 for COMPLEX)."
+        ),
+        json_schema_extra=field_metadata(unit="-"),
+    )
+    mf6_preconditioner_drop_tolerance: Annotated[float | None, Profile.EXPERT] = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "IMS ILUT drop tolerance: factor entries below it are dropped. Zero "
+            "keeps every entry the fill allows. None keeps the preset default "
+            "(1e-4 for COMPLEX)."
+        ),
+    )
+    mf6_reordering_method: Annotated[Literal["none", "rcm", "md"], Profile.EXPERT] = Field(
+        default="none",
+        description=(
+            "IMS REORDERING_METHOD: order of the matrix rows before the incomplete "
+            "factorization. 'rcm' is reverse Cuthill-McKee, which narrows the band; "
+            "'md' is minimum degree, which limits the fill. 'none' keeps the cell "
+            "numbering of the mesh and writes nothing to the IMS file. The ordering "
+            "changes the preconditioner, so the iteration count and the time, not the "
+            "converged heads beyond the closure criteria. Measured on Voronoi DISV "
+            "meshes of 14 400 to 144 000 cells, with a shuffled or a row-sorted "
+            "numbering, and on a steady Flume solve of 73 400 cells, 'rcm' and 'md' "
+            "never cut the inner iterations (3 to 73 per cent more), and the time "
+            "did not drop beyond the noise of a loaded machine."
         ),
     )
     mf6_under_relaxation: Annotated[
@@ -144,7 +194,11 @@ class Modflow6RuntimeConfig(HydroModelBase):
         description=(
             "Enable the MODFLOW 6 Newton-Raphson formulation. Catchment cells are "
             "always convertible (unconfined), so Newton with under-relaxation is the "
-            "robust default and matches the MODFLOW-NWT backend."
+            "robust default. Unlike MODFLOW-NWT, it builds the horizontal conductance "
+            "from the full cell thickness times the upstream saturation. The grid "
+            "MODFLOW 6 reads therefore has a computational top that gives every cell "
+            "of the top layer the same thickness, so that this conductance is the one "
+            "of NWT; the ground stays in every package and in the run store."
         ),
     )
     mf6_newton_under_relaxation: Annotated[bool, Profile.EXPERT] = Field(
@@ -155,10 +209,11 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default=False,
         description=(
             "Enable MODFLOW 6 adaptive time stepping (ATS) on transient periods. Each "
-            "stress period starts at its full length and MF6 subdivides only the periods "
-            "the solver cannot converge in one step (e.g. littoral wet/dry under Newton), "
-            "instead of carrying budget error at nstp=1. When on, OC saves per period end "
-            "so the extraction still sees one record per period. Default off (baseline)."
+            "period starts at the step simulation.time.substeps_per_period asked for and "
+            "MF6 subdivides below it only where the solver cannot converge (e.g. littoral "
+            "wet/dry under Newton); it never grows past that step, so turning ATS on "
+            "cannot coarsen a run. When on, OC saves per period end so the extraction "
+            "still sees one record per period. Default off (baseline)."
         ),
     )
     mf6_ats_dtmin_s: Annotated[PositiveFloat, Profile.EXPERT] = Field(
@@ -168,24 +223,34 @@ class Modflow6RuntimeConfig(HydroModelBase):
     mf6_enable_xt3d: Annotated[bool | None, Profile.EXPERT] = Field(
         default=None,
         description=(
-            "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled "
-            "only when the mesh is significantly non-orthogonal or anisotropic K "
-            "is configured; the default Voronoi/PEBI dual grid is near-orthogonal, "
-            "so XT3D stays off there. It adds cost but improves accuracy on "
-            "non-orthogonal or anisotropic grids."
+            "Enable MF6 NPF XT3D terms. When left to None, XT3D turns on where a "
+            "consistent result needs it, with a RuntimeWarning: a tilted K tensor (a "
+            "non-zero flow parameter angle2 or angle3, which MF6 reads only under XT3D), "
+            "and a K22 different from K on a cell whose angle1 is not a multiple of 90 "
+            "degrees, or anywhere on an unstructured mesh. Without XT3D the two-point flux "
+            "drops the cross terms of such a tensor, and the head error does not shrink "
+            "with refinement. XT3D also turns on, with an INFO log, on triangle cells and "
+            "on a significantly non-orthogonal mesh. A structured grid with K along its "
+            "axes, or an orthogonal mesh with K22 equal to K, keeps it off. XT3D "
+            "costs from about 1.5 times the MF6 run time on one layer to about 10 times "
+            "on ten layers. true turns it on without a warning; false turns it off, "
+            "with a RuntimeWarning when a consistent result needs it."
         ),
     )
     mf6_rewet_wetfct: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=0.1,
         description="MF6 NPF rewet WETFCT factor.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_rewet_iwetit: Annotated[PositiveInt, Profile.EXPERT] = Field(
         default=1,
         description="MF6 NPF rewet IWETIT interval.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_rewet_ihdwet: Annotated[int, Profile.EXPERT] = Field(
         default=0,
         description="MF6 NPF rewet IHDWET flag.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_rewet_wetdry: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=0.1,
@@ -203,8 +268,18 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "Default 1.0 is vertically isotropic. For spatial control declare a per-cell 'Kv' "
             "flow parameter instead, which is mutually exclusive with a non-unit vka and is a "
             "direct conductivity, never a mode-switched value. Vertical anisotropy is "
-            "grid-aligned and needs no XT3D; a horizontal K22 field or an angle (not exposed "
-            "here) would auto-activate XT3D."
+            "grid-aligned and needs no XT3D. The rest of the tensor is set by the flow "
+            "parameters 'K22', 'angle1', 'angle2' and 'angle3'; a tilt, or a K22 off the "
+            "grid axes, turns XT3D on."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                search_space="log",
+                sampling="log_uniform",
+                units="-",
+                excluded_by=("flow.param.Kv",),
+            ),
+            unit="-",
         ),
     )
     evt_extinction_depth: Annotated[PositiveFloat, Profile.EXPERT] = Field(
@@ -215,6 +290,7 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "to this depth and stops below it, so a sustained climatic deficit can "
             "saturate near this value."
         ),
+        json_schema_extra=field_metadata(unit="m"),
     )
     lak_forcing_mode: Annotated[Literal["auto", "inline", "ts6"], Profile.EXPERT] = Field(
         default="auto",
@@ -232,6 +308,7 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "Period count above which 'auto' mode offloads a non-constant LAK "
             "forcing to a TS6 file."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 
@@ -248,8 +325,32 @@ class Modflow6Config(HydroModelBase):
     )
     sgrid: Annotated[SolverSGridConfig, Profile.USER] = Field(
         default_factory=SolverSGridConfig,
-        description="Solver-grid payload split into planar and vertical sections.",
+        description=(
+            "How the top of the solver grid is sampled from the DEM; the planar grid is "
+            "[mesh] and the layering is [domain.layers]."
+        ),
     )
+
+    @property
+    def runner(self) -> str:
+        """How MODFLOW 6 is started, read by the dispatcher before any solve is built.
+
+        ``'subprocess'`` runs the mf6 executable, ``'api'`` drives libmf6 through
+        the optional modflowapi package. Read here so the generic pre-solve step
+        names no backend: a backend that states no ``runner`` is started as a
+        subprocess.
+        """
+        return self.runtime.mf6_runner
+
+    @property
+    def wall_clock_limit_s(self) -> float | None:
+        """Wall-clock budget of one trial of a parallel calibration, in seconds.
+
+        ``None`` keeps the built-in default of the calibration workers. A test
+        worker reading the options of the backend that runs takes this, so one
+        stuck trial cannot wedge a whole search, whichever backend it runs.
+        """
+        return self.runtime.mf6_api_timeout_s
 
 
 def _coerce_modflow6_config(

@@ -1,4 +1,4 @@
-/* Lightbox with pan + zoom for ER diagrams (and any img.hmp-zoomable). */
+/* Lightbox with pan and zoom for the figures of a page (and any img.hmp-zoomable). */
 (function () {
     "use strict";
 
@@ -149,6 +149,9 @@
     }
 
     function init() {
+        document.querySelectorAll(".bd-article figure img").forEach(function (img) {
+            img.classList.add("hmp-zoomable");
+        });
         const targets = document.querySelectorAll("img.hmp-zoomable");
         targets.forEach(function (img) {
             const link = img.closest("a");

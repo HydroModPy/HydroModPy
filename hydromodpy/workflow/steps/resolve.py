@@ -24,15 +24,26 @@ from typing import ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.workflow.internals.state import PipelineState, ResolvedState, ValidatedState
+from hydromodpy.workflow.state import PipelineState
 
 
 class ResolveStep:
     """Resolve workspace + create a ``WorkflowContext`` bound to the config."""
 
     name = "resolve"
-    tin: ClassVar[type] = ValidatedState
-    tout: ClassVar[type] = ResolvedState
+    reads: ClassVar[tuple[str, ...]] = (
+        "bounds",
+        "cfg",
+        "config_path",
+        "ctx",
+        "raw_toml",
+        "requested_domain_supports",
+        "requested_spatial_support_ids",
+    )
+    writes: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "raw_toml",
+    )
     config_sections: ClassVar[tuple[str, ...]] = ("workspace", "simulation")
 
     def depends_on(self) -> tuple[str, ...]:
@@ -50,11 +61,13 @@ class ResolveStep:
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.core.state.run_state import WorkflowContext
-        from hydromodpy.data import DataPlanner
+        from hydromodpy.data.loading.planner import DataPlanner
+        from hydromodpy.model.domain.spatial_support import support_provider_names
+        from hydromodpy.model.forcing.soil_config import soil_reservoir_of
         from hydromodpy.workflow.steps.data import log_data_plan
-        from hydromodpy.workflow.steps.setup import support_provider_names
 
         ctx = state.get("ctx")
+        bounds = state.get("bounds")
         if ctx is None:
             cfg = state.get("cfg")
             if cfg is None:
@@ -67,9 +80,20 @@ class ResolveStep:
 
             raw_toml = state.get("raw_toml")
             if raw_toml is None:
-                raw_toml = load_toml_with_base_config(config_path)
+                from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 
-            ctx = WorkflowContext(cfg=cfg, config_path=config_path, raw_toml=raw_toml)
+                raw_toml = load_toml_with_base_config(config_path, root=ROOT_CONFIG)
+
+            ctx = WorkflowContext(
+                cfg=cfg,
+                config_path=config_path,
+                raw_toml=raw_toml,
+                bounds=bounds,
+            )
+        elif bounds is not None:
+            # A context built by an earlier phase carries the bounds of the
+            # call that built it; a resolve that names one hands it over.
+            ctx.bounds = bounds
         else:
             cfg = ctx.cfg
             raw_toml = state.get("raw_toml") or ctx.raw_toml
@@ -84,6 +108,7 @@ class ResolveStep:
                 requested_spatial_support_ids=requested_support_ids,
                 raw_toml=raw_toml,
                 flow_active_bc=cfg.flow.active_bc,
+                flow_soil_reservoir=soil_reservoir_of(cfg.flow) is not None,
             )
             log_data_plan(data_plan)
             cfg.data = cfg.data.with_resolved_types(data_plan.types)

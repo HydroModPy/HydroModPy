@@ -1,68 +1,64 @@
-"""Schema-discovery and single-door behaviour of ``hmp.open`` (interface refactor)."""
+"""The catalog reader over a sealed project: objects and a frame for runs, and a description of its tables,
+columns, metrics (NSE, dimensionless) and stations."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from uuid import uuid4
 
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
+from tests._helpers.sealed_runs import make_project, seal_run
 
 pytestmark = pytest.mark.fast
 
 
-def _seed(cat, *, project: str = "naizin", solver: str = "modflow6", nse: float = 0.8) -> str:
-    sim_id = str(uuid4())
-    cat.register_simulation(
-        sim_id=sim_id, project=project, solver=solver, name="demo", flow_regime="transient"
-    )
-    cat.write_metric(sim_id, station_id="P01", metric_name="nse", value=nse)
-    cat.finalize(sim_id, status="completed", duration_s=0.0)
-    return sim_id
+@pytest.fixture
+def project(tmp_path: Path) -> tuple[Path, str]:
+    root = make_project(tmp_path / "naizin")
+    sid = seal_run(root, "demo", project="naizin", nse=0.8)
+    rebuild_index(root)
+    return root, sid
 
 
-def test_open_is_single_door_with_objects_and_frame(tmp_path: Path) -> None:
-    with hmp.open(tmp_path, create=True) as cat:
-        sim_id = _seed(cat)
+def test_find_returns_a_run_set(project) -> None:
+    root, sid = project
+    with Catalog(root) as cat:
         group = cat.find(solver="modflow6")
         assert isinstance(group, hmp.RunSet)
-        assert group.sim_ids == [sim_id]
+        assert group.sim_ids == [sid]
         assert len(cat.frame) == 1
-        assert cat[sim_id].project == "naizin"
+        assert cat[sid].project == "naizin"
 
 
-def test_find_unknown_filter_lists_valid_keys(tmp_path: Path) -> None:
-    with hmp.open(tmp_path, create=True) as cat:
-        _seed(cat)
+def test_find_refuses_unknown_filter(project) -> None:
+    root, _sid = project
+    with Catalog(root) as cat:
         with pytest.raises(ValueError, match="Unknown filter"):
             cat.find(catchment="x")
 
 
-def test_schema_discovery(tmp_path: Path) -> None:
-    with hmp.open(tmp_path, create=True) as cat:
-        _seed(cat)
+def test_schema_discovery(project) -> None:
+    root, _sid = project
+    with Catalog(root) as cat:
         assert "simulations" in cat.tables()
+        assert "cases" in cat.tables()
         assert "metrics" in cat.tables()
-        assert "project" in cat.columns("simulations")
+        assert {"project", "site", "rel_dir", "label"} <= set(cat.columns("simulations"))
         assert "nse" in cat.metrics()
-        assert "P01" in cat.stations()
-        # Zarr field names are always available even without persisted fields.
+        assert "J0014010" in cat.stations()
         assert cat.variables()
 
 
-def test_describe_is_human_readable(tmp_path: Path) -> None:
-    with hmp.open(tmp_path, create=True) as cat:
-        _seed(cat)
+def test_describe(project) -> None:
+    root, _sid = project
+    with Catalog(root) as cat:
         text = cat.describe()
         assert "simulations : 1" in text
         assert "naizin" in text
         assert "modflow6" in text
-
-
-def test_inputs_namespace_via_catalog_package(tmp_path: Path) -> None:
-    from hydromodpy.catalog import InputsNamespace
-
-    inputs = InputsNamespace(tmp_path)
-    assert inputs.has_cache() is False
-    assert inputs.db_path == (tmp_path.resolve() / "data" / "cache.duckdb")
+        cat.backend.connection.execute("DROP VIEW timeseries")
+        assert "stations    : J0014010" in cat.describe()
+        assert cat.variables()

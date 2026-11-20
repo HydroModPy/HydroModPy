@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import IdentifierStr
-from hydromodpy.core.tracking import InputFile
+from hydromodpy.core.tracking.input_file import InputFile
+from hydromodpy.data.source.url import UrlSourceOptions
 
 
-class CustomLakeGeometrySource(HydroModelBase):
+class FileLakeGeometrySource(HydroModelBase):
     """User-provided lake geometry file (SHP/GPKG/GeoJSON).
 
     The vector file holds the lake/reservoir footprint polygon(s) - and, where
@@ -21,9 +23,9 @@ class CustomLakeGeometrySource(HydroModelBase):
     with the DISV mesh to resolve the lake cells.
     """
 
-    source: Annotated[Literal["custom"], Profile.USER] = Field(
-        default="custom",
-        description="Discriminator tag selecting the 'custom' lake-geometry provider.",
+    source: Annotated[Literal["file"], Profile.USER] = Field(
+        default="file",
+        description="Discriminator tag selecting the 'file' lake-geometry provider.",
     )
     path: Annotated[
         Path,
@@ -31,14 +33,24 @@ class CustomLakeGeometrySource(HydroModelBase):
         InputFile(role="lake_geometry", category="data"),
     ] = Field(
         ...,
-        description="Path to a custom lake-geometry vector file (SHP, GPKG, GeoJSON).",
+        description="Path to a user lake-geometry vector file (SHP, GPKG, GeoJSON).",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     default_crs: Annotated[str, Profile.USER] = Field(
         default="EPSG:2154",
         description=(
-            "Fallback CRS used only when the file carries none of its own. Defaults to "
-            "RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset."
+            "CRS to use for a file that carries none of its own. Only a value written "
+            "here is used: without it, a file with no CRS is refused."
         ),
+    )
+
+
+class UrlLakeGeometrySource(UrlSourceOptions, HydroModelBase):
+    """Remote lake geometry file, downloaded into the data cache by the ``url`` source."""
+
+    source: Annotated[Literal["url"], Profile.USER] = Field(
+        default="url",
+        description="Discriminator tag selecting the 'url' lake-geometry provider.",
     )
 
 
@@ -48,21 +60,24 @@ class LakeGeometryConfig(HydroModelBase):
     Example TOML::
 
         [[data.lake_geometry.sources]]
-        source = "custom"
-        path = "data/lake_geometry/lake_geometry_custom_lac0.gpkg"
+        source = "file"
+        path = "data/lake_geometry/lake_geometry_file_lac0.gpkg"
     """
 
-    sources: Annotated[list[CustomLakeGeometrySource], Profile.USER] = Field(
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "id": (
+            "no step read the name of the lake-geometry field. Each lake is named by the "
+            "lake_id of its table under flow.sinks_sources.lakes."
+        ),
+    }
+
+    sources: Annotated[list[FileLakeGeometrySource | UrlLakeGeometrySource], Profile.USER] = Field(
         ...,
         min_length=1,
         description="At least one lake-geometry data source.",
     )
-    id: Annotated[IdentifierStr, Profile.USER] = Field(
-        default="lake_geometry",
-        description="Identifier of the lake-geometry spatial field.",
-    )
 
     @classmethod
     def from_vector(cls, path: str | Path, **overrides) -> LakeGeometryConfig:
-        """LakeGeometryConfig from a custom polygon vector file (SHP/GPKG/GeoJSON)."""
-        return cls(sources=[CustomLakeGeometrySource(path=Path(path))], **overrides)
+        """LakeGeometryConfig from a user polygon vector file (SHP/GPKG/GeoJSON)."""
+        return cls(sources=[FileLakeGeometrySource(path=Path(path))], **overrides)

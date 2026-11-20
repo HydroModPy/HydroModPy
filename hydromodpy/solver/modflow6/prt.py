@@ -1,21 +1,45 @@
-"""MODFLOW 6 PRT particle-tracking solver class."""
+"""MODFLOW 6 PRT particle-tracking solver class.
+
+PRT works in the folder of the flow run, on the simulation FloPy built for it. It adds a
+model named ``<name>_prt``, couples it to the GWF model with a ``GWF6-PRT6`` exchange,
+writes the whole simulation again and solves it. The adapter builds from the frozen
+``Model`` of the flow, the ``SolverRun`` of that flow and the options of
+``[transport.modflow6_prt]``. The particle tracks are read from the CSV of PRT.
+"""
 
 from __future__ import annotations
 
 import os
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
+from pathlib import Path
+from typing import Any, ClassVar
 
 import flopy
 import numpy as np
+from pydantic import BaseModel
 
-from hydromodpy.core.units.time import SECONDS_PER_DAY, factor_to_seconds
-from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
-from hydromodpy.solver.modflow6.build import mf6_safe_name
+from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
+from hydromodpy.core.time.window import SIMULATION_TIME_UNIT
+from hydromodpy.core.units.quantities import SECONDS_PER_DAY
+from hydromodpy.model.domain.cell_column import CellColumn
+from hydromodpy.model.model import Model
+from hydromodpy.model.transport.transport_config import Modflow6PrtParametersConfig
+from hydromodpy.results.field_registry import FACE_FLOW
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
+from hydromodpy.solver.base.registry import extractors
+from hydromodpy.solver.modflow6.modflow6 import Modflow6
+from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
+from hydromodpy.solver.modflow6.support.names import mf6_safe_name
+from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
 from hydromodpy.solver.modflow_common.progress import (
     run_simulation_with_progress,
     write_listing_status,
 )
+from hydromodpy.solver.modflow_common.time_units import seconds_per_tdis_token
 
 
 def _as_float_list(values: Sequence[float] | None) -> list[float] | None:
@@ -27,19 +51,19 @@ def _as_float_list(values: Sequence[float] | None) -> list[float] | None:
 
 def _regular_track_times_days(
     *,
-    stop_time_days: object | None,
-    track_time_step_days: object | None,
+    stop_time: object | None,
+    track_time_step: object | None,
 ) -> list[float] | None:
-    if track_time_step_days is None:
+    if track_time_step is None:
         return None
-    if stop_time_days is None:
-        raise ValueError("track_time_step_days requires stop_time_days.")
-    step = float(track_time_step_days)
-    stop = float(stop_time_days)
+    if stop_time is None:
+        raise ValueError("track_time_step requires stop_time.")
+    step = float(track_time_step)
+    stop = float(stop_time)
     if step <= 0.0:
-        raise ValueError("track_time_step_days must be positive.")
+        raise ValueError("track_time_step must be positive.")
     if stop <= 0.0:
-        raise ValueError("stop_time_days must be positive when track_time_step_days is used.")
+        raise ValueError("stop_time must be positive when track_time_step is used.")
 
     values = np.arange(0.0, stop + 0.5 * step, step, dtype=float)
     values = values[values <= stop + _TRACK_TIME_TOLERANCE_DAYS]
@@ -49,16 +73,20 @@ def _regular_track_times_days(
 
 
 # Numerical tolerance (days) used to clip the last regular track time to
-# stop_time_days without losing it to floating-point rounding.
+# stop_time without losing it to floating-point rounding.
 _TRACK_TIME_TOLERANCE_DAYS = 1.0e-9
 
 # Last-resort porosity when no transport porosity is set and specific yield is
 # non-positive. 0.30 is a generic unconsolidated-aquifer placeholder.
 _PRT_DEFAULT_POROSITY = 0.30
 
+# The suffix of the PRT model name a MODFLOW 6 PRT run writes, constant for
+# this adapter: one particle-tracking transport per run (V4).
+_PRT = "_prt"
+
 
 class Modflow6Prt:
-    """Particle tracking based on MODFLOW 6 PRT and `transport.modflow6prt`.
+    """Particle tracking based on MODFLOW 6 PRT and the ``[transport.modflow6_prt]`` table.
 
     The class attaches a PRT model to an existing MODFLOW 6 GWF simulation. It
     intentionally keeps the first implementation narrow: DISV grids, forward
@@ -68,18 +96,22 @@ class Modflow6Prt:
 
     def __init__(
         self,
-        domain: DomainLike,
-        transport: TransportLike,
-        model_modflow: FlowModelLike,
+        model: Model,
+        model_modflow: Modflow6,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
-        suffix_name: str = "_prt",
-        bin_path: str | None = None,
+        suffix_name: str = _PRT,
+        options: Mapping[str, Any] | None = None,
         **kwargs: object,
     ) -> None:
-        del bin_path
-        self.domain = domain
-        self.transport = transport
+        """The MODFLOW 6 PRT particle-tracking solver of the flow run ``model`` extends.
+
+        The solver is constructed from the ``Model`` of its flow, the one
+        ``upstream[0].model`` hands it, and from the validated table of the
+        transport, ``[transport.modflow6_prt]``, read by ``options_of(name)``
+        and validated by ``Modflow6PrtParametersConfig``.
+        """
+        self.model = model
         self.model_modflow = model_modflow
         self.model_folder = model_folder
         self.model_name = model_name
@@ -87,12 +119,8 @@ class Modflow6Prt:
         self.model_name_prt = model_name + suffix_name
         self.model_name_prt_mf6 = mf6_safe_name(self.model_name_prt)
         self.full_path = os.path.join(model_folder, model_name)
-        self.exe = getattr(model_modflow, "exe", "mf6")
 
-        prt_params: dict[str, object] = {}
-        comp = transport.modflow6prt
-        if isinstance(getattr(comp, "parameters", None), Mapping):
-            prt_params = dict(comp.parameters)
+        prt_params: dict[str, Any] = dict(options or {})
         prt_params.update(kwargs)
 
         self.release_zone = str(prt_params.get("release_zone", "domain"))
@@ -104,11 +132,11 @@ class Modflow6Prt:
         self.particle_cell_ids = prt_params.get("particle_cell_ids")
         self.max_particles = prt_params.get("max_particles")
         self.sel_slice = prt_params.get("sel_slice")
-        self.release_times_days = _as_float_list(prt_params.get("release_times_days"))
-        self.track_times_days = _as_float_list(prt_params.get("track_times_days"))
-        self.track_time_step_days = prt_params.get("track_time_step_days")
-        self.stop_time_days = prt_params.get("stop_time_days")
-        self.stop_travel_time_days = prt_params.get("stop_travel_time_days")
+        self.release_times = _as_float_list(prt_params.get("release_times"))
+        self.track_times = _as_float_list(prt_params.get("track_times"))
+        self.track_time_step = prt_params.get("track_time_step")
+        self.stop_time = prt_params.get("stop_time")
+        self.stop_travel_time = prt_params.get("stop_travel_time")
         self.extend_tracking = bool(prt_params.get("extend_tracking", True))
         self.dry_tracking_method = str(prt_params.get("dry_tracking_method", "drop"))
         self.exit_solve_tolerance = float(prt_params.get("exit_solve_tolerance", 1.0e-5))
@@ -116,21 +144,29 @@ class Modflow6Prt:
         self.write_track_binary = bool(prt_params.get("write_track_binary", True))
 
     def _model_time_unit_seconds(self) -> float:
-        """Seconds per model TDIS time unit. Defaults to DAYS when TDIS is absent."""
-        raw_units = "DAYS"
+        """Seconds per model TDIS time unit.
+
+        A model that declares no unit runs in the launcher unit, which the
+        model this reads was built in, rather than in days: a wrong fallback
+        here scales every PRT release and tracking time by 86400 with nothing
+        to show for it. A declared token that is no time unit is refused, as
+        ``resolve_solver_time_unit`` refuses it.
+        """
+        raw_units = SIMULATION_TIME_UNIT
         tdis = getattr(self.model_modflow, "tdis", None)
         units = getattr(tdis, "time_units", None)
         if hasattr(units, "get_data"):
             raw_units = str(units.get_data())
         elif units is not None:
             raw_units = str(units)
-        token = raw_units.strip().upper()
-        if token == "UNKNOWN":
-            return 1.0
         try:
-            return factor_to_seconds(token)
-        except ValueError:
-            return SECONDS_PER_DAY
+            return seconds_per_tdis_token(raw_units)
+        except ValueError as exc:
+            raise SolverInputError(
+                f"The TDIS of the flow model declares the time unit {raw_units!r}, which is "
+                "not a MODFLOW 6 time unit. PRT refuses it rather than read its release and "
+                "tracking times in another unit."
+            ) from exc
 
     def _days_to_model_time(self, value: float | None) -> float | None:
         if value is None:
@@ -138,11 +174,11 @@ class Modflow6Prt:
         return float(value) * SECONDS_PER_DAY / self._model_time_unit_seconds()
 
     def _build_track_times_days(self) -> list[float] | None:
-        if self.track_times_days is not None:
-            return self.track_times_days
+        if self.track_times is not None:
+            return self.track_times
         return _regular_track_times_days(
-            stop_time_days=self.stop_time_days,
-            track_time_step_days=self.track_time_step_days,
+            stop_time=self.stop_time,
+            track_time_step=self.track_time_step,
         )
 
     def _build_porosity(self) -> np.ndarray:
@@ -156,7 +192,7 @@ class Modflow6Prt:
         warnings.warn(
             "No PRT porosity set; falling back to the flow specific yield "
             f"(or {_PRT_DEFAULT_POROSITY} where non-positive), which overstates particle "
-            "speed. Set transport.modflow6prt.parameters.porosity.",
+            "speed. Set transport.modflow6_prt.porosity.",
             UserWarning,
             stacklevel=2,
         )
@@ -201,9 +237,9 @@ class Modflow6Prt:
 
         if selected.size <= max_count:
             return selected
-        centroids = np.asarray(
-            self.model_modflow.solver_mesh.cell_centroids(), dtype=float
-        ).reshape(int(self.model_modflow.ncpl), 2)
+        centroids = np.asarray(self.model_modflow.solver_mesh.cell_centers(), dtype=float).reshape(
+            int(self.model_modflow.ncpl), 2
+        )
         coords = centroids[selected]
         finite = np.all(np.isfinite(coords), axis=1)
         if np.count_nonzero(finite) < max_count:
@@ -266,7 +302,7 @@ class Modflow6Prt:
             selected = all_active
         else:
             raise ValueError(
-                "Unsupported modflow6prt release_zone "
+                "Unsupported modflow6_prt release_zone "
                 f"{self.release_zone!r}; expected domain, domain_nonriver, upstream, "
                 "upstream_nonriver, river, outlet, or custom."
             )
@@ -296,9 +332,9 @@ class Modflow6Prt:
         return 0
 
     def _build_packagedata(self) -> list[tuple]:
-        centroids = np.asarray(
-            self.model_modflow.solver_mesh.cell_centroids(), dtype=float
-        ).reshape(int(self.model_modflow.ncpl), 2)
+        centroids = np.asarray(self.model_modflow.solver_mesh.cell_centers(), dtype=float).reshape(
+            int(self.model_modflow.ncpl), 2
+        )
         cells = self._select_release_cells()
         packagedata: list[tuple] = []
         for iprt, cell_id in enumerate(cells):
@@ -326,28 +362,15 @@ class Modflow6Prt:
 
         sim = self.model_modflow.sim
         self.gwf = self.model_modflow.gwf
-        solver_mesh = self.model_modflow.solver_mesh
-        idomain = solver_mesh.idomain()
 
         self.prt = flopy.mf6.ModflowPrt(
             sim,
             modelname=self.model_name_prt_mf6,
             save_flows=True,
         )
-        disv_kwargs = solver_mesh.to_disv_kwargs()
-        # DISV vertices already hold absolute model coordinates (UTM/Lambert meters),
-        # so the package origin must be 0. Passing solver_mesh.xoffset here would shift
-        # the whole grid by one full origin (double offset). PRP release points use
-        # absolute centroids, so they only line up with an un-offset grid.
-        self.prtdis = flopy.mf6.ModflowPrtdisv(
-            self.prt,
-            nlay=self.model_modflow.nlay,
-            **disv_kwargs,
-            idomain=idomain,
-            xorigin=0.0,
-            yorigin=0.0,
-            length_units="METERS",
-        )
+        # The GWF grid, origin 0 included: PRP release points use absolute
+        # centroids, so they only line up with an un-offset grid.
+        self.prtdis = flopy.mf6.ModflowPrtdisv(self.prt, **disv_grid_kwargs(self.model_modflow))
         self.mip = flopy.mf6.ModflowPrtmip(self.prt, porosity=self._build_porosity())
         self.ems = flopy.mf6.ModflowEms(
             sim,
@@ -357,8 +380,8 @@ class Modflow6Prt:
 
         packagedata = self._build_packagedata()
         releasetimes = (
-            [(float(self._days_to_model_time(time)),) for time in self.release_times_days]
-            if self.release_times_days is not None
+            [(float(self._days_to_model_time(time)),) for time in self.release_times]
+            if self.release_times is not None
             else None
         )
         perioddata = None if releasetimes is not None else {0: [("FIRST",)]}
@@ -371,11 +394,11 @@ class Modflow6Prt:
             boundnames=True,
             local_z=True,
             extend_tracking=self.extend_tracking,
-            stoptime=self._days_to_model_time(float(self.stop_time_days))
-            if self.stop_time_days is not None
+            stoptime=self._days_to_model_time(float(self.stop_time))
+            if self.stop_time is not None
             else None,
-            stoptraveltime=self._days_to_model_time(float(self.stop_travel_time_days))
-            if self.stop_travel_time_days is not None
+            stoptraveltime=self._days_to_model_time(float(self.stop_travel_time))
+            if self.stop_travel_time is not None
             else None,
             dry_tracking_method=self.dry_tracking_method,
             exit_solve_tolerance=self.exit_solve_tolerance,
@@ -392,10 +415,10 @@ class Modflow6Prt:
             pname="PRP",
         )
 
-        track_times_days = self._build_track_times_days()
+        track_times = self._build_track_times_days()
         tracktimes = (
-            [(float(self._days_to_model_time(time)),) for time in track_times_days]
-            if track_times_days is not None
+            [(float(self._days_to_model_time(time)),) for time in track_times]
+            if track_times is not None
             else None
         )
         self.oc = flopy.mf6.ModflowPrtoc(
@@ -432,6 +455,7 @@ class Modflow6Prt:
                 self.model_modflow.sim.write_simulation(silent=False)
         success = False
         if run_model:
+            check_mf6_workspace_paths(self.model_modflow.sim)
             success, _ = run_simulation_with_progress(
                 self.model_modflow.sim,
                 int(self.model_modflow.nper),
@@ -440,4 +464,100 @@ class Modflow6Prt:
         return success
 
 
-__all__ = ["Modflow6Prt"]
+class Modflow6PrtTransportAdapter:
+    """Port adapter of ``transport/modflow6_prt``, beside its engine class.
+
+    PRT tracks the particles of the flow run it follows, in the folder that
+    flow wrote in, under the name of its model plus the ``_prt`` suffix. Its
+    parameters are the validated ``[transport.modflow6_prt]`` table.
+    """
+
+    name: ClassVar[str] = "modflow6_prt"
+    process_type: ClassVar[str] = "transport"
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset()
+    geometry: ClassVar[str] = "cells"
+    writes: ClassVar[tuple[str, ...]] = (
+        "particles/x",
+        "particles/y",
+        "particles/z",
+        "particles/time",
+        "particles/status",
+        "particles/reason",
+    )
+    reads: ClassVar[tuple[str, ...]] = (FACE_FLOW,)
+    supports: ClassVar[frozenset[str]] = frozenset()
+    options: ClassVar[type[BaseModel] | None] = Modflow6PrtParametersConfig
+    category: ClassVar[str] = "distributed"
+    native_step: ClassVar[str | None] = None
+    cell_column: ClassVar[Callable[..., CellColumn] | None] = None
+    mutable: ClassVar[frozenset[str]] = frozenset()
+    requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow6"),)
+
+    def validate(self, model: Any, options: BaseModel | None, slot: RunSlot) -> None:
+        """Nothing to refuse here: every table is validated while the file is read."""
+        return None
+
+    def build(
+        self,
+        model: Any,
+        options: BaseModel | None = None,
+        slot: RunSlot | None = None,
+        upstream: tuple[SolverRun, ...] = (),
+    ) -> SolverRun:
+        """Build the PRT model of the one flow run ``upstream`` names, in memory."""
+        (followed,) = upstream
+        if followed.solver_model is None:
+            raise SolverInputError(
+                f"Transport '{self.name}' follows a flow run whose model is missing. "
+                "PRT extends the MODFLOW 6 objects of the flow, and none was built."
+            )
+        flow_model = followed.solver_model
+        model_folder = (
+            str(followed.slot.folder)
+            if followed.slot is not None
+            else (
+                str(followed.output_dir.parent)
+                if followed.output_dir is not None
+                else "HydroModPy_outputs"
+            )
+        )
+        solver_model = Modflow6Prt(
+            followed.model,
+            flow_model,
+            model_folder=model_folder,
+            model_name=str(flow_model.model_name),
+            suffix_name=_PRT,
+            options=None if options is None else options.model_dump(),
+        )
+        solver_model.pre_processing()
+        return SolverRun(slot=slot, model=model, options=options, solver_model=solver_model)
+
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        """Write the PRT input files unless they are written, track, and return the run."""
+        solver_model = solver_run.solver_model
+        success = solver_model.processing(
+            write_model=not solver_run.written, run_model=True, verbose=True
+        )
+        if not success:
+            raise SolverDivergedError(
+                f"Transport solver '{self.name}' failed for run '{solver_run.slot.name}', "
+                f"see {getattr(solver_model, 'full_path', '<unknown>')} for diagnostics."
+            )
+        return replace(
+            solver_run,
+            output_dir=Path(solver_model.full_path),
+            written=True,
+            solved=True,
+        )
+
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the particle tracks through the registered extractor."""
+        extractors.create(self.process_type, self.name).extract(solver_run, store, retention)
+
+    def cleanup(self, solver_run: SolverRun) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        if solver_run.output_dir is not None:
+            cleanup_solver_files(solver_run.output_dir)
+
+
+__all__ = ["Modflow6Prt", "Modflow6PrtTransportAdapter"]

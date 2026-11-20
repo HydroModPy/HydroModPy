@@ -1,32 +1,234 @@
+"""Console and file logging policy for HydroModPy.
+
+One verbosity knob drives both what the console prints and whether the
+live progress display runs:
+
+======== ============================================ ================
+level    console                                      live display
+======== ============================================ ================
+quiet    warnings and errors only                     off
+normal   warnings, errors and milestones (default)    on
+verbose  every INFO line                              on
+debug    every DEBUG line, module and line number     off
+======== ============================================ ================
+
+A *milestone* is an INFO line the default level keeps: the phase
+checkmarks, what a run wrote, how it ended. Emit one with
+``logger.info(..., extra=MILESTONE)``, the marker
+:mod:`hydromodpy.core.console.progress` defines. Everything else stays out of
+the way at ``normal`` and is one ``--verbose`` away.
+
+On a terminal a console line starts with a glyph for its level, the
+grammar of the phase checkmarks: ``✗`` error, ``!`` warning, ``›``
+milestone, ``·`` debug. A hint (``extra=HINT``) prints dim, without one.
+A pipe keeps the ``[LEVEL]`` labels.
+
+Only the console is filtered: the project debug log,
+``.hmp/logs/hydromodpy_debug.log``, records DEBUG whatever the console
+shows, so nothing is lost by running quiet.
+
+A run writes its own files without touching the logger of the process. The
+package logger holds one :class:`SinkRouter`, installed once with the
+:class:`LogManager`. The router hands each record to the handlers listed in
+:data:`RUN_SINKS` for the context that emits it, so two runs in two threads of
+one process fill two ``run.log`` files and nothing crosses. A thread pool of a
+run submits its tasks through ``contextvars.copy_context().run`` so that a task
+keeps the sinks of the thread that started it. Only this module adds a handler
+to the logger.
+"""
+
 import logging
 import os
 import warnings
+from collections.abc import Iterable
+from contextvars import ContextVar
 
-from hydromodpy.core import progress as core_progress
+from hydromodpy.core.console import progress as core_progress
+from hydromodpy.core.console.progress import MILESTONE_KEY
+
+VERBOSITY_LEVELS: tuple[str, ...] = ("quiet", "normal", "verbose", "debug")
+"""Accepted console verbosity levels, quietest first."""
+
+DEFAULT_VERBOSITY = "normal"
+
+_CONSOLE_LEVELS = {
+    "quiet": logging.WARNING,
+    "normal": logging.INFO,
+    "verbose": logging.INFO,
+    "debug": logging.DEBUG,
+}
+
+
+def normalize_verbosity(level: str) -> str:
+    """Return the canonical name of *level*, raising on an unknown one."""
+    name = str(level).strip().lower()
+    if name not in VERBOSITY_LEVELS:
+        raise ValueError(f"Invalid verbosity {level!r}. Use one of: {', '.join(VERBOSITY_LEVELS)}.")
+    return name
+
+
+class _MilestoneFilter(logging.Filter):
+    """Keep WARNING and above, plus the INFO lines marked as milestones.
+
+    This is what makes ``normal`` readable: a run emits hundreds of INFO
+    lines that only matter while debugging it, and a handful that tell the
+    user what happened. Only the marked ones survive here.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno >= logging.WARNING:
+            return True
+        return bool(getattr(record, MILESTONE_KEY, False))
+
+
+class _ConsoleFormatter(logging.Formatter):
+    """Prefix a plain line with its level, except the ones at INFO and below.
+
+    At ``normal`` the only INFO lines left are milestones, and a
+    ``[INFO]`` in front of each adds a column of noise to the four lines
+    that matter. A WARNING keeps its label, where it earns its place.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("[%(levelname)s] %(message)s")
+        self._plain = logging.Formatter("%(message)s")
+
+    def format(self, record: logging.LogRecord) -> str:
+        if record.levelno <= logging.INFO:
+            return self._plain.format(record)
+        return super().format(record)
+
+
+def _console_formatter(mode: str, handler: logging.Handler) -> logging.Formatter:
+    """Console format for *mode* on *handler*.
+
+    The rich handler of a terminal marks the level with a glyph, so its
+    lines drop the ``[LEVEL]`` label. A plain stream (pipe, CI) keeps it,
+    where a grep looks for it.
+    """
+    location = "[%(name)s] [%(module)s:%(lineno)d] " if mode == "debug" else ""
+    if isinstance(handler, core_progress.ConsoleLogHandler):
+        return logging.Formatter(f"{location}%(message)s")
+    if mode == "normal":
+        return _ConsoleFormatter()
+    return logging.Formatter(f"[%(levelname)s] {location}%(message)s")
+
+
+class _DedupFilter(logging.Filter):
+    """Drop a warning the console has already shown, verbatim.
+
+    A catchment delineated twice snaps its outlet twice and warns twice
+    about the same meters. The second line teaches nothing and pushes the
+    first one up the scrollback. Console only: the file logs keep every
+    occurrence, and DEBUG/INFO repetitions are left alone because they
+    often carry a counter the user is reading.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._seen: set[tuple[int, str]] = set()
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno < logging.WARNING:
+            return True
+        key = (record.levelno, record.getMessage())
+        if key in self._seen:
+            return False
+        self._seen.add(key)
+        return True
+
+
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+_DEPRECATION_CATEGORIES = (DeprecationWarning, PendingDeprecationWarning, FutureWarning)
+
+
+def _is_third_party_deprecation(category, filename):
+    """True for a deprecation a dependency raises about its own internals.
+
+    ``rasterio`` multiplying two ``Affine`` objects, ``xarray`` setting the
+    shape of a NumPy array: the user did not write that call and cannot fix
+    it, so the line is demoted to DEBUG instead of warning about it on every
+    run. Only deprecation-flavored categories qualify - a third-party
+    RuntimeWarning about a dataset still reaches the console.
+
+    Decided here, inside ``showwarning``, rather than with
+    ``warnings.filterwarnings``: flopy's ``plot`` submodules install
+    ``warnings.simplefilter("always", PendingDeprecationWarning)`` at import
+    time, which always lands in front of a filter registered earlier and
+    defeats it. ``showwarning`` is where the warnings that pass the filters
+    arrive. ``flopy.plot.plotutil`` also ignores every RuntimeWarning at
+    import, so HydroModPy logs its own RuntimeWarnings next to
+    ``warnings.warn``.
+    """
+    return issubclass(category, _DEPRECATION_CATEGORIES) and not os.path.abspath(
+        filename
+    ).startswith(_PACKAGE_ROOT)
+
+
+RUN_SINKS: ContextVar[tuple[logging.Handler, ...]] = ContextVar("hmp_run_sinks", default=())
+"""Handlers that receive the records the current context emits, besides the console.
+
+A run adds its ``run.log`` and the project debug log here for its span
+(:func:`hydromodpy.results.storage.run_log.attach_run_log`). A handler keeps
+its own level, DEBUG for both files.
+"""
+
+
+class SinkRouter(logging.Handler):
+    """Pass each record to the handlers of :data:`RUN_SINKS` that admit its level.
+
+    The handler is a member of the package logger for the whole life of the
+    process. What changes from one run to the next is the variable it reads,
+    which belongs to the context of the caller, so no handler is added or
+    removed while a run emits.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.DEBUG)
+        self.set_name("run_sinks")
+
+    def emit(self, record: logging.LogRecord) -> None:
+        for sink in RUN_SINKS.get():
+            if record.levelno >= sink.level:
+                sink.handle(record)
+
+
+def ensure_sink_router() -> SinkRouter:
+    """Install the router on the package logger when it is not there, and return it."""
+    logger = logging.getLogger("hydromodpy")
+    for handler in logger.handlers:
+        if isinstance(handler, SinkRouter):
+            return handler
+    router = SinkRouter()
+    logger.addHandler(router)
+    return router
 
 
 class LogManager:
     """
     Manage logging for HydroModPy.
 
-    Handles two types of logs:
-    - Simulation log: automatic, in watershed folder, full debug level
-    - User log: optional, in current directory, configurable level
+    The console follows the verbosity level. The optional user log goes to a
+    file of the current directory at the same level. The files of a run
+    (``run.log`` and the project debug log) reach the logger through the
+    :class:`SinkRouter` that the manager installs once.
     """
 
     _instance = None
 
-    def __init__(self, mode="verbose", log_dir=None, overwrite=False, verbose_libraries=False):
+    def __init__(
+        self, mode=DEFAULT_VERBOSITY, log_dir=None, overwrite=False, verbose_libraries=False
+    ):
         """
         Initialize the LogManager.
 
         Parameters
         ----------
         mode : str, optional
-            Console logging mode, "dev", "verbose", or "quiet". Default is "verbose".
-            - "dev": Shows all messages (DEBUG and above) in console
-            - "verbose": Shows INFO and above in console
-            - "quiet": Shows WARNING and above in console
+            Console verbosity, one of "quiet", "normal", "verbose" or "debug".
+            Default is "normal". See the module docstring for what each level
+            prints.
         log_dir : str, optional
             Directory for optional user log file.
             Default is None (no user log file created).
@@ -37,19 +239,14 @@ class LogManager:
             Default is False.
         """
 
-        self.mode = mode
+        self.mode = normalize_verbosity(mode)
         self.log_dir = log_dir
         self.overwrite = overwrite
         self.verbose_libraries = verbose_libraries
         self.logger = logging.getLogger("hydromodpy")
-        self.simulation_log_path = None
 
         # Store instance for global access
         LogManager._instance = self
-
-        # Validate mode
-        if self.mode not in ["dev", "verbose", "quiet"]:
-            raise ValueError("Invalid mode. Use 'dev', 'verbose' or 'quiet'.")
 
         self._setup_logging()
         self._suppress_library_logs()
@@ -60,6 +257,8 @@ class LogManager:
         Configure logging based on mode.
         Setup console handler, preserve file handlers.
         """
+
+        ensure_sink_router()
 
         # Remove console handlers, keep file handlers
         for handler in self.logger.handlers[:]:
@@ -78,30 +277,14 @@ class LogManager:
         # Prevent propagation to avoid duplicate logs
         self.logger.propagate = False
 
-        # Create formatters
-        detailed_formatter_console = logging.Formatter(
-            "[%(levelname)s] [%(name)s] [%(module)s:%(lineno)d] %(message)s"
-        )
-        simple_formatter_console = logging.Formatter("[%(levelname)s] %(message)s")
-
-        # Console handler based on mode
-        if self.mode == "dev":
-            console_handler = core_progress.make_console_handler()
-            console_handler.setLevel(logging.DEBUG)
-            console_handler.setFormatter(detailed_formatter_console)
-            self.logger.addHandler(console_handler)
-
-        elif self.mode == "verbose":
-            console_handler = core_progress.make_console_handler()
-            console_handler.setLevel(logging.INFO)
-            console_handler.setFormatter(simple_formatter_console)
-            self.logger.addHandler(console_handler)
-
-        elif self.mode == "quiet":
-            console_handler = core_progress.make_console_handler()
-            console_handler.setLevel(logging.WARNING)
-            console_handler.setFormatter(simple_formatter_console)
-            self.logger.addHandler(console_handler)
+        console_handler = core_progress.make_console_handler()
+        console_handler.setLevel(_CONSOLE_LEVELS[self.mode])
+        console_handler.setFormatter(_console_formatter(self.mode, console_handler))
+        if self.mode != "debug":
+            console_handler.addFilter(_DedupFilter())
+        if self.mode == "normal":
+            console_handler.addFilter(_MilestoneFilter())
+        self.logger.addHandler(console_handler)
 
         # Add user log if specified and not already added
         if self.log_dir is not None and not self._has_user_log_handler():
@@ -124,8 +307,7 @@ class LogManager:
         )
 
         # User log respects the console mode level
-        level_map = {"dev": logging.DEBUG, "verbose": logging.INFO, "quiet": logging.WARNING}
-        file_level = level_map.get(self.mode, logging.INFO)
+        file_level = _CONSOLE_LEVELS[self.mode]
 
         user_handler = logging.FileHandler(log_file, mode=file_mode, encoding="utf-8")
         user_handler.setLevel(file_level)
@@ -142,78 +324,16 @@ class LogManager:
                 return True
         return False
 
-    def set_simulation_log(self, watershed_folder):
-        """
-        Setup simulation log in watershed folder.
-        Always captures DEBUG level, regardless of console mode.
-        Called automatically by Watershed class.
-
-        Parameters
-        ----------
-        watershed_folder : str
-            Path to watershed folder
-        """
-        sim_log_dir = os.path.join(watershed_folder, ".hmp", "logs")
-        self.simulation_log_path = os.path.join(sim_log_dir, "hydromodpy_debug.log")
-
-        # Create the hidden log folder if needed
-        os.makedirs(sim_log_dir, exist_ok=True)
-
-        # Remove any existing simulation log handler
-        for handler in self.logger.handlers[:]:
-            is_simulation_handler = False
-            if hasattr(handler, "get_name") and handler.get_name() == "simulation_log":
-                is_simulation_handler = True
-            if getattr(handler, "_hydromodpy_simulation_log", False):
-                is_simulation_handler = True
-            if isinstance(handler, logging.FileHandler) and handler.baseFilename == os.path.abspath(
-                self.simulation_log_path
-            ):
-                is_simulation_handler = True
-            if is_simulation_handler:
-                self.logger.removeHandler(handler)
-                handler.close()
-
-        # Add simulation log handler (always DEBUG level)
-        file_formatter = logging.Formatter(
-            "%(asctime)s [%(levelname)s] [%(name)s] [%(module)s:%(lineno)d] %(message)s"
-        )
-        candidate_paths = [
-            self.simulation_log_path,
-            os.path.join(sim_log_dir, f"hydromodpy_debug_{os.getpid()}.log"),
-        ]
-        for candidate_path in candidate_paths:
-            try:
-                sim_handler = logging.FileHandler(candidate_path, mode="a", encoding="utf-8")
-            except PermissionError:
-                continue
-            self.simulation_log_path = candidate_path
-            sim_handler.setLevel(logging.DEBUG)
-            sim_handler.setFormatter(file_formatter)
-            if hasattr(sim_handler, "set_name"):
-                sim_handler.set_name("simulation_log")
-            sim_handler._hydromodpy_simulation_log = True
-            self.logger.addHandler(sim_handler)
-            return
-
-        self.simulation_log_path = None
-        self.logger.warning(
-            "Simulation log file is not writable in %s; continuing without file logging.",
-            watershed_folder,
-        )
-
     def set_console_level(self, mode):
         """
-        Change console logging level.
+        Change console verbosity.
 
         Parameters
         ----------
         mode : str
-            Logging mode: "dev", "verbose", or "quiet"
+            One of "quiet", "normal", "verbose" or "debug".
         """
-        if mode not in ["dev", "verbose", "quiet"]:
-            raise ValueError("Invalid mode. Use 'dev', 'verbose' or 'quiet'.")
-        self.mode = mode
+        self.mode = normalize_verbosity(mode)
         self._setup_logging()
 
     def enable_user_log(self, log_dir=None):
@@ -255,7 +375,12 @@ class LogManager:
 
         def showwarning(message, category, filename, lineno, file=None, line=None):
             del file, line
-            warnings_logger.warning("%s: %s (%s:%s)", category.__name__, message, filename, lineno)
+            emit = (
+                warnings_logger.debug
+                if _is_third_party_deprecation(category, filename)
+                else warnings_logger.warning
+            )
+            emit("%s: %s (%s:%s)", category.__name__, message, filename, lineno)
 
         warnings.showwarning = showwarning
 
@@ -267,7 +392,6 @@ class LogManager:
             "fiona",
             "rasterio",
             "urllib3",
-            "geopy",
             "matplotlib",
             "PIL",
             "shapely",
@@ -306,15 +430,92 @@ def get_logger(name):
     return logging.getLogger(name)
 
 
-def setup_simulation_log(watershed_folder):
-    """
-    Setup simulation log in watershed folder.
-    Helper function to be called by Watershed class.
+def set_verbosity(level):
+    """Set the console verbosity of the running process.
 
     Parameters
     ----------
-    watershed_folder : str
-        Path to watershed output folder
+    level : str
+        One of "quiet", "normal", "verbose" or "debug".
+
+    Returns
+    -------
+    str
+        The canonical level that was applied.
     """
-    if LogManager._instance is not None:
-        LogManager._instance.set_simulation_log(watershed_folder)
+    name = normalize_verbosity(level)
+    if LogManager._instance is None:
+        LogManager(mode=name)
+    else:
+        LogManager._instance.set_console_level(name)
+    return name
+
+
+def current_verbosity():
+    """Return the console verbosity in force, without creating a manager."""
+    if LogManager._instance is None:
+        return DEFAULT_VERBOSITY
+    return LogManager._instance.mode
+
+
+HeldLine = tuple[str, int, str]
+"""One console line a process held: the logger name, the level and the message."""
+
+
+class HeldConsole(logging.Handler):
+    """What the console of a worker process would print, held for its parent to print.
+
+    A calibration worker shares the terminal of its parent, whose live progress bar
+    owns the last lines there. A line the worker wrote itself cut the bar and printed
+    it again under the line, once per worker and per warning.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.addFilter(_DedupFilter())
+        self._held: list[HeldLine] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self._held.append((record.name, record.levelno, record.getMessage()))
+
+    def drain(self) -> list[HeldLine]:
+        """Return the lines held since the last call, and forget them."""
+        held, self._held = self._held, []
+        return held
+
+
+def hold_console() -> HeldConsole:
+    """Hold what the console of this process would print, and return the holder.
+
+    The console handlers of the package logger leave. The holder takes their place
+    there and on the root logger, so that a warning of a library does not reach the
+    terminal through the last-resort handler either.
+    """
+    manager = LogManager._instance if LogManager._instance is not None else LogManager()
+    for handler in manager.logger.handlers[:]:
+        console = isinstance(handler, (logging.StreamHandler, core_progress.ConsoleLogHandler))
+        if console and not isinstance(handler, logging.FileHandler):
+            manager.logger.removeHandler(handler)
+    held = HeldConsole()
+    manager.logger.addHandler(held)
+    logging.getLogger().addHandler(held)
+    return held
+
+
+def print_held(lines: Iterable[HeldLine]) -> None:
+    """Print the lines a worker held through the console of this process.
+
+    Each goes out under the logger that wrote it, so the console drops a warning it
+    has already shown, the same one from another worker included.
+    """
+    for name, level, message in lines:
+        logging.getLogger(name).log(level, "%s", message)
+
+
+def verbosity_from_env(env=None):
+    """Return the verbosity named by ``HMP_VERBOSITY``, or None when unset."""
+    source = os.environ if env is None else env
+    raw = source.get("HMP_VERBOSITY")
+    if not raw or not raw.strip():
+        return None
+    return normalize_verbosity(raw)

@@ -1,4 +1,4 @@
-"""Calibrable parameters: annotations, space, transforms, discovery.
+"""Calibrable parameters: annotations, space, search spaces, discovery.
 
 A Pydantic field becomes calibrable by attaching a ``Calibrable`` instance via
 ``Field.json_schema_extra['calibrable']`` - or by being referenced in a TOML
@@ -15,7 +15,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.introspect import child_of, held_tables_of
 
 # ---------------------------------------------------------------------------
 # Annotation
@@ -23,32 +23,32 @@ from hydromodpy.core.config_kit.calibrable import Calibrable
 
 
 # ---------------------------------------------------------------------------
-# Transforms
+# Search spaces
 # ---------------------------------------------------------------------------
 
 
-def _forward(transform: str, x: float) -> float:
-    if transform == "identity":
+def _forward(search_space: str, x: float) -> float:
+    if search_space == "identity":
         return x
-    if transform == "log":
+    if search_space == "log":
         if x <= 0.0:
-            raise ValueError(f"log transform requires positive values, got {x}")
+            raise ValueError(f"log search space requires positive values, got {x}")
         return math.log10(x)
-    if transform == "logit":
+    if search_space == "logit":
         if not (0.0 < x < 1.0):
-            raise ValueError(f"logit transform requires 0<x<1, got {x}")
+            raise ValueError(f"logit search space requires 0<x<1, got {x}")
         return math.log(x / (1.0 - x))
-    raise ValueError(f"Unknown transform: {transform!r}")
+    raise ValueError(f"Unknown search space: {search_space!r}")
 
 
-def _inverse(transform: str, y: float) -> float:
-    if transform == "identity":
+def _inverse(search_space: str, y: float) -> float:
+    if search_space == "identity":
         return y
-    if transform == "log":
+    if search_space == "log":
         return 10.0**y
-    if transform == "logit":
+    if search_space == "logit":
         return 1.0 / (1.0 + math.exp(-y))
-    raise ValueError(f"Unknown transform: {transform!r}")
+    raise ValueError(f"Unknown search space: {search_space!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ def _inverse(transform: str, y: float) -> float:
 
 @dataclass(frozen=True, slots=True)
 class CalibParameter:
-    """Resolved calibration dimension in physical and transformed space.
+    """Resolved calibration dimension in physical and search space.
 
     The object combines user TOML declarations with optional ``Calibrable``
     field metadata. Bounds are stored in physical units, while helper
@@ -69,8 +69,8 @@ class CalibParameter:
     name: str
     lower: float
     upper: float
-    transform: str = "identity"
-    prior: str = "uniform"
+    search_space: str = "identity"
+    sampling: str = "uniform"
     path: str | None = None  # dotted path into HydroModPyConfig (optional)
     target: str | None = None  # readable alias for ``path`` (wins when set)
     mode: str = "replace"  # "replace" writes the sample; "scale" multiplies the base
@@ -78,17 +78,17 @@ class CalibParameter:
 
     @property
     def lower_transformed(self) -> float:
-        return _forward(self.transform, self.lower)
+        return _forward(self.search_space, self.lower)
 
     @property
     def upper_transformed(self) -> float:
-        return _forward(self.transform, self.upper)
+        return _forward(self.search_space, self.upper)
 
     def to_physical(self, y: float) -> float:
-        return _inverse(self.transform, y)
+        return _inverse(self.search_space, y)
 
     def to_transformed(self, x: float) -> float:
-        return _forward(self.transform, x)
+        return _forward(self.search_space, x)
 
     @property
     def effective_path(self) -> str | None:
@@ -96,15 +96,15 @@ class CalibParameter:
         return self.target if self.target is not None else self.path
 
 
-_MESH_SECTIONS: tuple[str, ...] = ("mesh_catchment", "mesh_catchment_batch", "mesh_input")
+_MESH_SECTIONS: tuple[str, ...] = ("mesh",)
 
 
 def _assert_path_is_not_the_mesh(name: str, path: str | None) -> None:
     """Refuse a parameter that would search over the mesh itself.
 
     Two reasons, and either one is enough. The stream-network criterion is
-    normalised by cell size, so refining the mesh moves the yardstick and a
-    search that optimises it is circular. And the mesh step reads the mesh
+    normalized by cell size, so refining the mesh moves the yardstick and a
+    search that optimizes it is circular. And the mesh step reads the mesh
     sections resolved once from the raw file rather than the per-trial
     configuration, so the value would never reach the mesh: every trial would
     score the same model under a different number.
@@ -122,7 +122,7 @@ def _assert_path_is_not_the_mesh(name: str, path: str | None) -> None:
         "parameter a search may move: the stream-network criterion is normalised by "
         "cell size, so refining the mesh moves the yardstick the search is scored "
         "against. Run one simulation per mesh and compare them instead "
-        '(workflow mode = "comparison", `hmp compare`), which reads them for '
+        '(workflow mode = "comparison", `hmp run`), which reads them for '
         "convergence rather than for a best score."
     )
 
@@ -163,7 +163,7 @@ def _assert_path_is_not_a_stage_boundary(name: str, path: str | None) -> None:
     )
 
 
-def _assert_bounds_are_physical(name: str, low: float, high: float, unit: object) -> None:
+def assert_bounds_are_physical(name: str, low: float, high: float, unit: object) -> None:
     """Face a declared bound with the ceiling a literal value already faces.
 
     The registry refuses a specific yield of 0.8 written in ``[flow.param]`` and
@@ -172,10 +172,7 @@ def _assert_bounds_are_physical(name: str, low: float, high: float, unit: object
     impossible region once, before the first solve. An id the registry does not
     know is left alone, exactly as it is everywhere else.
     """
-    from hydromodpy.spatial.field.core.physical_bounds import (
-        PhysicalBoundsError,
-        validate_physical_value,
-    )
+    from hydromodpy.core.units.physical_bounds import PhysicalBoundsError, validate_physical_value
 
     unit_text = str(unit) if unit is not None else None
     for edge, value in (("lower", low), ("upper", high)):
@@ -244,8 +241,8 @@ class ParameterSpace:
                     param.lower_transformed,
                     param.upper_transformed,
                 ],
-                "transform": param.transform,
-                "prior": param.prior,
+                "search_space": param.search_space,
+                "sampling": param.sampling,
                 "mode": param.mode,
                 "target": param.effective_path,
                 "units": param.units,
@@ -253,7 +250,7 @@ class ParameterSpace:
         return out
 
     def default_prior_mean_std(self) -> tuple[list[float], list[float]] | None:
-        """Return Normal-prior vectors in transformed space when declared."""
+        """Return normal-sampling vectors in search space when declared."""
         means: list[float] = []
         stds: list[float] = []
         has_normal = False
@@ -261,7 +258,7 @@ class ParameterSpace:
             low = param.lower_transformed
             high = param.upper_transformed
             span = high - low
-            if param.prior == "normal":
+            if param.sampling == "normal":
                 has_normal = True
                 means.append(0.5 * (low + high))
                 stds.append(max(span / 6.0, 1e-12))
@@ -276,58 +273,57 @@ class ParameterSpace:
     def from_toml_mapping(
         cls,
         declarations: Mapping[str, Mapping[str, Any]],
-        *,
-        annotations: Mapping[str, Calibrable] | None = None,
     ) -> ParameterSpace:
         """Build a space from ``[calibration.parameters]`` TOML section.
 
-        ``annotations`` may provide defaults harvested from Pydantic
-        ``Calibrable`` hints keyed by parameter name. TOML overrides win.
+        What a field declares about itself has already been written into the
+        declaration by :mod:`hydromodpy.calibration.parameter_resolution`, so
+        there is one place where a default can come from and it is upstream of
+        here.
         """
-        annotations = annotations or {}
         params: list[CalibParameter] = []
         for name, decl in declarations.items():
-            ann = annotations.get(name)
             bounds = decl.get("bounds")
-            if bounds is None and ann is not None:
-                bounds = ann.bounds
             if bounds is None:
-                raise ValueError(f"Parameter {name!r} has no bounds (TOML or annotation)")
+                raise ValueError(f"Parameter {name!r} has no bounds")
             low, high = float(bounds[0]), float(bounds[1])
-            transform = decl.get("transform", ann.transform if ann else "identity")
-            prior = decl.get("prior", ann.prior if ann else "uniform")
+            search_space = decl.get("search_space", "identity")
+            sampling = decl.get("sampling", "uniform")
             if not low < high:
                 raise ValueError(f"Parameter {name!r}: lower bound must be < upper bound")
-            if transform == "log" and low <= 0.0:
-                raise ValueError(f"Parameter {name!r}: log transform requires lower > 0")
-            if transform == "logit" and not (0.0 < low < high < 1.0):
+            if search_space == "log" and low <= 0.0:
+                raise ValueError(f"Parameter {name!r}: log search space requires lower > 0")
+            if search_space == "logit" and not (0.0 < low < high < 1.0):
                 raise ValueError(
-                    f"Parameter {name!r}: logit transform requires 0 < lower < upper < 1"
+                    f"Parameter {name!r}: logit search space requires 0 < lower < upper < 1"
                 )
-            _assert_bounds_are_physical(name, low, high, decl.get("units"))
-            if prior not in {"uniform", "log_uniform", "normal"}:
-                raise ValueError(f"Parameter {name!r}: unknown prior {prior!r}")
-            if prior == "log_uniform" and low <= 0.0:
-                raise ValueError(f"Parameter {name!r}: log_uniform prior requires lower > 0")
-            units = decl.get("units", ann.units if ann else None)
             path = decl.get("path")
             target = decl.get("target")
-            _assert_path_is_not_the_mesh(name, path)
-            _assert_path_is_not_the_mesh(name, target)
-            _assert_path_is_not_a_stage_boundary(name, path)
-            _assert_path_is_not_a_stage_boundary(name, target)
             mode = str(decl.get("mode", "replace")).strip().lower()
             if mode not in {"replace", "scale"}:
                 raise ValueError(
                     f"Parameter {name!r}: mode must be 'replace' or 'scale', got {mode!r}"
                 )
+            # The bounds of a scale are factors, not values of the property: the
+            # product is faced with the registry when it is written.
+            if mode == "replace":
+                assert_bounds_are_physical(name, low, high, decl.get("units"))
+            if sampling not in {"uniform", "log_uniform", "normal"}:
+                raise ValueError(f"Parameter {name!r}: unknown sampling {sampling!r}")
+            if sampling == "log_uniform" and low <= 0.0:
+                raise ValueError(f"Parameter {name!r}: log_uniform sampling requires lower > 0")
+            units = decl.get("units")
+            _assert_path_is_not_the_mesh(name, path)
+            _assert_path_is_not_the_mesh(name, target)
+            _assert_path_is_not_a_stage_boundary(name, path)
+            _assert_path_is_not_a_stage_boundary(name, target)
             params.append(
                 CalibParameter(
                     name=name,
                     lower=low,
                     upper=high,
-                    transform=transform,
-                    prior=prior,
+                    search_space=search_space,
+                    sampling=sampling,
                     path=path,
                     target=target,
                     mode=mode,
@@ -337,86 +333,12 @@ class ParameterSpace:
         return cls(params)
 
 
-# ---------------------------------------------------------------------------
-# Auto-discovery
-# ---------------------------------------------------------------------------
-
-
-def _iter_annotations(model_cls: type[BaseModel]) -> Iterable[tuple[str, Calibrable]]:
-    for field_name, f in model_cls.model_fields.items():
-        extra = f.json_schema_extra or {}
-        if not isinstance(extra, dict):
-            continue
-        hint = extra.get("calibrable")
-        if hint is None:
-            continue
-        if isinstance(hint, Calibrable):
-            yield field_name, hint
-        elif isinstance(hint, Mapping):
-            yield (
-                field_name,
-                Calibrable(
-                    bounds=tuple(hint["bounds"]) if hint.get("bounds") else None,
-                    transform=hint.get("transform", "identity"),
-                    prior=hint.get("prior", "uniform"),
-                    units=hint.get("units"),
-                    description=hint.get("description", ""),
-                ),
-            )
-
-
-def discover_calibrable(
-    config: BaseModel | type[BaseModel], *, _prefix: str = ""
-) -> dict[str, Calibrable]:
-    """Walk a Pydantic config tree and collect Calibrable annotations.
-
-    Keys are dotted paths, e.g. ``"flow.properties.k_aquifer"``. Values are
-    ``Calibrable`` metadata harvested from ``Field.json_schema_extra``.
-    """
-    cls = config if isinstance(config, type) else type(config)
-    if not (isinstance(cls, type) and issubclass(cls, BaseModel)):
-        return {}
-    found: dict[str, Calibrable] = {}
-    for field_name, hint in _iter_annotations(cls):
-        key = f"{_prefix}{field_name}"
-        found[key] = hint
-    for field_name, f in cls.model_fields.items():
-        sub_path = f"{_prefix}{field_name}."
-        sub_cls = _resolve_submodel(f.annotation)
-        if sub_cls is None:
-            continue
-        sub = getattr(config, field_name, None) if not isinstance(config, type) else None
-        found.update(discover_calibrable(sub or sub_cls, _prefix=sub_path))
-    return found
-
-
-def _resolve_submodel(annotation: Any) -> type[BaseModel] | None:
-    import types
-    from typing import get_args, get_origin
-
-    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        return annotation
-    origin = get_origin(annotation)
-    if origin is None:
-        return None
-    if origin in (types.UnionType, getattr(__import__("typing"), "Union", None)):
-        for arg in get_args(annotation):
-            if isinstance(arg, type) and issubclass(arg, BaseModel):
-                return arg
-    return None
-
-
-# ---------------------------------------------------------------------------
-# Apply resolved params to a config
-# ---------------------------------------------------------------------------
-
-
 def apply_parameter_to_config(
     cfg: Any,
     param: CalibParameter,
     value: float,
 ) -> None:
-    """Write ``value`` into ``cfg`` for ``param``, honouring ``param.mode``.
+    """Write ``value`` into ``cfg`` for ``param``, honoring ``param.mode``.
 
     ``mode="replace"`` writes the candidate value as-is at ``param.effective_path``.
     ``mode="scale"`` multiplies the existing value at that path by the candidate
@@ -432,6 +354,17 @@ def apply_parameter_to_config(
         raise ValueError(f"[calibration.parameters.{param.name}] {exc}") from None
 
 
+def refuse_normal_sampling(engine: str, name: str, sampling: str) -> None:
+    """Refuse the 'normal' sampling on an engine that would draw something else."""
+    if sampling == "normal":
+        raise ValueError(
+            f"{engine} cannot draw the 'normal' sampling declared on parameter "
+            f"{name!r}: it would sample uniformly instead, and a Latin hypercube "
+            "cannot stratify a normal clipped to bounds. Use 'uniform' or 'log_uniform' "
+            "on this parameter, or pick an engine that draws a normal."
+        )
+
+
 def _assert_candidate_is_physical(param: CalibParameter, written: float) -> None:
     """Face the value about to be written with the registry's ceiling.
 
@@ -440,11 +373,13 @@ def _assert_candidate_is_physical(param: CalibParameter, written: float) -> None
     where the sample is a multiplier: legal bounds on the multiplier say nothing
     about where the product lands, so a scale of 8 on a specific yield of 0.1
     writes 0.8, past the physical ceiling, and only the solver would notice.
+
+    Keyed on the parameter's own name. A value reached through a resolved name
+    is already faced with the range its catalog entry carries, at load time,
+    in :mod:`hydromodpy.calibration.parameter_resolution`; what is left here is
+    the best a bare name can do.
     """
-    from hydromodpy.spatial.field.core.physical_bounds import (
-        PhysicalBoundsError,
-        validate_physical_value,
-    )
+    from hydromodpy.core.units.physical_bounds import PhysicalBoundsError, validate_physical_value
 
     unit_text = str(param.units) if param.units is not None else None
     try:
@@ -491,6 +426,8 @@ def _unknown_segment(path: str, part: str, depth: int, target: Any) -> ValueErro
     reached = ".".join(path.split(".")[:depth]) or "the configuration root"
     if isinstance(target, Mapping):
         available = sorted(str(key) for key in target)
+    elif isinstance(target, BaseModel):
+        available = sorted([*type(target).model_fields, *held_tables_of(target)])
     else:
         available = sorted(k for k in vars(type(target)).get("model_fields", ()) or ())
         if not available:
@@ -510,6 +447,12 @@ def set_by_path(cfg: Any, path: str, value: Any) -> None:
             if part not in target:
                 raise _unknown_segment(path, part, depth, target)
             target = target[part]
+        elif isinstance(target, BaseModel):
+            # A model also holds named tables, as solver.modflow6.
+            try:
+                target = child_of(target, part)
+            except AttributeError:
+                raise _unknown_segment(path, part, depth, target) from None
         else:
             if not hasattr(target, part):
                 raise _unknown_segment(path, part, depth, target)
@@ -532,6 +475,13 @@ def _get_by_path(cfg: Any, path: str) -> Any:
             if part not in target:
                 raise ValueError(f"Path segment {part!r} not found on {type(target).__name__}")
             target = target[part]
+        elif isinstance(target, BaseModel):
+            try:
+                target = child_of(target, part)
+            except AttributeError:
+                raise ValueError(
+                    f"Path segment {part!r} not found on {type(target).__name__}"
+                ) from None
         else:
             if not hasattr(target, part):
                 raise ValueError(f"Path segment {part!r} not found on {type(target).__name__}")
@@ -540,10 +490,9 @@ def _get_by_path(cfg: Any, path: str) -> Any:
 
 
 __all__ = [
-    "Calibrable",
     "CalibParameter",
     "ParameterSpace",
-    "discover_calibrable",
     "apply_parameter_to_config",
+    "assert_bounds_are_physical",
     "set_by_path",
 ]

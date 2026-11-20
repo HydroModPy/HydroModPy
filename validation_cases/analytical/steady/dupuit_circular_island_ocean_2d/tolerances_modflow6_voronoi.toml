@@ -1,0 +1,30 @@
+[radial_profile]
+rmse = 0.074
+max_abs_error = 0.089
+azimuthal_spread = 2.0e-4
+min_land_clearance = 1.7
+
+[doc]
+gap = """
+Known gap. MODFLOW 6 on the Voronoi dual sits up to 0.08 m below the reference
+inside 120 m (radial RMSE 0.067 m), where MODFLOW-NWT on the Cartesian grid sits
+0.050 m away. MODFLOW 6 reads a computational top that gives every cell the same
+thickness, so the full-thickness weighting of its Newton conductance is gone.
+What is left is the saturation of the upstream cell, first order on 625 cells
+whose node rings are 10 to 30 m apart: without Newton the same input files give
+0.003 m, the heads within 4 mm of the reference.
+"""
+reason = """
+Measured values with a 10 % margin: radial RMSE 0.067 m, max error 0.080 m,
+freeboard 1.90 m. Twice the azimuthal spread of 9.9e-5 m: every cell of the
+coast ring holds the sea level, so the rings are symmetric. The run reads a 1 m
+raster whose shoreline lies 1 m inside the coast ring
+(config_modflow6_voronoi.toml). The profile is read on the node rings (5 m
+bins). The freeboard is read on the land surface the run was given, at the
+196 m ring. Until 2026-10-12 the top was the DEM and the RMSE 0.102 m. Twice the
+error would let that bias back unnoticed, hence the 10 % margin.
+B9 of the unified mesh, measured again on 2026-10-26. Kept at a numerical
+floor, where twice the measure guarantees nothing:
+radial_profile.azimuthal_spread 2e-4 (measure 4.67e-6, the head closure is 1e-4
+m, and the measure read 9.9e-5 on 2026-10-14 on the same mesh).
+"""

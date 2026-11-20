@@ -3,22 +3,20 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
 
-from hydromodpy.physics.flow import Flow
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.simulation.planning.plan import (
-    ProcessRun,
-    RunContext,
-    SimulationPlan,
-)
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.model.flow import Flow
+from hydromodpy.model.flow_config import FlowConfig
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    apply_analytical_boussinesq_runtime_defaults,
+    boussinesq_variant_config_name,
+    boussinesq_variant_flow_section,
+    boussinesq_variant_options,
+    solve_boussinesq_bundle,
 )
 from validation_cases.shared.boussinesq_uniform_strip import (
     aggregate_triangle_history_to_structured_fields,
@@ -39,13 +37,17 @@ def build_flow_config(
     flow_section: dict[str, object],
     *,
     case_dir: Path | None = None,
+    config_name: str = "config_boussinesq.toml",
 ) -> FlowConfig:
-    """Build one validation flow config from a TOML-like mapping."""
+    """Build one validation flow config from a TOML-like mapping.
+
+    The ``[flow]`` table of ``config_name`` in ``case_dir`` gives the defaults.
+    """
     base_dir = Path(".") if case_dir is None else Path(case_dir)
     merged_flow = (
         dict(flow_section)
         if case_dir is None
-        else merge_case_flow_section(Path(case_dir), flow_section)
+        else merge_case_flow_section(Path(case_dir), flow_section, config_name=config_name)
     )
     return FlowConfig.from_toml_section(merged_flow, base_dir=base_dir)
 
@@ -233,13 +235,20 @@ def run_boussinesq_transient_uniform_strip_case(
     plan_name: str,
     plan_description: str,
     public_solver_label: str = "boussinesq",
+    boussinesq_settings: Mapping[str, Any] | None = None,
 ) -> ValidationRunResult:
-    """Run one transient Boussinesq validation case on a small uniform strip mesh."""
+    """Run one transient Boussinesq validation case on a small uniform strip mesh.
+
+    ``boussinesq_settings`` holds the ``[solver.boussinesq]`` values the case
+    writes itself, over the table of its config.
+    """
     del timeout
 
+    solver_name = str(public_solver_label or "boussinesq")
+    # One directory per variant: variants of one test file run in parallel.
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{case_id}_boussinesq",
+        run_name=f"{case_id}_{solver_name}",
     )
     bundle_dir = write_uniform_strip_bundle(
         out_path / "mesh_bundle",
@@ -256,44 +265,36 @@ def run_boussinesq_transient_uniform_strip_case(
     simulations_folder.mkdir(parents=True, exist_ok=True)
     period_lengths_seconds = tuple(float(dt_seconds) for _ in range(int(nper)))
 
-    effective_flow_section = apply_analytical_boussinesq_runtime_defaults(
+    effective_flow_section = boussinesq_variant_flow_section(
         flow_section,
         flow_regime="transient",
     )
 
-    state = SimpleNamespace(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(build_flow_config(effective_flow_section, case_dir=case_dir)),
-            domain=None,
-            time_grid=SimpleNamespace(
-                period_lengths_seconds=period_lengths_seconds,
-                window=None,
-            ),
-            workspace=SimpleNamespace(
-                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
-            ),
+    solved = solve_boussinesq_bundle(
+        flow=Flow(
+            build_flow_config(
+                effective_flow_section,
+                case_dir=case_dir,
+                config_name=boussinesq_variant_config_name(solver_name),
+            )
         ),
-    )
-    run = ProcessRun(
-        id="flow_validation::boussinesq",
-        process_id="flow_validation",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name=plan_name,
-            description=plan_description,
-            runs=(run,),
+        bundle_dir=bundle_dir,
+        simulations_folder=simulations_folder,
+        time_grid=SimpleNamespace(
+            period_lengths_seconds=period_lengths_seconds,
+            window=None,
         ),
-        run=run,
-        state=state,
+        options=boussinesq_variant_options(
+            flow_regime="transient",
+            solver=solver_name,
+            case_dir=case_dir,
+            config_name=boussinesq_variant_config_name(solver_name),
+            written=boussinesq_settings,
+        ),
+        plan_name=plan_name,
+        plan_description=plan_description,
     )
-
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    model = solved.solver_model
     field_series = aggregate_triangle_history_to_structured_fields(
         model,
         nx=int(nx),
@@ -304,7 +305,6 @@ def run_boussinesq_transient_uniform_strip_case(
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
-    solver_name = str(public_solver_label or "boussinesq")
     store, sim_id = write_validation_fields_to_store(
         out_path=out_path,
         fields=field_series,

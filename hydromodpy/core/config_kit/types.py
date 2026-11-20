@@ -2,13 +2,30 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import AfterValidator, BeforeValidator, Field
+from pydantic import AfterValidator, BeforeValidator, Field, WithJsonSchema
+
+from hydromodpy.core.scope import station_name_refusal
 
 # ---------------------------------------------------------------------------
 # String types
 # ---------------------------------------------------------------------------
+
+
+def listed(value: object) -> object:
+    """Read a single name as a list of one, and leave anything else as it is."""
+    return [value] if isinstance(value, str) else value
+
+
+Names = Annotated[
+    list[str],
+    BeforeValidator(listed),
+    WithJsonSchema({"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]}),
+]
+"""One name or a list of names. A single name is read as a list of one."""
+
 
 IdentifierStr = Annotated[
     str,
@@ -63,8 +80,22 @@ NormalizedLowerStr = Annotated[str, BeforeValidator(_strip_lower)]
 NonEmptyStr = Annotated[str, BeforeValidator(_strip_non_empty)]
 """Non-empty string after stripping whitespace."""
 
-OptionalText = Annotated[str | None, BeforeValidator(_clean_optional_text)]
-"""Optional free-form text. Empty / whitespace-only inputs collapse to ``None``."""
+
+def _station_name(value: str) -> str:
+    refusal = station_name_refusal(value)
+    if refusal is not None:
+        raise ValueError(refusal)
+    return value
+
+
+StationName = Annotated[str, AfterValidator(_station_name)]
+"""Identifier of a station, refused when it is the word of the whole catchment."""
+
+NonEmptyPath = Annotated[Path, BeforeValidator(_strip_non_empty)]
+"""File or folder path, refused when empty. Typed ``Path`` so tools know it is one."""
+
+OptionalPath = Annotated[Path | None, BeforeValidator(_clean_optional_text)]
+"""Optional file or folder path. Empty / whitespace-only inputs collapse to ``None``."""
 
 IsoDateStr = Annotated[str | None, AfterValidator(_validate_iso_date)]
 """Optional ISO-8601 date (``YYYY-MM-DD``). Validated lazily, ``None`` allowed."""
@@ -92,9 +123,9 @@ Probability = Annotated[
 
 CellSamplingDensity = Annotated[
     int,
-    Field(ge=2, description="Sub-sampling density per cell axis used when rasterising masks."),
+    Field(ge=2, description="Sub-sampling density per cell axis used when rasterizing masks."),
 ]
-"""Sub-sampling density per cell axis used when rasterising masks."""
+"""Sub-sampling density per cell axis used when rasterizing masks."""
 
 
 # ---------------------------------------------------------------------------
@@ -107,8 +138,12 @@ TimePeriodUnit: TypeAlias = Literal["hour", "day", "month", "year"]
 CoveragePolicy: TypeAlias = Literal["error", "warn", "ignore"]
 """Reaction policy when input data does not cover a window."""
 
-InterpolationMethod: TypeAlias = Literal["nearest", "linear", "idw"]
-"""Spatial interpolation method shared by spatial and physics layers."""
+InterpolationMethod: TypeAlias = Literal["nearest", "linear", "idw", "area"]
+"""Spatial interpolation method shared by the spatial and model layers.
+
+``"area"`` weighs each pixel of a grid by the area it shares with a cell, so it
+needs the cell polygons and only the forcing path on cells serves it.
+"""
 
 
 __all__ = [
@@ -117,15 +152,19 @@ __all__ = [
     "IdentifierStr",
     "InterpolationMethod",
     "IsoDateStr",
+    "Names",
+    "NonEmptyPath",
     "NonEmptyStr",
     "NonNegativeFloat",
     "NonNegativeInt",
     "NormalizedLowerStr",
     "NormalizedStr",
-    "OptionalText",
+    "OptionalPath",
     "PositiveFloat",
     "PositiveInt",
     "Probability",
+    "StationName",
     "StripLower",
     "TimePeriodUnit",
+    "listed",
 ]

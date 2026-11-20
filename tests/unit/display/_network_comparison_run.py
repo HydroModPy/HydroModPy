@@ -14,6 +14,10 @@ the axis column, and the outlet is its southern end.
 
 Putting a release flux on one cell therefore names the simulated network
 exactly: that cell, plus every cell its water flows through on the way out.
+
+The run carries what a real one stores beside its mesh and the criterion reads
+back: the cells of open water, the cells of the catchment outline and the mean
+recharge, through the same loaders a stored run gives its descent.
 """
 
 from __future__ import annotations
@@ -22,6 +26,13 @@ from collections.abc import Sequence
 from types import SimpleNamespace
 
 import numpy as np
+
+from hydromodpy.catchment.drainage.descent import build_descent
+from hydromodpy.catchment.drainage.graph import active_surface_mask, cell_centroids_from_mesh
+from hydromodpy.mesh.planar.geometry import cell_polygons
+from hydromodpy.results.derive.stream_network.criterion_inputs import catchment_cells
+from hydromodpy.results.run.contracts import MeshDescent
+from hydromodpy.results.run.descent import RunDescent
 
 NX = 5
 NY = 3
@@ -74,25 +85,34 @@ def comparison_run(
     with_release: bool = True,
     catchment_columns: Sequence[int] | None = None,
     name: str = "nancon",
+    descent_diagonals: bool = True,
+    open_water: Sequence[int] = (),
+    kept_recharge: bool | float = True,
 ) -> SimpleNamespace:
     """Return a run the stream comparison can be rebuilt from.
 
     ``seepage_cells`` are the cells releasing water to the surface; every other
     cell releases nothing, so the simulated network is the downslope closure of
-    exactly those. ``topography`` replaces the routing surface, and ``relief``
+    exactly those. ``descent_diagonals`` is the neighborhood the stored descent
+    was built on, which the real build fixes by the mesh type. ``topography`` replaces the routing surface, and ``relief``
     the elevation the run persisted as a field: they are the same array unless
-    a test drives the hillshade on its own.
+    a test drives the hillshade on its own. ``open_water`` are the cells of the
+    stored ``mesh/open_water`` mask. ``kept_recharge`` is the mean recharge the run kept,
+    True for the default rate of the grid, a number for another, False for none.
     """
     import geopandas as gpd
     from shapely.geometry import LineString, box
 
     vertices, faces = _grid(cell_m)
     surface = valley_topography() if topography is None else np.asarray(topography, dtype=float)
+    centres = cell_centroids_from_mesh(vertices, faces)
     mesh = SimpleNamespace(
         vertices=vertices,
         face_node_connectivity=faces,
         topography=surface,
+        z_interfaces=np.stack([surface, surface - 10.0]),
         crs=CRS,
+        cell_centers=lambda: centres,
     )
 
     axis_x = (AXIS_COLUMN + 0.5) * cell_m
@@ -113,6 +133,15 @@ def comparison_run(
         crs=CRS,
     )
 
+    water = np.zeros(NX * NY, dtype=bool)
+    water[list(open_water)] = True
+    outline = catchment_cells(cell_polygons(vertices, faces), watershed, mesh_crs=CRS)
+    recharge_m_s = (
+        CELL_RECHARGE_M3_S / (cell_m * cell_m)
+        if kept_recharge is True
+        else (None if kept_recharge is False else float(kept_recharge))
+    )
+
     release = np.zeros(NX * NY, dtype=float)
     release[list(seepage_cells)] = RELEASE_M3_S
     fields: dict[str, np.ndarray] = {"recharge": np.full(NX * NY, CELL_RECHARGE_M3_S)}
@@ -121,16 +150,61 @@ def comparison_run(
     if with_relief:
         fields["topography"] = surface if relief is None else np.asarray(relief, dtype=float)
 
+    # The snapped pour point the geographic step persists, which the criterion
+    # places its outlet from. A catchment narrowed to some columns stands for
+    # a polygon drawn by hand, which carries no pour point: the criterion then
+    # closes on the most accumulated cell of the polygon.
+    snapped = (
+        {"x_outlet_snapped": str(axis_x), "y_outlet_snapped": str(0.5 * cell_m)}
+        if catchment_columns is None
+        else {}
+    )
     return SimpleNamespace(
         sim_id="sim-network",
         name=name,
         mesh=mesh,
+        n_timesteps=1,
         outlet=(axis_x, 0.5 * cell_m),
+        _catalog=SimpleNamespace(read_geographic_metadata=lambda sim_id: dict(snapped)),
         has_field=lambda variable, **_: variable in fields,
         field=lambda variable, **_: fields[variable],
+        descent=RunDescent(
+            lambda: stored_descent(surface, faces, vertices, descent_diagonals),
+            load_open_water=lambda: water,
+            load_catchment_cells=lambda: outline,
+            load_recharge=lambda: recharge_m_s,
+        ),
         has_hydrographic_network=lambda role="generated": role == "reference",
         hydrographic_network=lambda role="generated": network,
         geographic=lambda feature: watershed,
+    )
+
+
+def stored_descent(
+    surface: np.ndarray, faces: np.ndarray, vertices: np.ndarray, diagonal_neighbors: bool = True
+) -> MeshDescent:
+    """Return the descent a solver build would have stored for this mesh."""
+    descent = build_descent(
+        surface,
+        faces,
+        vertices=vertices,
+        centroids=cell_centroids_from_mesh(vertices, faces),
+        routable=active_surface_mask(surface),
+        diagonal_neighbors=diagonal_neighbors,
+    )
+    return MeshDescent(
+        receiver=descent.receiver,
+        surface=descent.surface,
+        base_level=descent.base_level,
+        constant_head=descent.constant_head,
+        raised=descent.raised,
+        channel=descent.channel,
+        pinned=descent.pinned,
+        graph=descent.metric.graph,
+        adjacency="shared_nodes" if descent.diagonal_neighbors else "shared_faces",
+        epsilon=None,
+        report={},
+        rebuilt=False,
     )
 
 

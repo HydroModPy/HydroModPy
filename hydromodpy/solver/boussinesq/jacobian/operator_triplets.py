@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import resolve_boundary_head_inputs
+from hydromodpy.solver.boussinesq.assembly.fluxes import harmonic_conductivity
+from hydromodpy.solver.boussinesq.assembly.inputs import resolve_boundary_head_inputs
 from hydromodpy.solver.boussinesq.jacobian.common import (
     drainage_diagonal_derivative,
-    harmonic_conductivity,
     saturated_thickness_derivative_from_head,
     saturated_thickness_value,
     storage_thickness_derivative_from_head,
@@ -54,8 +54,6 @@ def build_sparse_semianalytic_triplets(
 
     def _append_diagonal(values: np.ndarray) -> None:
         diag_values = np.asarray(values, dtype=float).reshape(-1)
-        if diag_values.size != n_cells:
-            raise ValueError("Diagonal contribution length must match mesh.n_cells.")
         if np.any(prescribed_mask):
             diag_values = diag_values.copy()
             diag_values[prescribed_mask] = 0.0

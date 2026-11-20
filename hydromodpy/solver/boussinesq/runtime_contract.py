@@ -14,7 +14,7 @@ The canonical Dirichlet input below is ``prescribed_head_m_by_cell`` - the
 head value is assigned directly to the unknown of the boundary cell, not to
 the boundary edge midpoint. This is a deliberate simplification (one fewer
 unknown, no interface equation) inherited from the v0.6 runtime refactor
-(commit ``c4cb92b7``, J.-R. de Dreuzy, 2026-04-17) and enforced as
+(commit ``4892dc62``, J.-R. de Dreuzy, 2026-04-17) and enforced as
 mutually exclusive with ``boundary_head_m_by_edge`` at
 ``assembly/inputs.py:105``.
 
@@ -44,7 +44,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
+from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 
@@ -55,7 +55,8 @@ class NonlinearRuntimeOptions:
     The most important rule is that ``tol_residual_inf`` stays the common
     convergence criterion across backends. A backend may use an extra stopping
     rule on the state update, but it should still satisfy the residual
-    tolerance before advertising success.
+    tolerance before advertising success. ``regularization_radius`` is the
+    depth scale of the regularized partition, in meters below the land surface.
     """
 
     regularization_radius: float

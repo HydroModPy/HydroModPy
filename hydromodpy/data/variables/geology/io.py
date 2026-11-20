@@ -15,7 +15,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from hydromodpy.model.properties.geology_field import GeologyField
 
 import numpy as np
 import rasterio
@@ -70,11 +73,15 @@ def resolve_data_path(data_path: str, *, config_path: str | Path | None = None) 
 
 def load_vector_geology_dataframe(
     config: Mapping[str, Any],
-    *,
     config_path: str | Path | None = None,
+    *,
     zone_key_column: str = "zone_key",
 ):
-    """Load vector geology source and return a GeoDataFrame ready for plotting."""
+    """Load vector geology source and return a GeoDataFrame ready for plotting.
+
+    The two-argument form ``(config, config_path)`` is the ``read_vector`` contract
+    the mesh planner takes as an argument.
+    """
     import geopandas as gpd
 
     cfg = dict(config)
@@ -486,109 +493,27 @@ def load_geology_encoded_grid_on_raster_support(
     }
 
 
-def load_vector_geology_as_gpkg(
-    vector_path: str | Path,
-    *,
-    code_field: str,
-    bbox: tuple[float, float, float, float] | None = None,
-    output_path: Path | None = None,
-) -> Path:
-    """
-    Load a vector geology source, optionally crop to bbox, save as GeoPackage.
+def geology_field_from_config(config: Mapping[str, Any]) -> GeologyField:
+    """Build field from validated geology config mapping (standalone use)."""
+    from hydromodpy.data.variables.geology.config import validate_geology_config_data
+    from hydromodpy.model.properties.geology_field import GeologyField
 
-    Parameters
-    ----------
-    vector_path : path to the vector file
-    code_field : attribute column containing geology codes
-    bbox : (xmin, ymin, xmax, ymax) in the source CRS for cropping
-    output_path : where to save the .gpkg (if None, returns the GeoDataFrame)
-
-    Returns
-    -------
-    Path to the saved GeoPackage file.
-    """
-    import geopandas as gpd
-
-    gdf = gpd.read_file(str(vector_path))
-    if gdf.empty:
-        raise ValueError(f"Vector geology source has no geometry: {vector_path}")
-    if code_field not in gdf.columns:
-        raise KeyError(f"Missing vector field '{code_field}' in {vector_path}")
-
-    gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
-
-    if bbox is not None:
-        from shapely.geometry import box
-
-        xmin, ymin, xmax, ymax = bbox
-        bbox_geom = box(xmin, ymin, xmax, ymax)
-        bbox_gdf = gpd.GeoDataFrame(geometry=[bbox_geom], crs=gdf.crs)
-        gdf = gpd.clip(gdf, bbox_gdf)
-        if gdf.empty:
-            raise ValueError("No geology feature intersects the requested bbox")
-
-    if output_path is not None:
-        output_path = Path(output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        gdf.to_file(str(output_path), driver="GPKG")
-
-    return output_path
+    cfg = validate_geology_config_data(config)
+    loaded = load_geology_encoded_grid(cfg)
+    return GeologyField(
+        identifier=str(cfg["id"]),
+        encoded_codes=loaded["encoded_codes"],
+        encoded_to_zone=loaded["encoded_to_zone"],
+        transform=loaded["transform"],
+        crs=loaded["crs"],
+        source_kind=str(loaded["source_kind"]),
+        default_cell_samples_per_axis=int(cfg.get("cell_samples_per_axis", 8)),
+    )
 
 
-class GeologyDataIO:
-    """Concrete ``GeologyDataSource`` backed by ``data.variables.geology``."""
+def geology_field_from_toml(toml_path: str | Path, section: str = "geology") -> GeologyField:
+    """Build field directly from one TOML section (standalone use)."""
+    from hydromodpy.data.variables.geology.config import load_geology_toml
 
-    def validate_config(self, config: Mapping[str, Any]) -> dict[str, Any]:
-        from hydromodpy.data.variables.geology.config import (
-            validate_geology_config_data,
-        )
-
-        return validate_geology_config_data(config)
-
-    def load_encoded_grid(self, config: Mapping[str, Any]) -> dict[str, Any]:
-        return load_geology_encoded_grid(config)
-
-    def load_encoded_grid_on_raster_support(
-        self,
-        config: Mapping[str, Any],
-        *,
-        raster_support: object,
-    ) -> dict[str, Any]:
-        return load_geology_encoded_grid_on_raster_support(
-            config,
-            raster_support=raster_support,
-        )
-
-    def load_toml(self, toml_path: str | Path, section: str = "geology") -> dict[str, Any]:
-        from hydromodpy.data.variables.geology.config import load_geology_toml
-
-        return load_geology_toml(toml_path, section=section)
-
-    def load_vector_dataframe(
-        self,
-        config: Mapping[str, Any],
-        *,
-        config_path: str | Path | None = None,
-        zone_key_column: str = "zone_key",
-    ) -> dict[str, Any]:
-        return load_vector_geology_dataframe(
-            config,
-            config_path=config_path,
-            zone_key_column=zone_key_column,
-        )
-
-    def resolve_data_path(
-        self,
-        data_path: str,
-        *,
-        config_path: str | Path | None = None,
-    ) -> str:
-        return resolve_data_path(data_path, config_path=config_path)
-
-    def normalize_zone_key(self, raw: Any) -> str:
-        return normalize_zone_key(raw)
-
-
-def default_geology_data_source() -> GeologyDataIO:
-    """Return the default geology data source backed by ``data.variables.geology``."""
-    return GeologyDataIO()
+    cfg = load_geology_toml(toml_path, section=section)
+    return geology_field_from_config(cfg)

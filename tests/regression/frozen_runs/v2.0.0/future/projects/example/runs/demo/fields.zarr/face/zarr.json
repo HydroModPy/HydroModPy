@@ -1,0 +1,47 @@
+{
+  "shape": [
+    400
+  ],
+  "data_type": "int32",
+  "chunk_grid": {
+    "name": "regular",
+    "configuration": {
+      "chunk_shape": [
+        400
+      ]
+    }
+  },
+  "chunk_key_encoding": {
+    "name": "default",
+    "configuration": {
+      "separator": "/"
+    }
+  },
+  "fill_value": 0,
+  "codecs": [
+    {
+      "name": "bytes",
+      "configuration": {
+        "endian": "little"
+      }
+    },
+    {
+      "name": "zstd",
+      "configuration": {
+        "level": 0,
+        "checksum": false
+      }
+    }
+  ],
+  "attributes": {
+    "long_name": "Index of a cell along the face axis of the fields",
+    "units": "1",
+    "comment": "Position along the face axis of every field array, and row of mesh/face_node_connectivity."
+  },
+  "dimension_names": [
+    "face"
+  ],
+  "zarr_format": 3,
+  "node_type": "array",
+  "storage_transformers": []
+}

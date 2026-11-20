@@ -11,13 +11,14 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow6.builders.period_forcing import (
     constant_forcing_value,
     forcing_to_si,
     forcing_unit,
     resolve_forcing_mode,
     resolve_use_ts6,
+    simulation_window,
     ts6_times_and_values,
 )
 from hydromodpy.solver.modflow6.support.time_series import Ts6Series
@@ -129,7 +130,7 @@ def _emit_network_forcing(
 
     per_period = resolve_period_values_from_forcing(
         forcing=forcing,
-        simulation_window=None if model.time_grid is None else model.time_grid.window,
+        simulation_window=simulation_window(model),
         nper=nper,
         label=location,
     )
@@ -215,7 +216,7 @@ def build_sfr_obs_spec(
 
     ``obs_continuous`` is the flopy ``continuous`` mapping ``{csv_file: [(name,
     type, id), ...]}`` with 0-based integer reach ids. ``sfr_obs_meta`` is the
-    JSON-serialisable sidecar mapping each observation name to its network /
+    JSON-serializable sidecar mapping each observation name to its network /
     reach / quantity so the extractor can re-key the obs CSV by
     ``(reach_ifno, totim)``.
     """

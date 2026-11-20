@@ -1,0 +1,1203 @@
+"""Cross-section rules of a configuration.
+
+A rule reads sections of a document, such as the flow solver, the mesh or the time grid,
+and refuses a pair that cannot run together. The solver rules read ``supports`` and name
+no solver. A sealed document only warns.
+"""
+
+from __future__ import annotations
+
+import ast
+import inspect
+import logging
+import re
+import textwrap
+from datetime import date, datetime
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+
+import pytest
+
+from hydromodpy.config import cross_checks, solver_supports
+from hydromodpy.config.cross_checks import CROSS_RULES, check_against_the_solver, run_cross_rules
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.config.section_loader import SECTIONS
+from hydromodpy.config.solver_supports import (
+    TRAIT_USES,
+    coarse_conductivity_profile,
+    refuse_a_native_step_finer_than_the_time_grid,
+    refuse_a_point_method_under_a_lumped_mesh,
+    refuse_a_transport_its_flow_does_not_feed,
+    refuse_a_window_chain_the_run_cannot_carry,
+    refuse_an_ignored_family_written,
+    refuse_face_flows_the_flow_does_not_write,
+    refuse_the_reads_the_flow_does_not_write,
+    refuse_the_traits_the_solver_ignores,
+    uses_of,
+)
+from hydromodpy.core.exceptions import HydroModPyError, IncompatibleCapabilitiesError
+from hydromodpy.display.request import FigureRequest
+from hydromodpy.model.supports import SUPPORTS
+from hydromodpy.results.exporters.export_spec import ExportRequest
+from hydromodpy.solver.base.registry import solvers
+from tests._helpers.fake_solvers import fake_adapter
+
+SHIPPED_FLOWS = ("boussinesq", "modflow6", "modflow_nwt")
+LAKE = {"bedleak": 0.1, "initial_stage": "85 m"}
+WALL = {"line": [[0.0, 0.0], [10.0, 0.0]], "depths": [5.0], "hydchr": 1e-9}
+K_FIELD = {"kind": "homogeneous", "value": "1e-5 m/s"}
+PROFILE = {"kind": "exponential", "characteristic_depth": "15 m"}
+SOIL = {
+    "simulation": {
+        "time": {
+            "start_datetime": "2015-01-01",
+            "end_datetime": "2016-12-31",
+            "step_value": "1 day",
+        }
+    },
+    "data": {
+        "types": ["precipitation", "etp"],
+        "precipitation": {"sources": [{"source": "sim2", "extent": "watershed"}]},
+        "etp": {"sources": [{"source": "sim2", "extent": "watershed"}]},
+    },
+    "flow": {
+        "first_period_steady": False,
+        "sinks_sources": {"recharge": {"soil": {"ru": "150 mm"}}},
+    },
+}
+SURFACES = {
+    "domain": {
+        "layers": {
+            "genmtd_lay": "surfaces",
+            "layer": [{"name": "weathered", "surface": "weathered_base"}, {"name": "rock"}],
+        }
+    },
+    "data": {"layer_base": {"sources": [{"name": "weathered_base", "path": "weathered.tif"}]}},
+}
+
+# One row per trait: a document that uses it under MODFLOW 6, and what the refusal
+# names as written by the file.
+TRAIT_ROWS: dict[str, tuple[dict[str, Any], str]] = {
+    "west_side": ({"flow": {"bc": {"west_side": {"value": "10 m"}}}}, "flow.bc.west_side"),
+    "east_side": ({"flow": {"bc": {"east_side": {"value": "10 m"}}}}, "flow.bc.east_side"),
+    "north_side": ({"flow": {"bc": {"north_side": {"value": "10 m"}}}}, "flow.bc.north_side"),
+    "south_side": ({"flow": {"bc": {"south_side": {"value": "10 m"}}}}, "flow.bc.south_side"),
+    "stream": ({"flow": {"bc": {"stream": {"value": "10 m"}}}}, "flow.bc.stream"),
+    "ocean": ({"flow": {"bc": {"ocean": {"value": "0 m"}}}}, "flow.bc.ocean"),
+    "drainage": ({"flow": {"bc": {"drainage": {}}}}, "flow.bc.drainage"),
+    "lake": ({"flow": {"sinks_sources": {"lakes": {"lac": LAKE}}}}, "flow.sinks_sources.lakes"),
+    "sfr": (
+        {"flow": {"bc": {"drainage": {}}, "sinks_sources": {"sfr": {"main": {}}}}},
+        "flow.sinks_sources.sfr",
+    ),
+    "sink_fill": ({"solver": {"sink_fill": True}}, "solver.sink_fill"),
+    "drain_band_depth_m": ({"solver": {"drain_band_depth_m": 0.5}}, "solver.drain_band_depth_m"),
+    "drain_bed_thickness_m": (
+        {"solver": {"drain_bed_thickness_m": 0.5}},
+        "solver.drain_bed_thickness_m",
+    ),
+    "drain_conductance_floor_m2_s": (
+        {"solver": {"drain_conductance_floor_m2_s": 1e-10}},
+        "solver.drain_conductance_floor_m2_s",
+    ),
+    "head_rule": ({"flow": {"ic": {"kind": "bottom"}}}, "flow.ic.kind = 'bottom'"),
+    "steady_start": ({"flow": {"ic": {"kind": "steady_state"}}}, "flow.ic.kind = 'steady_state'"),
+    "cyclic_start": ({"flow": {"ic": {"kind": "spinup_cyclic"}}}, "flow.ic.kind = 'spinup_cyclic'"),
+    "prior_state": ({"flow": {"restart_from": "runs/spinup/fields.zarr"}}, "flow.restart_from"),
+    "recharge": ({"flow": {"sinks_sources": {"recharge": {}}}}, "flow.sinks_sources.recharge"),
+    "wells": (
+        {
+            "flow": {
+                "sinks_sources": {
+                    "wells": {
+                        "w1": {
+                            "location": {"kind": "absolute_xy", "x": 1.0, "y": 2.0},
+                            "flux": -1.0,
+                        }
+                    }
+                }
+            }
+        },
+        "flow.sinks_sources.wells",
+    ),
+    "etp": ({"flow": {"sinks_sources": {"etp": {}}}}, "flow.sinks_sources.etp"),
+    "flow_barriers": (
+        {"flow": {"sinks_sources": {"flow_barriers": {"wall": WALL}}}},
+        "flow.sinks_sources.flow_barriers",
+    ),
+    "cutoff_wall": (
+        {"flow": {"sinks_sources": {"lakes": {"lac": {**LAKE, "cutoff_wall": WALL}}}}},
+        "flow.sinks_sources.lakes.lac.cutoff_wall",
+    ),
+    "soil": (SOIL, "flow.sinks_sources.recharge.soil"),
+    "properties": ({"flow": {"param": {"K": {"field": K_FIELD}}}}, "flow.param"),
+    "k_tensor": (
+        {
+            "flow": {
+                "param_list": ["K", "K22"],
+                "param": {"K": {"field": K_FIELD}, "K22": {"field": K_FIELD}},
+            }
+        },
+        "flow.param.K22",
+    ),
+    "layers": (
+        {"domain": {"layers": {"nlay": 3}}},
+        "domain.layers (genmtd_lay = 'constant', 3 layer(s))",
+    ),
+    "pass_through": (SURFACES, "domain.layers.pinch_out = 'pass_through'"),
+}
+
+
+def _load(tmp_path: Path, extra: dict[str, Any], *, sealed: bool = False) -> HydroModPyConfig:
+    (tmp_path / "weathered.tif").touch()
+    document = {
+        "workflow": {"mode": "simulation"},
+        "geographic": {"source_mode": "synthetic"},
+        **extra,
+        "solver": {"backend": "modflow6", **extra.get("solver", {})},
+    }
+    return HydroModPyConfig.from_dict(document, base_dir=tmp_path, sealed=sealed)
+
+
+def _under(cfg: HydroModPyConfig, backend: str) -> HydroModPyConfig:
+    """The same validated document with another flow solver, not validated again."""
+    return cfg.model_copy(update={"solver": cfg.solver.model_copy(update={"backend": backend})})
+
+
+def _honoring(trait: str) -> str:
+    names = [name for name in solvers.names("flow") if trait in solvers.get("flow", name).supports]
+    return f"({', '.join(names)})"
+
+
+def test_trait_rows_cover_supports() -> None:
+    assert set(TRAIT_USES) == SUPPORTS
+    assert set(TRAIT_ROWS) == SUPPORTS
+
+
+@pytest.mark.parametrize("trait", sorted(TRAIT_ROWS))
+def test_trait_found_where_written(tmp_path: Path, trait: str) -> None:
+    extra, where = TRAIT_ROWS[trait]
+    cfg = _load(tmp_path, extra)
+
+    assert uses_of(cfg)[trait] == where
+
+
+@pytest.mark.parametrize("backend", SHIPPED_FLOWS)
+@pytest.mark.parametrize("trait", sorted(TRAIT_ROWS))
+def test_solver_honors_listed_traits(tmp_path: Path, trait: str, backend: str) -> None:
+    extra, where = TRAIT_ROWS[trait]
+    cfg = _under(_load(tmp_path, extra), backend)
+    if trait in solvers.get("flow", backend).supports:
+        refuse_the_traits_the_solver_ignores(cfg, sealed=False)
+        return
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+        refuse_the_traits_the_solver_ignores(cfg, sealed=False)
+
+    message = str(excinfo.value)
+    assert f"solver.backend = {backend!r} does not honor {where}: it would be ignored" in message
+    assert f"run a flow solver that honors it {_honoring(trait)}." in message
+
+
+def test_ignored_trait_sentence(tmp_path: Path) -> None:
+    cfg = _under(_load(tmp_path, {"solver": {"sink_fill": True}}), "boussinesq")
+
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+        refuse_the_traits_the_solver_ignores(cfg, sealed=False)
+
+    assert str(excinfo.value) == (
+        "solver.backend = 'boussinesq' does not honor solver.sink_fill: it would be ignored "
+        "without a word. Remove it, or run a flow solver that honors it (modflow6, modflow_nwt)."
+    )
+
+
+def test_trait_no_solver_honors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("modflow6", "modflow_nwt"):
+        flow = solvers.get("flow", name)
+        monkeypatch.setattr(flow, "supports", flow.supports - {"sink_fill"})
+    cfg = _under(_load(tmp_path, {}), "boussinesq")
+    cfg = cfg.model_copy(update={"solver": cfg.solver.model_copy(update={"sink_fill": True})})
+
+    with pytest.raises(IncompatibleCapabilitiesError, match="no flow solver of this installation"):
+        refuse_the_traits_the_solver_ignores(cfg, sealed=False)
+
+
+def _with_transport(cfg: HydroModPyConfig, transport: str) -> HydroModPyConfig:
+    process = [
+        {"id": "flow_main", "kind": "flow", "solvers": [cfg.solver.backend_name]},
+        {"id": "transport_main", "kind": "transport", "solvers": [transport]},
+    ]
+    simulation = cfg.simulation.model_copy(
+        update={"process": type(cfg.simulation).model_validate({"process": process}).process}
+    )
+    return cfg.model_copy(update={"simulation": simulation})
+
+
+@pytest.mark.parametrize(
+    ("backend", "transport", "refused"),
+    [
+        ("modflow6", "modflow6", False),
+        ("modflow6", "modflow6_prt", False),
+        ("modflow6", "modpath", True),
+        ("modflow6", "mt3dms", True),
+        ("modflow_nwt", "modpath", False),
+        ("modflow_nwt", "mt3dms", False),
+        ("modflow_nwt", "modflow6", True),
+        ("boussinesq", "modpath", True),
+        ("boussinesq", "modflow6_prt", True),
+    ],
+)
+def test_transport_follows_its_flow(
+    tmp_path: Path, backend: str, transport: str, refused: bool
+) -> None:
+    cfg = _with_transport(_under(_load(tmp_path, {}), backend), transport)
+    if not refused:
+        refuse_a_transport_its_flow_does_not_feed(cfg, sealed=False)
+        return
+    followed = ", ".join(
+        name for kind, name in solvers.get("transport", transport).requires if kind == "flow"
+    )
+    with pytest.raises(ValueError) as excinfo:
+        refuse_a_transport_its_flow_does_not_feed(cfg, sealed=False)
+
+    assert str(excinfo.value).startswith(
+        f"the transport solver {transport!r} follows {followed}, and solver.backend is {backend!r}"
+    )
+
+
+def _register_a_flow_and_a_greedy_transport(
+    isolated_solvers: object,
+    *,
+    writes: tuple[str, ...],
+    reads: tuple[str, ...],
+    flow_name: str = "writer",
+) -> str:
+    """Register a fake flow backend that writes *writes*, and a transport that reads *reads*."""
+    flow = fake_adapter(flow_name, process_type="flow", writes=writes, reads=())
+    transport = fake_adapter(
+        "greedy_transport",
+        process_type="transport",
+        reads=reads,
+        requires=(("flow", flow_name),),
+    )
+    isolated_solvers.solvers.register(flow)
+    isolated_solvers.solvers.register(transport)
+    return flow_name
+
+
+def test_read_nobody_writes(tmp_path: Path, isolated_solvers: object) -> None:
+    flow_name = _register_a_flow_and_a_greedy_transport(
+        isolated_solvers,
+        writes=("face_flow",),
+        reads=("particle_pollock/exit_solve",),
+    )
+    cfg = _with_transport(_under(_load(tmp_path, {}), flow_name), "greedy_transport")
+
+    with pytest.raises(IncompatibleCapabilitiesError, match="writes it"):
+        refuse_the_reads_the_flow_does_not_write(cfg, sealed=False)
+
+
+def test_sealed_unwritten_read_warns(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, isolated_solvers: object
+) -> None:
+    flow_name = _register_a_flow_and_a_greedy_transport(
+        isolated_solvers, writes=(), reads=("face_flow",)
+    )
+    cfg = _with_transport(_under(_load(tmp_path, {}), flow_name), "greedy_transport")
+
+    with caplog.at_level(logging.WARNING):
+        refuse_the_reads_the_flow_does_not_write(cfg, sealed=True)
+
+    assert "reads face_flow" in caplog.text
+    assert "This sealed run is read as it ran." in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("backend", "refused"),
+    [
+        ("boussinesq", True),
+        ("linear_reservoir", True),
+        ("modflow6", False),
+        ("modflow_nwt", False),
+    ],
+)
+def test_keep_face_flows_needs_writer(tmp_path: Path, backend: str, refused: bool) -> None:
+    extra = {"simulation": {"results": {"keep_face_flows": True}}}
+    cfg = _under(_load(tmp_path, extra), backend)
+
+    if not refused:
+        refuse_face_flows_the_flow_does_not_write(cfg, sealed=False)
+        return
+
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+        refuse_face_flows_the_flow_does_not_write(cfg, sealed=False)
+
+    assert str(excinfo.value) == (
+        "[simulation.results] keep_face_flows = true keeps the flow between cells, and "
+        f"solver.backend = {backend!r} does not write it. Run the flow with a solver that "
+        "writes it (modflow6, modflow_nwt), or set keep_face_flows = false."
+    )
+
+
+def test_sealed_document_warns_and_loads(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    extra = {
+        "solver": {"backend": "modflow_nwt", "sink_fill": True},
+        "flow": {
+            "restart_from": "runs/a/fields.zarr",
+            "ic": {"kind": "steady_state"},
+            "sinks_sources": {"lakes": {"lac": LAKE}},
+        },
+        "simulation": {
+            "process": [
+                {"id": "flow_main", "kind": "flow", "solvers": ["modflow_nwt"]},
+                {"id": "particles", "kind": "transport", "solvers": ["modflow6_prt"]},
+            ]
+        },
+    }
+    document = {
+        "workflow": {"mode": "simulation"},
+        "geographic": {"source_mode": "synthetic"},
+        **extra,
+    }
+
+    with caplog.at_level(logging.WARNING):
+        cfg = HydroModPyConfig.from_dict(document, base_dir=tmp_path, sealed=True)
+
+    assert cfg.read_as_sealed
+    assert "does not honor flow.restart_from" in caplog.text
+    assert "the transport solver 'modflow6_prt' follows modflow6" in caplog.text
+    assert "would overwrite the restart" in caplog.text
+    assert caplog.text.count("This sealed run is read as it ran.") == 3
+
+
+def test_assignment_keeps_seal(tmp_path: Path) -> None:
+    extra = {"solver": {"backend": "modflow_nwt"}, "flow": {"restart_from": "runs/a/fields.zarr"}}
+    document = {
+        "workflow": {"mode": "simulation"},
+        "geographic": {"source_mode": "synthetic"},
+        **extra,
+    }
+    cfg = HydroModPyConfig.from_dict(document, base_dir=tmp_path, sealed=True)
+
+    cfg.flow = cfg.flow
+
+    assert cfg.read_as_sealed
+
+
+@pytest.mark.parametrize(
+    ("sealed", "refused"),
+    [(False, True), (True, False)],
+    ids=["live-refuses", "sealed-warns"],
+)
+def test_change_keeps_seal(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, sealed: bool, refused: bool
+) -> None:
+    cfg = _load(tmp_path, {"solver": {"backend": "modflow_nwt"}}, sealed=sealed)
+    change = {"flow.ic.kind": "spinup_cyclic"}
+
+    if refused:
+        with pytest.raises(IncompatibleCapabilitiesError, match="flow.ic.kind"):
+            cfg.with_changes(change)
+        return
+    with caplog.at_level(logging.WARNING):
+        changed = cfg.with_changes(change)
+    assert changed.read_as_sealed
+    assert changed.flow.ic.h.kind == "spinup_cyclic"
+    assert "This sealed run is read as it ran." in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("backend", "layers", "expected", "absent"),
+    [
+        ("boussinesq", 1, "boussinesq solves one layer and reads one K per column", "five layers"),
+        ("modflow6", 2, "Use at least five layers", "one K per column"),
+        ("modflow_nwt", 4, "Use at least five layers", "one K per column"),
+        ("modflow6", 5, None, "five layers"),
+    ],
+)
+def test_coarse_k_profile_warning(
+    tmp_path: Path,
+    backend: str,
+    layers: int,
+    expected: str | None,
+    absent: str,
+) -> None:
+    extra = {
+        "domain": {"layers": {"nlay": layers}},
+        "flow": {
+            "param_list": ["K"],
+            "param": {"K": {"field": K_FIELD, "field_vertical_profile": PROFILE}},
+        },
+    }
+    cfg = _under(_load(tmp_path, extra), backend)
+
+    said = " ".join(coarse_conductivity_profile(cfg))
+
+    if expected is not None:
+        assert expected in said
+    assert absent not in said
+
+
+def a_document(
+    *,
+    backend: str = "modflow6",
+    engine: str = "catchment",
+    families_written: tuple[str, ...] = (),
+    rivers: str = "cell",
+    county_point_method: str | None = None,
+) -> SimpleNamespace:
+    """A document as the rules read it, built by hand and not by the loader.
+
+    It carries the attributes the rules read, with the values the case needs, so a
+    rule runs without loading the sources a real file would name.
+    """
+    recharge = None
+    if county_point_method is not None:
+        recharge = SimpleNamespace(
+            model_fields_set={"interpolation_method"},
+            interpolation_method=county_point_method,
+        )
+    families = SimpleNamespace(
+        model_fields_set=set(families_written),
+        rivers=rivers,
+        geology="face",
+        lakes="face",
+        barriers="face",
+        watershed_boundary="none",
+    )
+    return SimpleNamespace(
+        solver=SimpleNamespace(backend_name=backend),
+        flow=SimpleNamespace(
+            flow_regime="transient",
+            first_period_steady=False,
+            sinks_sources=SimpleNamespace(recharge=recharge, etp=None),
+        ),
+        mesh=SimpleNamespace(engine=engine, families=families, model_fields_set=set()),
+        simulation=SimpleNamespace(
+            time=SimpleNamespace(
+                start_datetime="2015-01-01",
+                end_datetime="2015-03-01",
+                step_value="30 day",
+                step_unit="day",
+            ),
+        ),
+    )
+
+
+NATIVE_STEPS = [
+    pytest.param(
+        "snail",
+        "1.5D",
+        "transient",
+        ("snail", "1 days 12:00:00", "simulation.time.step_value"),
+        id="finer than a period",
+    ),
+    pytest.param("calendar", "MS", "transient", ("fixed frequency",), id="calendar alias"),
+    pytest.param("steady", "30D", "transient", None, id="as long as the periods"),
+    pytest.param("snail", "1.5D", "steady", None, id="steady run"),
+]
+
+
+@pytest.mark.parametrize(("name", "native_step", "regime", "says"), NATIVE_STEPS)
+def test_native_step_refusals(isolated_solvers, name, native_step, regime, says) -> None:
+    isolated_solvers.solvers.register(fake_adapter(name, native_step=native_step))
+    cfg = a_document(backend=name)
+    cfg.flow.flow_regime = regime
+
+    if says is None:
+        refuse_a_native_step_finer_than_the_time_grid(cfg, sealed=False)
+        return
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+        refuse_a_native_step_finer_than_the_time_grid(cfg, sealed=False)
+
+    for fragment in says:
+        assert fragment in str(excinfo.value)
+
+
+def test_ignored_family_refused() -> None:
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+        refuse_an_ignored_family_written(a_document(families_written=("rivers",)), sealed=False)
+
+    assert "[mesh.families] rivers" in str(excinfo.value)
+    assert "mesh engine 'catchment'" in str(excinfo.value)
+
+
+def test_family_none_is_kept() -> None:
+    cfg = a_document(families_written=("rivers",), rivers="none")
+
+    refuse_an_ignored_family_written(cfg, sealed=False)
+
+
+def test_point_method_lumped_refused() -> None:
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+        refuse_a_point_method_under_a_lumped_mesh(
+            a_document(county_point_method="nearest"), sealed=False
+        )
+
+    assert "flow.sinks_sources.recharge.interpolation_method" in str(excinfo.value)
+    assert "area" in str(excinfo.value)
+
+
+def test_area_method_lumped_loads() -> None:
+    refuse_a_point_method_under_a_lumped_mesh(a_document(county_point_method="area"), sealed=False)
+
+
+SOLVER_ROWS = frozenset(
+    {
+        "refuse_the_traits_the_solver_ignores",
+        "refuse_the_reads_the_flow_does_not_write",
+        "refuse_face_flows_the_flow_does_not_write",
+        "refuse_an_ignored_family_written",
+        "refuse_a_point_method_under_a_lumped_mesh",
+        "refuse_a_native_step_finer_than_the_time_grid",
+        "refuse_a_transport_its_flow_does_not_feed",
+        "refuse_the_contaminations",
+        "coarse_conductivity_profile",
+        "warn_of_what_the_run_cannot_draw_or_export",
+    }
+)
+"""The rows the tests drive by hand, with their own documents."""
+
+ORDER = (
+    "refuse_a_real_catchment_without_a_site",
+    "refuse_a_station_other_than_the_gauge",
+    "refuse_site_and_sites_together",
+    "refuse_a_metrics_window_outside_the_run",
+    "refuse_an_overview_without_its_section",
+    "refuse_strict_inference_without_types",
+    "refuse_conditioning_choices_on_a_conditioned_dem",
+    "refuse_a_raster_depth_without_its_substratum",
+    "refuse_a_river_mesh_without_a_threshold",
+    "refuse_a_calibration_without_parameters",
+    "refuse_the_traits_the_solver_ignores",
+    "refuse_the_reads_the_flow_does_not_write",
+    "refuse_face_flows_the_flow_does_not_write",
+    "refuse_an_ignored_family_written",
+    "refuse_a_point_method_under_a_lumped_mesh",
+    "refuse_a_native_step_finer_than_the_time_grid",
+    "refuse_a_transport_its_flow_does_not_feed",
+    "refuse_the_contaminations",
+    "refuse_a_window_chain_the_run_cannot_carry",
+    "coarse_conductivity_profile",
+    "refuse_the_soil_forcing_a_file_doubles_or_leaves_out",
+    "refuse_a_soil_recharge_that_cannot_reach_the_streams",
+    "refuse_soil_precipitation_in_parts",
+    "refuse_a_soil_run_the_time_cannot_carry",
+    "refuse_a_recharge_the_model_would_not_read",
+    "refuse_a_soil_capacity_without_the_soil",
+    "refuse_layer_bases_that_do_not_match",
+    "refuse_property_maps_that_do_not_match",
+    "refuse_an_angle_with_a_depth_profile",
+    "refuse_a_solver_that_cannot_read_the_mesh",
+    "refuse_a_cell_address_on_an_irregular_mesh",
+    "refuse_a_time_the_run_does_not_hold",
+    "refuse_an_export_that_cannot_be_written",
+    "warn_of_what_the_run_cannot_draw_or_export",
+)
+"""The order the loader always refused in: the first fault of a document is the first row."""
+
+
+def _ns(**attributes: Any) -> SimpleNamespace:
+    return SimpleNamespace(**attributes)
+
+
+def _document(base: Any, **sections: Any) -> SimpleNamespace:
+    """The sections of *base* with the ones given replaced, as a rule reads a document."""
+    held = {name: getattr(base, name) for name in SECTIONS}
+    return SimpleNamespace(**{**held, **sections})
+
+
+@pytest.fixture(scope="module")
+def documents(tmp_path_factory: pytest.TempPathFactory) -> SimpleNamespace:
+    """A plain document and a soil document, both loaded, so every rule passes them."""
+    where = tmp_path_factory.mktemp("rules")
+    return SimpleNamespace(plain=_load(where, {}), soil=_load(where, SOIL))
+
+
+def _soil_flow(documents: SimpleNamespace, **attributes: Any) -> SimpleNamespace:
+    """A flow section that holds the soil reservoir of the soil document, with *attributes*."""
+    held = {
+        "sinks_sources": documents.soil.flow.sinks_sources,
+        "active_sinks_sources": ["recharge"],
+        "active_bc": [],
+        "flow_regime": "transient",
+        "first_period_steady": False,
+    }
+    return _ns(**{**held, **attributes})
+
+
+def _soil_time(documents: SimpleNamespace, end: str) -> Any:
+    time = documents.soil.simulation.time.model_copy(
+        update={"end_datetime": datetime.fromisoformat(end)}
+    )
+    return documents.soil.simulation.model_copy(update={"time": time})
+
+
+def _with_export(documents: SimpleNamespace, **request: Any) -> SimpleNamespace:
+    return _document(documents.soil, export=[ExportRequest(**request)])
+
+
+# One row per refusal: the rule, the document that trips it, and what the refusal says.
+ROWS: list[tuple[str, str, Any, str]] = [
+    (
+        "refuse_a_real_catchment_without_a_site",
+        "dem",
+        lambda d: _document(d.plain, site=None, sites=None, geographic=_ns(catch_def="dem")),
+        "geographic.catchment.kind = 'dem' models a real catchment, and no [site] names it",
+    ),
+    (
+        "refuse_a_station_other_than_the_gauge",
+        "station",
+        lambda d: _document(d.plain, site=_ns(gauge="A"), metrics=_ns(station="B")),
+        "site.gauge = 'A' but metrics.station = 'B'",
+    ),
+    (
+        "refuse_site_and_sites_together",
+        "both",
+        lambda d: _document(d.plain, site=_ns(), sites=_ns()),
+        "[site] and [sites] are both declared",
+    ),
+    (
+        "refuse_a_metrics_window_outside_the_run",
+        "window",
+        lambda d: _document(
+            d.plain,
+            metrics=_ns(window=_ns(start=date(2001, 1, 1), end=date(2001, 2, 1))),
+            simulation=_ns(
+                time=_ns(start_datetime=datetime(2015, 1, 1), end_datetime=datetime(2016, 1, 1))
+            ),
+        ),
+        "[metrics] window runs from 2001-01-01 to 2001-02-01 and shares no day with "
+        "[simulation.time], which runs from 2015-01-01 to 2016-01-01: the run would be "
+        "scored on nothing",
+    ),
+    (
+        "refuse_an_overview_without_its_section",
+        "overview",
+        lambda d: _document(d.plain, workflow=_ns(mode="overview"), overview=None),
+        "workflow.mode = 'overview' needs an [overview] section",
+    ),
+    (
+        "refuse_strict_inference_without_types",
+        "strict",
+        lambda d: _document(d.plain, data=_ns(inference_mode="strict", types=[])),
+        "data.inference_mode='strict' requires at least one explicit data type in data.types",
+    ),
+    (
+        "refuse_conditioning_choices_on_a_conditioned_dem",
+        "conditioned",
+        lambda d: _document(
+            d.plain,
+            data=_ns(dem=_ns(sources=[_ns(state="conditioned")])),
+            geographic=_ns(
+                model_fields_set={"dem_correc_type"},
+                catchment=_ns(model_fields_set={"dem_resolution"}),
+                crossings=_ns(enabled=True),
+            ),
+        ),
+        "geographic.dem_correc_type, geographic.catchment.dem_resolution, "
+        "geographic.crossings.enabled would be ignored in silence",
+    ),
+    (
+        "refuse_a_raster_depth_without_its_substratum",
+        "raster",
+        lambda d: _document(
+            d.plain,
+            domain=_ns(depth_model=_ns(kind="raster_thickness")),
+            data=_ns(substratum=None),
+        ),
+        "domain.depth_model kind = 'raster_thickness' reads the raster declared under "
+        "[data.substratum]",
+    ),
+    (
+        "refuse_a_river_mesh_without_a_threshold",
+        "threshold",
+        lambda d: _document(
+            d.plain,
+            geographic=_ns(
+                uses_synthetic_geographic=lambda: False,
+                river_network=_ns(
+                    enabled=False,
+                    missing_threshold_refusal=lambda *, needed_by: f"no threshold for {needed_by}",
+                ),
+            ),
+            mesh=_ns(
+                engine="triangle",
+                triangle=None,
+                families=_ns(rivers="cell"),
+                requires_river_trace=lambda **_: True,
+            ),
+            flow=_ns(active_bc=["stream"]),
+        ),
+        "no threshold for [mesh] engine = 'triangle' with families.rivers = 'cell'",
+    ),
+    (
+        "refuse_a_calibration_without_parameters",
+        "calibration",
+        lambda d: _document(d.plain, calibration=_ns(), flow=_ns(param_list=[])),
+        "[calibration] requires flow.param_list to declare at least one tunable parameter",
+    ),
+    (
+        "refuse_the_soil_forcing_a_file_doubles_or_leaves_out",
+        "recharge loaded",
+        lambda d: _document(
+            d.soil, data=_ns(types=["recharge"], precipitation=object(), etp=object())
+        ),
+        "computes the recharge from the precipitation and the ETP",
+    ),
+    (
+        "refuse_the_soil_forcing_a_file_doubles_or_leaves_out",
+        "runoff loaded",
+        lambda d: _document(
+            d.soil, data=_ns(types=["runoff"], precipitation=object(), etp=object())
+        ),
+        "[data.runoff] loads a surface runoff that already takes its share",
+    ),
+    (
+        "refuse_the_soil_forcing_a_file_doubles_or_leaves_out",
+        "no precipitation",
+        lambda d: _document(d.soil, data=_ns(types=[], precipitation=None, etp=object())),
+        "no [data.precipitation] section says where to read it",
+    ),
+    (
+        "refuse_the_soil_forcing_a_file_doubles_or_leaves_out",
+        "no etp",
+        lambda d: _document(d.soil, data=_ns(types=[], precipitation=object(), etp=None)),
+        "no [data.etp] section says where to read it",
+    ),
+    (
+        "refuse_a_soil_recharge_that_cannot_reach_the_streams",
+        "switched off",
+        lambda d: _document(d.soil, flow=_soil_flow(d, active_sinks_sources=["etp"])),
+        "its table says enabled = false, so MODFLOW would receive none",
+    ),
+    (
+        "refuse_a_soil_recharge_that_cannot_reach_the_streams",
+        "lake without streams",
+        lambda d: _document(d.soil, flow=_soil_flow(d, active_bc=["lake"])),
+        "declares a lake with no stream network",
+    ),
+    (
+        "refuse_a_soil_recharge_that_cannot_reach_the_streams",
+        "drains not routed",
+        lambda d: _document(
+            d.soil,
+            flow=_soil_flow(
+                d,
+                active_bc=["lake", "sfr"],
+                sinks_sources=_ns(
+                    recharge=d.soil.flow.sinks_sources.recharge,
+                    sfr={"main": _ns(route_drainage=False)},
+                ),
+            ),
+        ),
+        "[flow.sinks_sources.sfr.main] sets route_drainage = false with a lake",
+    ),
+    (
+        "refuse_soil_precipitation_in_parts",
+        "two components",
+        lambda d: _document(
+            d.soil,
+            data=_ns(precipitation=_ns(sources=[_ns(components=["rain", "snow"])]), types=[]),
+        ),
+        "[data.precipitation] loads components = ['rain', 'snow']",
+    ),
+    (
+        "refuse_a_soil_run_the_time_cannot_carry",
+        "no window",
+        lambda d: _document(d.soil, simulation=_ns(time=None)),
+        "runs day by day over [simulation.time], which this file does not declare",
+    ),
+    (
+        "refuse_a_soil_run_the_time_cannot_carry",
+        "run too short",
+        lambda d: _document(d.soil, simulation=_soil_time(d, "2015-03-01")),
+        "spinup",
+    ),
+    (
+        "refuse_a_soil_run_the_time_cannot_carry",
+        "drained first period",
+        lambda d: _document(d.soil, flow=_soil_flow(d, first_period_steady=True)),
+        "flow.first_period_steady = true solves the first stress period",
+    ),
+    (
+        "refuse_a_recharge_the_model_would_not_read",
+        "impossible rate",
+        lambda d: _document(
+            d.plain,
+            flow=_ns(sinks_sources=_ns(recharge=_ns(peak_rate_mm_day=lambda: 1e6, values=[1e6]))),
+        ),
+        "flow.sinks_sources.recharge.values reaches 1e+06 mm/day",
+    ),
+    (
+        "refuse_a_recharge_the_model_would_not_read",
+        "replaced by a loaded series",
+        lambda d: _document(
+            d.plain,
+            flow=_ns(sinks_sources=_ns(recharge=_ns(peak_rate_mm_day=lambda: 1.0, values=[1.0]))),
+            data=_ns(types=["recharge"]),
+        ),
+        "would be replaced by the series [data.recharge] loads",
+    ),
+    (
+        "refuse_a_soil_capacity_without_the_soil",
+        "capacity",
+        lambda d: _document(d.plain, data=_ns(soil_capacity=object(), types=[])),
+        "[data.soil_capacity] is read only by the soil reservoir",
+    ),
+    (
+        "refuse_layer_bases_that_do_not_match",
+        "base not declared",
+        lambda d: _document(
+            d.plain,
+            domain=_ns(layers=_ns(base_surface_names=["wb"])),
+            data=_ns(layer_base=None),
+        ),
+        "[domain.layers] reads the base surfaces ['wb'], and [data.layer_base] does not declare",
+    ),
+    (
+        "refuse_property_maps_that_do_not_match",
+        "map not declared",
+        lambda d: _document(
+            d.plain,
+            flow=_ns(param={"K": _ns(field=_ns(kind="raster", map="k_map"))}),
+            data=_ns(property_map=_ns(sources=[_ns(name="sy_map")])),
+        ),
+        "flow.param.K reads the map(s) ['k_map'], and [data.property_map] declares ['sy_map']",
+    ),
+    (
+        "refuse_layer_bases_that_do_not_match",
+        "base not read",
+        lambda d: _document(
+            d.plain,
+            domain=_ns(layers=_ns(base_surface_names=[])),
+            data=_ns(layer_base=_ns(sources=[_ns(name="wb")])),
+        ),
+        "[data.layer_base] declares ['wb'], and no layer of [domain.layers] reads them",
+    ),
+    (
+        "refuse_an_angle_with_a_depth_profile",
+        "angle",
+        lambda d: _document(
+            d.plain,
+            flow=_ns(param={"angle1": _ns(field_vertical_profile=_ns(kind="exponential"))}),
+        ),
+        "flow.param.angle1 has a vertical profile, which would scale the angle with depth",
+    ),
+    (
+        "refuse_a_solver_that_cannot_read_the_mesh",
+        "nwt on triangles",
+        lambda d: _document(
+            d.plain,
+            solver=_ns(backend_name="modflow_nwt"),
+            mesh=_ns(engine="triangle", model_fields_set={"engine"}),
+        ),
+        "solver 'modflow_nwt' reads the meshes of the engines regular, and mesh.engine is "
+        "'triangle'",
+    ),
+    (
+        "refuse_a_cell_address_on_an_irregular_mesh",
+        "well",
+        lambda d: _document(
+            d.plain,
+            mesh=_ns(engine="triangle"),
+            flow=_ns(
+                sinks_sources=_ns(wells={"w1": _ns(location=_ns(kind="cell"))}, sfr={}),
+            ),
+        ),
+        "A cell is addressed by [lay, row, col] at flow.sinks_sources.wells.w1.location",
+    ),
+    (
+        "refuse_a_time_the_run_does_not_hold",
+        "date outside the record",
+        lambda d: _with_export(d, variable="head", time="2030-01-01"),
+        "export[0].time: 2030-01-01 is outside the record",
+    ),
+    (
+        "refuse_an_export_that_cannot_be_written",
+        "unknown name",
+        lambda d: _with_export(d, variable=["hed"]),
+        "no run can export export[0]: 'hed'",
+    ),
+]
+
+
+def _windowed(documents: SimpleNamespace, **time: Any) -> Any:
+    """The simulation of the soil document, two daily years, cut into windows of ``time``."""
+    held = documents.soil.simulation
+    return held.model_copy(update={"time": held.time.model_copy(update=time)})
+
+
+def _windowed_document(documents: SimpleNamespace, **sections: Any) -> SimpleNamespace:
+    return _document(
+        documents.soil, simulation=_windowed(documents, window_length="6 months"), **sections
+    )
+
+
+ROWS += [
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "steady",
+        lambda d: _windowed_document(d, flow=_soil_flow(d, flow_regime="steady")),
+        "flow.flow_regime is 'steady': a steady run has no period to cut",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "calibration",
+        lambda d: _windowed_document(d, workflow=_ns(mode="calibration")),
+        "workflow.mode = 'calibration' plays the whole simulation at every trial",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "transport",
+        lambda d: _document(
+            d.soil,
+            simulation=_windowed(d, window_length="6 months").model_copy(
+                update={"process": [_ns(id="nitrate", kind="transport", solvers=["modflow6"])]}
+            ),
+        ),
+        "the transport nitrate would start every window from its first concentration",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "edge inside a period",
+        lambda d: _document(d.soil, simulation=_windowed(d, window_length="36 hours")),
+        "puts a window edge at",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "steady first period averaged over the window",
+        lambda d: _windowed_document(d, flow=_soil_flow(d, first_period_steady=True)),
+        "gives the first period of window 1 the mean of "
+        "flow.sinks_sources.recharge.first_clim = 'mean' over the periods of that window",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "solver without restart",
+        lambda d: _windowed_document(
+            d, solver=d.soil.solver.model_copy(update={"backend": "modflow_nwt"})
+        ),
+        "the flow solver 'modflow_nwt' does not read an earlier state (prior_state)",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "a later window alone without restart",
+        lambda d: _document(
+            d.soil,
+            simulation=_windowed(d, window_length="6 months", window=2),
+            solver=d.soil.solver.model_copy(update={"backend": "modflow_nwt"}),
+        ),
+        "does not read an earlier state (prior_state)",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("time", "backend"),
+    [
+        ({"window_length": "6 months"}, "modflow6"),
+        ({"window_length": "6 months", "window": 1}, "modflow_nwt"),
+        ({"window_length": "5 years"}, "modflow_nwt"),
+    ],
+    ids=["a chain on a solver that restarts", "window 1 alone", "one window"],
+)
+def test_window_chain_passes(
+    documents: SimpleNamespace, time: dict[str, Any], backend: str
+) -> None:
+    document = _document(
+        documents.soil,
+        simulation=_windowed(documents, **time),
+        solver=documents.soil.solver.model_copy(update={"backend": backend}),
+    )
+
+    refuse_a_window_chain_the_run_cannot_carry(document, sealed=False)
+
+
+@pytest.mark.parametrize("first_clim", ["first", 2.0], ids=["first", "a number"])
+def test_first_period_without_mean_passes(documents: SimpleNamespace, first_clim: Any) -> None:
+    rates = _ns(recharge=_ns(first_clim=first_clim), etp=None)
+    document = _windowed_document(
+        documents, flow=_soil_flow(documents, first_period_steady=True, sinks_sources=rates)
+    )
+
+    refuse_a_window_chain_the_run_cannot_carry(document, sealed=False)
+
+
+def test_rows_cover_cross_rules() -> None:
+    assert {rule for rule, *_ in ROWS} | SOLVER_ROWS == set(CROSS_RULES)
+
+
+def test_rules_run_in_loader_order() -> None:
+    assert tuple(CROSS_RULES) == ORDER
+
+
+@pytest.mark.parametrize(
+    ("rule", "case", "build", "says"), ROWS, ids=[f"{r}:{c}" for r, c, *_ in ROWS]
+)
+def test_rule_refusals(
+    documents: SimpleNamespace, rule: str, case: str, build: Any, says: str
+) -> None:
+    document = build(documents)
+
+    with pytest.raises((ValueError, HydroModPyError), match=re.escape(says)):
+        CROSS_RULES[rule].rule(document, sealed=False)
+
+
+@pytest.mark.parametrize("which", ["plain", "soil"])
+def test_rules_pass_loaded_document(documents: SimpleNamespace, which: str) -> None:
+    outcomes = run_cross_rules(getattr(documents, which), sealed=False)
+
+    assert [outcome.error for outcome in outcomes] == [None] * len(CROSS_RULES)
+    assert [outcome.rule.name for outcome in outcomes] == list(ORDER)
+
+
+@pytest.mark.parametrize(
+    "rule", ["refuse_a_time_the_run_does_not_hold", "refuse_an_export_that_cannot_be_written"]
+)
+def test_sealed_export_only_warns(
+    documents: SimpleNamespace, caplog: pytest.LogCaptureFixture, rule: str
+) -> None:
+    row = next(row for row in ROWS if row[0] == rule)
+    document = row[2](documents)
+
+    with caplog.at_level(logging.WARNING):
+        CROSS_RULES[rule].rule(document, sealed=True)
+
+    assert row[3] in caplog.text
+    assert "This sealed run is read as it ran." in caplog.text
+
+
+def test_a_property_map_no_parameter_reads_is_only_named(documents: SimpleNamespace) -> None:
+    rule = CROSS_RULES["refuse_property_maps_that_do_not_match"].rule
+    unread = _document(
+        documents.plain,
+        flow=_ns(param={"K": _ns(field=_ns(kind="homogeneous"))}),
+        data=_ns(property_map=_ns(sources=[_ns(name="k_map")])),
+    )
+
+    assert rule(unread, sealed=False) == [
+        "[data.property_map] declares ['k_map'], and no [flow.param.<id>.field] of kind "
+        "'raster' reads them."
+    ]
+
+
+def test_what_the_run_cannot_draw_or_export_is_named_before_the_solve(
+    documents: SimpleNamespace,
+) -> None:
+    # A figure or an export the run could not make was found after the solve, or never.
+    plain = documents.plain
+    figures = [
+        FigureRequest(variable="watertable_depth"),
+        FigureRequest(variable="concentration"),
+        FigureRequest(variable="head", layer=3),
+        FigureRequest(preset="root_search"),
+        FigureRequest(preset="root_search", when="session"),
+    ]
+    document = _document(
+        plain,
+        display=plain.display.model_copy(update={"figure": figures}),
+        export=[ExportRequest(variable=["head", "concentration"]), ExportRequest(variable="all")],
+    )
+    rule = CROSS_RULES["warn_of_what_the_run_cannot_draw_or_export"].rule
+    backend = plain.solver.backend_name
+    layers = plain.domain.layers.layer_count
+
+    assert rule(document, sealed=False) == [
+        "display.figure[1] 'concentration' is not drawn by the run: concentration: no solver "
+        f"of this run writes it ({backend}).",
+        f"display.figure[2] 'head' is not drawn by the run: layer 3 is past the {layers} "
+        f"layer(s) of the model, 0 to {layers - 1}.",
+        "display.figure[3] 'root_search' draws a calibration session and this file "
+        "calibrates nothing, so the run does not draw it.",
+        "export[0] is not written by the run: concentration: no solver of this run writes "
+        f"it ({backend}).",
+    ]
+    # The run of a sealed document is made: it says nothing when it is read.
+    assert rule(document, sealed=True) == []
+
+
+def test_walk_warns_then_raises(
+    documents: SimpleNamespace, caplog: pytest.LogCaptureFixture
+) -> None:
+    outside = _ns(window=_ns(start=date(2001, 1, 1), end=date(2001, 2, 1)))
+    sealed_window = documents.soil.model_copy(update={"metrics": outside})
+
+    with caplog.at_level(logging.WARNING):
+        check_against_the_solver(sealed_window, sealed=True)
+    assert "this sealed run has no score." in caplog.text
+
+    twice = sealed_window.model_copy(update={"site": _ns(gauge=None), "sites": _ns()})
+    with pytest.raises(ValueError, match=re.escape("[site] and [sites] are both declared")):
+        check_against_the_solver(twice, sealed=False)
+
+
+def _traits_region_reads() -> set[str]:
+    """The sections the ``where`` of every trait reads: the text between its table and ``uses_of``."""
+    source = inspect.getsource(solver_supports)
+    start = source.index("class TraitUse:") - len("@dataclass(frozen=True)\n")
+    region = ast.parse(source[start : source.index("def uses_of(")])
+    return {
+        node.attr
+        for node in ast.walk(region)
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "cfg"
+    }
+
+
+READS_OF_HELPERS = {
+    "_TimeOfTheRun": {"simulation", "flow"},
+    "resolve_simulation_time_window": {"simulation"},
+    "resolve_simulation_time_grid": {"simulation"},
+    "require_flow_simulation_time_grid": {"simulation", "flow"},
+}
+"""The sections the helpers of ``core/time``, and the holder of the time of a walk, read of the document."""
+
+
+def _sections_read(function: Any) -> set[str]:
+    """The root sections *function* reads of its first argument, found in its source.
+
+    A section is read by ``cfg.<name>`` or ``getattr(cfg, "<name>")``. A helper that
+    receives the whole document is followed into these two modules, or read in
+    ``READS_OF_HELPERS``, and an unknown helper stops the test.
+    """
+    node = ast.parse(textwrap.dedent(inspect.getsource(function))).body[0]
+    document = node.args.args[0].arg
+    read: set[str] = set()
+    for item in ast.walk(node):
+        if (
+            isinstance(item, ast.Attribute)
+            and isinstance(item.value, ast.Name)
+            and item.value.id == document
+        ):
+            read.add(item.attr)
+        if not (isinstance(item, ast.Call) and isinstance(item.func, ast.Name)):
+            continue
+        callee, args = item.func.id, item.args
+        takes_it = any(isinstance(arg, ast.Name) and arg.id == document for arg in args)
+        if callee == "getattr" and takes_it and isinstance(args[1], ast.Constant):
+            read.add(args[1].value)
+        elif takes_it and callee == "uses_of":
+            read |= _traits_region_reads()
+        elif takes_it and callee in READS_OF_HELPERS:
+            read |= READS_OF_HELPERS[callee]
+        elif takes_it and callee != "getattr":
+            module = next((m for m in (cross_checks, solver_supports) if hasattr(m, callee)), None)
+            assert module is not None, f"{function.__name__} hands the document to {callee}"
+            read |= _sections_read(getattr(module, callee))
+    return read & set(SECTIONS)
+
+
+@pytest.mark.parametrize("name", sorted(CROSS_RULES))
+def test_rule_reads_its_sections(name: str) -> None:
+    rule = CROSS_RULES[name]
+
+    assert _sections_read(rule.rule) == set(rule.reads)
+
+
+def test_read_sections_are_loader_sections() -> None:
+    assert frozenset().union(*(rule.reads for rule in CROSS_RULES.values())) <= set(SECTIONS)
+
+
+def test_rule_name_is_function_name() -> None:
+    assert all(name == rule.rule.__name__ for name, rule in CROSS_RULES.items())

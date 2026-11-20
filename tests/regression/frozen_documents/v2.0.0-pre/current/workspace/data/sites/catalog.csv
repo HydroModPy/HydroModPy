@@ -1,0 +1,3 @@
+site,label,gauge,uri,x_outlet,y_outlet,crs,tags
+alpha,Alpha,W1,hubeau:J001,389285.9,6816518.7,EPSG:2154,a;b
+beta,,,,,,,

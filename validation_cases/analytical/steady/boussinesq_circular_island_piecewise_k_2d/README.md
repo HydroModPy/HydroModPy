@@ -20,8 +20,21 @@ Comparison:
 - simulated observable: `watertable_elevation`
 - compared quantity: annular mean head profile on land
 - reference: steady radial Boussinesq solution with concentric piecewise `K`
-- for `solver=boussinesq`, the comparison is limited to `r <= 180 m` because the
-  current dense runtime still needs a thin explicit ocean-support ring at the shoreline
+- for `solver=boussinesq` and `boussinesq_local`, the runtime meshes the island
+  with near-equilateral triangles of 10 m (a node ring on the coast and on each
+  K break, one ring of ocean triangles at the sea level), and the profile is
+  read on the triangles, the reference at each centroid
+- for `solver=modflow6_voronoi`, the profile is read on the solver cells, which
+  are centered on the nodes of the mesh bundle, in 5 m bins that each hold one
+  node ring; a node ring lies on the coast, where the model must hold the sea
+  level, so this run reads a 1 m DEM whose shoreline sits 1 m inside that ring
+  and every coast cell takes the ocean head (a node on the shoreline itself is
+  a tie that the DEM sampling breaks at random)
+- for `solver=modflow6_voronoi_generated`, the engine generates a Voronoi mesh of
+  about 10 m cells over the 610 m square, with a face on each K contact (the
+  rings at 70 m and 140 m), so no cell holds two K; the profile is read on the
+  solver cells (their centers come from the stored mesh), in 10 m bins, and a
+  cell holds the ocean head where the DEM at its center is at or below sea level
 
 Direct execution:
 
@@ -36,3 +49,15 @@ The runner saves a PNG figure with:
 - the final land water-table map,
 - the numerical annular profile against the analytical reference,
 - the residual curve and summary metrics.
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+\frac{1}{r}\frac{\mathrm{d}}{\mathrm{d}r}\left(r\,K(r)\,H\,\frac{\mathrm{d}H}{\mathrm{d}r}\right)+R=0
+$$
+
+$$
+U=H^2,\qquad U(r)=U(a)+R\int_r^a \frac{s}{K(s)}\,\mathrm{d}s
+$$

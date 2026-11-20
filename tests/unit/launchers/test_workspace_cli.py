@@ -1,4 +1,5 @@
-"""Unit tests for ``hmp workspace`` CLI commands."""
+"""The ``hmp workspace clean`` command: a dry run by default, and with ``--yes`` it
+trashes the runs and deletes the caches while the source data stays."""
 
 from __future__ import annotations
 
@@ -6,16 +7,18 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli import main
-from hydromodpy.cli.helpers import EXIT_CONFIG
-from hydromodpy.core.state.paths import (
+from hydromodpy.cli.exit_codes import EXIT_CONFIG
+from hydromodpy.cli.main import main
+from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,
     catalog_path_for,
     runs_dir_for,
-    scratch_dir_for,
-    share_dir_for,
+    trash_dir_for,
 )
-from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.core.state.scratch import scratch_dir_for
+from hydromodpy.data.provenance.sidecars import FORMER_CACHE_DATABASE
+from hydromodpy.results.trash import parse_trashed_dirname
+from tests._helpers.sealed_runs import seal_run
 
 
 def _seed_workspace(root: Path) -> None:
@@ -23,19 +26,23 @@ def _seed_workspace(root: Path) -> None:
     (root / "data" / "source" / "keep.csv").write_text("value\n1\n", encoding="utf-8")
     (root / "data" / "blobs").mkdir(parents=True)
     (root / "data" / "blobs" / "generated.bin").write_bytes(b"blob")
-    (root / "data" / "cache.duckdb").write_bytes(b"duckdb")
-    share_dir_for(root).mkdir()
+    for suffix in ("", ".wal", ".lock"):
+        (root / "data" / f"{FORMER_CACHE_DATABASE}{suffix}").write_bytes(b"duckdb")
+    sidecar_file = root / "data" / "dem" / "dem_ign_a.tif"
+    sidecar_file.parent.mkdir(parents=True)
+    sidecar_file.write_bytes(b"tif")
+    sidecar_file.with_name(sidecar_file.name + ".json").write_text("{}", encoding="utf-8")
     (root / INTERNAL_DIRNAME).mkdir()
     project = root / "projects" / "demo"
     project.mkdir(parents=True)
+    (project / "project.toml").write_text("", encoding="utf-8")
     catalog_path_for(project).parent.mkdir(parents=True, exist_ok=True)
     catalog_path_for(project).write_bytes(b"duckdb")
-    (runs_dir_for(project) / "demo_run" / FIELDS_STORE_NAME).mkdir(parents=True)
+    seal_run(project, "demo_run")
     scratch_dir_for(project).mkdir(parents=True, exist_ok=True)
-    (share_dir_for(project) / "figures").mkdir(parents=True)
 
 
-def test_workspace_clean_dry_run_keeps_files(monkeypatch, tmp_path: Path, capsys) -> None:
+def test_dry_run_keeps_files(monkeypatch, tmp_path: Path, capsys) -> None:
     _seed_workspace(tmp_path)
     monkeypatch.setattr(
         "sys.argv",
@@ -49,13 +56,10 @@ def test_workspace_clean_dry_run_keeps_files(monkeypatch, tmp_path: Path, capsys
     project = tmp_path / "projects" / "demo"
     assert catalog_path_for(project).exists()
     assert runs_dir_for(project).exists()
-    assert (tmp_path / "data" / "cache.duckdb").exists()
+    assert (tmp_path / "data" / FORMER_CACHE_DATABASE).exists()
 
 
-def test_workspace_clean_all_deletes_generated_artifacts(
-    monkeypatch,
-    tmp_path: Path,
-) -> None:
+def test_clean_all(monkeypatch, tmp_path: Path) -> None:
     _seed_workspace(tmp_path)
     monkeypatch.setattr(
         "sys.argv",
@@ -66,18 +70,20 @@ def test_workspace_clean_all_deletes_generated_artifacts(
 
     project = tmp_path / "projects" / "demo"
     assert not catalog_path_for(project).exists()
-    assert not runs_dir_for(project).exists()
-    assert not (tmp_path / "data" / "cache.duckdb").exists()
+    assert not (runs_dir_for(project) / "demo_run").exists()
+    trashed = [parse_trashed_dirname(path.name)[0] for path in trash_dir_for(project).iterdir()]
+    assert "runs/demo_run" in trashed
+    for suffix in ("", ".wal", ".lock"):
+        assert not (tmp_path / "data" / f"{FORMER_CACHE_DATABASE}{suffix}").exists()
     assert not (tmp_path / "data" / "blobs").exists()
-    assert not share_dir_for(tmp_path).exists()
+    assert (tmp_path / "data" / "dem" / "dem_ign_a.tif").exists(), "a clean keeps the cache rows"
+    assert (tmp_path / "data" / "dem" / "dem_ign_a.tif.json").exists()
     assert not (tmp_path / INTERNAL_DIRNAME).exists()
     assert not scratch_dir_for(project).exists()
-    assert not (share_dir_for(project) / "figures").exists()
     assert (tmp_path / "data" / "source" / "keep.csv").exists()
 
 
-def test_workspace_clean_requires_group(monkeypatch, tmp_path: Path) -> None:
-    tmp_path.mkdir(exist_ok=True)
+def test_clean_needs_a_group(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         "sys.argv",
         ["hmp", "workspace", "clean", "--workspace", str(tmp_path), "--yes"],

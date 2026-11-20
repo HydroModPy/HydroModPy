@@ -1,0 +1,574 @@
+"""List, show, query, point, diff and rank the runs of a project from its index.
+
+``ls``, ``show``, ``query``, ``point``, ``diff`` and ``rank`` read the index
+through :class:`~hydromodpy.results.catalog.facade.Catalog`. They sit in a module of
+their own so the SQL of a listing stays apart from the reads of the catalog
+itself (:mod:`hydromodpy.results.catalog.reads`).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from hydromodpy.core.state.layout import catalog_path_for
+from hydromodpy.core.state.result_dirs import project_root_at
+from hydromodpy.results.publication import deliveries_of, latest_by_pair, read_published
+from hydromodpy.results.storage.run_profile import Profile, read_profile
+
+SEALED_SOLVE_METRIC = "flow_solve_time_seconds"
+"""Metric of a run of a pre-release that holds the wall time of the solve, in the seal and in ``metrics.parquet``."""
+
+NO_PROFILE_TEXT = "no profile.json, solve time from the seal"
+"""What ``show`` says of a run that has no ``profile.json``, a run of a pre-release."""
+
+LONGEST_STEPS = 3
+"""How many of the longest steps the profile block of ``show`` names."""
+
+_LISTING_COLUMNS: tuple[str, ...] = (
+    "sim_id",
+    "name",
+    "project",
+    "site",
+    "case_id",
+    "rel_dir",
+    "solver",
+    "status",
+    "label",
+    "nse",
+    "created_at",
+    "started_at",
+    "duration_s",
+    "n_cells",
+    "n_layers",
+    "mesh_engine",
+    "solution_key",
+    "request_id",
+    "version_int",
+)
+
+
+def _open_catalog(workspace: Any) -> Any:
+    """Open the project at ``workspace``, building its index when it is missing."""
+    from hydromodpy.results.catalog.facade import Catalog
+
+    return Catalog(Path(workspace).expanduser().resolve())
+
+
+def list_simulations(
+    workspace: Any,
+    *,
+    project: str | None = None,
+    solver: str | None = None,
+    site: str | None = None,
+    status: str | None = None,
+    label: str | None = None,
+    tag: str | None = None,
+    limit: int | None = None,
+) -> Any:
+    """List the sealed runs of the projects reachable from ``workspace``.
+
+    Iterates over the per-project indexes (``<project>/.hmp/index.duckdb``)
+    under ``workspace`` and returns one frame ordered by ``created_at DESC``.
+    ``project`` names one project directory; the other filters are exact
+    matches on the listed column.
+    """
+    import pandas as pd
+
+    from hydromodpy.results.catalog.discovery import iter_project_catalog_roots
+    from hydromodpy.results.catalog.facade import Catalog
+
+    workspace_root = Path(workspace).expanduser().resolve()
+    if project:
+        project_roots = [workspace_root / "projects" / project]
+    else:
+        project_roots = iter_project_catalog_roots(workspace_root)
+
+    frames: list[pd.DataFrame] = []
+    for project_dir in project_roots:
+        if not catalog_path_for(project_dir).is_file():
+            continue
+        with Catalog(project_dir) as catalog:
+            sims = catalog.list_simulations(order_by="created_at DESC")
+            tagged = catalog.sims_with_tag(tag) if tag else None
+        if sims.empty:
+            continue
+        if solver:
+            sims = sims[_runs_with_solver(sims["solver"], solver)]
+        if site:
+            sims = sims[sims["site"].fillna("") == site]
+        if status:
+            sims = sims[sims["status"].fillna("") == status]
+        if label:
+            sims = sims[sims["label"].fillna("") == label]
+        if tagged is not None:
+            sims = sims[sims["sim_id"].astype(str).isin(tagged)]
+        frames.append(sims.assign(project=project_dir.name))
+    if not frames:
+        return pd.DataFrame()
+    out = pd.concat(frames, ignore_index=True)
+    if limit is not None:
+        out = out.head(int(limit))
+    return _stable_listing_projection(out)
+
+
+def _runs_with_solver(stored: Any, wanted: str) -> Any:
+    """Mask of the runs whose solver list holds ``wanted``, such as "modflow6,modpath".
+
+    The name the run carries is compared as it stands: one name per backend,
+    no shorthand.
+    """
+    return stored.fillna("").map(lambda text: wanted in set(str(text).split(",")))
+
+
+def _stable_listing_projection(df: Any) -> Any:
+    """Return a scriptable projection: string ids, ISO dates, no config blob."""
+    cols = [c for c in _LISTING_COLUMNS if c in df.columns]
+    out = df[cols].copy()
+    if "sim_id" in out.columns:
+        out["sim_id"] = out["sim_id"].astype(str)
+    for time_col in ("created_at", "started_at"):
+        if time_col in out.columns:
+            out[time_col] = out[time_col].astype(str)
+    return out
+
+
+def solve_seconds(run_dir: Path) -> float | None:
+    """Return the wall time of the first solve of the run, from its ``profile.json``.
+
+    The plan runs a flow first, so its first ``solve`` line is the flow solve. A
+    resumed run has lines in several attempts, and the last attempt that solved
+    gives the line. ``None`` when the run has no profile or no finished solve:
+    the caller then reads the row a run of a pre-release holds (:data:`SEALED_SOLVE_METRIC`).
+    """
+    profile = read_profile(run_dir)
+    if profile is None:
+        return None
+    return _first_solve_s(profile)
+
+
+def _first_solve_s(profile: Profile) -> float | None:
+    solves = [
+        line for line in profile.lines if line.kind == "solve" and line.duration_s is not None
+    ]
+    if not solves:
+        return None
+    last = max(line.attempt for line in solves)
+    return next(line.duration_s for line in solves if line.attempt == last)
+
+
+def profile_of_run(run_dir: Path) -> dict[str, Any]:
+    """Return what ``show`` says of the time of a run, read from its folder.
+
+    With a ``profile.json`` the dict holds ``present = True``, ``total_s`` (the time of
+    every step of every attempt, a rebuilt step included), ``attempts``, ``start_s``
+    (the age of the process of the first attempt when its pipeline began),
+    ``solve`` (one entry per solve line), ``longest_steps`` (the longest steps that
+    were computed or read from the store, rebuilt ones left out), ``reused`` (every line
+    not computed, with its source) and ``max_rss_mb``. Without one, ``present`` is
+    ``False``, ``message`` is :data:`NO_PROFILE_TEXT` and ``solve_s`` is the row the
+    seal of a run of a pre-release holds, or ``None``.
+    """
+    profile = read_profile(run_dir)
+    if profile is None:
+        return {
+            "present": False,
+            "message": NO_PROFILE_TEXT,
+            "solve_s": _sealed_solve_s(run_dir),
+        }
+    steps = [line for line in profile.lines if line.kind == "step"]
+    computed = [line for line in steps if line.reused != "prefix" and line.duration_s is not None]
+    longest = sorted(computed, key=lambda line: line.duration_s, reverse=True)[:LONGEST_STEPS]
+    first = min(profile.process_age_s) if profile.process_age_s else None
+    peaks = [line.max_rss_mb for line in profile.lines if line.max_rss_mb is not None]
+    return {
+        "present": True,
+        "attempts": len({line.attempt for line in profile.lines}),
+        "total_s": sum(line.duration_s or 0.0 for line in steps),
+        "start_s": None if first is None else profile.process_age_s[first],
+        "solve": [
+            {"name": line.name, "attempt": line.attempt, "duration_s": line.duration_s}
+            for line in profile.lines
+            if line.kind == "solve"
+        ],
+        "longest_steps": [
+            {"name": line.name, "attempt": line.attempt, "duration_s": line.duration_s}
+            for line in longest
+        ],
+        "reused": [
+            {"name": line.name, "attempt": line.attempt, "reused": line.reused, "key": line.key}
+            for line in profile.lines
+            if line.reused != "no"
+        ],
+        "max_rss_mb": max(peaks) if peaks else None,
+    }
+
+
+def _sealed_solve_s(run_dir: Path) -> float | None:
+    """Return the solve time row of the seal of a run of a pre-release, ``None`` when it has none."""
+    from hydromodpy.results.record.label import read_sealed_manifest
+
+    manifest = read_sealed_manifest(run_dir)
+    if manifest is None:
+        return None
+    return next((row.value for row in manifest.metrics if row.metric == SEALED_SOLVE_METRIC), None)
+
+
+def delivery_entries(run_dir: str | Path) -> list[dict[str, Any]]:
+    """Return the latest delivery of each pair of a run, as ``show`` lists it."""
+    return [
+        {
+            "file": line.file,
+            "destination": line.destination,
+            "state": line.state,
+            "attempts": line.attempts,
+            "sha256": line.sha256,
+            "bytes": line.bytes,
+            "error": line.error,
+        }
+        for line in deliveries_of(run_dir)
+    ]
+
+
+def copy_entries(run_dir: str | Path) -> list[dict[str, Any]]:
+    """Return the latest line of each destination a copy of the run went to."""
+    copies = (line for line in read_published(run_dir) if line.kind == "copy")
+    return [
+        {"to": line.to, "published_at": line.published_at.isoformat()}
+        for line in latest_by_pair(copies).values()
+    ]
+
+
+def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> dict:
+    """Return the facts of one sealed run: its row, its label, its files and its profile.
+
+    ``exports``, ``deliveries`` and ``copies`` are read from the run folder, not
+    from the index, and ``profile`` with them (:func:`profile_of_run`).
+
+    Opening the project builds its index when it is missing. Raises
+    :class:`~hydromodpy.results.catalog.discovery.SimulationNotFoundError` when
+    ``sim_ref`` names nothing.
+    """
+    from hydromodpy.results.ledger import Ledger
+    from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME, RUN_FIGURES_DIRNAME
+
+    with _open_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        sim = catalog[sid]
+        row = catalog.list_simulations(sim_id=sid).iloc[0].to_dict()
+        run_dir = catalog.run_dir_for(sid)
+        payload: dict = {
+            "sim_id": sim.sim_id,
+            "name": sim.name,
+            "project": sim.project,
+            "site": row.get("site"),
+            "case_id": row.get("case_id"),
+            "rel_dir": row.get("rel_dir"),
+            "solver": sim.solver,
+            "status": sim.status,
+            "label": row.get("label"),
+            "label_date": None if row.get("label_date") is None else str(row["label_date"])[:10],
+            "nse": row.get("nse"),
+            "duration_s": row.get("duration_s"),
+            "n_cells": sim.n_cells,
+            "n_timesteps": sim.n_timesteps,
+            "version_int": row.get("version_int"),
+            "solution_key": row.get("solution_key"),
+            "request_id": row.get("request_id"),
+            "exports": [
+                {"file": entry.file, "producer": entry.producer, "sha256": entry.sha256}
+                for entry in Ledger.read(run_dir / RUN_EXPORTS_DIRNAME).entries
+            ],
+            "figures": [
+                {"file": entry.file, "producer": entry.producer}
+                for entry in Ledger.read(run_dir / RUN_FIGURES_DIRNAME).entries
+            ],
+            "deliveries": delivery_entries(run_dir),
+            "copies": copy_entries(run_dir),
+            "profile": profile_of_run(run_dir),
+        }
+        if detail:
+            zarr_path = catalog.fields_path_for(sid)
+            payload["zarr_path"] = str(zarr_path)
+            payload["zarr_exists"] = zarr_path.exists()
+            groups: list[str] = []
+            if zarr_path.is_dir():
+                try:
+                    groups = sorted(p.name for p in zarr_path.iterdir() if p.is_dir())[:20]
+                except OSError:
+                    groups = []
+            payload["zarr_groups"] = groups
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationFacts:
+    """What the index holds about one run beyond its row: tags, notes, metrics and parameters."""
+
+    tags: list[str]
+    notes: list[str]
+    metrics: Any
+    """A frame of the metrics of the run, empty when it has none."""
+    parameters: Any
+    """A frame of the parameters of the run, empty when it has none."""
+
+
+def simulation_facts(catalog: Any, sim_id: str) -> SimulationFacts:
+    """Return the tags, the notes (oldest first), the metrics and the parameters of one run."""
+    sim = catalog[sim_id]
+    rows = catalog.backend.fetch_all(
+        "SELECT note FROM sim_notes WHERE sim_id = ? ORDER BY added_at", [sim_id]
+    )
+    return SimulationFacts(
+        tags=list(sim.tags or []),
+        notes=[note for (note,) in rows],
+        metrics=sim.metrics,
+        parameters=sim.parameters,
+    )
+
+
+def _readable_facts(run_dir: Path) -> Any:
+    """Return the facts of a listed run, or ``None`` after one warning when it does not read."""
+    from hydromodpy.results.run.sealed_facts import UnreadableManifestError, read_run_facts
+    from hydromodpy.results.storage.json_io import readable, warn_unreadable
+
+    try:
+        return readable(read_run_facts, run_dir)
+    except UnreadableManifestError as exc:
+        warn_unreadable(run_dir, exc)
+        return None
+
+
+def _with_seal_facts(df: Any, workspace_root: Path, metric: str | None) -> Any:
+    """Add the ``overrides`` of each run, its score rule, and ``metric`` when not ``nse``.
+
+    Read from the ``manifest.json`` of each listed run.
+    """
+    from hydromodpy.results.catalog.discovery import iter_project_catalog_roots
+    from hydromodpy.results.run.sealed_facts import overrides_text
+
+    roots = {path.name: path for path in iter_project_catalog_roots(workspace_root)}
+    columns: dict[str, list[Any]] = {
+        "overrides": [],
+        "score_station": [],
+        "score_variable": [],
+        "score_window_start": [],
+        "score_window_end": [],
+        "metric_rule_version": [],
+    }
+    values: list[Any] = []
+    for record in df.to_dict("records"):
+        root = roots.get(str(record.get("project")))
+        rel_dir = record.get("rel_dir")
+        facts = _readable_facts(root / str(rel_dir)) if root is not None and rel_dir else None
+        score = None if facts is None else facts.manifest.score
+        columns["overrides"].append("" if facts is None else overrides_text(facts.overrides))
+        columns["score_station"].append(None if score is None else score.station)
+        columns["score_variable"].append(None if score is None else score.variable)
+        columns["score_window_start"].append(None if score is None else score.window_start)
+        columns["score_window_end"].append(None if score is None else score.window_end)
+        columns["metric_rule_version"].append(None if score is None else score.metric_rule_version)
+        if metric is not None and metric != "nse":
+            values.append(None if facts is None else facts.metrics.get(metric))
+    out = df.assign(**columns)
+    if metric is not None and metric != "nse":
+        out = out.assign(**{metric: values})
+    return out
+
+
+def _site_of(value: Any) -> str:
+    return value if isinstance(value, str) and value else "(no site)"
+
+
+def _left_out_reasons(listed: Any, ranked: Any, metric: str) -> list[str]:
+    """Name the sites whose runs ``best`` left out, and why, one line per reason."""
+    from hydromodpy.results.run.ranking import names_text, unscored_reason
+
+    sites = listed["site"].map(_site_of)
+    kept = set(ranked["site"].map(_site_of))
+    windowed = listed["score_window_start"].notna()
+    groups: dict[bool, list[str]] = {}
+    for site in sorted(set(sites) - kept):
+        groups.setdefault(bool(windowed[sites == site].any()), []).append(site)
+    return [
+        unscored_reason(names_text(names), listed[sites.isin(names)], metric)
+        for _, names in sorted(groups.items())
+    ]
+
+
+def list_runs(
+    workspace_root: Path,
+    *,
+    project: str | None = None,
+    solver: str | None = None,
+    site: str | None = None,
+    status: str | None = None,
+    label: str | None = None,
+    tag: str | None = None,
+    limit: int | None = None,
+    best: str | None = None,
+    by: str | None = None,
+    mixed_windows: bool = False,
+) -> tuple[Any, list[str]]:
+    """List the sealed runs under *workspace_root*, with the facts of their seal, and say what ``best`` left out.
+
+    The frame is :func:`list_simulations` plus the ``overrides`` and the score
+    rule of each run, read from its manifest. With *best* (a metric) the frame
+    keeps the best run of each project, or of each site with ``by="site"``,
+    and *limit* then counts ranked rows. The second value holds one line for
+    each reason a site has no ranked run. Raises
+    :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError` for a
+    metric that has no direction, and
+    :class:`~hydromodpy.results.run.sealed.MixedWindowsError` when the scores
+    do not share one rule, unless *mixed_windows* is true.
+    """
+    from hydromodpy.results.run.ranking import rank_rows
+
+    frame = list_simulations(
+        workspace_root,
+        project=project,
+        solver=solver,
+        site=site,
+        status=status,
+        label=label,
+        tag=tag,
+        limit=None if best else limit,
+    )
+    if frame.empty:
+        return frame, []
+    listed = _with_seal_facts(frame, workspace_root, best)
+    if not best:
+        return listed, []
+    ranked = rank_rows(listed, best, by=by, mixed_windows=mixed_windows)
+    reasons = _left_out_reasons(listed, ranked, best)
+    if limit is not None:
+        ranked = ranked.head(int(limit))
+    return ranked, reasons
+
+
+def query_catalog(sql: str, *, workspace: Any, limit: int | None = None) -> Any:
+    """Run one read-only SQL statement against the index of a project.
+
+    Raises ``FileNotFoundError`` without an index and ``duckdb.Error`` when
+    the statement is refused.
+    """
+    statement = sql.strip()
+    if limit is not None:
+        statement = f"SELECT * FROM ({statement}) LIMIT {int(limit)}"
+    with _open_catalog(workspace) as catalog:
+        return catalog.sql(statement)
+
+
+def point_simulations(
+    sim_refs: list[str],
+    *,
+    workspace: Any,
+    variables: list[str],
+    x: float | None = None,
+    y: float | None = None,
+    cell: int | None = None,
+    layer: int | None = None,
+    depth: float | None = None,
+    label: str | None = None,
+    timestep: int | None = None,
+    output: Any = None,
+) -> Any:
+    """Read one variable in one precise cell, on one or several runs.
+
+    ``x, y`` are coordinates in the simulation CRS and exclude ``cell``, a
+    zero-based cell index. ``layer`` and ``depth`` (meters below the local
+    top) exclude each other. ``output`` is an optional ``.csv`` or
+    ``.parquet`` path written with the table.
+    """
+    from hydromodpy.results.run.point import PointRequest, read_points, write_point_table
+
+    request = PointRequest(x=x, y=y, cell=cell, layer=layer, depth=depth, label=label)
+    with _open_catalog(workspace) as catalog:
+        runs = [catalog[catalog.resolve(ref)] for ref in sim_refs]
+        frame = read_points(runs, variables, request, timestep=timestep)
+    if output is not None:
+        write_point_table(frame, output)
+    return frame
+
+
+def diff_simulations(ref_a: str, ref_b: str, *, workspace: Any) -> dict:
+    """Compare the parameters and metrics of two runs."""
+    with _open_catalog(workspace) as catalog:
+        return catalog.diff(ref_a, ref_b)
+
+
+def rank_simulations(
+    project: str,
+    *,
+    workspace: Any = None,
+    metric: str = "nse",
+    station: str | None = None,
+    best: bool = True,
+    n: int = 5,
+    mixed_windows: bool = False,
+) -> Any:
+    """Rank the scores of the completed runs of one project. Returns a DataFrame.
+
+    One row per run and station scored on ``metric``, with the window and the
+    rule version of the score; ``station`` keeps the rows of one station only.
+    ``best=True`` puts the best values first, ``best=False`` the worst ones.
+    The direction of the metric comes from
+    :data:`hydromodpy.core.scoring.metric_table.METRIC_SENSE`: a metric missing
+    from it raises :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`.
+    A missing or non-finite value never ranks. The scores must share one rule
+    (station, variable, window, rule version): otherwise
+    :class:`~hydromodpy.results.run.sealed.MixedWindowsError` is raised, unless
+    ``mixed_windows`` is true.
+    """
+    from hydromodpy.results.catalog.constants import metric_rank_sql
+    from hydromodpy.results.catalog.facade import Catalog
+    from hydromodpy.results.metric_rule import HEADLINE_WINDOW
+    from hydromodpy.results.run.sealed import METRICS_RULE, check_one_rule
+
+    order = metric_rank_sql(metric, best=best)
+    workspace_root = project_root_at(workspace)
+    station_clause = "" if station is None else "AND m.station_id = ? "
+    with Catalog(workspace_root) as catalog:
+        sql = (
+            "SELECT s.sim_id, s.name, s.rel_dir, sv.code AS solver, m.station_id AS station, "
+            "m.variable, m.metric, m.value, m.window_start, m.window_end, "
+            "m.metric_rule_version "
+            "FROM simulations s "
+            "JOIN solvers sv ON s.solver_id = sv.id "
+            "JOIN statuses st ON s.status_id = st.id "
+            "JOIN metrics m ON s.sim_id = m.sim_id "
+            "WHERE s.project = ? AND st.code = 'completed' "
+            f"AND m.window_name = '{HEADLINE_WINDOW}' "
+            f"AND m.metric = ? {station_clause}"
+            "AND m.value IS NOT NULL AND isfinite(m.value) "
+            f"ORDER BY {order}"
+        )
+        params: list[Any] = [project, metric]
+        if station is not None:
+            params.append(station)
+        frame = catalog.connection.execute(sql, params).fetchdf()
+    if not mixed_windows:
+        rule = frame.rename(columns={"station": METRICS_RULE.station})
+        check_one_rule(
+            rule.to_dict("records"),
+            metric,
+            names=list(frame["rel_dir"]),
+            columns=METRICS_RULE,
+        )
+    return frame.head(int(n)).drop(columns="rel_dir")
+
+
+__all__ = [
+    "SimulationFacts",
+    "copy_entries",
+    "delivery_entries",
+    "diff_simulations",
+    "list_runs",
+    "list_simulations",
+    "point_simulations",
+    "query_catalog",
+    "rank_simulations",
+    "show_simulation",
+    "simulation_facts",
+]

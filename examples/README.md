@@ -1,187 +1,110 @@
-# HydroModPy - exemples
+# HydroModPy - examples
 
-Suite d'exemples alignée sur l'API publique **v1** (CLI `hmp` + API
-Python `import hydromodpy as hmp`). Le dossier `examples/` est lui-même
-un **workspace HydroModPy** : les projets vivent sous
-[`projects/`](projects/) et partagent les [données d'entrée](data/) via
-la résolution de chemins du workspace.
+`examples/` is itself a **HydroModPy workspace**: the projects live under
+[`projects/`](projects/) and share their inputs through [`data/`](data/), where
+a TOML names a file with `workspace:<name>`.
 
-## Prérequis
+## Prerequisites
 
 ```bash
-mamba activate hmp_refact
+micromamba activate hmp_dev
 pip install -e .
-hmp install-binaries     # MF6 + MFNWT + MP6 + MP7 + MT3D-USGS dans ~/.cache/hydromodpy/bin/
-hmp doctor               # diagnostic env (Python, deps, solveurs, workspace)
+hmp install-binaries     # MODFLOW 6, MODFLOW-NWT, MODPATH, MT3D-USGS
+hmp doctor               # environment diagnosis
 ```
 
-## Stockage V1 - trois DuckDB
+## The suite
 
-| Fichier | Emplacement | Rôle |
-|---|---|---|
-| `catalog.duckdb` | `<workspace>/` | simulations + têtes / budget MODFLOW par projet |
-| `cache.duckdb` | `<workspace>/data/` | cache d'inputs (DEM, hydrographie, BRGM, SIM2, ...) |
-| `index.duckdb` | `<state>/` (machine-wide) | registre des workspaces (`hmp index register`) |
+The twelve examples of HydroModPy version 1, tag `v1.0.0`, remade for this version and all
+solved with MODFLOW 6. Each folder holds a `project.toml`, a Python script that plays it step
+by step in `hmp.Lab` and draws or prints what each step built, and a `README.md`.
 
-Les champs gridded vivent en **Zarr v2** (sortie split
-`schema/writer/reader/finalizer`) et respectent les conventions
-**CF-1.11 + ACDD-1.3 + UGRID-1.0**. Les sorties tabulaires vivent en
-**Parquet v2.6**. Les exports GeoTIFF, CSV, STAC, RO-Crate et PROV-O
-sont des sidecars utilisateur, pas la source de vérité V1.
+| # | Folder | Theme | Regime | Run |
+|---|---|---|---|---|
+| 00 | [`00_quick_test_of_wide_hydromodpy_capabilities`](projects/00_quick_test_of_wide_hydromodpy_capabilities/) | Aber catchment, two pumping wells, particle tracks | monthly transient + PRT | ~5 s |
+| 01 | [`01_simplified_example_presented_in_the_paper`](projects/01_simplified_example_presented_in_the_paper/) | the case of the paper: Canut, five layers, K and Sy falling with depth, particle tracks | steady + PRT | ~1 min |
+| 02 | [`02_basic_features_and_overview_of_possibilities`](projects/02_basic_features_and_overview_of_possibilities/) | a conceptual relief taken whole: recharge per cell, base under sea level, K by depth | steady + PRT | ~25 s |
+| 03 | [`03_hydrographic_network_in_steady_state`](projects/03_hydrographic_network_in_steady_state/) | the network a water table feeds, Canut, ten values of K solved in the lab | steady | ~35 s |
+| 04 | [`04_streamflow_intermittence_in_transient`](projects/04_streamflow_intermittence_in_transient/) | seepage expanding and contracting with the seasons, Nancon, three values of Sy | monthly transient | ~1.5 min |
+| 05 | [`05_piezometry_in_a_heterogeneous_coastal_aquifer`](projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/) | Gouville: a coastal strip in two zones of K, the sea level and a piezometer | daily transient | ~40 s |
+| 06 | [`06_particle_tracking_and_residence_times`](projects/06_particle_tracking_and_residence_times/) | Lasset: where the seepage water comes from, and how old it is | steady + PRT | ~30 s |
+| 07 | [`07_analytical_solution_for_streamflow_recession`](projects/07_analytical_solution_for_streamflow_recession/) | a hillslope recession against the Boussinesq solution | daily transient | ~15 s |
+| 08 | [`08_exponential_distribution_of_residence_times`](projects/08_exponential_distribution_of_residence_times/) | travel times against the exponential law of a well-mixed store | steady + PRT | ~5 s |
+| 09 | [`09_transport_model_for_an_agricultural_catchment`](projects/09_transport_model_for_an_agricultural_catchment/) | nitrate through an agricultural headwater, Kervidy, MODFLOW 6 GWT | transient + GWT | ~20 min |
+| 10 | [`10_coupling_with_land_surface_model_pyhelp`](projects/10_coupling_with_land_surface_model_pyhelp/) | Urse: the flow under a recharge grid computed by PyHELP, then K from the network | steady + calibration | ~40 s |
+| 11 | [`11_run_from_scratch_without_plots`](projects/11_run_from_scratch_without_plots/) | a run that writes files and draws nothing | steady + PRT | ~25 s |
 
-## Artefacts versionnes
+Run any of them from its folder:
 
-Les sorties de run ne sont pas versionnees : `outputs/`, `web/`,
-`web_review/`, `figures/`, `simulations/`, `catalog.duckdb` et
-`data/cache.duckdb` sont des artefacts regenerables localement.
-
-Les galeries et fixtures documentaires restent versionnees par intention.
-C'est le cas notamment de `07_mesh_gallery`, `08_mesh_viewer`,
-`09_capability_gallery` et des dossiers `fixtures/`. Ces fichiers servent
-de references stables pour la documentation, les exemples inspectables et
-les tests de contrat.
-
-## Catalog door Python
-
-| Appel | Retour | Rôle |
-|---|---|---|
-| `hmp.open(workspace)` | `Catalog` | porte unique sur le catalogue (`cat.find(...)`, `cat.frame`, `cat.latest()`, `cat[ref]`, `cat.read(ref, var)`). |
-| `hmp.index()` | fédération | registre des workspaces (anciennement `.projects`). |
-| `hydromodpy.catalog.InputsNamespace(workspace)` | namespace inputs | cache d'inputs (anciennement `.inputs`, sinon `hmp data` en CLI). |
-
-`hmp.open(...)` lève `FileNotFoundError` si aucun `catalog.duckdb`
-n'existe (`create=False` par défaut) ; passer `create=True` pour
-initialiser un catalogue vide. C'est le point d'entrée recommandé pour
-inspecter les runs passés (`cat.frame`, `cat.latest()`, `cat[ref]`).
-
-## CLI - verbs clés
-
-Liste à jour via `hmp --help`. Les nouveautés à connaître :
-
-- `hmp export-package <sim_ref> -o sim.hmp` : archive portable
-  (tar.zst + `manifest.json`, avec RO-Crate best-effort).
-- `hmp add sim.hmp` / `hmp import sim.hmp` : roundtrip d'import.
-- `hmp index register|search|forget|prune` : registre machine-wide
-  des workspaces.
-- `hmp install-binaries` : MF6 / MFNWT / MP6 / MP7 / MT3D-USGS.
-- `hmp gc` : caches orphelins + tmp parquet + runs zombies.
-- `hmp vacuum` : compaction DuckDB (CHECKPOINT) + consolidation Zarr.
-- `hmp privacy` : purge auditée d'une simulation.
-- `hmp manage [--workspace ...]` : UI navigateur locale pour inspecter
-  les DuckDB.
-- `hmp run --resume <RUN_ID>` / `--from <STEP>` : reprise cascade-aware
-  via le journal append-only `workflow_steps` (HeartbeatPulse détecte
-  les zombies).
-
-## Index des projets
-
-| # | Dossier | Titre | Solveur | Statut V1 | Réseau |
-|---|---|---|---|---|---|
-| 00 | [`projects/00_getting_started/`](projects/00_getting_started/) | Aquifère Dupuit synthétique | MODFLOW-NWT | config-valid, dry-run only | non |
-| 01 | [`projects/01_calibration/`](projects/01_calibration/) | Calibration Optuna sur K | MODFLOW-NWT | config-valid, dry-run only | non |
-| 02 | [`projects/02_nancon_watershed/`](projects/02_nancon_watershed/) | Bassin du Nançon | MODFLOW-NWT | config-valid, avec drafts locaux | possible |
-| 03a | [`projects/03_canut_watershed/`](projects/03_canut_watershed/) | Bassin du Canut (config expert) | MODFLOW-NWT | config-valid, dry-run only | possible |
-| 03b | [`projects/03_groundwater_1d/`](projects/03_groundwater_1d/) | Dupuit-Forchheimer 1D analytique | aucun | draft/dev | non |
-| 04 | [`projects/04_data_overview/`](projects/04_data_overview/) | Carte d'identité d'un bassin | aucun | runnable | oui |
-| 05 | [`projects/05_nancon_data_overview/`](projects/05_nancon_data_overview/) | Overview complet Nançon | aucun | runnable | oui |
-| 06 | [`projects/06_vire_selune/`](projects/06_vire_selune/) | Vire & Sélune (MF6 + NWT) | MF6 / NWT | config-valid, dry-run only | possible |
-| 07 | [`projects/07_mesh_gallery/`](projects/07_mesh_gallery/) | Galerie de maillages (bundles) | aucun | dev/gallery | non |
-| 08 | [`projects/08_mesh_viewer/`](projects/08_mesh_viewer/) | Inspection de bundles de maillage | aucun | dev/tooling | non |
-| 09a | [`projects/09_capability_gallery/`](projects/09_capability_gallery/) | Figures publiées (gallery statique) | aucun | docs/gallery | non |
-| 09b | [`projects/09_comparison_workflow/`](projects/09_comparison_workflow/) | Workflows de comparaison + testbed stability | mixte | dev/dry-run | possible |
-| 10 | [`projects/10_testbed_workflow/`](projects/10_testbed_workflow/) | Testbed Boussinesq + reporting | Boussinesq | validation pending/dry-run | non |
-| 11a | [`projects/11_nancon_network_physical_benchmark/`](projects/11_nancon_network_physical_benchmark/) | Benchmark réseau physique Nançon | MODFLOW-NWT | validation/dev | oui |
-| 11b | [`projects/11_nancon_watershed/`](projects/11_nancon_watershed/) | Nançon - showcase complet | MF6 / NWT | API Python, dry-run | possible |
-| 12 | [`projects/12_calibration_network_transient_b0/`](projects/12_calibration_network_transient_b0/) | Calibration réseau + transient (testbed) | MODFLOW-NWT | dev/long | oui |
-| 13 | [`projects/13_transport_mf6_gwt_disv_visual_guard/`](projects/13_transport_mf6_gwt_disv_visual_guard/) | Transport MF6 GWT DISV (visual guard) | MF6-GWT | visual guard | non |
-| 14 | [`projects/14_transport_nancon_gwt_visual_guard/`](projects/14_transport_nancon_gwt_visual_guard/) | Transport GWT sur Nançon (visual guard) | MF6-GWT | visual guard | non |
-| 15 | [`projects/15_nancon_gauged_context/`](projects/15_nancon_gauged_context/) | Contexte jaugé Nançon | aucun | runnable/context | oui |
-| 16 | [`projects/16_nancon_natural_calibration/`](projects/16_nancon_natural_calibration/) | Calibration naturelle Nançon | MODFLOW-NWT | dev/long | oui |
-| 17 | [`projects/17_site_selection_workflow/`](projects/17_site_selection_workflow/) | Site selection et exports downstream | aucun | runnable/preview | oui |
-| 18 | [`projects/18_site_selection_to_testbed/`](projects/18_site_selection_to_testbed/) | Hand-off site selection vers testbed/regional_lab | mixte | dry-run only | oui |
-
-## Ordre de lecture recommandé
-
-1. **00_getting_started** : structure minimale d'un `project.toml`,
-   premier run, découverte du catalogue.
-2. **01_calibration** : `[workflow].mode = "calibration"` via `hmp run`
-   et API `hmp.calibrate`.
-3. **04_data_overview** : workflow « données seulement », sans
-   simulation.
-4. **02_nancon_watershed** : premier bassin réel, Nançon (~110 km²).
-5. **11_nancon_watershed** : showcase V1 du Nançon (tous les workflows,
-   overlays, API Python complète).
-6. **06_vire_selune** : permanent / transitoire, MF6 vs NWT, maillage
-   régulier vs irrégulier.
-7. **07_mesh_gallery** + **08_mesh_viewer** : cas « maillage seul ».
-8. **09_capability_gallery** : figures de référence publiées.
-
-Parcours data-scientist : `00` → `01` → explorer
-`hmp.open("examples/")` (`cat.frame`, `cat.find(...)`, `cat.read(ref,
-var)`, `hmp.index()` pour la fédération) puis `RunSet` pour
-les exports ML-ready.
-
-## État courant après migration
-
-- Tous les TOML des projets `00` à `09` et `11` ont été migrés vers la
-  schema v1 (`modflownwt` -> `modflow_nwt`, restructuration de
-  `[overview]`, `[geographic]`, `[flow.param.X.field]`).
-- Les artefacts (`catalog.duckdb`, dossier `simulations/<sim_id>.zarr`,
-  `figures/<run_name>/`) sont créés au niveau du workspace
-  `examples/` et ignorés par `.gitignore`.
-- Trois fichiers ont été mis en quarantaine avec suffixe `.draft`
-  parce qu'ils ne migrent pas proprement vers v1 :
-  - `projects/03_groundwater_1d/project.toml.draft` : cas analytique
-    pas dispatché par `hmp run` (maintainer-only).
-  - `projects/02_nancon_watershed/run_transient_prototype.py.draft` :
-    prototype Python en attente de réécriture.
-  - Vérifier régulièrement : `find examples -name "*.draft"`.
-
-## Limitations connues
-
-- **`hmp run` complet bloqué par un bug Zarr v2 schema**
-  (`ZarrSchemaVersionError: expected '2', found None`). Le scénario
-  end-to-end correspondant est skippé dans
-  `tests/e2e/test_workflow_from_scratch.py:287`. En attendant le fix,
-  valider les TOML avec `hmp config check` puis vérifier la
-  résolution avec `hmp run --dry-run`.
-- `02_nancon_watershed/run_sweep_sy.toml` est un **draft de design**
-  documenté : `sweep` reste Python-only en V1 via une boucle
-  `for v in values: project.simulate(name=..., Sy=v)` et n'est pas
-  accepté par `[workflow].mode`.
-- Les **overlays** `11_nancon_watershed/overlays/*.toml` sont des
-  fragments minimaux et ne valident **pas** en standalone. Usage :
-  `hmp run base.toml --overlay overlays/X.toml`.
-- Les **TOMLs spécialisés** (schéma propre, pas `HydroModPyConfig`)
-  ne passent pas `hmp config check`. Ils sont consommés par leur
-  propre runner :
-  - `08_mesh_viewer/config_*.toml` -> `tools/mesh_bundle_viewer/`.
-  - `09_comparison_workflow/stability_targets.toml` ->
-    `validate_stability_targets` (testbed).
-  - `12_calibration_network_transient_b0/configs/*.toml` ->
-    `run_real_parameter_grid.py`.
-  - `13_transport_mf6_gwt_disv_visual_guard/cases/*.toml` ->
-    `run_visual_guard.py`.
-
-## Conventions
-
-Chaque projet runnable est un sous-dossier auto-contenu sous
-`projects/` :
-
-```
-examples/projects/<NN_nom>/
-├── README.md         # description FR détaillée
-├── project.toml      # configuration valide quand le dossier est runnable
-└── run*.py / *.toml  # entrées CLI ou API additionnelles
+```bash
+hmp run project.toml
+python py1_run_and_plot.py
 ```
 
-Les brouillons de conception (`*.draft`) sont conservés dans leur
-dossier source avec une mention explicite en en-tête. Ils ne doivent
-pas être lancés avec `hmp run` tant que le workflow correspondant
-n'est pas exposé par le dispatcher `hmp run`.
+The script of example 11 is `py1_run.py`, since it draws nothing.
 
-## Archive
+### Suggested reading order
 
-Les exemples qui ne s'alignent plus sur l'API actuelle ne font plus
-partie du parcours public. Les projets versionnés sous `projects/`
-restent la référence.
+1. **00** - a quick tour: wells, particles, the lab.
+2. **02** - a conceptual relief, no download, and other inputs tried from Python.
+3. **01** - the paper case: delineation, a layered aquifer, particle tracks.
+4. **03** and **04** - what a water table does to a stream network, in space then in time.
+5. **07** and **08** - two synthetic cases where the answer is known in closed form, so the
+   solver can be checked rather than illustrated.
+6. **05**, **06**, **09** and **10** - a coast, travel times, a solute and a land surface model.
+
+## Where a run puts its results
+
+Nothing is written next to `project.toml`. A run leaves:
+
+```
+projects/<name>/
+├── project.toml
+├── hydromodpy.lock           # what the run resolved, for a replay
+├── runs/<run name>/          # fields.zarr, tables.parquet, figures/, config.toml
+│   ├── README.md             # what the run is, how it went, its label
+│   ├── outcome.json          # its status, written before the first step
+│   ├── request.json          # the request as it came, when given as JSON or as a dict
+│   ├── products.json         # the products it read from the store, one per kind
+│   ├── final_state/          # last head and stages in float64, read by a restart
+│   ├── mesh/                 # the mesh it built, when its engine caches one
+│   ├── profile.json          # time and memory of each step, outside the seal
+│   ├── manifest.json         # the seal, written last, only for a completed run
+│   └── exports/              # exports asked for under [export]
+├── sessions/<case>/          # the trials of a calibration
+├── summary/                  # the tables and figures of `hmp campaign collect`
+└── .hmp/index.duckdb         # catalog index, rebuildable by `hmp catalog reindex`
+```
+
+Disk is the truth and the index is derived: `hmp catalog reindex` rebuilds the
+DuckDB from the run directories, and a deleted `.hmp/` costs nothing.
+
+## Data
+
+`data/` is organized by variable, and a TOML names a file there with
+`workspace:`. `path = "workspace:DEM_nancon_25m.tif"` in `[[data.dem.sources]]`
+reads `data/dem/DEM_nancon_25m.tif`, and `path = "workspace:."` in
+`[[data.hydrometry.sources]]` reads the station folder `data/hydrometry/`. A
+bare filename is refused. Some examples still write the path from the project
+root, `../../data/dem/...`, which reads the same file and is sealed as
+`workspace:<name>`.
+
+| Family | Holds |
+|---|---|
+| `dem/` | elevation rasters |
+| `hydrography/` | observed stream networks |
+| `recharge/`, `runoff/`, `etp/`, `precipitation/`, `temperature/` | forcings |
+| `hydrometry/`, `piezometry/`, `water_quality/`, `intermittency/` | observations |
+| `geology/`, `masks/`, `watershed_polygon/`, `wells/` | context layers |
+| `substratum/` | the base of an aquifer, read by `raster_substratum` |
+| `pyhelp/` | land-surface model inputs, consumed by a script rather than a TOML |
+
+Provider caches (`bdtopage_*.gpkg`, `*_sim2_*.nc`, `*_hubeau_*.csv`) are
+regenerated on demand and stay out of version control.
+
+## Legacy scripts
+
+The v1 example scripts the suite above was ported from, with their original
+data, live in the history under tag `v1.0.0`, folder `examples/`, also at
+<https://github.com/HydroModPy/HydroModPy/tree/v1.0.0/examples>. They are not
+runnable against the current API.

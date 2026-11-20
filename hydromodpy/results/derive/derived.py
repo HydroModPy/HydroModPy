@@ -23,7 +23,7 @@ else:
     ArrayLike = Any
 
 __all__ = [
-    "fluxes_from_budget",
+    "budget_flux_per_area",
     "watertable_depth",
     "watertable_elevation",
 ]
@@ -37,7 +37,7 @@ def watertable_elevation(head: ArrayLike, top: ArrayLike) -> ArrayLike:
     :func:`watertable_depth` but is not used: the water table is the head
     itself, never clipped to the surface. Cells where head exceeds the surface
     are flagged separately by
-    :func:`hydromodpy.core.field_routing.seepage_mask`.
+    :func:`hydromodpy.core.budget.flux.seepage_mask`.
     """
     del top  # accepted for API symmetry, unused
     if _is_data_array(head):
@@ -65,7 +65,7 @@ def watertable_depth(head: ArrayLike, top: ArrayLike) -> ArrayLike:
     return np.maximum(top_arr - wt, 0.0)
 
 
-def fluxes_from_budget(
+def budget_flux_per_area(
     component_field: ArrayLike,
     cell_area: ArrayLike,
 ) -> ArrayLike:

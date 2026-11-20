@@ -1,8 +1,21 @@
 [space_time]
-rmse = 0.005
-max_abs_error = 0.01
-row_spread = 1e-4
+rmse = 0.00011
+max_abs_error = 0.0012
+row_spread = 1e-08
 
 [final_profile]
-rmse = 0.005
-max_abs_error = 0.01
+rmse = 5.8e-06
+max_abs_error = 7.9e-06
+
+[doc]
+reason = """
+Twice the error measured with PETSc on 40 x 4 square cells of 2.5 m: space-time
+RMSE 5.1e-05 m, max error 0.00056 m, final RMSE 2.9e-06 m. PETSc takes 4
+backward-Euler steps a period (TS VI); the error is first order in time, so it
+sits below the one-step MODFLOW band of this case. The heads sit dx/3 inside the
+faces. Before 2026-10-09 the 40-column strips had 3 rows, cells of 2.5 x 3.3 m:
+on right triangles of unequal sides the two-point flux of the solver is not
+consistent, and the recharge step ended 1.1e-2 m off. The strip is uniform
+across rows, so a row spread is solver noise: PETSc reads below 1e-14 m; the
+bound is 1e-8 m.
+"""

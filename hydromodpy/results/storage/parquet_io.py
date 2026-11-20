@@ -1,7 +1,7 @@
 """Atomic pyarrow Parquet writer with canonical V1 options forced.
 
 Every Parquet file written by HydroModPy V1 goes through
-:func:`write_table_atomic`. It centralises:
+:func:`write_table_atomic`. It centralizes:
 
 - ZSTD compression at level 5 (uniform across catalog and blob payloads),
 - ``row_group_size=50_000`` so predicate pushdown on row-group stats kicks in,
@@ -28,8 +28,9 @@ from typing import Final
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from hydromodpy.core.io.filesystem import native_io_path as _native_io_path
+from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
+from hydromodpy.results.storage.parquet_schemas import check_schema_version
 
 
 def _supports_bloom_filter_columns() -> bool:
@@ -67,7 +68,6 @@ def write_table_atomic(
     *,
     kv_metadata: Mapping[str, str] | None = None,
     pk_cols: Sequence[str] | None = None,
-    overrides: Mapping[str, object] | None = None,
 ) -> Path:
     """Write ``table`` to ``target`` atomically with the V1 Parquet options.
 
@@ -85,10 +85,6 @@ def write_table_atomic(
         Optional primary-key columns. Forwarded to pyarrow as the
         ``bloom_filter_columns`` argument when the linked pyarrow build exposes
         it (Arrow >= 23 in practice; ignored otherwise).
-    overrides
-        Extra write keyword arguments that take precedence over
-        :data:`PARQUET_WRITE_DEFAULTS`. Used for callers that need to flip a
-        single knob without rewriting the full option set.
 
     Returns
     -------
@@ -98,8 +94,8 @@ def write_table_atomic(
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_name(f"{target.name}.tmp-{uuid.uuid4().hex[:8]}")
-    tmp_io = _native_io_path(tmp)
-    target_io = _native_io_path(target)
+    tmp_io = native_io_path(tmp)
+    target_io = native_io_path(target)
     if os.path.exists(tmp_io):
         os.unlink(tmp_io)
 
@@ -107,8 +103,6 @@ def write_table_atomic(
     out_table = table.replace_schema_metadata(merged_metadata)
 
     options: dict[str, object] = dict(PARQUET_WRITE_DEFAULTS)
-    if overrides:
-        options.update(overrides)
     if pk_cols and _BLOOM_FILTER_SUPPORTED:
         bloom_cols = [c for c in pk_cols if c in out_table.column_names]
         if bloom_cols:
@@ -142,6 +136,20 @@ def _replace_with_retry(tmp_io: str, target_io: str) -> None:
             delay_s *= 2
 
 
+def read_checked_table(
+    path: Path | str,
+    *,
+    columns: Sequence[str] | None = None,
+    filters: list[tuple[str, str, object]] | None = None,
+) -> pa.Table:
+    """Read one table of a run; refuse a ``hmp.schema_version`` outside the window."""
+    target = Path(path)
+    check_schema_version(pq.read_schema(target).metadata, document=target)
+    return pq.read_table(
+        target, columns=None if columns is None else list(columns), filters=filters
+    )
+
+
 def read_kv_metadata(path: Path | str) -> dict[str, str]:
     """Return the Parquet file metadata decoded as a plain ``str`` mapping.
 
@@ -169,5 +177,6 @@ def read_kv_metadata(path: Path | str) -> dict[str, str]:
 
 __all__ = [
     "read_kv_metadata",
+    "read_checked_table",
     "write_table_atomic",
 ]

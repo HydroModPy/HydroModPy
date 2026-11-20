@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, share_dir_for
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.scratch import scratch_root_for
 from tests._helpers.cli_runner import CliRunner
 
 
@@ -16,7 +17,7 @@ def test_project_lifecycle_end_to_end(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     runner = CliRunner()
 
-    init = runner.invoke(["hmp", "workspace", "init", "--path", str(workspace)])
+    init = runner.invoke(["hmp", "workspace", "init", str(workspace)])
     assert init.ok, init.stderr
     assert (workspace / "projects").is_dir()
     assert (workspace / "data").is_dir()
@@ -32,7 +33,7 @@ def test_project_lifecycle_end_to_end(tmp_path: Path) -> None:
     assert listed.ok, listed.stderr
     assert "demo" in listed.stdout
 
-    shown = runner.invoke(["hmp", "project", "show", "demo", "--workspace", str(workspace)])
+    shown = runner.invoke(["hmp", "show", "demo", "--workspace", str(workspace)])
     assert shown.ok, shown.stderr
     assert "demo" in shown.stdout
     assert PROJECT_MARKER_FILENAME in shown.stdout
@@ -47,10 +48,10 @@ def test_project_lifecycle_end_to_end(tmp_path: Path) -> None:
 def test_workspace_clean_dry_run_lists_targets(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     runner = CliRunner()
-    runner.invoke(["hmp", "workspace", "init", "--path", str(workspace)])
-    share = share_dir_for(workspace)
-    share.mkdir(exist_ok=True)
-    (share / "stale.txt").write_text("artifact")
+    runner.invoke(["hmp", "workspace", "init", str(workspace)])
+    scratch = scratch_root_for(workspace)
+    scratch.mkdir(parents=True, exist_ok=True)
+    (scratch / "stale.txt").write_text("artifact")
 
     result = runner.invoke(
         [
@@ -59,11 +60,11 @@ def test_workspace_clean_dry_run_lists_targets(tmp_path: Path) -> None:
             "clean",
             "--workspace",
             str(workspace),
-            "--share",
+            "--scratch",
             "--dry-run",
         ]
     )
     assert result.ok, result.stderr
     assert "Dry-run" in result.stdout
-    assert str(share) in result.stdout
-    assert share.is_dir()
+    assert str(scratch) in result.stdout
+    assert scratch.is_dir()

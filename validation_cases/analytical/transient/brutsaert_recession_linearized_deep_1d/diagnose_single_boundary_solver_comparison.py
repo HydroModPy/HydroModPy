@@ -17,18 +17,22 @@ from flopy.utils.binaryfile import CellBudgetFile, HeadFile
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from hydromodpy.physics.flow import Flow
-from hydromodpy.project import Project
-from hydromodpy.solver.modflow6 import Modflow6
-from hydromodpy.solver.modflow_nwt import (
-    ModflowNwt,
+from hydromodpy.model.domain.geometry import CatchmentGeometry, RasterGeometry
+from hydromodpy.model.flow import Flow
+from hydromodpy.model.model import Geometry, Model, ModelOptions, ModelTime, model_from_flow
+from hydromodpy.project.facade import Project
+from hydromodpy.solver.modflow6.modflow6 import Modflow6
+from hydromodpy.solver.modflow_common.options import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
+from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
+from hydromodpy_annex.solver.nwt_postprocess.run import run_post_processing
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
+from validation_cases.shared.regular_cell_mesh import regular_cell_mesh_of
 from validation_cases.shared.runtime import (
     _build_validation_launcher_config,
     remove_file_with_retry,
@@ -296,6 +300,23 @@ def _coerce_head_to_mf6_layout(head: np.ndarray, *, nlay: int, ncpl: int) -> np.
     raise ValueError(f"Unsupported restart head shape for MF6: {arr.shape}")
 
 
+def _probe_model(flow: Flow, domain, geographic, preprocess_options) -> Model:
+    """Return the frozen model of one probe: the regular mesh, the domain and the DEM grid."""
+    return model_from_flow(
+        flow,
+        geometry=Geometry(
+            cells=regular_cell_mesh_of(domain.surface_topo),
+            domain=domain,
+            raster=RasterGeometry.from_geographic(geographic),
+            catchment=CatchmentGeometry.from_geographic(
+                geographic, crs=getattr(geographic, "crs_proj", None)
+            ),
+        ),
+        time=ModelTime.from_flow(flow, preprocess_options.time_grid),
+        options=ModelOptions.from_settings(preprocess_options),
+    )
+
+
 def _run_nwt_probe(
     *,
     probe_id: str,
@@ -314,7 +335,6 @@ def _run_nwt_probe(
     """Run one direct MODFLOW-NWT probe and return its summary plus final head."""
     preprocess_options = ModflowPreprocessOptions(time_grid=time_grid)
     model = ModflowNwt(
-        geographic,
         model_folder=str(model_folder),
         model_name=probe_id,
         bin_path=bin_path,
@@ -322,9 +342,7 @@ def _run_nwt_probe(
         preprocess_options=preprocess_options,
     )
     model.pre_processing(
-        flow=flow,
-        domain=domain,
-        options=preprocess_options,
+        _probe_model(flow, domain, geographic, preprocess_options), preprocess_options
     )
     if restart_head is not None:
         model.bas.strt = _coerce_head_to_nwt_layout(
@@ -350,7 +368,8 @@ def _run_nwt_probe(
     outlet_series: tuple[float, ...] = ()
     final_head: np.ndarray | None = None
     if success:
-        model.post_processing(
+        run_post_processing(
+            model,
             options=ModflowPostprocessOptions(
                 watertable_elevation=False,
                 watertable_depth=False,
@@ -360,7 +379,7 @@ def _run_nwt_probe(
                 groundwater_flux=False,
                 groundwater_storage=False,
                 accumulation_flux=False,
-            )
+            ),
         )
         model_ws = Path(model.full_path)
         outlet_series = _load_outlet_series(model)
@@ -406,7 +425,6 @@ def _run_mf6_probe(
     """Run one direct MODFLOW 6 probe and return its summary plus final head."""
     preprocess_options = ModflowPreprocessOptions(time_grid=time_grid)
     model = Modflow6(
-        geographic,
         model_folder=str(model_folder),
         model_name=probe_id,
         bin_path=bin_path,
@@ -414,9 +432,7 @@ def _run_mf6_probe(
         preprocess_options=preprocess_options,
     )
     model.pre_processing(
-        flow=flow,
-        domain=domain,
-        options=preprocess_options,
+        _probe_model(flow, domain, geographic, preprocess_options), preprocess_options
     )
     if restart_head is not None:
         start_heads = _coerce_head_to_mf6_layout(
@@ -445,7 +461,8 @@ def _run_mf6_probe(
     outlet_series: tuple[float, ...] = ()
     final_head: np.ndarray | None = None
     if success:
-        model.post_processing(
+        run_post_processing(
+            model,
             options=ModflowPostprocessOptions(
                 watertable_elevation=False,
                 watertable_depth=False,
@@ -455,7 +472,7 @@ def _run_mf6_probe(
                 groundwater_flux=False,
                 groundwater_storage=False,
                 accumulation_flux=False,
-            )
+            ),
         )
         model_ws = Path(model.full_path)
         outlet_series = _load_outlet_series(model)
@@ -908,8 +925,8 @@ def main() -> None:
     mf6_steady_time_grid = _single_period_time_grid(mf6_setup.time_grid)
     mf6_transient_time_grid = _transient_time_grid(mf6_setup.time_grid)
 
-    nwt_cfg = nwt_launcher.cfg.modflownwt.model_copy(deep=True)
-    mf6_cfg = mf6_launcher.cfg.modflow6.model_copy(deep=True)
+    nwt_cfg = nwt_launcher.cfg.solver.options_of("modflow_nwt").model_copy(deep=True)
+    mf6_cfg = mf6_launcher.cfg.solver.options_of("modflow6").model_copy(deep=True)
 
     results: list[ProbeResult] = []
 

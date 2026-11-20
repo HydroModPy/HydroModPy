@@ -8,12 +8,21 @@ import pytest
 
 from tests.regression.golden_utils import assert_required_executables
 from tests.validation.calibration.helpers import (
+    TwinCheck,
     assert_lightweight_method_result,
     run_lightweight_twin_benchmark_case,
 )
 from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment import (
     STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
 )
+
+NOT_APPLICABLE = {
+    "modflow_nwt": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, so the posterior built by GP mapping and DA-MH is the same on every solver. Measured identical recovery errors on NWT, MF6 triangles and Voronoi for the sibling twin.",
+    "modflow6_irregular_tri": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, so the posterior built by GP mapping and DA-MH is the same on every solver. Measured identical recovery errors on NWT, MF6 triangles and Voronoi for the sibling twin.",
+    "modflow6_voronoi": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, so the posterior built by GP mapping and DA-MH is the same on every solver. Measured identical recovery errors on NWT, MF6 triangles and Voronoi for the sibling twin.",
+    "boussinesq": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, so the posterior built by GP mapping and DA-MH is the same on every solver.",
+    "boussinesq_local": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, so the posterior built by GP mapping and DA-MH is the same on every solver.",
+}
 
 
 @pytest.mark.validation
@@ -36,12 +45,18 @@ def test_calibration_twin_dupuit_fixed_head_posterior_modflow6_distribution_meth
     benchmark = run_lightweight_twin_benchmark_case(
         STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
         caller_file=__file__,
+        checks={
+            "random_search": TwinCheck(meets_target=True, in_distribution=True),
+            "optuna": TwinCheck(meets_target=True, in_distribution=True),
+            "gp_mapping": TwinCheck(meets_target=True, in_distribution=True),
+            "da_mh_gp": TwinCheck(meets_target=True, in_distribution=True),
+            "cma_es": TwinCheck(meets_target=True, best_within=1.0),
+        },
     )
 
     assert benchmark.observations_truth["q_east"]
     assert len(benchmark.method_results) == 5
     for result in benchmark.method_results:
-        assert result.meets_success_target, result.to_mapping()
         assert result.cost_best is not None
         assert math.isfinite(float(result.cost_best)), result.to_mapping()
         assert result.session_prepare_time_seconds is not None
@@ -50,7 +65,4 @@ def test_calibration_twin_dupuit_fixed_head_posterior_modflow6_distribution_meth
         assert result.mean_candidate_simulation_time_seconds is not None
         if result.method_name in {"random_search", "optuna", "gp_mapping", "da_mh_gp"}:
             assert result.model_distribution_sample_count >= 1, result.to_mapping()
-            assert result.truth_in_distribution is True, result.to_mapping()
-        else:
-            assert result.recovered_truth, result.to_mapping()
         assert_lightweight_method_result(result)

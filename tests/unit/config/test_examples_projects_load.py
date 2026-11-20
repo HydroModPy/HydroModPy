@@ -1,4 +1,9 @@
-"""Validate bundled example projects against the root config schema."""
+"""Validate bundled example projects against the root config schema.
+
+A project with ``[sites]`` is not one configuration but a plan of cases. It
+is checked the way ``hmp check`` checks it, case by case, and its
+recipe files are checked with it rather than loaded alone.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
+from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.project.api import check
+from hydromodpy.project.launch.plan import expand_plan
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_PROJECTS = Path("examples/projects")
@@ -41,7 +49,17 @@ def _tracked_toml_files() -> list[Path]:
 
 def _declares_calibration(toml_file: Path) -> bool:
     """Tell whether the merged payload of *toml_file* carries a calibration section."""
-    return "calibration" in load_toml_with_base_config(toml_file)
+    return "calibration" in load_toml_with_base_config(toml_file, root=ROOT_CONFIG)
+
+
+def _belongs_to_sites_project(toml_file: Path) -> bool:
+    """Tell whether *toml_file* or its ``base_config`` chain declares ``[sites]``."""
+    return "sites" in load_toml_with_base_config(toml_file, root=ROOT_CONFIG)
+
+
+def _is_an_overlay(toml_file: Path) -> bool:
+    """Tell whether *toml_file* needs a project under it, for want of a ``[geographic]``."""
+    return "geographic" not in load_toml_with_base_config(toml_file, root=ROOT_CONFIG)
 
 
 def _identifier(toml_file: Path) -> str:
@@ -50,7 +68,13 @@ def _identifier(toml_file: Path) -> str:
 
 _TRACKED_TOML_FILES = _tracked_toml_files()
 _PROJECT_CONFIGS = [item for item in _TRACKED_TOML_FILES if item.name == "project.toml"]
-_CALIBRATION_CONFIGS = [item for item in _TRACKED_TOML_FILES if _declares_calibration(item)]
+_CALIBRATION_CONFIGS = [
+    item
+    for item in _TRACKED_TOML_FILES
+    if _declares_calibration(item)
+    and not _belongs_to_sites_project(item)
+    and not _is_an_overlay(item)
+]
 
 
 @requires_git
@@ -62,6 +86,12 @@ def test_examples_projects_are_discovered() -> None:
 @requires_git
 @pytest.mark.parametrize("project_file", _PROJECT_CONFIGS, ids=_identifier)
 def test_examples_projects_load(project_file: Path) -> None:
+    if _belongs_to_sites_project(project_file):
+        errors = [item.line() for item in check(project_file) if item.severity == "error"]
+        assert not errors, errors
+        draft = expand_plan(resolve_project_root(project_file.parent), project_file)
+        assert draft.cases
+        return
     HydroModPyConfig.from_toml(project_file)
 
 

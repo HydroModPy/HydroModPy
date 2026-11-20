@@ -32,7 +32,7 @@ class ModflowRunOptions:
 
 @dataclass(slots=True)
 class ModflowPostprocessOptions:
-    """Options consumed by ``ModflowNwt.post_processing``."""
+    """Options of the historical TIFF maps of a MODFLOW-NWT run, written by the annex."""
 
     watertable_elevation: bool = True
     watertable_depth: bool = True
@@ -48,10 +48,6 @@ class ModflowPostprocessOptions:
     intermittency_weekly: bool = False
     intermittency_daily: bool = False
     export_all_tif: bool = False
-    native_mesh_npz: bool = False
-    native_mesh_csv: bool = False
-    native_mesh_vtu: bool = False
-    native_mesh_png: bool = False
 
 
 __all__ = [

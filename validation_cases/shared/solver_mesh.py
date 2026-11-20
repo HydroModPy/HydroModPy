@@ -1,0 +1,49 @@
+"""Solver mesh over a hand-built planar mesh, for the scripts that drive a MODFLOW model by hand."""
+
+from __future__ import annotations
+
+import numpy as np
+
+from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import MeshIdentity, build_planar_cell_mesh
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+
+_LOCAL_CRS_WKT = (
+    'LOCAL_CS["validation case",LOCAL_DATUM["local origin",0],UNIT["metre",1],'
+    'AXIS["X",EAST],AXIS["Y",NORTH]]'
+)
+
+
+def solver_mesh_of(
+    planar: HydroMesh,
+    *,
+    top: np.ndarray,
+    botm: np.ndarray,
+    inactive_mask: np.ndarray,
+    centers: np.ndarray | None = None,
+) -> SolverMesh:
+    """Return the solver mesh of *planar*, in a local frame in meters.
+
+    The cell centers are the generators ``centers`` of a Voronoi mesh when given,
+    the vertex means otherwise.
+    """
+    generated = centers is not None
+    if centers is None:
+        centers = np.column_stack(planar.cell_centroids())
+    cell_mesh = build_planar_cell_mesh(
+        planar,
+        np.asarray(centers, dtype=float),
+        center_kind="generator" if generated else "vertex_mean",
+        crs_wkt=_LOCAL_CRS_WKT,
+        identity=MeshIdentity("validation_case", "0", "", None),
+        declarations={
+            "graded": False,
+            "exact_faces": False,
+            "deterministic": True,
+            "needs_cache": False,
+        },
+        structured_shape=planar.structured_shape,
+    )
+    return SolverMesh(
+        cell_mesh=cell_mesh, top=top, botm=botm, idomain=np.where(inactive_mask, 0, 1)
+    )

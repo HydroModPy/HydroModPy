@@ -1,0 +1,186 @@
+"""A run reads its site, case, lineage, checks, label, inputs and scores from its own seal.
+
+The facts come from ``manifest.json`` and ``inputs.json`` in the run
+directory, never from the index: the catalog handle only says where the
+directory is. A run that never completed has no seal and says so.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.errors import RunNotSealedError
+from hydromodpy.results.run.view import Run
+from hydromodpy.results.validity_rules import RULE_VERSION
+from tests._helpers.run_records import SIM_ID, SITE, WINDOW, make_record
+
+
+def directories(dirs: dict[str, Path]) -> SimpleNamespace:
+    """A catalog handle that only knows where each run lives."""
+    return SimpleNamespace(closed=False, run_dir_for=lambda sim_id: dirs[sim_id])
+
+
+@pytest.fixture(autouse=True)
+def _no_index(monkeypatch):
+    def _refuse(*_args, **_kwargs):
+        raise AssertionError("reading a sealed run opened the index")
+
+    monkeypatch.setattr(Catalog, "__init__", _refuse)
+
+
+def _sealed(tmp_path: Path, **overrides) -> Run:
+    record = make_record(**overrides)
+    run_dir = tmp_path / record.run.rel_dir
+    run_dir.mkdir(parents=True)
+    record.write(run_dir)
+    return Run(record.run.sim_id, directories({record.run.sim_id: run_dir}))
+
+
+def test_open_run_dir(tmp_path) -> None:
+    from hydromodpy.results.run.view import open_run_dir
+
+    sealed = _sealed(tmp_path)
+    run = open_run_dir(sealed.dir)
+
+    assert run.sim_id == SIM_ID
+    assert run.site == SITE
+    assert run.checks.budget_pct == pytest.approx(0.8)
+    assert [entry.provider for entry in run.inputs] == ["hubeau"]
+    assert run.label().label == "calibrated"
+    assert run.exports == []
+    assert run.figures == []
+
+
+def test_exports_and_figures(tmp_path) -> None:
+    from datetime import UTC, datetime
+
+    from hydromodpy.core.io.file_digest import sha256_of
+    from hydromodpy.results.ledger import Ledger, LedgerEntry
+    from hydromodpy.results.run.view import open_run_dir
+
+    run = open_run_dir(_sealed(tmp_path).dir)
+    identity = run.record.identity
+    for folder, name in (("exports", "head.tif"), ("figures", "piezometric_map.png")):
+        directory = run.dir / folder
+        directory.mkdir()
+        (directory / name).write_bytes(b"payload")
+        (directory / "stray.txt").write_text("not recorded", encoding="utf-8")
+        ledger = Ledger()
+        ledger.append(
+            LedgerEntry(
+                file=name,
+                producer="test",
+                hydromodpy_version="2.0.0a5",
+                at=datetime.now(UTC),
+                sha256=sha256_of(directory / name),
+                identity=identity,
+            )
+        )
+        ledger.write(directory)
+
+    assert run.exports == [run.dir / "exports" / "head.tif"]
+    assert run.figures == [run.dir / "figures" / "piezometric_map.png"]
+
+
+def test_unsealed_dir_refused(tmp_path) -> None:
+    from hydromodpy.results.run.view import open_run_dir
+
+    run_dir = tmp_path / "runs" / "J0014010-base"
+    run_dir.mkdir(parents=True)
+
+    with pytest.raises(RunNotSealedError, match="never completed"):
+        open_run_dir(run_dir)
+
+
+def test_checks_and_label(tmp_path) -> None:
+    run = _sealed(tmp_path)
+
+    assert run.record.checks.budget_pct == pytest.approx(0.8)
+    assert run.record.checks.score_window == WINDOW
+    label = run.label()
+    assert label.label == "calibrated"
+    assert label.rule_version == RULE_VERSION
+
+
+def test_unsealed_run_has_no_record(tmp_path) -> None:
+    run_dir = tmp_path / "runs" / "J0014010-base"
+    run_dir.mkdir(parents=True)
+    run = Run(SIM_ID, directories({SIM_ID: run_dir}))
+
+    with pytest.raises(RunNotSealedError, match="never completed"):
+        _ = run.record
+    with pytest.raises(RunNotSealedError):
+        run.label()
+    assert run.metrics.empty
+
+
+@pytest.mark.parametrize("member", ["record", "checks", "inputs", "label"])
+def test_run_with_facts_opens_partial(tmp_path, member) -> None:
+    from hydromodpy.results.run.view import open_run_dir
+    from hydromodpy.results.storage.run_facts import write_facts
+    from tests._helpers.run_stores import claim_run, facts_of
+
+    claim = claim_run(tmp_path / "p", "essai")
+    write_facts(claim.run_dir, facts_of(claim, project="p"))
+
+    def fake_render(*_args, **_kwargs):
+        return "drawn"
+
+    run = open_run_dir(claim.run_dir, render=fake_render)
+
+    assert run.sim_id == claim.sim_id
+    assert run.metrics.empty
+    assert run.figure("any") == "drawn"
+    with pytest.raises(RunNotSealedError):
+        getattr(run, member)() if member == "label" else getattr(run, member)
+
+
+@pytest.mark.parametrize(
+    ("status", "step", "done"),
+    [
+        ("completed", "setup_process", "setup_process"),
+        ("running", "run_solver", "prepare_solver"),
+        ("failed", "validate", None),
+        # a window stopped at prepare_solver that drew its figure there: no run_solver
+        ("completed", "prepare_solver", "prepare_solver"),
+    ],
+)
+def test_run_says_its_steps(tmp_path, status, step, done) -> None:
+    from hydromodpy.core.pipeline_steps import STEP_NAMES
+    from tests._helpers.sealed_runs import write_attempt
+
+    run_dir = write_attempt(tmp_path, "runs/essai", status=status, step=step)
+    run = Run(SIM_ID, directories({SIM_ID: run_dir}))
+
+    assert run.steps == (() if done is None else STEP_NAMES[: STEP_NAMES.index(done) + 1])
+    assert _sealed(tmp_path / "sealed").steps == STEP_NAMES
+
+
+def test_a_window_before_its_store_writes_nothing_on_close(tmp_path) -> None:
+    from hydromodpy.results.run.view import open_run_dir
+    from tests._helpers.sealed_runs import write_attempt
+
+    run_dir = write_attempt(
+        tmp_path, "runs/essai", status="completed", step="setup_process", sim_id=SIM_ID
+    )
+    before = sorted(run_dir.rglob("*"))
+    run = open_run_dir(run_dir)
+    run._catalog_handle.close()
+
+    assert sorted(run_dir.rglob("*")) == before
+    assert not list(run_dir.rglob("facts.json"))
+
+
+def test_a_run_partial_at_extract_without_facts_is_refused(tmp_path) -> None:
+    from hydromodpy.results.run.view import open_run_dir
+    from tests._helpers.sealed_runs import write_attempt
+
+    run_dir = write_attempt(
+        tmp_path, "runs/essai", status="completed", step="extract", sim_id=SIM_ID
+    )
+    with pytest.raises(RunNotSealedError):
+        open_run_dir(run_dir)

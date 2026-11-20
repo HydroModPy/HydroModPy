@@ -1,5 +1,6 @@
 """Shared pytest configuration for the HydroModPy test suite."""
 
+import logging
 import os
 import platform
 import random
@@ -30,23 +31,46 @@ os.environ.setdefault("PYTHONHASHSEED", "42")
 os.environ.setdefault("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO", "0")
 
 
-_LAYER_DIR_NAMES = ("unit", "integration", "validation", "regression", "e2e")
+_LAYER_DIR_NAMES = (
+    "unit",
+    "integration",
+    "validation",
+    "regression",
+    "e2e",
+    "characterization",
+    "processes",
+    "ports",
+    "refusals",
+)
 _LAYER_TIMEOUTS_SECONDS = {
     "unit": 60.0,
     "integration": 300.0,
     "validation": 900.0,
     "regression": 300.0,
     "e2e": 1800.0,
+    "characterization": 900.0,
+    "processes": 300.0,
+    # Port tests build, solve and extract real runs.
+    "ports": 900.0,
+    "refusals": 60.0,
 }
 _WHITEBOX_XDIST_GROUP = "whitebox_backend"
 _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
     {
-        "test_catchment_from_point.py",
-        "test_reference_river_network_nancon_case.py",
+        # ``test_catchment_from_point.py`` left this list when it stopped
+        # reaching the real backend: it drives the terrain engine with the
+        # double of ``tests/_helpers/whitebox_double.py``, and serializing a
+        # file that never calls Whitebox only makes the group slower.
+        "test_delineation_determinism.py",
+        "test_downslope_whitebox_golden.py",
+        "test_run_case_river_network_nancon.py",
         "test_run_geographic_case_regression.py",
-        "test_run_geographic_case_river_network_regression.py",
         "test_run_geographic_dem_processing_golden.py",
         "test_run_geographic_river_network_golden.py",
+        "test_shared_backend.py",
+        "test_stream_dem_agreement.py",
+        "test_terrain.py",
+        "test_whitebox_depression_child.py",
         "test_whitebox_workflows_backend.py",
     }
 )
@@ -270,12 +294,12 @@ def tmp_workspace(tmp_path: Path) -> Path:
     Populates the standard layout (``data/``, ``projects/``, one
     ``data/<variable>/`` folder per variable) using the same code path as
     ``hmp workspace init``, so integration tests can open the workspace with
-    ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.Catalog`
+    ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.facade.Catalog`
     on top of it.  The catalog itself is opened lazily - this fixture
     only creates folders (without the geospatial example files), keeping it
     cheap and free of DuckDB I/O until a test explicitly needs it.
     """
-    from hydromodpy.data.scaffold import scaffold
+    from hydromodpy.data.workspace.scaffold import scaffold
 
     root = scaffold(tmp_path / "workspace", with_examples=False)
     return root
@@ -283,7 +307,7 @@ def tmp_workspace(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def minimal_config(tmp_path: Path):
-    """Return a minimal valid :class:`~hydromodpy.config.HydroModPyConfig`.
+    """Return a minimal valid :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`.
 
     Only the two required sub-configs are populated: ``workspace``
     (``project_root`` pointing at *tmp_path*) and ``geographic``
@@ -292,9 +316,9 @@ def minimal_config(tmp_path: Path):
     ``default_factory``.  Tests that need a specific flow/solver block
     should extend the returned instance via ``model_copy(update=...)``.
     """
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     return HydroModPyConfig(
         workflow={"mode": "simulation"},
@@ -304,6 +328,92 @@ def minimal_config(tmp_path: Path):
         ),
         geographic=GeographicConfig(source_mode="synthetic"),
     )
+
+
+def _isolate_plugin_registry(
+    monkeypatch: pytest.MonkeyPatch, registry: object, *, plugins_loaded: bool
+) -> None:
+    """Give one test a copy of the two tables of *registry* and its scan flag, restored afterwards."""
+    monkeypatch.setattr(registry, "classes", dict(registry.classes))
+    monkeypatch.setattr(registry, "builtin_paths", dict(registry.builtin_paths))
+    monkeypatch.setattr(registry, "plugins_loaded", plugins_loaded)
+    if hasattr(registry, "unavailable"):
+        monkeypatch.setattr(registry, "unavailable", dict(registry.unavailable))
+
+
+def _forget_plugins(registry: object) -> None:
+    """Drop from the copied cache what an earlier scan of the worker registered.
+
+    The copy then starts from the in-tree classes, as in a fresh process, and the
+    next lookup scans the plugin group again.
+    """
+    for name in set(registry.classes) - set(registry.builtin_paths):
+        del registry.classes[name]
+
+
+@pytest.fixture
+def isolated_registry(monkeypatch: pytest.MonkeyPatch):
+    """Give one test its own data-source registry, restored afterwards, and return it.
+
+    The registry is process-global by design -- a name resolves to one class
+    for everything running in that interpreter -- so a test that registers a
+    plugin works on a copy of its two tables. The plugin group is scanned again
+    on the first lookup.
+    """
+    from hydromodpy.data.source.registry import data_sources
+
+    _isolate_plugin_registry(monkeypatch, data_sources, plugins_loaded=False)
+    return data_sources
+
+
+@pytest.fixture
+def isolated_export_formats(monkeypatch: pytest.MonkeyPatch):
+    """Give one test its own export-formats registry, restored afterwards, and return it."""
+    from hydromodpy.results.exporters.registry import export_formats
+
+    _isolate_plugin_registry(monkeypatch, export_formats, plugins_loaded=False)
+    _forget_plugins(export_formats)
+    return export_formats
+
+
+@pytest.fixture
+def isolated_solvers(monkeypatch: pytest.MonkeyPatch):
+    """Give one test its own ``solvers`` and ``extractors``, restored afterwards.
+
+    Returns ``hydromodpy.solver.base.registry``, whose two registries a test
+    reads as ``isolated_solvers.solvers`` and ``isolated_solvers.extractors``.
+    The plugin groups count as scanned, so a backend installed in the
+    environment does not answer; a test that installs an entry point sets
+    ``plugins_loaded`` back to ``False``.
+    """
+    from hydromodpy.solver.base import registry
+
+    _isolate_plugin_registry(monkeypatch, registry.solvers, plugins_loaded=True)
+    _isolate_plugin_registry(monkeypatch, registry.extractors, plugins_loaded=True)
+    return registry
+
+
+@pytest.fixture
+def hmp_log_records():
+    """Capture ``hydromodpy`` records (the parent logger disables propagation)."""
+    from hydromodpy.core.logging import get_logger
+
+    parent = get_logger("hydromodpy")
+    previous_level = parent.level
+    parent.setLevel(logging.DEBUG)
+    records: list[logging.LogRecord] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    handler = _Capture(level=logging.DEBUG)
+    parent.addHandler(handler)
+    try:
+        yield records
+    finally:
+        parent.removeHandler(handler)
+        parent.setLevel(previous_level)
 
 
 @pytest.fixture(autouse=True)
@@ -340,17 +450,27 @@ def pytest_collection_modifyitems(config, items):
                     item.add_marker(pytest.mark.timeout(_LAYER_TIMEOUTS_SECONDS[layer]))
                 break
 
+        # The `boussinesq` variant of an analytical case runs the PETSc backend.
+        # A test that needs PETSc otherwise carries the mark itself: a name says
+        # nothing about the engine (`boussinesq_local` runs without PETSc).
         if "validation" in parts and "analytical" in parts:
             callspec = getattr(item, "callspec", None)
             if callspec is not None and callspec.params.get("solver") == "boussinesq":
-                item.add_marker(pytest.mark.petsc)
-            elif callspec is None and "boussinesq" in item.nodeid.lower():
                 item.add_marker(pytest.mark.petsc)
 
         if item_path.name in _WHITEBOX_XDIST_GROUP_TEST_FILES and not any(
             mark.name == "xdist_group" for mark in item.iter_markers()
         ):
             item.add_marker(pytest.mark.xdist_group(name=_WHITEBOX_XDIST_GROUP))
+
+        # A file that names the group itself, or sits in the list above, drives
+        # the native binding. The marker lets a workflow select it by name.
+        if not any(mark.name == "whitebox" for mark in item.iter_markers()) and any(
+            mark.name == "xdist_group"
+            and _WHITEBOX_XDIST_GROUP in (*mark.args, *mark.kwargs.values())
+            for mark in item.iter_markers()
+        ):
+            item.add_marker(pytest.mark.whitebox)
 
         # 2) Regression tier default markers (fast vs extensive).
         # Same trap as the layer marker above: `keywords` carries every ancestor
@@ -367,8 +487,34 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(getattr(pytest.mark, tier))
 
 
+_WINDOWS_SKIP_REASON = "a Windows behaviour, proved by the weekly Windows job"
+# Read by pytest_runtest_setup; tests/unit/tools/test_ci_markers.py sets it to play
+# the body of a ``windows`` test on another system.
+_ON_WINDOWS = os.name == "nt"
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Turn a skipped ``windows`` test into a failure when HMP_REQUIRE_WINDOWS is set."""
+    outcome = yield
+    report = outcome.get_result()
+    if (
+        report.skipped
+        and not hasattr(report, "wasxfail")
+        and os.environ.get("HMP_REQUIRE_WINDOWS")
+        and item.get_closest_marker("windows") is not None
+    ):
+        reason = report.longrepr
+        if isinstance(reason, tuple):
+            reason = str(reason[2]).removeprefix("Skipped: ")
+        report.outcome = "failed"
+        report.longrepr = f"HMP_REQUIRE_WINDOWS is set and {reason}"
+
+
 def pytest_runtest_setup(item):
     """Keep pytest's shared temp roots available even after test-side cleanup."""
+    if not _ON_WINDOWS and item.get_closest_marker("windows") is not None:
+        pytest.skip(_WINDOWS_SKIP_REASON)
     if "petsc" in item.keywords:
         if platform.system().strip().lower() != "linux" or find_spec("petsc4py") is None:
             pytest.skip("Boussinesq PETSc runtime is Linux-only and requires petsc4py.")

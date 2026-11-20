@@ -6,13 +6,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import Field, PositiveFloat, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units import LengthMeters
-from hydromodpy.discretization.time.tmesh_config import TMeshConfig
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
+from hydromodpy.core.units.types import LengthMeters
+from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 
 
 class NwtSolverConfig(HydroModelBase):
@@ -25,6 +25,7 @@ class NwtSolverConfig(HydroModelBase):
     listunit: Annotated[int, Profile.EXPERT] = Field(
         default=2,
         description="Fortran unit number used for the MODFLOW list file.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     verbose: Annotated[bool, Profile.EXPERT] = Field(
         default=False,
@@ -35,32 +36,57 @@ class NwtSolverConfig(HydroModelBase):
         description="Head closure criterion for the NWT nonlinear solver.",
     )
     fluxtol: Annotated[float, Profile.EXPERT] = Field(
-        default=500.0,
-        description="Flux closure criterion for the NWT nonlinear solver.",
+        default=500.0 / 86400.0,
+        description=(
+            "Flux closure criterion of the NWT nonlinear solver, in m3/s: HydroModPy "
+            "writes MODFLOW-NWT in seconds. The default is the 500 m3/day of the NWT "
+            "manual. A value of 500 here would be 500 m3/s, a bound no model reaches."
+        ),
+        json_schema_extra=field_metadata(unit="m3/s"),
     )
     maxiterout: Annotated[int, Profile.EXPERT] = Field(
         default=5000,
         description="Maximum outer nonlinear iterations in the NWT solver.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     thickfact: Annotated[float, Profile.EXPERT] = Field(
         default=1e-5,
-        description="NWT wetting/thickness factor controlling nonlinear updates.",
+        ge=0,
+        lt=0.5,
+        description=(
+            "Fraction of the cell thickness over which MODFLOW-NWT smooths the saturated "
+            "thickness, and so the conductance and the storage, to zero near the bottom and "
+            "the top of a cell (THICKFACT of the NWT package). Dimensionless."
+        ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     linmeth: Annotated[int, Profile.EXPERT] = Field(
-        default=1,
-        description="Linear solver choice for NWT (see MODFLOW-NWT documentation).",
+        default=2,
+        description=(
+            "Linear solver of MODFLOW-NWT: 1 for GMRES, 2 for chi-MD. chi-MD is the "
+            "default: on a stiff recession GMRES stops reducing the residual and NWT "
+            "then accepts a frozen head as converged, with a budget off by 200 per cent."
+        ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     iprnwt: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="NWT print flag controlling iteration diagnostics in listing outputs.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     ibotav: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="NWT option for averaging saturated thickness at the cell bottom.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     options: Annotated[str, Profile.EXPERT] = Field(
-        default="COMPLEX",
-        description="NWT nonlinear option keyword (for example SIMPLE or COMPLEX).",
+        default="MODERATE",
+        description=(
+            "Preset of the NWT nonlinear solver and of its linear solver: SIMPLE, MODERATE "
+            "or COMPLEX. MODERATE is the default: under chi-MD, COMPLEX runs BiCGSTAB on a "
+            "level-15 incomplete factorization, which diverged at the first solve of a "
+            "ten-layer catchment model."
+        ),
     )
     continue_run: Annotated[bool, Profile.EXPERT] = Field(
         default=False,
@@ -69,6 +95,7 @@ class NwtSolverConfig(HydroModelBase):
     backflag: Annotated[int, Profile.EXPERT] = Field(
         default=0,
         description="NWT backtracking activation flag.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     stoptol: Annotated[float, Profile.EXPERT] = Field(
         default=1e-10,
@@ -86,6 +113,7 @@ class DisConfig(HydroModelBase):
             "seconds because [simulation.time] already materializes every period length "
             "in seconds, so the run is in seconds whatever this says."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 
@@ -104,6 +132,7 @@ class UpwConfig(HydroModelBase):
     iphdry: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="UPW dry-cell head output flag (IPHDRY).",
+        json_schema_extra=field_metadata(unit="-"),
     )
     hdry: Annotated[float, Profile.EXPERT] = Field(
         default=-100.0,
@@ -112,6 +141,7 @@ class UpwConfig(HydroModelBase):
     layvka: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="UPW flag controlling VKA interpretation per layer (LAYVKA).",
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 
@@ -121,14 +151,17 @@ class EvtConfig(HydroModelBase):
     nevtop: Annotated[int, Profile.EXPERT] = Field(
         default=3,
         description="EVT option code that defines how ET extinction depth is applied (NEVTOP).",
+        json_schema_extra=field_metadata(unit="-"),
     )
     ievt: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="EVT integer array selector used when NEVTOP requires layer indices (IEVT).",
+        json_schema_extra=field_metadata(unit="-"),
     )
     ipakcb: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="EVT cell-by-cell budget output flag (IPAKCB).",
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 
@@ -147,6 +180,7 @@ class WelConfig(HydroModelBase):
     ipakcb: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="WEL cell-by-cell budget output flag (IPAKCB).",
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 
@@ -210,6 +244,7 @@ class ModflowProcessSpecificConfig(HydroModelBase):
     vka: Annotated[float, Profile.EXPERT] = Field(
         default=1.0,
         description="Vertical hydraulic conductivity control passed to the UPW package (VKA).",
+        json_schema_extra=field_metadata(unit="-"),
     )
     exdp: Annotated[LengthMeters, Profile.EXPERT] = Field(
         default=1.0,
@@ -235,18 +270,36 @@ class ModflowConfig(HydroModelBase):
     sgrid: Annotated[SolverSGridConfig, Profile.USER] = Field(
         default_factory=SolverSGridConfig,
         description=(
-            "Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`."
+            "How the top of the solver grid is sampled from the DEM; the planar grid is "
+            "[mesh] and the layering is [domain.layers]."
         ),
     )
-    tgrid: Annotated[TMeshConfig | None, Profile.USER] = Field(
+    wall_clock_limit_s: Annotated[PositiveFloat | None, Profile.EXPERT] = Field(
         default=None,
         description=(
-            "Optional temporal discretization payload as one validated "
-            "`TMeshConfig` model. In launcher mode, stress periods are "
-            "driven by [simulation.time]; steady/transient policy is driven "
-            "by [flow].flow_regime and [flow].first_period_steady."
+            "Wall-clock budget (seconds) of one trial of a parallel calibration under this "
+            "backend. Its worker is killed past it, so one stuck trial cannot wedge the "
+            "session. None keeps the built-in default (14400 s)."
         ),
     )
+
+    @model_validator(mode="after")
+    def _check_the_zonal_top_reads_no_channel_tree(self) -> ModflowConfig:
+        """Refuse a zonal top that asks for a channel tree this backend never reads."""
+        top_sampling = self.sgrid.top_sampling
+        if (
+            top_sampling is not None
+            and top_sampling.mode == "zonal"
+            and top_sampling.channel_source != "none"
+        ):
+            raise ValueError(
+                "[solver.modflow_nwt.sgrid.top_sampling] mode = 'zonal' with "
+                f"channel_source = {top_sampling.channel_source!r}: MODFLOW-NWT does "
+                "not read the channel tree for the zonal top, so the channel cells would "
+                "get the hillslope statistic like the others. Set channel_source = 'none' "
+                "(median only) or run MODFLOW 6."
+            )
+        return self
 
 
 def _coerce_modflow_config(
@@ -274,7 +327,6 @@ class ModflowSpecifParams:
         default_factory=ModflowProcessSpecificConfig,
     )
     sgrid: SolverSGridConfig = field(default_factory=SolverSGridConfig)
-    tgrid: TMeshConfig | None = None
 
     @classmethod
     def from_config(
@@ -287,5 +339,4 @@ class ModflowSpecifParams:
             runtime=validated.runtime,
             process_specific=validated.process_specific,
             sgrid=validated.sgrid,
-            tgrid=validated.tgrid,
         )

@@ -5,63 +5,186 @@ a quantity the method corrects: the paper poses it as "a selected stream
 network independent of the DEM". What gets pre-treated when the two disagree is
 the routing surface, not the data.
 
-One projection serves both directions of the criterion. A cell belongs to the
-network when the geometry intersects its polygon, never when it contains its
-centroid: on a Voronoi mesh a line one cell wide loses about half its cells to
-the centroid rule, and a half-cell bias on a single side of a criterion whose
-zero is the equality of two terms moves the root.
+One projection serves both directions of the criterion, and it must draw the
+map as thin as the model draws its own network. The simulated network is a
+chain of the descent graph, one cell wide; the criterion's zero is the equality
+of two mean distances, so a map drawn thicker than that chain moves the root
+with no hydrogeological reason.
+
+Two rules draw cells from the lines. ``"crossing"`` keeps the cell holding each
+point where a line crosses the segment joining two edge-sharing cell centers.
+On a structured grid it is WhiteboxTools ``VectorLinesToRaster``, the tool of
+Abherve et al. (2023), and a model that reproduces the map exactly scores
+J = 0 in D8 as in D4. ``"touch"`` keeps every cell the line intersects,
+corners included: each diagonal step of the map gains the two cells sharing
+the corner, D_os grows while D_so stays at zero, and the search pulls K down on
+a perfect match. It is kept to replay a session recorded before 2026-09.
+
+Neither rule is the centroid rule, which on a Voronoi mesh drops about half the
+cells of a line one cell wide.
+
+The default rule, ``"heads"``, draws no cell from the lines: it keeps their free
+ends (:func:`observed_head_candidates`) and the criterion traces them down its
+own graph (:mod:`hydromodpy.catchment.stream_network.heads`).
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
+from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons, vector_cell_mask
+from hydromodpy.mesh.planar.geometry import cell_polygons
+from hydromodpy.results.derive.stream_network.criterion_inputs import (
+    basin_reference,
+    catchment_cells,
+    declared_crs,
+    map_heads,
+    mapped_cells,
+    snapped_outlet,
+)
+
+if TYPE_CHECKING:
+    from hydromodpy.calibration.observations.network_source import ObservedNetwork
+    from hydromodpy.solver.base.plan import RunContext
 
 logger = get_logger(__name__)
 
+CellProjectionRasterization = Literal["crossing", "touch"]
 
-def _declared_crs(run_ctx: Any) -> str | None:
+
+@dataclass(frozen=True)
+class ObservedNetworkMask:
+    """The mapped network drawn on the mesh cells, and what the drawing cost.
+
+    ``n_fallback_parts`` counts the reaches that crossed no center segment and
+    were kept at the cell holding their midpoint; ``n_outside_parts`` the
+    reaches that entered no mesh cell and were left out. Both are zero under
+    the touch rule, which has no such case.
+    """
+
+    mask: np.ndarray
+    rasterization: CellProjectionRasterization
+    n_fallback_parts: int = 0
+    n_outside_parts: int = 0
+
+
+def _declared_crs(run_ctx: RunContext) -> str | None:
     """Return the projected CRS the run declares, if it declares one."""
-    setup = getattr(getattr(run_ctx, "state", None), "setup", None)
-    for holder in (setup, getattr(run_ctx, "setup", None)):
-        geographic = getattr(holder, "geographic", None)
-        crs = getattr(geographic, "crs_project", None) or getattr(geographic, "crs_proj", None)
-        if crs:
-            return str(crs)
-    return None
+    return declared_crs(getattr(run_ctx.state.setup, "geographic", None))
 
 
 def observed_network_mask(
-    run_ctx: Any,
-    output: Any,
+    run_ctx: RunContext,
+    observed: ObservedNetwork,
     planar_mesh: Any,
     face_node_connectivity: np.ndarray,
-) -> np.ndarray:
-    """Project the declared stream geometry onto the mesh cells.
+    *,
+    rasterization: CellProjectionRasterization = "crossing",
+    cell_centres: np.ndarray | None = None,
+) -> ObservedNetworkMask:
+    """Project the resolved stream geometry onto the mesh cells.
 
-    Both CRS are required and the failure is loud: a silent mismatch produces a
-    mask that is empty or plausible-but-wrong, and every distance downstream is
-    reported in metres.
+    ``observed`` is a fully resolved :class:`ObservedNetwork`, from the
+    source ``resolve_observed_network`` reads: this function never
+    reads a path itself and never re-derives a geometry. Both CRS are still
+    required and the failure is loud: a silent mismatch produces a mask that
+    is empty or plausible-but-wrong, and every distance downstream is reported
+    in meters.
+
+    ``rasterization`` is the crossing or touch rule of the module docstring;
+    it has no default drawn from the criterion default, since that default
+    can be ``"heads"``, which this function refuses. The crossing rule joins
+    the points the criterion samples the top at: ``cell_centres`` when given,
+    else the solver mesh's ``cell_centers()``, the generator seeds on a
+    Voronoi mesh.
     """
-    import geopandas as gpd
+    frame, mesh_crs = _placeable(run_ctx, observed)
 
-    path = getattr(output, "stream_geometry_path", None)
-    if not path:
+    vertices = np.asarray(planar_mesh.vertices, dtype=float)
+    polygons = cell_polygons(vertices, face_node_connectivity)
+    drawn = mapped_cells(
+        rasterization,
+        list(frame.geometry),
+        polygons=polygons,
+        vertices=vertices,
+        connectivity=face_node_connectivity,
+        centres=_criterion_centres(run_ctx, cell_centres) if rasterization == "crossing" else None,
+        mesh_crs=mesh_crs,
+        geometry_crs=observed.crs,
+    )
+    mask = drawn.mask
+    n_fallback = drawn.n_fallback_parts
+    n_outside = drawn.n_outside_parts
+    if n_outside:
+        _report_unplaced_reaches(run_ctx, observed, polygons, vertices, mesh_crs, n_outside)
+    logger.info(
+        "Mapped stream network (%s%s): %d feature(s) projected onto %d mesh cell(s) by the "
+        "%s rule%s%s.",
+        observed.source,
+        ", clipped" if observed.clipped else "",
+        len(frame),
+        int(mask.sum()),
+        rasterization,
+        (
+            f", {n_fallback} reach(es) crossing no centre segment kept at their midpoint cell"
+            if n_fallback
+            else ""
+        ),
+        f", from {observed.path}" if observed.path else "",
+    )
+    return ObservedNetworkMask(
+        mask=mask,
+        rasterization=rasterization,
+        n_fallback_parts=int(n_fallback),
+        n_outside_parts=int(n_outside),
+    )
+
+
+def observed_head_candidates(
+    run_ctx: RunContext, observed: ObservedNetwork, *, dam_foot: Any = ()
+) -> HeadCandidates:
+    """Return the free ends of the resolved stream geometry, in the mesh CRS.
+
+    The same checks as :func:`observed_network_mask`: a map with no feature,
+    no CRS, or a run with no projected CRS is refused by name. ``dam_foot`` are
+    the cells below the dams of the model, each a head of its own.
+    """
+    frame, mesh_crs = _placeable(run_ctx, observed)
+    candidates = map_heads(
+        list(frame.geometry),
+        mesh_crs=mesh_crs,
+        geometry_crs=observed.crs,
+        cut_outline=observed.cut_outline,
+        cut_crs=observed.cut_crs,
+        outlet_xy=delineated_outlet_xy(run_ctx),
+        dam_foot=dam_foot,
+    )
+    logger.info(
+        "Mapped stream network (%s%s): %d feature(s), %d free end(s) examined as heads, "
+        "%d made by the cut to the catchment left out%s.",
+        observed.source,
+        ", clipped" if observed.clipped else "",
+        len(frame),
+        candidates.n_candidates,
+        candidates.n_cut_ends,
+        f", from {observed.path}" if observed.path else "",
+    )
+    return candidates
+
+
+def _placeable(run_ctx: RunContext, observed: ObservedNetwork) -> tuple[Any, str]:
+    """Return the features of the map and the mesh CRS, refusing what cannot be placed."""
+    frame = observed.geometry
+    if frame is None or len(frame) == 0:
+        raise ValueError(f"the {observed.source} network holds no feature.")
+    if observed.crs is None:
         raise ValueError(
-            "the network criterion needs a mapped stream network: declare "
-            "stream_geometry_path on the calibration output."
-        )
-    network = gpd.read_file(str(path))
-    if network.empty:
-        raise ValueError(f"the stream geometry {path!r} holds no feature.")
-    if network.crs is None:
-        raise ValueError(
-            f"the stream geometry {path!r} declares no CRS, and the distances it feeds "
+            f"the {observed.source} network declares no CRS, and the distances it feeds "
             "are reported in metres."
         )
     mesh_crs = _declared_crs(run_ctx)
@@ -70,105 +193,313 @@ def observed_network_mask(
             "the run declares no projected CRS, so the stream geometry cannot be placed "
             "on the mesh. Set [geographic] crs_project."
         )
-
-    polygons = cell_polygons(np.asarray(planar_mesh.vertices, dtype=float), face_node_connectivity)
-    mask = np.asarray(
-        vector_cell_mask(
-            polygons,
-            list(network.geometry),
-            mesh_crs=mesh_crs,
-            geometry_crs=str(network.crs),
-        ),
-        dtype=bool,
-    )
-    logger.info(
-        "Mapped stream network: %d feature(s) projected onto %d mesh cell(s).",
-        len(network),
-        int(mask.sum()),
-    )
-    return mask
+    return frame, mesh_crs
 
 
-def water_body_mask(model: Any, *, n_cells: int) -> np.ndarray | None:
-    """Return the cells whose surface-water extent is an input of the model.
+_UNPLACED_REPORTS: dict[tuple[Any, ...], tuple[int, int, float]] = {}
+"""The unplaced-reach counts already reported in this process, by placement.
 
-    The generic name is not "lake": it is every cell whose water extent the
-    model is told rather than asked. A trace of hydrography drawn across a
-    reservoir is not the observation of a stream, and a lake cell exchanging
-    water is not a hillslope seepage, so those cells leave both supports. They
-    stay in the graph, because a hillslope cell upstream of the reservoir has
-    to be able to descend through it, and they stay in the target, because open
-    water is surface water and must absorb the path.
+A calibration builds the network criterion once per trial on the same map and
+the same mesh. The geometry work behind the report (reprojection, a cell
+tree, the catchment read from disk) then runs once, and the report is logged
+once; later builds of the same placement only log at DEBUG.
+"""
 
-    This is the same cut the stream-network builder already applies on the
-    simulated side, where a reach is cut at the lake cell and its flow handed
-    over at the shoreline. One rule, two consumers.
+_UNPLACED_REPORTS_MAX = 32
 
-    The backend publishes that footprint as ``open_water_cell_ids``: every lake
-    cell of the run, whether the lake is solved as an inactive fixed-area
-    reservoir or kept active for its varying level. Reading the inactive subset
-    instead would leave a marnage reservoir inside both supports, and the
-    question asked here is whether the cell is open water, not how the lake is
-    discretised.
+
+def _report_unplaced_reaches(
+    run_ctx: RunContext,
+    observed: ObservedNetwork,
+    polygons: np.ndarray,
+    vertices: np.ndarray,
+    mesh_crs: str,
+    n_outside: int,
+) -> None:
+    """Say which of the reaches that enter no mesh cell matter.
+
+    A map is often drawn wider than the catchment, so reaches off the model
+    domain are expected and are logged at INFO. A reach inside the domain that
+    still enters no cell lies in the sliver between the domain outline and the
+    cells: the model holds that stream and the criterion does not see it, so
+    only those reaches are worth a warning, with their count and length.
+
+    A map clipped to the catchment lies inside the domain by construction. An
+    unclipped map on a run without a delineated catchment has no outline to
+    test against, and its reaches are read as off the domain.
+
+    Both counts and the length come from one list of unplaced parts, so the
+    printed count and length always describe the same reaches.
     """
-    ids = getattr(model, "open_water_cell_ids", None)
-    if ids is None:
+    key = _placement_key(run_ctx, observed, polygons, vertices, mesh_crs, n_outside)
+    known = _UNPLACED_REPORTS.get(key)
+    if known is not None:
+        logger.debug(
+            "Mapped stream network (%s): placement unchanged since the last build, "
+            "%d reach(es) inside and %d outside the model domain enter no mesh cell.",
+            observed.source,
+            known[0],
+            known[1],
+        )
+        return
+    unplaced = _unplaced_parts(observed, polygons, mesh_crs)
+    if observed.clipped:
+        inside_lengths = [float(part.length) for part in unplaced]
+    else:
+        outline = _domain_outline(run_ctx, mesh_crs)
+        inside_lengths = (
+            []
+            if outline is None
+            else [
+                float(part.intersection(outline).length)
+                for part in unplaced
+                if part.intersects(outline)
+            ]
+        )
+    n_inside = len(inside_lengths)
+    n_off = len(unplaced) - n_inside
+    if len(_UNPLACED_REPORTS) >= _UNPLACED_REPORTS_MAX:
+        _UNPLACED_REPORTS.clear()
+    _UNPLACED_REPORTS[key] = (n_inside, n_off, float(sum(inside_lengths)))
+    if n_off:
+        logger.info(
+            "Mapped stream network (%s): %d reach(es) lie outside the model domain and enter "
+            "no mesh cell, so the criterion leaves them out, as expected for a map wider than "
+            "the catchment.",
+            observed.source,
+            n_off,
+        )
+    if n_inside:
+        logger.warning(
+            "Mapped stream network (%s): %d reach(es) inside the model domain, %.0f m in all, "
+            "enter no mesh cell, so the criterion leaves them out. They lie in the sliver "
+            "between the domain outline and the cells.",
+            observed.source,
+            n_inside,
+            sum(inside_lengths),
+        )
+
+
+def _placement_key(
+    run_ctx: RunContext,
+    observed: ObservedNetwork,
+    polygons: np.ndarray,
+    vertices: np.ndarray,
+    mesh_crs: str,
+    n_outside: int,
+) -> tuple[Any, ...]:
+    """Fingerprint what decides which reaches enter no cell: the map, the mesh, the outline."""
+    import hashlib
+
+    frame = observed.geometry
+    mesh_digest = hashlib.blake2b(
+        np.ascontiguousarray(vertices, dtype=float).tobytes(), digest_size=16
+    ).hexdigest()
+    shp = getattr(getattr(run_ctx.state.setup, "geographic", None), "watershed_shp", None)
+    outline_stamp: tuple[str, float] | None = None
+    if shp is not None and not observed.clipped:
+        path = Path(str(shp))
+        outline_stamp = (str(path), path.stat().st_mtime if path.exists() else -1.0)
+    return (
+        observed.source,
+        str(observed.path),
+        bool(observed.clipped),
+        str(observed.crs),
+        len(frame),
+        tuple(float(value) for value in frame.total_bounds),
+        str(mesh_crs),
+        int(polygons.shape[0]),
+        mesh_digest,
+        outline_stamp,
+        int(n_outside),
+    )
+
+
+def _unplaced_parts(observed: ObservedNetwork, polygons: np.ndarray, mesh_crs: str) -> list[Any]:
+    """Return the line parts of the map, in the mesh CRS, that touch no cell polygon.
+
+    The parts are split as the crossing rule splits them: every line of a
+    multi-part or collection geometry, with a positive length.
+    """
+    import geopandas as gpd
+    import shapely
+    from shapely.strtree import STRtree
+
+    series = gpd.GeoSeries(list(observed.geometry.geometry), crs=observed.crs).to_crs(mesh_crs)
+    parts: list[Any] = []
+    pending = [geometry for geometry in series if geometry is not None]
+    while pending:
+        geometry = pending.pop(0)
+        for part in shapely.get_parts(geometry):
+            if part.geom_type in ("MultiLineString", "GeometryCollection"):
+                pending.append(part)
+            elif (
+                part.geom_type in ("LineString", "LinearRing")
+                and not part.is_empty
+                and part.length > 0.0
+            ):
+                parts.append(part)
+    cells = [polygon for polygon in polygons if polygon is not None]
+    if not parts or not cells:
+        return parts
+    hit, _ = STRtree(cells).query(parts, predicate="intersects")
+    touched = set(int(index) for index in hit)
+    return [part for index, part in enumerate(parts) if index not in touched]
+
+
+def _domain_outline(run_ctx: RunContext, mesh_crs: str) -> Any | None:
+    """Return the delineated catchment in the mesh CRS, or None when the run has none."""
+    import geopandas as gpd
+    import shapely
+
+    shp = getattr(getattr(run_ctx.state.setup, "geographic", None), "watershed_shp", None)
+    if shp is None or not Path(str(shp)).exists():
         return None
-    limit = int(n_cells)
-    inside = sorted({int(cell) for cell in ids if 0 <= int(cell) < limit})
-    if not inside:
+    frame = gpd.read_file(str(shp))
+    if frame.empty or frame.crs is None:
         return None
-    mask = np.zeros(limit, dtype=bool)
-    mask[inside] = True
-    return mask
+    return shapely.union_all(list(frame.to_crs(mesh_crs).geometry))
+
+
+def resolve_minimal_network(run_ctx: RunContext, output: Any) -> ObservedNetwork | None:
+    """Return the minimal (permanent) map a network output declares, or None.
+
+    The map arrives as it is: a file, or the permanent reaches the hydrography
+    data family wrote beside its network. Neither is filtered by an attribute
+    here, so the criterion scores the same geometry whatever drew it.
+    """
+    from hydromodpy.calibration.observations.network_source import (
+        UnresolvedObservedNetwork,
+        resolve_network_file,
+        resolve_network_role,
+    )
+
+    choice = output.map.permanent
+    if choice == "data.hydrography":
+        resolved = resolve_network_role(
+            run_ctx,
+            "reference_permanent",
+            canonical_source="data.hydrography",
+            message_source="map.permanent = 'data.hydrography'",
+            empty_reason="the permanent part of the loaded network carries no feature",
+        )
+        if resolved is None:
+            raise UnresolvedObservedNetwork(
+                "map.permanent = 'data.hydrography' names the permanent reaches of "
+                "the hydrography network, and this project holds none: the loader writes them "
+                "only when its source says which reaches flow all year. Give the permanent "
+                "map as a file in 'map.permanent'."
+            )
+        return resolved
+    if not choice:
+        return None
+    return resolve_network_file(
+        choice,
+        message_source=f"map.permanent = {str(choice)!r}",
+        empty_reason="the file carries no feature",
+    )
+
+
+def _criterion_centres(run_ctx: RunContext, cell_centres: np.ndarray | None) -> np.ndarray:
+    """Return the points the criterion samples the top at, one per cell."""
+    if cell_centres is not None:
+        return np.asarray(cell_centres, dtype=float)
+    solver_run = getattr(run_ctx, "solver_run", None)
+    solver_mesh = getattr(getattr(solver_run, "solver_model", None), "solver_mesh", None)
+    centroids = getattr(solver_mesh, "cell_centers", None)
+    if not callable(centroids):
+        raise ValueError(
+            "the crossing rule joins the cell centres the solver mesh sampled its top at, "
+            "and the run's solver mesh exposes no 'cell_centers' method."
+        )
+    return np.asarray(centroids(), dtype=float)
+
+
+def delineated_outlet_xy(run_ctx: RunContext) -> tuple[float, float] | None:
+    """Return the outlet the geographic step delineated from, in the project CRS.
+
+    That is the snapped pour point, not the declared one: the snap moved the
+    declared outlet onto the strongest accumulation of the routing DEM, and the
+    catchment was closed there. The criterion moves it once more, within two
+    cells, onto the most accumulated cell of its own graph.
+
+    Returns ``None`` when the catchment came from a drawn polygon rather than
+    from a point, or when the run carries no geographic step.
+    """
+    geographic = getattr(run_ctx.state.setup, "geographic", None)
+    return snapped_outlet(
+        getattr(geographic, "x_outlet_snapped", None),
+        getattr(geographic, "y_outlet_snapped", None),
+    )
 
 
 def delineated_catchment_mask(
-    run_ctx: Any,
+    run_ctx: RunContext,
     planar_mesh: Any,
     face_node_connectivity: np.ndarray,
 ) -> np.ndarray | None:
-    """Project the catchment the geographic pipeline delineated onto the cells.
+    """Return the catchment of the run on the cells, the basin of its descent D.
 
-    That catchment is closed on the gauge the user declared and is delineated on
-    the CONDITIONED routing surface. Re-deriving one by descending the model top
-    instead gives the largest internal depression of an unconditioned surface: on
-    a real basin it holds a few per cent of the mesh and none of the mapped
-    network, and every trial then fails on an empty support.
+    The criterion does not score this mask. It scores the cells upstream of
+    the outlet on its own conditioned graph, and reads this one only to close
+    on it when no outlet point exists and to publish how far the two differ
+    (``basin_mismatch``). The reference is the basin the build kept on the
+    model (``model.descent_basin``), the same cells the budget zone and the
+    discharge observable sum.
+
+    A model that carries no basin of D keeps the old reference, the cells whose
+    center the delineated polygon covers, and says so. The largest basin of a
+    synthetic domain is no catchment: the polygon is projected as before, and a
+    domain without one gives ``None``.
 
     Returns ``None`` when the run declares no watershed, which is the case for a
-    synthetic domain; the caller then falls back to descending to its own outlet.
+    synthetic domain; the caller then closes on the largest basin of its graph.
     """
-    import geopandas as gpd
-
-    setup = getattr(getattr(run_ctx, "state", None), "setup", None) or getattr(
-        run_ctx, "setup", None
+    model = run_ctx.solver_run.solver_model
+    basin = getattr(model, "descent_basin", None)
+    # The outline is read only when the basin cannot stand for the catchment.
+    outline = (
+        None
+        if basin is not None and basin.is_catchment
+        else catchment_outline_mask(run_ctx, planar_mesh, face_node_connectivity)
     )
-    # ``setup.geographic`` is the delineation object, the same handle
-    # spatial.geographic.structure_binders reads the catchment from.
-    shp = getattr(getattr(setup, "geographic", None), "watershed_shp", None)
-    if shp is None or not Path(str(shp)).exists():
-        return None
+    return basin_reference(
+        basin, outline, source="the model", builds_d=hasattr(model, "descent_basin")
+    )
 
-    frame = gpd.read_file(str(shp))
-    if frame.empty:
-        return None
-    mesh_crs = _declared_crs(run_ctx)
-    if not mesh_crs:
-        return None
 
+def catchment_outline_mask(
+    run_ctx: RunContext,
+    planar_mesh: Any,
+    face_node_connectivity: np.ndarray,
+) -> np.ndarray | None:
+    """Project the catchment polygon the geographic pipeline delineated onto the cells.
+
+    The outline the mesh followed when it followed one, the smoothed one, and the
+    delineated polygon otherwise (``catchment_outline``). ``catchment_mismatch``
+    reads the scored catchment against this mask, because a wrong outlet closes the
+    basin of D on the same wrong branch and only the delineation shows it.
+
+    None for a synthetic domain: its box is the domain, not a catchment.
+    """
+    from hydromodpy.catchment.preprocess.delineated_catchment import catchment_outline
+
+    # ``setup.geographic`` is the delineation object, the same handle the build
+    # reads the catchment polygon from, against the same mesh.
+    setup = run_ctx.state.setup
+    frame = catchment_outline(getattr(setup, "geographic", None), getattr(setup, "cell_mesh", None))
+    if frame is None:
+        return None
     polygons = cell_polygons(np.asarray(planar_mesh.vertices, dtype=float), face_node_connectivity)
-    # A catchment is areal, so a cell belongs to it when its CENTRE is inside.
-    # The touch rule of the linework would add one exterior ring of cells that
-    # lie mostly outside the divide, and that ring is averaged into both D_so
-    # and D_os and sets L_ref through reference_length.
-    return vector_cell_mask(
-        polygons,
-        list(frame.geometry),
-        mesh_crs=mesh_crs,
-        geometry_crs=frame.crs,
-        rule="centroid",
-    )
+    return catchment_cells(polygons, frame, mesh_crs=_declared_crs(run_ctx))
 
 
-__all__ = ("delineated_catchment_mask", "observed_network_mask", "water_body_mask")
+__all__ = (
+    "ObservedNetworkMask",
+    "catchment_outline_mask",
+    "delineated_catchment_mask",
+    "delineated_outlet_xy",
+    "observed_head_candidates",
+    "observed_network_mask",
+    "resolve_minimal_network",
+)

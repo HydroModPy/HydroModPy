@@ -19,31 +19,43 @@ the run.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+import copy
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
-Severity = Literal["error", "warning"]
+from pydantic import BaseModel
+
+from hydromodpy.calibration.preflight_network import (
+    check_a_minimiser_on_two_bounds,
+    check_a_network_estimator_names_its_network_output,
+    check_an_extent_is_scored_on_a_transient_run,
+    check_the_extent_durations_fit_the_timestep,
+    check_the_network_criterion_is_not_asked_to_pick_a_ridge,
+    check_the_network_search_can_trust_its_release_packages,
+    check_the_scoring_windows_hold_what_they_score,
+)
+from hydromodpy.calibration.preflight_report import finding, missing, protocol_lines
+from hydromodpy.calibration.preflight_searches import (
+    config_of,
+    declared_searches,
+    outputs_scored_by_search,
+    phase_named_blocks,
+    publishes_a_signed_residual,
+    raw_document,
+    roots_of_the_search,
+    search_candidates,
+)
+from hydromodpy.core.config_kit.introspect import child_of
+from hydromodpy.core.config_kit.written import log_experimental_keys
+from hydromodpy.core.console.progress import MILESTONE
+from hydromodpy.core.diagnostic import Diagnostic
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
-@dataclass(frozen=True)
-class PreflightFinding:
-    """One thing that will stop, or spoil, the run about to start."""
-
-    severity: Severity
-    where: str
-    """The TOML key the reader has to go and edit."""
-
-    detail: str
-    """What is wrong, and what to write instead."""
-
-    def line(self) -> str:
-        """Return the finding as one printable line."""
-        return f"{self.severity.upper():7} {self.where}: {self.detail}"
-
-
-def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightFinding]:
+def preflight_calibration(config: Any, *, source: str | Path) -> list[Diagnostic]:
     """Return everything wrong with a loaded calibration, before it runs.
 
     ``config`` is the resolved project configuration and ``source`` the file it
@@ -54,7 +66,7 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     calibration = getattr(config, "calibration", None)
     if calibration is None or not getattr(calibration, "parameters", None):
         return [
-            PreflightFinding(
+            finding(
                 "error",
                 "[calibration]",
                 "no calibration to run: declare [calibration.parameters.<name>] with "
@@ -64,29 +76,227 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
         ]
 
     where_from = Path(source).expanduser().resolve()
-    findings: list[PreflightFinding] = []
+    findings: list[Diagnostic] = []
+    searched, unwritable = _search_configs(config, calibration, where_from)
+    findings.extend(unwritable)
     findings.extend(_check_parameters(config, calibration))
-    findings.extend(_check_outputs(calibration, where_from))
+    findings.extend(_check_outputs(calibration, where_from, config))
     findings.extend(_check_blocks(calibration))
     findings.extend(_check_phases(calibration))
+    findings.extend(_check_the_regimes(calibration, config, where_from))
     findings.extend(_check_engines(calibration))
     findings.extend(_check_the_precision_can_be_honoured(calibration))
-    findings.extend(_check_the_backend_can_serve_the_outputs(config, calibration))
+    findings.extend(_check_the_budgets(calibration))
+    findings.extend(_check_the_interval_widths(calibration))
+    findings.extend(_check_the_backend_can_serve_the_outputs(calibration, searched))
+    findings.extend(check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration, searched))
+    findings.extend(check_a_minimiser_on_two_bounds(calibration))
+    findings.extend(check_the_network_search_can_trust_its_release_packages(calibration, searched))
+    findings.extend(check_an_extent_is_scored_on_a_transient_run(calibration, searched))
+    findings.extend(check_the_extent_durations_fit_the_timestep(calibration, searched))
+    findings.extend(check_a_network_estimator_names_its_network_output(calibration))
+    findings.extend(
+        check_the_scoring_windows_hold_what_they_score(calibration, searched, where_from)
+    )
+    findings.extend(_check_the_observed_stations_are_loaded(calibration, config))
     return findings
 
 
-def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
-    """Check every declared parameter against the configuration it will write into."""
-    from hydromodpy.calibration.targets import calibration_targets, targets_by_path
+def preflight_launch(
+    config_path: str | Path, *, config: Any | None = None, calibration: Any | None = None
+) -> list[Diagnostic]:
+    """Check the calibration a launch is about to run, before anything is prepared.
 
-    findings: list[PreflightFinding] = []
+    ``config_path`` is the effective document: the file the user named, or
+    the copy ``--set``, ``--overlay`` and ``HMP_SET_*`` were written into. It
+    is loaded the way the run loads it, protocol expanded and project defaults
+    written, and every search is checked with the overrides of its phase.
+    ``config`` is that project configuration when the caller holds it already,
+    and ``calibration`` the section a Python launch runs in place of the
+    file's. A file that does not load as a project is left to the run, which
+    says why with its own context. See :func:`refuse_what_the_preflight_refuses`.
+    """
+    path = Path(config_path).expanduser().resolve()
+    if not hasattr(config, "model_copy"):
+        # No configuration held, or one that is not a validated model: the
+        # file is the configuration.
+        from hydromodpy.calibration.runners.trial import trial_pipeline
+
+        pipeline = trial_pipeline()
+        try:
+            config = pipeline.load_config(path)
+        except Exception:
+            logger.debug("No project configuration to preflight in %s", path, exc_info=True)
+            return []
+    if calibration is not None:
+        # A copy: the checks anchor geometry paths, and the run anchors its own.
+        config = config.model_copy(update={"calibration": calibration.model_copy(deep=True)})
+    return refuse_what_the_preflight_refuses(config, source=path)
+
+
+def refuse_what_the_preflight_refuses(config: Any, *, source: str | Path) -> list[Diagnostic]:
+    """Run the preflight at a launch: raise on its errors, log its warnings once.
+
+    The experimental keys of the file are logged here too, once for the session,
+    since no trial comes back through this gate.
+
+    The one gate every launch passes, ``hmp calibrate``, ``hmp run``,
+    ``--dry-run``, ``hmp.calibrate`` and ``Project.calibrate``, so the launch
+    refuses what ``hmp check`` refuses, with every finding at once.
+    Raises :class:`~hydromodpy.core.exceptions.ConfigError`, the code of a
+    file to fix. Returns the findings, warnings only.
+    """
+    from hydromodpy.core.exceptions import ConfigError
+
+    findings = preflight_calibration(config, source=source)
+    errors = [item for item in findings if item.severity == "error"]
+    if errors:
+        lines = "\n".join(f"  {item.path}: {item.detail}" for item in errors)
+        raise ConfigError(
+            f"the calibration is refused before anything is prepared or solved, "
+            f"{len(errors)} error(s):\n{lines}",
+            diagnostics=errors,
+        )
+    seen: set[str] = set()
+    for item in findings:
+        text = f"{item.path}: {item.detail}"
+        if text not in seen:
+            seen.add(text)
+            logger.warning("%s", text)
+    log_experimental_keys(config)
+    # Where the run leaves the publication it cites, said before the first solve:
+    # at the launch as ``hmp check`` says it, and the session writes it down.
+    for line in protocol_lines(config)[0]:
+        logger.info("%s", line, extra=MILESTONE)
+    return findings
+
+
+def _search_configs(
+    config: Any, calibration: Any, source: Path
+) -> tuple[dict[str | None, Any], list[Diagnostic]]:
+    """Return the project configuration each search runs, keyed by phase name.
+
+    A phase runs the project with its regime and its own ``overrides``
+    written in, the way ``prepare_trials`` writes them, so a check on the
+    model a search runs reads that model and not the file's base. Key
+    ``None`` is the search of a file without phases. A phase whose overrides
+    cannot be written is a finding, and its project checks are left out.
+    """
+    phases = list(calibration.phases or ())
+    if not phases:
+        return {None: config}, []
+    from hydromodpy.calibration.optim.parameters import set_by_path
+    from hydromodpy.calibration.runners.phase_regime import phase_overrides
+    from hydromodpy.core.config_kit.base import thawed_copy
+
+    document: Mapping[str, Any] = {}
+    if any(getattr(phase, "regime", None) is not None for phase in phases):
+        try:
+            document = raw_document(config, source)
+        except (OSError, ValueError):
+            # The regime check reports the file it cannot read.
+            document = {}
+    configs: dict[str | None, Any] = {}
+    findings: list[Diagnostic] = []
+    for phase in phases:
+        try:
+            overrides = phase_overrides(phase, document)
+        except (KeyError, ValueError):
+            # A regime that cannot be written is the regime check's finding.
+            overrides = dict(phase.overrides or {})
+        if not overrides:
+            configs[phase.name] = config
+            continue
+        # The configuration of a project is a frozen copy, and the override must land.
+        written = thawed_copy(copy.deepcopy(config))
+        try:
+            for dotted, value in overrides.items():
+                set_by_path(written, str(dotted), value)
+        except ValueError as exc:
+            findings.append(
+                finding(
+                    "error",
+                    f"[[calibration.phases]] {phase.name!r} overrides",
+                    f"cannot be written into the configuration: {exc}",
+                )
+            )
+            continue
+        configs[phase.name] = written
+    return configs, findings
+
+
+_DATA_SECTION_BY_FAMILY: Mapping[str, str] = {
+    "discharge": "hydrometry",
+    "head": "piezometry",
+    "lake_level": "lake_levels",
+}
+"""The ``[data.<section>]`` that loads each observed family."""
+
+
+def _check_the_observed_stations_are_loaded(
+    calibration: Any, project_config: Any
+) -> list[Diagnostic]:
+    """Refuse a station that the data step cannot load, from what the file declares.
+
+    The record itself is loaded by the run. What can be told here is narrower and
+    certain: every source of the data section of the station's family lists its
+    stations, and none is this one. A source that lists no station, and a
+    section the file does not write, are left to the run.
+    """
+    from hydromodpy.calibration.metrics.observed_pairing import OBSERVED_FAMILY_BY_VARIABLE
+
+    data = getattr(project_config, "data", None)
+    if data is None:
+        return []
+    findings: list[Diagnostic] = []
+    for name, decl in (calibration.outputs or {}).items():
+        station = getattr(decl, "observes", None)
+        family = OBSERVED_FAMILY_BY_VARIABLE.get(str(getattr(decl, "variable", "") or ""))
+        section = _DATA_SECTION_BY_FAMILY.get(family or "")
+        if not station or section is None:
+            continue
+        where = f"[calibration.outputs.{name}]"
+        sources = list(getattr(getattr(data, section, None), "sources", None) or [])
+        listed = [list(getattr(source, "station_ids", None) or []) for source in sources]
+        if not sources or any(not ids for ids in listed):
+            continue
+        known = sorted({str(item) for ids in listed for item in ids})
+        if str(station) not in known:
+            findings.append(
+                finding(
+                    "error",
+                    where,
+                    f"observes station {station!r}, which no source of [data.{section}] "
+                    f"lists in station_ids. Listed: {', '.join(known)}. Write one of them, "
+                    f"or add the station to a source.",
+                )
+            )
+    return findings
+
+
+def _check_parameters(cfg: Any, calibration: Any) -> list[Diagnostic]:
+    """Check every declared parameter against the configuration it will write into."""
+    from hydromodpy.calibration.parameter_resolution import (
+        RECHARGE_FACTOR_PATH,
+        RECHARGE_VALUES_PATH,
+        unresolved_parameter_names,
+    )
+    from hydromodpy.calibration.targets import calibration_targets, targets_by_path
+    from hydromodpy.model.forcing.soil_config import soil_reservoir_of
+
+    findings: list[Diagnostic] = []
     reachable = targets_by_path(calibration_targets(cfg))
+    refused_names = unresolved_parameter_names(calibration, cfg)
+    recharge = getattr(getattr(getattr(cfg, "flow", None), "sinks_sources", None), "recharge", None)
+    loaded = getattr(getattr(cfg, "data", None), "types", None) or ()
+    has_a_rate = "recharge" in loaded or (recharge is not None and recharge.peak_rate_mm_day() > 0)
+    targets = {decl.resolve_target() for decl in (calibration.parameters or {}).values()}
     for name, decl in (calibration.parameters or {}).items():
         where = f"[calibration.parameters.{name}]"
         bounds = list(getattr(decl, "bounds", ()) or ())
         if len(bounds) == 2 and bounds[0] >= bounds[1]:
             findings.append(
-                PreflightFinding(
+                finding(
                     "error",
                     where,
                     f"bounds are {bounds[0]:g} .. {bounds[1]:g}; the lower one has to be "
@@ -96,108 +306,193 @@ def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
         target = decl.resolve_target()
         if not target:
             findings.append(
-                PreflightFinding("error", where, "no 'path' (or 'target') to write into.")
-            )
-            continue
-        if target not in reachable:
-            near = ", ".join(sorted(reachable)[:6]) or "nothing"
-            findings.append(
-                PreflightFinding(
+                finding(
                     "error",
                     where,
-                    f"path {target!r} is not a value this configuration carries. "
-                    f"`hmp config targets` lists them; it starts with {near}.",
+                    # The finding already names the section in its path.
+                    refused_names.get(name, "").replace(f"{where} ", "", 1)
+                    or "names nothing this project carries, and writes no 'path' either.",
                 )
             )
             continue
+        if target == RECHARGE_FACTOR_PATH and soil_reservoir_of(cfg.flow) is not None:
+            findings.append(
+                finding(
+                    "error",
+                    where,
+                    "moves the recharge factor, and the soil reservoir computes this recharge: "
+                    "there is no rate to multiply. Calibrate ru instead, with its bounds in mm.",
+                )
+            )
+            continue
+        if target == RECHARGE_FACTOR_PATH and (not has_a_rate or RECHARGE_VALUES_PATH in targets):
+            reason = (
+                "the cost sees the product of the two, an exact ridge, so calibrate one"
+                if has_a_rate
+                else "there is no rate to multiply: write recharge values or load [data.recharge]"
+            )
+            findings.append(finding("error", where, f"moves the recharge factor, and {reason}."))
+            continue
+        if target not in reachable:
+            missing = _no_field_on_the_way(cfg, target)
+            if missing is not None:
+                near = ", ".join(sorted(reachable)[:6]) or "nothing"
+                findings.append(
+                    finding(
+                        "error",
+                        where,
+                        f"path {target!r} is not a value this configuration carries: "
+                        f"{missing}. `hmp config targets` lists the values a parameter "
+                        f"reaches by name; it starts with {near}.",
+                    )
+                )
+                continue
+            # The documented way out: the trial writes the value as given.
+            findings.append(
+                finding(
+                    "warning",
+                    where,
+                    f"path {target!r} is not in the catalogue `hmp config targets` "
+                    "lists, so its unit and its physical range are not known here. "
+                    "The trial writes the sampled value there as given.",
+                )
+            )
         findings.extend(_check_bounds_against_physics(where, name, decl, bounds))
     return findings
 
 
+def _no_field_on_the_way(config: Any, path: str) -> str | None:
+    """Say which segment of ``path`` names nothing in ``config``, or ``None``.
+
+    Walked the way a trial writes a parameter
+    (:func:`~hydromodpy.calibration.optim.parameters.set_by_path`): every
+    segment has to exist, except a last one under a mapping, which the write
+    adds as a key.
+    """
+    parts = str(path).split(".")
+    target: Any = config
+    for depth, part in enumerate(parts):
+        reached = ".".join(parts[:depth]) or "the configuration root"
+        if isinstance(target, Mapping):
+            if part in target:
+                target = target[part]
+                continue
+            if depth == len(parts) - 1:
+                return None
+            known = ", ".join(sorted(str(key) for key in target)[:12]) or "nothing"
+            return f"no {part!r} under {reached}, which holds {known}"
+        if isinstance(target, BaseModel):
+            # A model also holds named tables, as solver.modflow6.
+            try:
+                target = child_of(target, part)
+            except AttributeError as exc:
+                return f"no {part!r} under {reached} ({exc})"
+            continue
+        if not hasattr(target, part):
+            return f"no {part!r} under {reached}"
+        target = getattr(target, part)
+    return None
+
+
 def _check_bounds_against_physics(
     where: str, name: str, decl: Any, bounds: list[float]
-) -> list[PreflightFinding]:
-    from hydromodpy.calibration.optim.parameters import _assert_bounds_are_physical
+) -> list[Diagnostic]:
+    from hydromodpy.calibration.optim.parameters import assert_bounds_are_physical
 
     if len(bounds) != 2:
         return []
+    # The bounds of a scale are factors: the product is faced when written.
     try:
-        _assert_bounds_are_physical(name, float(bounds[0]), float(bounds[1]), decl.units)
+        if getattr(decl, "mode", "replace") != "scale":
+            assert_bounds_are_physical(name, float(bounds[0]), float(bounds[1]), decl.units)
     except ValueError as exc:
-        return [PreflightFinding("error", where, str(exc))]
-    if str(getattr(decl, "transform", "identity")).lower() == "log" and bounds[0] <= 0.0:
+        return [finding("error", where, str(exc))]
+    if str(getattr(decl, "search_space", "identity")).lower() == "log" and bounds[0] <= 0.0:
         return [
-            PreflightFinding(
+            finding(
                 "error",
                 where,
-                f'transform = "log" needs a lower bound above zero, got {bounds[0]:g}.',
+                f'search_space = "log" needs a lower bound above zero, got {bounds[0]:g}.',
             )
         ]
     return []
 
 
-def _check_outputs(calibration: Any, source: Path) -> list[PreflightFinding]:
-    """Check what an output needs that only the filesystem can answer.
+def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[Diagnostic]:
+    """Check what an output needs that only the filesystem or the project can answer.
 
     The geometry is looked for exactly where the run looks for it, so a file
-    preflight calls missing is one the run would call missing too.
+    preflight calls missing is one the run would call missing too. A declared
+    ``map.complete`` or ``map.permanent`` is faced with the
+    project the same way a parameter's name is faced with the catalog:
+    refused here beside whatever else is wrong, rather than at the first trial.
     """
-    from hydromodpy.calibration.runners.cli_runner import _resolve_stream_geometry_paths
+    from hydromodpy.calibration.observations.network_source import (
+        unresolved_minimal_observed_networks,
+        unresolved_observed_networks,
+    )
+    from hydromodpy.calibration.runners.document import resolve_stream_geometry_paths
 
-    _resolve_stream_geometry_paths(calibration, source)
-    findings: list[PreflightFinding] = []
-    for name, decl in (calibration.outputs or {}).items():
+    resolve_stream_geometry_paths(calibration, source)
+    refused = (
+        unresolved_observed_networks(calibration, project_config),
+        unresolved_minimal_observed_networks(calibration, project_config),
+    )
+    findings: list[Diagnostic] = []
+    for name in calibration.outputs or {}:
         where = f"[calibration.outputs.{name}]"
-        geometry = getattr(decl, "stream_geometry_path", None)
-        if geometry and not Path(str(geometry)).exists():
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    f"stream_geometry_path {geometry!r} is not there, and none of the "
-                    "places the run looks holds it. The criterion resolves no geometry "
-                    "of its own, so the run would stop at the first trial.",
-                )
-            )
+        findings.extend(
+            # The finding already names the section in its path.
+            finding("error", where, reasons[name].replace(f"{where} ", "", 1))
+            for reasons in refused
+            if name in reasons
+        )
+    findings.extend(
+        finding(
+            "error",
+            f"[calibration.outputs.{name}]",
+            f"map.{role} {str(path)!r} is not there, and none of the places the run looks "
+            "holds it. The criterion resolves no map of its own, so the run would stop at "
+            "the first trial.",
+        )
+        for name, role, path in calibration.map_files()
+        if not path.exists()
+    )
     return findings
 
 
-def _check_blocks(calibration: Any) -> list[PreflightFinding]:
-    findings: list[PreflightFinding] = []
+def _check_blocks(calibration: Any) -> list[Diagnostic]:
+    findings: list[Diagnostic] = []
     declared = set(calibration.outputs or {})
     seen: set[str] = set()
     for block in calibration.objective_blocks or []:
         where = f"[[calibration.objective_blocks]] {block.name!r}"
         if block.name in seen:
-            findings.append(PreflightFinding("error", where, "two blocks share this name."))
+            findings.append(finding("error", where, "two blocks share this name."))
         seen.add(block.name)
         findings.extend(
-            _missing(where, "uses_outputs", block.uses_outputs, declared, "[calibration.outputs]")
+            missing(where, "uses_outputs", block.uses_outputs, declared, "[calibration.outputs]")
         )
     return findings
 
 
-def _check_phases(calibration: Any) -> list[PreflightFinding]:
+def _check_phases(calibration: Any) -> list[Diagnostic]:
     phases = calibration.phases
     if not phases:
         return []
-    findings: list[PreflightFinding] = []
+    findings: list[Diagnostic] = []
     parameters = set(calibration.parameters or {})
     outputs = set(calibration.outputs or {})
     blocks = {block.name for block in calibration.objective_blocks or []}
-    names = [phase.name for phase in phases]
-    ran: set[str] = set()
 
     for phase in phases:
         where = f"[[calibration.phases]] {phase.name!r}"
-        if names.count(phase.name) > 1:
-            findings.append(PreflightFinding("error", where, "two phases share this name."))
         findings.extend(
-            _missing(where, "parameters", phase.parameters, parameters, "[calibration.parameters]")
+            missing(where, "parameters", phase.parameters, parameters, "[calibration.parameters]")
         )
-        findings.extend(_missing(where, "outputs", phase.outputs, outputs, "[calibration.outputs]"))
+        findings.extend(missing(where, "outputs", phase.outputs, outputs, "[calibration.outputs]"))
         findings.extend(
-            _missing(
+            missing(
                 where,
                 "objective_blocks",
                 phase.objective_blocks,
@@ -205,100 +500,142 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
                 "[[calibration.objective_blocks]]",
             )
         )
-        if phase.depends_on is not None and phase.depends_on not in ran:
-            known = ", ".join(names) or "nothing"
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    f"depends_on names {phase.depends_on!r}, which no earlier phase "
-                    f"declares. Phases run in the order written: {known}.",
-                )
-            )
-        ran.add(phase.name)
+        findings.extend(
+            finding("error", f"{where} bounds", problem)
+            for problem in calibration.phase_bounds_problems(phase)
+        )
     return findings
 
 
-def _publishes_a_signed_residual(metric: str) -> bool:
-    """Whether this criterion's cost IS the absolute residual a root search closes on.
+def _check_the_regimes(calibration: Any, config: Any, source: Path) -> list[Diagnostic]:
+    """Write every phase's regime the way the run will, and report what cannot be.
 
-    The answer comes from the criterion, not from a list held here. The network
-    criterion publishes ``J_signed`` beside every cost, so merely reading that
-    output is not enough: a bisection reports as its best the trial whose cost is
-    smallest, and it can only do that when the cost IS that residual, which is
-    true of ``distance_gap`` and false of ``distance_mean``. The estimator is
-    what knows the difference, so the estimator is what declares it.
+    A steady phase reads its window from ``steady_window`` or from
+    ``[simulation.time]`` of the raw document, which is what the run reads too.
+    A window given backwards, with one offset, or in no readable spelling is
+    otherwise found only when the run starts.
     """
-    from hydromodpy.calibration.criteria import criterion_for
+    phases = [
+        phase for phase in calibration.phases or () if getattr(phase, "regime", None) is not None
+    ]
+    if not phases:
+        return []
+    from hydromodpy.calibration.runners.phase_regime import regime_overrides
 
     try:
-        return criterion_for(metric).requirements().signed
-    except ValueError:
-        # An unknown metric is refused elsewhere, by name; nothing to add here.
-        return False
+        document = raw_document(config, source)
+    except (OSError, ValueError) as exc:
+        return [
+            finding(
+                "error",
+                "[simulation.time]",
+                f"the phases that give a regime read their window from {source.name}, "
+                f"which cannot be read: {exc}",
+            )
+        ]
+    findings: list[Diagnostic] = []
+    for phase in phases:
+        try:
+            regime_overrides(phase, document)
+        except ValueError as exc:
+            findings.append(
+                finding(
+                    "error",
+                    f"[[calibration.phases]] {phase.name!r}",
+                    f"regime = {phase.regime!r} cannot be written: {exc}",
+                )
+            )
+    return findings
 
 
 def _signed_residual_metrics() -> list[str]:
     """Return every registered criterion a root search may be pointed at."""
-    from hydromodpy.calibration.criteria import available_criteria
+    from hydromodpy.calibration.criteria.registry import available_criteria
 
-    return sorted(name for name in available_criteria() if _publishes_a_signed_residual(name))
+    return sorted(name for name in available_criteria() if publishes_a_signed_residual(name))
 
 
-def _check_engines(calibration: Any) -> list[PreflightFinding]:
+def _check_engines(calibration: Any) -> list[Diagnostic]:
     """Face each search with what its engine says it can be handed.
 
     An engine refuses an impossible pairing in its constructor, which is right
     but late: a staged calibration builds phase two's optimizer when phase two
-    starts, after phase one has spent its whole budget.
+    starts, after phase one has spent its whole budget. Its method_options are
+    faced with the method here too. Loading a file already refuses them, but a
+    configuration assembled in Python without validation reaches this check
+    without that refusal, and the finding names the phase either way.
     """
-    from hydromodpy.calibration.optim.optimizer import available_optimizers, engine_traits
+    from hydromodpy.calibration.optim.method_config import method_options_problem
+    from hydromodpy.calibration.optim.optimizer import (
+        announced_optimizers,
+        engine_traits,
+        optimizers,
+    )
+    from hydromodpy.calibration.optim.parameters import refuse_normal_sampling
 
-    known = set(available_optimizers())
-    findings: list[PreflightFinding] = []
-    for where, method, names, metrics, parallel in _searches(calibration):
+    known = set(optimizers.names())
+    options_of = {entry[0]: entry[3] for entry in _declared_precisions(calibration)}
+    findings: list[Diagnostic] = []
+    for where, method, names, metrics, parallel in declared_searches(calibration):
         if method not in known:
             findings.append(
-                PreflightFinding(
+                finding(
                     "error",
                     where,
-                    f"method {method!r} is not registered. Available: {', '.join(sorted(known))}.",
+                    f"method {method!r} is not registered. "
+                    f"Available: {', '.join(announced_optimizers())}.",
                 )
             )
             continue
+        problem = method_options_problem(method, options_of.get(where))
+        if problem is not None:
+            findings.append(
+                finding(
+                    "error",
+                    where,
+                    f"method_options: {problem} The run would stop when this search "
+                    "starts, after the searches before it have spent their budget.",
+                )
+            )
         traits = engine_traits(method)
         if traits.max_parameters is not None and len(names) > traits.max_parameters:
             findings.append(
-                PreflightFinding(
+                finding(
                     "error",
                     where,
                     f"{method!r} moves {traits.max_parameters} parameter(s) at a time and "
                     f"this search declares {len(names)}: {', '.join(names)}.",
                 )
             )
-        if traits.required_transform is not None:
+        if traits.required_search_space is not None:
             wrong = [
                 name
                 for name, decl in (calibration.parameters or {}).items()
                 if name in names
-                and str(getattr(decl, "transform", "identity")) != traits.required_transform
+                and str(getattr(decl, "search_space", "identity")) != traits.required_search_space
             ]
             if wrong:
                 findings.append(
-                    PreflightFinding(
+                    finding(
                         "error",
                         where,
-                        f"{method!r} walks a {traits.required_transform!r} variable and "
+                        f"{method!r} walks a {traits.required_search_space!r} variable and "
                         f"its stopping rule is a width in it, but {', '.join(wrong)} "
-                        f"declare(s) another transform.",
+                        f"declare(s) another search space.",
                     )
                 )
-        if traits.needs_signed_residual and not any(
-            _publishes_a_signed_residual(metric) for metric in metrics
+        for name in names:
+            try:
+                if not traits.draws_a_normal:
+                    refuse_normal_sampling(method, name, calibration.parameters[name].sampling)
+            except ValueError as refusal:
+                findings.append(finding("error", where, str(refusal)))
+        if traits.needs_signed_residual and not all(
+            publishes_a_signed_residual(metric) for metric in metrics
         ):
             named = ", ".join(sorted(metrics)) or "nothing"
             findings.append(
-                PreflightFinding(
+                finding(
                     "error",
                     where,
                     f"{method!r} closes a bracket on a signed residual and reports the "
@@ -308,13 +645,44 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                     "search it with a minimiser.",
                 )
             )
-        if parallel > 1 and not traits.supports_parallel:
+        if traits.reads_cost_as is not None and metrics and metrics != {traits.reads_cost_as}:
+            named = ", ".join(sorted(metrics))
             findings.append(
-                PreflightFinding(
+                finding(
                     "warning",
                     where,
-                    f"{method!r} returns one point at a time, so parallel = {parallel} "
-                    "buys nothing.",
+                    f"{method!r} reads its cost as {traits.reads_cost_as} and builds its "
+                    f"likelihood on it, and this search is scored on {named}. The chain "
+                    f"would sample that number as if it were {traits.reads_cost_as}. "
+                    f"Score it on {traits.reads_cost_as}.",
+                )
+            )
+        # J measures a balance: with anything else to move, |J| falls by trading excess
+        # for missing stream, the two networks no closer.
+        if any(publishes_a_signed_residual(metric) for metric in metrics) and (
+            len(names) > 1 or len(metrics) > 1
+        ):
+            findings.append(
+                finding(
+                    "warning",
+                    where,
+                    "distance_gap enters a cost beside another parameter or metric, and can "
+                    "fall by trading excess for missing stream. Score distance_mean.",
+                )
+            )
+        reach = None
+        if not traits.supports_parallel:
+            reach = 1
+        elif traits.reach is not None:
+            reach = traits.reach(options_of.get(where) or {}, len(names))
+        if parallel > 1 and reach is not None and parallel > reach:
+            findings.append(
+                finding(
+                    "warning",
+                    where,
+                    f"{method!r} can use {reach} solves at once, so parallel = {parallel} "
+                    f"buys nothing beyond {reach}. Each worker takes about 0.5 GiB and 3.3 s "
+                    "to start.",
                 )
             )
     return findings
@@ -327,195 +695,365 @@ _OBSERVABLE_BY_SUPPORT: Mapping[str, str] = {
 """What an output's support actually asks the backend for."""
 
 
-def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFinding]:
+def _check_the_precision_can_be_honoured(calibration: Any) -> list[Diagnostic]:
     """Refuse a precision the engine of that search cannot stop on.
 
     The translation happens when the optimizer is built, which for phase two is
     after phase one has spent its budget. A precision that was never going to be
     readable has to be refused before the first solve, not after the last.
     """
-    from hydromodpy.calibration.optim.optimizer import available_optimizers, engine_traits
+    from hydromodpy.calibration.optim.optimizer import engine_traits, optimizers
 
-    known = set(available_optimizers())
-    findings: list[PreflightFinding] = []
-    uncertainty = getattr(calibration, "uncertainty", None)
-    if getattr(uncertainty, "method", None) == "linearized":
-        observing = [
-            name
-            for name, decl in (calibration.outputs or {}).items()
-            if getattr(decl, "observes", None) is not None
-        ]
-        if not observing:
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    "[calibration.uncertainty]",
-                    "method='linearized' is built from residuals, and no output names a "
-                    'station to be compared against. Declare observes = "<station>" on the '
-                    "outputs this calibration is fitted to, or use method='cost_profile', "
-                    "which reads the trace instead.",
-                )
-            )
-    restarts = getattr(getattr(calibration, "uncertainty", None), "restarts", None)
-    for where, method, tolerance, kwargs in _declared_precisions(calibration):
+    known = set(optimizers.names())
+    findings: list[Diagnostic] = []
+    linearized = _linearized_scored_outputs(calibration)
+    if linearized:
+        # Same reason as the precision below: the width is built after the
+        # last solve, so `hmp check` is where a document that can
+        # never carry one is named, before any of it is paid for. A phased
+        # document gets one width per phase (D234), built from what THAT
+        # PHASE scores, so each phase is checked on its own selection rather
+        # than on the whole file's.
+        for where, outputs, single_metric in linearized:
+            observing = [
+                name
+                for name, decl in outputs.items()
+                if getattr(decl, "observes", None) is not None
+            ]
+            if not observing:
+                if single_metric:
+                    detail = (
+                        "scores variable/objective, whose implicit outputs are built from the "
+                        "loaded records when the search starts: no declared output gives a "
+                        "linearized width a residual vector to be taken from. "
+                        "A single-metric phase inherits none of the calibration's outputs, "
+                        "whatever another output in this file declares -- see _phase_config -- "
+                        "so naming observes elsewhere is not a remedy here. Read the width "
+                        "with method='cost_profile', or restructure this phase to score "
+                        "objective_blocks."
+                    )
+                else:
+                    detail = (
+                        "method='linearized' is built from residuals, and no output names a "
+                        'station to be compared against. Declare observes = "<station>" on '
+                        "the outputs this calibration is fitted to, or use "
+                        "method='cost_profile', which reads the trace instead."
+                    )
+                findings.append(finding("error", where, detail))
+                continue
+    for where, method, precision, kwargs, restarts in _declared_precisions(calibration):
         if restarts is not None and method in known:
             from hydromodpy.calibration.runners.restarts import assert_restarts_can_explore
 
             try:
                 assert_restarts_can_explore(method, int(restarts))
             except ValueError as exc:
-                findings.append(PreflightFinding("error", where, str(exc)))
-        if tolerance is None or method not in known:
+                findings.append(finding("error", where, str(exc)))
+        if precision is None or method not in known:
             continue
         traits = engine_traits(method)
-        if traits.tolerance_option is None:
+        if traits.precision_option is None:
             findings.append(
-                PreflightFinding(
+                finding(
                     "error",
                     where,
-                    f"tolerance asks {method!r} to stop at a precision on the parameter, "
-                    "and that engine stops on its evaluation budget instead. Set max_iter, "
+                    f"precision asks {method!r} to stop at a precision on the parameter, "
+                    "and that engine stops on its evaluation budget instead. Set max_trials, "
                     "or run this search on an engine that converges on the parameter.",
                 )
             )
             continue
-        if traits.tolerance_option in (kwargs or {}):
+        if traits.precision_option in (kwargs or {}):
             findings.append(
-                PreflightFinding(
+                finding(
                     "error",
                     where,
-                    f"tolerance and optimizer_kwargs.{traits.tolerance_option} both set "
+                    f"precision and method_options.{traits.precision_option} both set "
                     f"the stopping rule of {method!r}. Keep one.",
                 )
             )
     return findings
 
 
-def _declared_precisions(calibration: Any) -> list[tuple[str, str, float | None, dict]]:
-    """Return one entry per search: where it is written, its engine and its precision."""
+def _declared_precisions(
+    calibration: Any,
+) -> list[tuple[str, str, float | None, dict, int | None]]:
+    """Return one entry per search: where it is written, its engine, its precision, its restarts.
+
+    The engine is the one the search runs: a method left unwritten is checked as
+    the run will choose it. The restarts are the phase's own over the section's.
+    """
     if not calibration.phases:
         return [
             (
                 "[calibration]",
-                str(calibration.method),
-                calibration.tolerance,
-                dict(calibration.optimizer_kwargs or {}),
+                calibration.method_for()[0],
+                calibration.precision,
+                dict(calibration.method_options or {}),
+                calibration.uncertainty.restarts,
             )
         ]
     return [
         (
             f"[[calibration.phases]] {phase.name!r}",
-            str(phase.method),
-            phase.tolerance,
-            dict(phase.optimizer_kwargs or {}),
+            calibration.method_for(phase)[0],
+            phase.precision,
+            calibration.method_options_for(phase),
+            calibration.uncertainty_for(phase).restarts,
         )
         for phase in calibration.phases
     ]
 
 
-def _check_the_backend_can_serve_the_outputs(
-    config: Any, calibration: Any
-) -> list[PreflightFinding]:
-    """Face each declared output with what the chosen backend says it can serve.
+def _check_the_budgets(calibration: Any) -> list[Diagnostic]:
+    """Refuse a budget below the nominal count of its engine, announce one below its worst.
 
-    A backend answers on the resolved configuration in three states, so this
-    separates two refusals a binary answer confuses: one declaration away, with
-    the declaration named, and out of reach on this backend whatever the file
-    says. Both used to arrive at the first extraction, hours into a search.
+    Three engines count their evaluations before the first solve. The root
+    search counts them from its bounds, sweep, precision and bracket expansions
+    (:func:`~hydromodpy.calibration.optim.adapters.bisection_adapter.
+    root_search_budget`), so a budget that cannot close the bracket even with
+    the root inside the bounds is a configuration error, found here rather
+    than after the budget is spent. The grid and the Latin hypercube count
+    their design, and a budget below it would cut the sweep short. ``"auto"``
+    is always enough. Every other engine cannot count, and nothing is checked.
     """
-    adapter = _flow_adapter_for(config)
-    if adapter is None:
-        return []
-    declared = getattr(adapter, "declared_observables", None)
-    if declared is None:
-        return []
-    support_by_name = {item.name: item for item in declared(config)}
-    findings: list[PreflightFinding] = []
-    for name, decl in (calibration.outputs or {}).items():
-        observable = _OBSERVABLE_BY_SUPPORT.get(str(getattr(decl, "support", "")))
-        if observable is None:
+    from hydromodpy.calibration.optim.stopping import AUTO_BUDGET, short_budget
+
+    findings: list[Diagnostic] = []
+    searches = zip(_budgets(calibration), search_candidates(calibration), strict=True)
+    for (where, method, names, max_trials, precision, kwargs), (phase, _, _) in searches:
+        if max_trials == AUTO_BUDGET:
             continue
-        support = support_by_name.get(observable)
-        if support is None or support.is_servable_now:
+        try:
+            counted = _counted_budget(calibration, phase, method, names, precision, kwargs)
+        except (TypeError, ValueError):
+            # Bounds or options the other checks already refuse.
             continue
+        if counted is None:
+            continue
+        verdict = short_budget(counted, int(max_trials))
+        if verdict is None:
+            continue
+        severity, detail = verdict
+        if getattr(calibration, "protocol", None) is not None:
+            detail += (
+                " A protocol stage takes its max_trials from [calibration.protocol] "
+                "steady_max_trials or transient_max_trials."
+            )
+        findings.append(finding(severity, where, detail))
+    return findings
+
+
+def _counted_budget(
+    calibration: Any,
+    phase: Any | None,
+    method: str,
+    names: list[str],
+    precision: float | None,
+    kwargs: dict,
+) -> Any | None:
+    """Return the evaluations a search counts before its first solve, or None.
+
+    A root search scored on a network output with two bounds closes two roots,
+    and is counted so. It is counted for the points the engine asks at once,
+    ``max(batch_size, parallel)``, since each round of cuts places that many.
+    """
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import (
+        BisectionAdapter,
+        root_search_budget,
+    )
+    from hydromodpy.calibration.optim.adapters.grid_adapter import GridAdapter, grid_budget
+    from hydromodpy.calibration.optim.adapters.lhs_adapter import LhsAdapter, design_budget
+
+    if method == GridAdapter.name:
+        return grid_budget(len(names), kwargs.get("points_per_dim"))
+    if method == LhsAdapter.name:
+        n_samples = kwargs.get("n_samples")
+        return design_budget(int(n_samples)) if n_samples is not None else None
+    if method != BisectionAdapter.name or len(names) != 1:
+        return None
+    decl = (calibration.parameters or {}).get(names[0])
+    bounds = list(getattr(decl, "bounds", None) or ())
+    if len(bounds) != 2:
+        return None
+    rel_tol = precision if precision is not None else kwargs.get("rel_tol")
+    options = {
+        key: value
+        for key, value in (
+            ("rel_tol", rel_tol),
+            ("sweep_points", kwargs.get("sweep_points")),
+            ("bracket_expand", kwargs.get("bracket_expand")),
+        )
+        if value is not None
+    }
+    if kwargs.get("signed_component") in (None, "J_signed"):
+        options["roots"] = roots_of_the_search(calibration, phase)
+    options["batch"] = max(calibration.batch_size_for(phase), calibration.parallel_for(phase))
+    return root_search_budget(float(bounds[0]), float(bounds[1]), **options)
+
+
+def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | None, dict]]:
+    """Return one entry per search: where its budget is written, its engine and its options."""
+    if not calibration.phases:
+        return [
+            (
+                "[calibration]",
+                calibration.method_for()[0],
+                sorted(calibration.parameters or {}),
+                calibration.max_trials,
+                calibration.precision,
+                dict(calibration.method_options or {}),
+            )
+        ]
+    return [
+        (
+            f"[[calibration.phases]] {phase.name!r}",
+            calibration.method_for(phase)[0],
+            list(phase.parameters),
+            calibration.max_trials_for(phase),
+            calibration.precision_for(phase),
+            calibration.method_options_for(phase),
+        )
+        for phase in calibration.phases
+    ]
+
+
+def _check_the_interval_widths(calibration: Any) -> list[Diagnostic]:
+    """Refuse a share of the best cost on a search scored only by network distances.
+
+    A share is a fraction of the best cost. A network distance is in meters and
+    solved at zero, so a fraction of it says nothing about how far a stream may
+    move. The width is read after the last solve, so this is where it is named,
+    before any of it is paid for.
+    """
+    searches = [(None, "[calibration.uncertainty]")] if not calibration.phases else []
+    searches += [
+        (phase, f"[[calibration.phases]] {phase.name!r}") for phase in calibration.phases or ()
+    ]
+    findings: list[Diagnostic] = []
+    for phase, where in searches:
+        width = calibration.interval_width_for(phase)
+        if width.kind != "relative" or not width.on_distances:
+            continue
+        written = "in this phase" if width.source == "phase" else "in [calibration.uncertainty]"
         findings.append(
-            PreflightFinding(
+            finding(
                 "error",
-                f"[calibration.outputs.{name}]",
-                f"this output reads {observable!r}, which the chosen backend does not "
-                f"serve as configured: {support.reason}",
+                where,
+                f"cost_margin, written {written}, is a share of the best cost, and this "
+                "search is scored only on network distances, in metres, solved at zero: a "
+                "fraction of a distance has no meaning. Write a length such as '25 m', or "
+                "leave it unwritten for one mesh cell.",
             )
         )
     return findings
 
 
+def _check_the_backend_can_serve_the_outputs(
+    calibration: Any, searched: Mapping[str | None, Any]
+) -> list[Diagnostic]:
+    """Face each output with what the chosen backend says it can serve.
+
+    A backend answers on the resolved configuration in three states, so this
+    separates two refusals a binary answer confuses: one declaration away, with
+    the declaration named, and out of reach on this backend whatever the file
+    says. Both used to arrive at the first extraction, hours into a search.
+    A phase asks on the model its overrides write, for the outputs it scores.
+    """
+    findings: list[Diagnostic] = []
+    for phase, _where, _names in search_candidates(calibration):
+        config = config_of(searched, phase)
+        adapter = _flow_adapter_for(config) if config is not None else None
+        declared = getattr(adapter, "declared_observables", None)
+        if declared is None:
+            continue
+        active = frozenset(config.flow.active_bc or ())
+        support_by_name = {item.name: item for item in declared(active)}
+        outputs = (
+            calibration.outputs or {}
+            if phase is None
+            else outputs_scored_by_search(calibration, phase)
+        )
+        for name, decl in outputs.items():
+            observable = _OBSERVABLE_BY_SUPPORT.get(str(getattr(decl, "support", "")))
+            if observable is None:
+                continue
+            support = support_by_name.get(observable)
+            if support is None or support.is_servable_now:
+                continue
+            found = finding(
+                "error",
+                f"[calibration.outputs.{name}]",
+                f"this output reads {observable!r}, which the chosen backend does not "
+                f"serve as configured: {support.reason}",
+            )
+            if found not in findings:
+                findings.append(found)
+    return findings
+
+
 def _flow_adapter_for(config: Any) -> Any | None:
     """Return the flow adapter this configuration selects, or ``None``."""
-    from hydromodpy.solver.base.registry import get_solver_adapter
+    from hydromodpy.core.exceptions import SolverInputError
+    from hydromodpy.solver.base.registry import solvers
 
     backend = getattr(getattr(config, "solver", None), "backend_name", None)
     backend = getattr(backend, "value", backend)
     if not backend:
         return None
     try:
-        return get_solver_adapter("flow", str(backend))
-    except (KeyError, ValueError):
+        return solvers.create("flow", str(backend))
+    except (SolverInputError, ValueError):
         return None
 
 
-def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int]]:
-    """Return one entry per search: where it is written, and what it is handed."""
-    blocks = {block.name: str(block.metric) for block in calibration.objective_blocks or []}
-    every_metric = set(blocks.values())
+def _linearized_scored_outputs(
+    calibration: Any,
+) -> list[tuple[str, Mapping[str, Any], bool]]:
+    """Return, per search whose width is linearized, its label, the outputs it scores, and more.
 
-    def _metrics_of(selected: list[str], single: str | None) -> set[str]:
-        if single:
-            return {str(single)}
-        if selected:
-            return {blocks[name] for name in selected if name in blocks}
-        return set(every_metric)
+    The last item says whether the search is single-metric. A search reads the
+    method of its phase over the section's, so only the phases that end up
+    linearized are returned.
 
+    Mirrors the output and block selection
+    ``hydromodpy.calibration.runners.staged_runner._phase_config`` builds for
+    a phase: naming no block reads every declared one, naming no output reads
+    what the blocks read, and a single-metric phase (naming its own
+    ``variable`` or ``objective`` instead of blocks) reads neither -- there is
+    nothing there for a linearized width to be built from, which is a finding
+    of its own rather than a silent skip.
+
+    The output filter below reads ``phase.objective_blocks`` -- the phase's OWN
+    declaration -- exactly as ``_phase_config`` does. Reading the resolved
+    ``blocks`` list instead (non-empty whenever the calibration declares any
+    block at all, even one the phase never named) filters outputs down to what
+    OTHER phases' blocks read, dropping an output this phase would have kept.
+    """
     if not calibration.phases:
+        if calibration.uncertainty.method != "linearized":
+            return []
         return [
             (
-                "[calibration]",
-                str(calibration.method),
-                sorted(calibration.parameters or {}),
-                _metrics_of([], None if calibration.objective_blocks else calibration.objective),
-                int(calibration.parallel),
+                "[calibration.uncertainty]",
+                calibration.outputs or {},
+                False,
             )
         ]
-    return [
-        (
-            f"[[calibration.phases]] {phase.name!r}",
-            str(phase.method),
-            list(phase.parameters),
-            _metrics_of(list(phase.objective_blocks), phase.objective),
-            int(phase.parallel),
-        )
-        for phase in calibration.phases
-    ]
-
-
-def _missing(
-    where: str,
-    key: str,
-    named: Iterable[str],
-    declared: set[str],
-    section: str,
-) -> list[PreflightFinding]:
-    unknown = sorted({str(item) for item in named} - declared)
-    if not unknown:
-        return []
-    available = ", ".join(sorted(declared)) or "nothing"
-    return [
-        PreflightFinding(
-            "error",
-            where,
-            f"{key} names {', '.join(unknown)}, which {section} does not declare. "
-            f"Declared: {available}.",
-        )
-    ]
-
-
-__all__ = ["PreflightFinding", "Severity", "preflight_calibration"]
+    result: list[tuple[str, Mapping[str, Any], bool]] = []
+    for phase in calibration.phases:
+        if calibration.uncertainty_for(phase).method != "linearized":
+            continue
+        where = f"[[calibration.phases]] {phase.name!r}"
+        if phase.is_single_metric:
+            result.append((where, {}, True))
+            continue
+        outputs = dict(calibration.outputs or {})
+        blocks = phase_named_blocks(calibration, list(phase.objective_blocks))
+        if phase.outputs:
+            outputs = {name: outputs[name] for name in phase.outputs if name in outputs}
+        elif phase.objective_blocks:
+            read = {name for block in blocks for name in block.uses_outputs}
+            outputs = {name: value for name, value in outputs.items() if name in read}
+        result.append((where, outputs, False))
+    return result

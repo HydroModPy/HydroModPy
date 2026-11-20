@@ -1,5 +1,7 @@
 """LAK ex-gwf-lak-p01 validation (Merritt & Konikow 2000, test 1).
 
+Compared with: the MODFLOW 6 example ex-gwf-lak-p01 (Merritt and Konikow 2000, test 1), built by its upstream scripts.
+
 End-to-end validation of HMP's home-grown DISV LAK build against the upstream
 MODFLOW 6 example. Both models share the SAME single surface-lake footprint on the
 same five-layer aquifer; the reference builds its LAK CONNECTIONDATA with the
@@ -23,6 +25,14 @@ from validation_cases.numerical.steady.lak_merritt_konikow_p01.comparison import
     load_tolerances,
     run_lake_p01_scenario,
 )
+
+NOT_APPLICABLE = {
+    "modflow_nwt": "HydroModPy builds no LAK package on MODFLOW-NWT, and this case checks the HydroModPy MODFLOW 6 DISV lake builder against the upstream MODFLOW 6 example.",
+    "modflow6_irregular_tri": "The reference is the published solution on its own rectilinear grid, and the structural checks count that grid's connections (25 vertical, 20 horizontal). Other cell shapes have other counts. The lake on triangle and Voronoi meshes is run by test_lak_grid_equivalence.",
+    "modflow6_voronoi": "The reference is the published solution on its own rectilinear grid, and the structural checks count that grid's connections (25 vertical, 20 horizontal). Other cell shapes have other counts. The lake on triangle and Voronoi meshes is run by test_lak_grid_equivalence.",
+    "boussinesq": "The Boussinesq solver has no lake package: a lake boundary is refused with IncompatibleCapabilitiesError, and the lake boundary lists modflow6 as its only backend.",
+    "boussinesq_local": "The Boussinesq solver has no lake package: a lake boundary is refused with IncompatibleCapabilitiesError, and the lake boundary lists modflow6 as its only backend.",
+}
 
 
 @pytest.mark.validation

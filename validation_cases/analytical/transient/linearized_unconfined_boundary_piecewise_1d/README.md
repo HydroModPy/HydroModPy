@@ -19,6 +19,18 @@ Comparison:
 - simulated observable: `watertable_elevation`
 - compared quantity: full transient head profile matrix along `x`
 - reference: linearized 1D unconfined response to a piecewise west-boundary series
+- boundary positions: each side head is posed where the model holds it, at the
+  center of the boundary column, or at the mean centroid of the boundary
+  triangles on the triangle strip; a no-flow side stays on the domain face
+  (`validation_cases/shared/strip_geometry.py`)
+
+Solver variants:
+
+- `modflow_nwt` and `modflow6` use the structured grid,
+- `modflow6_irregular_tri` runs the case on one shared irregular-triangle strip,
+- `modflow6_voronoi` runs it on the Voronoi dual of that strip, one cell per node: the
+  side heads sit on the faces, and the cells are read at their nodes and binned by
+  area into the columns of the reference.
 
 Direct execution:
 
@@ -31,3 +43,15 @@ The runner saves a PNG figure with:
 - selected analytical and numerical profiles through time,
 - monitor-point time series,
 - a residual heatmap and summary metrics.
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+S_y\frac{\partial \eta}{\partial t}=T_0\frac{\partial^2 \eta}{\partial x^2},\qquad \eta(L,t)=0
+$$
+
+$$
+\eta(x,t)=\sum_k \Delta h_k\,\eta_{\mathrm{step}}(x,t-t_k)\,H(t-t_k)
+$$

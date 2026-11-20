@@ -16,9 +16,6 @@ from hydromodpy.solver.boussinesq.runtime_summary import record_runtime_backend_
 from hydromodpy.solver.boussinesq.runtimes.stationary_failure_diagnostics import (
     write_stationary_failure_diagnostics,
 )
-from hydromodpy.solver.steady_initial_conditions import (
-    steady_state_initial_condition_strategy,
-)
 
 if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
@@ -113,10 +110,8 @@ def _write_stationary_failure_diagnostics(
     drainage_conductance_m2_s,
 ) -> None:
     """Persist post-mortem files without replacing the original solve failure."""
-    if solver.mesh is None:
-        return
     try:
-        strategy = steady_state_initial_condition_strategy(solver.flow)
+        strategy = solver.steady_start_strategy
         strategy_payload = None if strategy is None else dict(strategy.__dict__)
         generated = write_stationary_failure_diagnostics(
             solver.full_path,

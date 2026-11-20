@@ -1,0 +1,19 @@
+[space_time]
+rmse = 0.01
+max_abs_error = 0.028
+row_spread = 1e-07
+
+[final_profile]
+rmse = 0.0034
+max_abs_error = 0.005
+
+[doc]
+reason = """
+The band of tolerances.toml, shared with MODFLOW. On this 500-cell strip the
+default 'auto' engine runs scipy_sparse, one backward-Euler step a period as
+MODFLOW does, and on 50 x 5 square cells of 2 m it reads space-time RMSE
+0.0059 m, max error 0.014 m, final RMSE 0.0018 m, against 5.9e-3, 1.4e-2 and
+1.7e-3 m for MODFLOW. The strip is uniform across rows, so a row spread is
+solver noise: the sparse engine reads below 1e-8 m (its head closure is
+1e-9 m); the bound is 1e-7 m.
+"""

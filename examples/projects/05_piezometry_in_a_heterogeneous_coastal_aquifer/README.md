@@ -1,66 +1,50 @@
-# 05 - Piezometry in a coastal aquifer
+# Example 05: piezometry in a heterogeneous coastal aquifer
 
-Gouville coastal strip (Normandy, EPSG:2154). The domain is a polygon
-(`model_area`) on a 25 m coastal DEM. **Steady-state** groundwater flow
-solved with **MODFLOW 6**, with a **marine boundary**: any cell whose
-surface is below mean sea level is held at that level (fixed head). The
-watertable therefore drops from the inland recharge mound toward the shore.
+The coastal aquifer of Gouville-sur-Mer (Manche), a strip of 3.2 km² along the shore cut on a
+25 m DEM, 39 by 134 cells. One year 2016 in daily stress periods, one layer down to a flat base at
+20 m below sea level. The aquifer has two zones: a western strip along the shore with K = 18.5
+m/day and Sy = 0.08, and an eastern one inland with K = 95 m/day and Sy = 0.45. The recharge
+changes every day and the sea level follows the tide. The 549 cells whose ground is at or below
+the highest sea level of the year are held at the sea level of the day, and every other cell
+drains at the ground. 1 January is solved in steady state under the mean recharge and the mean
+sea level. The simulated head is put next to the daily record of the piezometer BSS
+01423X0044/F4, in the western strip. MODFLOW 6 solves the flow. A run takes about 40 s.
 
-## Run
+## The files
+
+- `project.toml`: the model, its figures and its exports.
+- `py1_run_and_plot.py`: plays `project.toml` step by step in a `hmp.Lab`. It draws the recharge,
+  the sea level and the piezometer record, then the mesh on the relief. It prints the sea cells,
+  the drains and the two zones the solver will read, solves, and keeps the model as a run. It
+  then draws the simulated head at the piezometer against the measured one, in elevation and in
+  depth, asks the run for two more figures and prints the water budget.
+
+The DEM, the model area, the two zones, the recharge and the piezometer record are read from the
+shared `data/` folder of the workspace, by a `workspace:` name. The sea level is read by its path
+from this folder, `../../data/oceanic/`.
+
+## Commands
+
+From this folder:
 
 ```bash
-hmp run examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/project.toml
-
-# coastal watertable gradient, via the Python API
-python examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/run_manual.py
-
-hmp viz gallery examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/project.toml
+hmp run project.toml
+python py1_run_and_plot.py
+hmp export gouville_example_05 --list
 ```
 
-Runtime: about 1 s (coastal strip ~5200 cells at 25 m).
+The head at the piezometer is kept by `[observation]` under the station `obs:GOUVILLE_F4`. In
+Python, `run.timeseries("head", station="obs:GOUVILLE_F4")` gives it as a daily series.
 
-## Data
+## What a run writes
 
-| File | Family | Role |
-|---|---|---|
-| `dem/DEM_gouville_25m.tif` | dem | 25 m coastal DEM (NGF; the sea is below 0 m) |
-| `watershed_polygon/gouville_model_area.shp` | polygon | coastal model extent |
-| synthetic recharge | recharge | steady-state average recharge, 1.0 mm/d |
+- `runs/gouville_example_05/figures/`: the mesh on the topography, K and Sy, the water-table depth
+  on 1 January, in mid March and in mid October, the head from west to east through the
+  piezometer in March and in October, and the daily water budget of the strip.
+- `runs/gouville_example_05/exports/`: the DEM, the head, the water-table depth and the seepage
+  cells of mid March and mid October as GeoTIFF, the 366 days of the same three fields in
+  `watertable_2016.nc`, and the budget as CSV. Every file opens in QGIS or a spreadsheet.
+- `summary/`: the figures the script draws or asks for, outside the sealed run.
 
-## The marine boundary
-
-The `ocean` BC applies a constant head at sea level (`value = "0 m"` NGF) on
-every cell whose DEM is below that threshold. No coastline is required: the
-coastal DEM is enough, the sea is identified by elevation. The result (see
-`piezometric_map`) is the classic coastal watertable shape: 0 m at the
-shore, rising inland (~16 m here).
-
-## Figures
-
-| Figure | What it shows |
-|---|---|
-| `mesh_map` | solver grid |
-| `piezometric_map` | watertable elevation (0 at the shore, rising inland) |
-| `watertable_depth_map` | watertable depth + seepage |
-| `seepage_map` | seepage zones (including the coastal fringe) |
-| `cross_section` | west-east cross section from the sea into the aquifer |
-| `water_budget` | budget per component (recharge vs. sea + drainage) |
-
-## Not ported from the legacy script
-
-The legacy case had several refinements that this port leaves out for a
-first clean coastal case, and which are the natural technical debt:
-
-- **Zoned heterogeneous conductivity** (`param_zones.shp`): here K is
-  homogeneous. v1 handles heterogeneity through a spatial support + value
-  table, but wiring zones-shapefile to a K field properly is still to be
-  done.
-- **Comparison to observed piezometry**: the original case calibrated
-  against piezometers. The data and the sim/obs figures exist (see the
-  `piezometry` family and `piezo_timeseries_sim_obs`), but the coastal
-  calibration is not set up here.
-- **Tidal dynamics**: the marine BC is fixed at mean sea level (0 m). A
-  tide time series (`[flow.bc.dirichlet.ocean.forcing]`) and a transient
-  run would give the watertable's tidal response.
-- **5 m DEM**: the port uses the 25 m DEM; the 5 m one refines the
-  shoreline.
+Over the year the recharge brings 0.71 mm/day on average and the sea takes back 0.74 mm/day. The
+drains take almost nothing, because only the cells near the shore seep.

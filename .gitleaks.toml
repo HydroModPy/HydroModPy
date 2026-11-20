@@ -21,27 +21,30 @@ regexes = [
     '''^\s*key="[a-z]+[0-9]{4}[a-z]*",?\s*$''',
 ]
 
+# A frozen run names its solution and its products by a sha256 digest, 64
+# lowercase hex characters. The exemption holds only under the two frozen
+# folders and only for that shape, so a real token there still fails.
 [[rules.allowlists]]
-description = "Generated gallery metadata keys are not credentials."
+description = "A sha256 digest of a frozen run is not a credential."
 condition = "AND"
-regexTarget = "line"
+regexTarget = "secret"
 paths = [
-    '''(^|/)docs/source/_static/capability_gallery/.*_summary\.json$''',
-    '''(^|/)examples/projects/07_mesh_gallery/.*/case\.json$''',
-    '''(^|/)examples/projects/09_capability_gallery/.*/case\.json$''',
-    '''(^|/)examples/projects/09_capability_gallery/.*/README\.md$''',
-    '''(^|/)tools/doc_gallery/sync_mesh_catchment_runs\.py$''',
+    '''(^|/)tests/regression/frozen_(runs|replay)/''',
 ]
 regexes = [
-    '''^\s*"key":\s*"[A-Za-z0-9_.:-]+",?\s*$''',
-    '''^\s*"case_family_key":\s*"[A-Za-z0-9_.:-]+",?\s*$''',
-    '''^\s*"comparison_family_key":\s*"[A-Za-z0-9_.:-]+",?\s*$''',
-    '''^\s*key="[A-Za-z0-9_.:-]+",?\s*$''',
-    '''^\s*\|\s*`comparison_family_key`\s*\|.*$''',
+    '''^[0-9a-f]{64}$''',
 ]
 
+# A keyword argument bound to a module constant, such as remedy=TRANSIENT_REMEDY,
+# is a name and not a credential. The shape asks for words in capitals joined by
+# underscores and no digit, which a generated token does not have.
 [[rules.allowlists]]
-description = "Testbed reporting scripts use key= and x/y_key= for figure axes, not credentials."
+description = "A keyword argument bound to a constant name is not a credential."
+condition = "AND"
+regexTarget = "secret"
 paths = [
-    '''(^|/)examples/projects/10_testbed_workflow/.*\.py$''',
+    '''(^|/)hydromodpy/.*\.py$''',
+]
+regexes = [
+    '''^[a-z_]+=[A-Z]+(_[A-Z]+)+$''',
 ]

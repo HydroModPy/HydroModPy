@@ -35,13 +35,16 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.exceptions import ResultsError
+from hydromodpy.core.fields.vertical_column import top_active_layer
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.errors import FieldNotFoundError
-from hydromodpy.results.run.array import lookup_zarr_path
+from hydromodpy.results.run.tables import read_run_table
+from hydromodpy.results.zarr_store.zarr_reader import stored_field_array
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 
@@ -49,6 +52,7 @@ POINT_COLUMNS: tuple[str, ...] = (
     "run",
     "sim_id",
     "variable",
+    "point",
     "timestep",
     "time",
     "value",
@@ -63,7 +67,7 @@ POINT_COLUMNS: tuple[str, ...] = (
 _SEARCH_GROUPS: tuple[str | None, ...] = (None, "state", "derived", "budget", "mesh")
 
 
-class PointOutsideMeshError(ValueError):
+class PointOutsideMeshError(ResultsError, ValueError):
     """The requested coordinates fall outside the simulation mesh."""
 
 
@@ -72,8 +76,9 @@ class PointRequest:
     """Where to read: coordinates, a cell index, and how to pick the layer.
 
     Exactly one of ``(x, y)`` or ``cell`` identifies the cell. At most one of
-    ``layer`` or ``depth`` picks the layer; ``depth`` is metres below the local
-    model top and resolves against the mesh layer thicknesses.
+    ``layer`` or ``depth`` picks the layer; ``depth`` is meters below the local
+    model top and resolves against the mesh layer thicknesses. With neither,
+    the point reads the top active cell of its column.
     """
 
     x: float | None = None
@@ -101,7 +106,7 @@ class PointRequest:
             return self.label
         if self.cell is not None:
             return f"cell{self.cell}"
-        return f"{self.x:g}_{self.y:g}"
+        return f"{self.x:.10g}_{self.y:.10g}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,13 +136,21 @@ def _mesh_fingerprint(run: Run, mesh: Any) -> str:
     return digest.hexdigest()
 
 
+def _cell_index_cache(run: Run) -> Path | None:
+    """Where the resolved points of the project of *run* are cached, if it is known."""
+    from hydromodpy.results.spatial_index import cell_index_cache_dir
+
+    root = run._catalog.workspace_path
+    return None if root is None else cell_index_cache_dir(root)
+
+
 def resolve_point(run: Run, request: PointRequest) -> ResolvedPoint:
     """Bind a :class:`PointRequest` to one run's mesh.
 
     Raises :class:`PointOutsideMeshError` when the coordinates miss the mesh,
     and ``IndexError`` when an explicit cell or layer index is out of range.
     """
-    from hydromodpy.results.spatial_index import cell_index_cache_dir, locator_for
+    from hydromodpy.results.spatial_index import locator_for
 
     mesh = run.mesh
     n_cells = int(np.asarray(mesh.face_node_connectivity).shape[0])
@@ -152,7 +165,7 @@ def resolve_point(run: Run, request: PointRequest) -> ResolvedPoint:
             mesh.vertices,
             mesh.face_node_connectivity,
             fingerprint=_mesh_fingerprint(run, mesh),
-            cache_dir=cell_index_cache_dir(run._catalog.project_path),
+            cache_dir=_cell_index_cache(run),
         )
         found = locator.locate(
             {request.name: (float(request.x), float(request.y))}, warn_outside=False
@@ -178,7 +191,12 @@ def _cell_centroid(mesh: Any, cell: int) -> tuple[float, float]:
 
 
 def _resolve_layer(run: Run, mesh: Any, cell: int, request: PointRequest) -> int | None:
-    """Return the layer index to read, from an explicit index or from a depth."""
+    """Return the layer index to read: explicit, from a depth, else the top active cell.
+
+    A point with neither a layer nor a depth reads the top active cell of its
+    column, the layer the stored ``idomain`` names; ``None`` when the run
+    stores no ``idomain``.
+    """
     n_layers = int(run.n_layers or 1)
     if request.layer is not None:
         layer = int(request.layer)
@@ -188,18 +206,32 @@ def _resolve_layer(run: Run, mesh: Any, cell: int, request: PointRequest) -> int
             raise IndexError(f"Layer {request.layer} is out of range for {n_layers} layers.")
         return layer
     if request.depth is None:
-        return None
+        return _top_active_layer_at(run, cell)
     return _layer_at_depth(run, mesh, cell, float(request.depth), n_layers)
 
 
+def _top_active_layer_at(run: Run, cell: int) -> int | None:
+    """Top active layer of one column from the stored ``idomain``, ``None`` without one.
+
+    A column with no active cell reads layer 0.
+    """
+    sz = run._catalog.open_zarr(run.sim_id)
+    try:
+        mesh_grp = sz.root.get("mesh")
+        if mesh_grp is None or "idomain" not in mesh_grp:
+            return None
+        column = np.asarray(mesh_grp["idomain"][:, cell]).reshape(-1, 1)
+    finally:
+        sz.close()
+    return max(int(top_active_layer(column)[0]), 0)
+
+
 def _layer_at_depth(run: Run, mesh: Any, cell: int, depth: float, n_layers: int) -> int:
-    """Return the layer holding *depth* metres below the local model top."""
+    """Return the layer holding *depth* meters below the local model top."""
     thickness = _layer_thickness(run, cell, n_layers)
     if thickness is None:
-        z = np.asarray(mesh.z_interfaces, dtype="float64").ravel()
-        if z.size < 2:
-            return 0
-        thickness = np.abs(np.diff(z))[:n_layers]
+        column = np.asarray(mesh.z_interfaces, dtype="float64")[:, cell]
+        thickness = np.abs(np.diff(column))[:n_layers]
     bottoms = np.cumsum(np.asarray(thickness, dtype="float64"))
     index = int(np.searchsorted(bottoms, depth, side="left"))
     return min(index, n_layers - 1)
@@ -290,7 +322,7 @@ class RunPointProvider:
         """Read one or more variables in one precise cell.
 
         The cell is named by project-CRS coordinates (``x`` and ``y``), by its
-        index (``cell``), or by a ``depth`` in metres below the local model top
+        index (``cell``), or by a ``depth`` in meters below the local model top
         that picks the layer. Virtual fields (``watertable_depth`` ...) answer
         like persisted ones.
 
@@ -303,9 +335,10 @@ class RunPointProvider:
         cell
             Zero-based cell index. Mutually exclusive with ``x`` / ``y``.
         layer
-            Zero-based layer index; negative counts from the bottom.
+            Zero-based layer index; negative counts from the bottom. Without a
+            layer or a depth, the point reads the top active cell of its column.
         depth
-            Metres below the local model top, resolved against the mesh layer
+            Meters below the local model top, resolved against the mesh layer
             thicknesses. Mutually exclusive with ``layer``.
         label
             Name of the point, reported in the table.
@@ -344,11 +377,9 @@ class RunPointProvider:
         """
         frames = []
         for run in self._owner._iter_runs():
-            frame = run._catalog.backend.query(
-                "SELECT station_id, x, y, cell_id, layer FROM observation_points "
-                "WHERE sim_id = ? ORDER BY station_id",
-                [run.sim_id],
-            )
+            frame = read_run_table(
+                run, "observation_points", columns=("station_id", "x", "y", "cell_id", "layer")
+            ).sort_values("station_id", ignore_index=True)
             frame.insert(0, "run", run.name or run.sim_id[:8])
             frames.append(frame)
         if not frames:
@@ -391,6 +422,7 @@ def _read_one(
             "run": run.name or run.sim_id[:8],
             "sim_id": run.sim_id,
             "variable": variable,
+            "point": point.label,
             "timestep": steps,
             "time": times,
             "value": values.astype("float64"),
@@ -413,28 +445,18 @@ def _cell_values(run: Run, variable: str, point: ResolvedPoint) -> tuple[np.ndar
     try:
         array = _locate_array(sz.root, variable)
         if array is not None:
-            return _slice_cell(array, point, time_resolved=_is_time_resolved(variable))
+            return _slice_cell(
+                array, point, time_resolved=field_registry.is_time_resolved(variable)
+            )
         return _virtual_cell_values(run, sz, variable, point)
     finally:
         sz.close()
 
 
-def _is_time_resolved(variable: str) -> bool:
-    """Return True when the leading axis of the stored array is time.
-
-    Registered static geometry (``topography``, ``layer_thickness``) has none;
-    an unregistered solver array is assumed time-resolved, which is what the
-    Zarr reader already assumes.
-    """
-    if not field_registry.has(variable):
-        return True
-    return field_registry.get(variable).shape.startswith("time")
-
-
 def _locate_array(root: Any, variable: str) -> Any | None:
     """Find the stored array of *variable*, or ``None`` when not persisted."""
     if field_registry.has(variable):
-        array = lookup_zarr_path(root, field_registry.get(variable).zarr_path)
+        array = stored_field_array(root, field_registry.get(variable).zarr_path)
         if array is not None:
             return array
     for group_name in _SEARCH_GROUPS:
@@ -468,15 +490,16 @@ def _slice_cell(
 def _virtual_cell_values(
     run: Run, sz: Any, variable: str, point: ResolvedPoint
 ) -> tuple[np.ndarray, int | None]:
-    """Rebuild a non-persisted field at one cell, timestep by timestep.
+    """Rebuild a non-persisted field at one cell, over the run in blocks of steps.
 
-    The derivation runs on the whole field (it is the same code a map read
-    uses, so the two can never disagree) but only the cell is kept, which
-    caps memory at one field instead of one stack.
+    The derivation is the one a map read uses, so the two can never disagree.
+    A block of steps is rebuilt at once and only the cell is kept, which caps
+    memory at one block instead of the whole stack.
     """
     from hydromodpy.results.derive.virtual_fields import (
+        ROWS_PER_PASS_ELEMENTS,
         available_virtual_fields,
-        derive_field_slice,
+        derive_field_stack,
     )
 
     if variable not in available_virtual_fields(sz.root):
@@ -486,15 +509,17 @@ def _virtual_cell_values(
             variable=variable,
         )
     n_steps = int(run.n_timesteps or 1)
+    per_block = max(1, ROWS_PER_PASS_ELEMENTS // max(1, int(run.n_cells or 1)))
     layer = point.layer
     used: int | None = None
     out = np.empty(n_steps, dtype="float64")
-    for step in range(n_steps):
-        field = np.asarray(derive_field_slice(sz, run.sim_id, variable, step, layer=layer))
-        if field.ndim == 2:
+    for first in range(0, n_steps, per_block):
+        last = min(first + per_block, n_steps)
+        block = np.asarray(derive_field_stack(sz, run.sim_id, variable, range(first, last)))
+        if block.ndim == 3:
             used = 0 if layer is None else layer
-            field = field[used]
-        out[step] = float(field.ravel()[point.cell])
+            block = block[:, used]
+        out[first:last] = block.reshape(last - first, -1)[:, point.cell]
     return out, used
 
 

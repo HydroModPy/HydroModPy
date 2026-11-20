@@ -1,6 +1,6 @@
 """Shared MMS convergence helpers.
 
-The Method of Manufactured Solutions (MMS) verifies that a discretisation
+The Method of Manufactured Solutions (MMS) verifies that a discretization
 converges to its expected theoretical order. A manufactured exact solution
 ``u_exact(x)`` (or ``u_exact(x, t)``) is substituted into the governing PDE
 to derive a consistent forcing term; the numerical scheme is then run on a
@@ -15,6 +15,8 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 import numpy as np
+
+from tests.validation.helpers import assert_metric_below, record_series
 
 
 @dataclass(frozen=True)
@@ -52,7 +54,7 @@ def run_mms_convergence(
     case_fn: Callable[[int], tuple[float, float]],
     refinements: Iterable[int],
 ) -> ConvergenceResult:
-    """Run ``case_fn(N)`` for each requested ``N`` and summarise the refinement study.
+    """Run ``case_fn(N)`` for each requested ``N`` and summarize the refinement study.
 
     ``case_fn`` must return ``(h, error)`` where ``h`` is the characteristic
     grid size used and ``error`` the L2 error with respect to the
@@ -74,8 +76,34 @@ def run_mms_convergence(
     )
 
 
+def assert_order(result: ConvergenceResult, expected: float, half_width: float, label: str) -> None:
+    """Assert ``|p - expected| < half_width`` and record the refinement curve.
+
+    The recorded reference is the line of slope ``expected`` through the
+    coarsest point, so a figure shows the observed errors against it.
+    """
+    hs = np.asarray(result.refinements, dtype=float)
+    errs = np.asarray(result.errors, dtype=float)
+    ideal = errs[0] * (hs / hs[0]) ** expected
+    record_series(
+        f"L2 error against {label}",
+        hs,
+        ideal,
+        errs,
+        x_label=label,
+        y_label="L2 error",
+        log=True,
+    )
+    assert_metric_below(
+        f"Distance of the observed order from {expected:g}",
+        abs(result.order - expected),
+        half_width,
+    )
+
+
 __all__ = [
     "ConvergenceResult",
+    "assert_order",
     "estimate_convergence_order",
     "l2_error",
     "run_mms_convergence",

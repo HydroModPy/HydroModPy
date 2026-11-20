@@ -1,75 +1,72 @@
-"""Unit tests for analytical Boussinesq runtime defaults."""
+"""Runtime settings that the analytical Boussinesq validation cases hand to the solver.
+
+Steady cases run PETSc with the VI obstacle surface model. Transient cases run
+PETSc with the time-stepped VI obstacle (backward Euler, 4 steps per period).
+"""
 
 from __future__ import annotations
 
-import tomllib
+import pytest
 
 from validation_cases.shared.boussinesq_analytical_runtime import (
     apply_analytical_boussinesq_runtime_defaults,
-)
-from validation_cases.shared.boussinesq_piecewise_strip import (
-    write_piecewise_strip_launcher_config,
+    boussinesq_variant_flow_section,
 )
 
+COMPLEMENTARITY = {"backend": "petsc", "surface_interaction_model": "complementarity"}
 
-def test_analytical_boussinesq_defaults_fill_steady_petsc_vi() -> None:
-    flow = apply_analytical_boussinesq_runtime_defaults({"flow_regime": "steady"})
-
-    assert flow["runtime_backend"] == "petsc"
-    assert flow["surface_interaction_model"] == "vi_obstacle"
-
-
-def test_analytical_boussinesq_defaults_fill_transient_petsc_ts_vi() -> None:
-    flow = apply_analytical_boussinesq_runtime_defaults({"flow_regime": "transient"})
-
-    assert flow["runtime_backend"] == "petsc"
-    assert flow["surface_interaction_model"] == "ts_vi_obstacle"
-    assert flow["ts_vi_steps_per_period"] == 4
-    assert flow["ts_vi_type"] == "beuler"
-
-
-def test_analytical_boussinesq_defaults_keep_explicit_petsc_surface_model() -> None:
-    flow = apply_analytical_boussinesq_runtime_defaults(
+DEFAULTS = [
+    pytest.param(
+        {},
+        "steady",
+        False,
+        {"backend": "petsc", "surface_interaction_model": "vi_obstacle"},
+        id="steady fills petsc vi",
+    ),
+    pytest.param(
+        {},
+        "transient",
+        False,
         {
-            "flow_regime": "steady",
-            "runtime_backend": "petsc",
-            "surface_interaction_model": "complementarity",
-        }
-    )
-
-    assert flow["runtime_backend"] == "petsc"
-    assert flow["surface_interaction_model"] == "complementarity"
-
-
-def test_analytical_boussinesq_defaults_force_replaces_explicit_model() -> None:
-    flow = apply_analytical_boussinesq_runtime_defaults(
-        {
-            "flow_regime": "steady",
-            "runtime_backend": "petsc",
-            "surface_interaction_model": "complementarity",
+            "backend": "petsc",
+            "surface_interaction_model": "ts_vi_obstacle",
+            "ts_vi_steps_per_period": 4,
+            "ts_vi_type": "beuler",
         },
-        force=True,
+        id="transient fills petsc ts vi",
+    ),
+    pytest.param(
+        COMPLEMENTARITY, "steady", False, COMPLEMENTARITY, id="explicit surface model is kept"
+    ),
+    pytest.param(
+        COMPLEMENTARITY,
+        "steady",
+        True,
+        {"backend": "petsc", "surface_interaction_model": "vi_obstacle"},
+        id="force replaces explicit model",
+    ),
+]
+
+
+@pytest.mark.parametrize(("given", "flow_regime", "force", "expected"), DEFAULTS)
+def test_runtime_defaults(given, flow_regime, force, expected):
+    runtime = apply_analytical_boussinesq_runtime_defaults(
+        given, flow_regime=flow_regime, force=force
     )
 
-    assert flow["runtime_backend"] == "petsc"
-    assert flow["surface_interaction_model"] == "vi_obstacle"
+    assert {key: runtime[key] for key in expected} == expected
 
 
-def test_piecewise_launcher_config_can_preserve_explicit_runtime_defaults(tmp_path) -> None:
-    config_path = write_piecewise_strip_launcher_config(
-        tmp_path / "run_petsc.toml",
-        run_id="petsc_regression",
-        process_id="flow_main",
-        simulation_name="PETSc regression",
-        simulation_description="Explicit PETSc backend fixture",
-        bundle_dir=tmp_path / "mesh_bundle",
-        initial_head_m=6.0,
-        runtime_backend="petsc",
-        surface_interaction_model="vi_obstacle",
-        apply_runtime_defaults=False,
+def test_variant_flow_section_holds_no_runtime_key():
+    section = boussinesq_variant_flow_section(
+        {"flow_regime": "steady", "runtime": {"backend": "local"}, "runtime_max_iterations": 5},
+        flow_regime="steady",
     )
 
-    payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    assert section == {"flow_regime": "steady"}
 
-    assert payload["flow"]["runtime_backend"] == "petsc"
-    assert payload["flow"]["surface_interaction_model"] == "vi_obstacle"
+
+def test_transient_flow_section_starts_from_its_initial_condition():
+    section = boussinesq_variant_flow_section({"flow_regime": "transient"})
+
+    assert section["first_period_steady"] is False

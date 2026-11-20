@@ -1,14 +1,14 @@
 """The annotation that marks a configuration field calibrable.
 
 It lives in the kernel, and that placement is the whole point. The annotation
-used to sit in ``calibration/``, a layer that ``physics`` and ``spatial`` are
+used to sit in ``calibration/``, a layer that ``model`` and ``catchment`` are
 forbidden to import, so no hydraulic property could ever carry it and the
 discovery walk written to collect them returned nothing on every configuration
 in the repository. A mechanism and a mechanism nobody can reach are not the same
 thing.
 
 Here, any layer that declares a field can say what a search would need to know
-about it: the physical range, the space to sample in, the prior, the unit. What
+about it: the physical range, the space to search in, the sampling law, the unit. What
 reads those declarations still lives in ``calibration/``; only the vocabulary is
 shared, which is what a kernel is for.
 """
@@ -33,8 +33,8 @@ class Calibrable:
             json_schema_extra=field_metadata(
                 calibrable=Calibrable(
                     bounds=(1e-7, 1e-2),
-                    transform="log",
-                    prior="log_uniform",
+                    search_space="log",
+                    sampling="log_uniform",
                     units="m/s",
                 ),
             ),
@@ -45,23 +45,57 @@ class Calibrable:
     """The range a search may move within. ``None`` says the field is calibrable
     but its range belongs to the site, so the file has to state it."""
 
-    transform: str = "identity"
-    """``identity``, ``log`` or ``logit``: the space the sampling walks in."""
+    search_space: str = "identity"
+    """``identity``, ``log`` or ``logit``: the space a search walks the value in."""
 
-    prior: str = "uniform"
-    """``uniform``, ``log_uniform`` or ``normal``."""
+    sampling: str = "uniform"
+    """``uniform``, ``log_uniform`` or ``normal``: the law starting points and draws follow."""
 
     units: str | None = None
+    """The unit the value is read in. With ``unit_field`` it is only the default of that field."""
+
+    unit_field: str | None = None
+    """The sibling field that names the unit the model reads this value in.
+
+    ``bedleak`` is read in ``bedleak_unit``, which a file may set to ``1/day``.
+    Declared here, the catalog reads that field and a sample drawn in it means
+    what the model reads, instead of being taken in the SI unit of ``units``.
+    """
+
     description: str = ""
 
+    is_the_value_of_its_instance: bool = False
+    """Whether this leaf IS the quantity of the entry that carries it.
+
+    ``flow.param.K.field.value`` is the value OF ``K``, so the search names it
+    ``K`` and not ``K.value``. A lake's ``bedleak`` is one property among
+    several and names itself ``<lake>.bedleak``. Declaring it here rather than
+    deducing it from "this instance happens to carry one searchable leaf today"
+    keeps the name stable: adding a second property to an entry must not rename
+    the first one under a file that already calibrates it.
+    """
+
+    excluded_by: tuple[str, ...] = ()
+    """Dotted paths that set the target of this field aside.
+
+    A target is left out of the catalogue when one of these paths names an
+    entry the configuration declares: ``vka`` of a cell reads the ``Kv`` the
+    flow parameter carries, so the catalogue keeps one entry for the quantity
+    instead of two for the ways to write it. Empty by default: nothing is
+    excluded unless the field says so.
+    """
+
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-friendly record for a schema export or a catalogue."""
+        """Return a JSON-friendly record for a schema export or a catalog."""
         return {
             "bounds": list(self.bounds) if self.bounds else None,
-            "transform": self.transform,
-            "prior": self.prior,
+            "search_space": self.search_space,
+            "sampling": self.sampling,
             "units": self.units,
+            "unit_field": self.unit_field,
             "description": self.description,
+            "is_the_value_of_its_instance": self.is_the_value_of_its_instance,
+            "excluded_by": list(self.excluded_by),
         }
 
 

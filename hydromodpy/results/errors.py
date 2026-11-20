@@ -1,14 +1,14 @@
 """Typed exceptions for the results / reader layer.
 
 Inherit from :class:`hydromodpy.core.exceptions.CatalogError`. Multiple
-inheritance with the historical stdlib parent (``KeyError`` /
-``FileNotFoundError``) preserves backward-compatibility with callers that
-caught the raw exception type. New code should catch the typed exception.
+inheritance with the stdlib parent (``KeyError`` / ``FileNotFoundError``)
+keeps the raw exception type catchable. A class that is a
+``FileNotFoundError`` says its category, ``not_found``, on itself.
 """
 
 from __future__ import annotations
 
-from hydromodpy.core.exceptions import CatalogError
+from hydromodpy.core.exceptions import CatalogError, Category
 
 
 class FieldNotFoundError(CatalogError, KeyError):
@@ -27,18 +27,24 @@ class ProjectNotFoundError(CatalogError, FileNotFoundError):
     """A project root or its ``project.toml`` is missing."""
 
     code = "HMPY.E823"
+    category = Category.NOT_FOUND
 
 
-class SchemaVersionMismatchError(CatalogError):
-    """Stored schema version differs from the runner's target version."""
+class RunNotSealedError(CatalogError, FileNotFoundError):
+    """A run has no ``manifest.json``: it never completed, so it has no seal to read."""
 
-    code = "HMPY.E824"
+    code = "HMPY.E825"
+    category = Category.NOT_FOUND
+
+
+class SeveralCasesError(CatalogError):
+    """A session of several cases was asked for the one run or the one case it does not have."""
 
 
 __all__ = [
-    "CatalogError",
+    "SeveralCasesError",
     "FieldNotFoundError",
     "RunNotFoundError",
     "ProjectNotFoundError",
-    "SchemaVersionMismatchError",
+    "RunNotSealedError",
 ]

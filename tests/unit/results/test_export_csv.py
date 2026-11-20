@@ -1,4 +1,4 @@
-"""CSV timeseries export through DuckDB COPY: format, ordering, filters."""
+"""CSV timeseries export from the run payload: identity columns, format, ordering, filters, windows."""
 
 from __future__ import annotations
 
@@ -8,70 +8,100 @@ import duckdb
 import pandas as pd
 import pytest
 
-from hydromodpy.results.exporters.csv import export_csv
+from hydromodpy.results.exporters.csv import export_budget_csv, export_csv
+from hydromodpy.results.identity import Identity
 
-_HEADER = "datetime,station_id,variable,value,unit"
+_ID = Identity(
+    site="nancon",
+    case_id="nancon_monthly",
+    sim_id="s1",
+    attempt_id="a" * 32,
+    hydromodpy_version="2.0.0a5",
+)
+_HEADER = "site,case_id,datetime,station_id,variable,source,value,unit"
+
+
+_COLUMNS = (
+    "sim_id VARCHAR, station_id VARCHAR, variable VARCHAR, timestep BIGINT, "
+    "time TIMESTAMPTZ, value DOUBLE, unit VARCHAR, source VARCHAR DEFAULT 'simulated'"
+)
+
+
+def _write_payload(path: Path, values: str) -> Path:
+    """Write a ``timeseries.parquet`` payload holding *values* and return its path."""
+    with duckdb.connect() as conn:
+        # A session zone east of Greenwich: the file must not be shifted by it.
+        conn.execute("SET TimeZone = 'Europe/Paris'")
+        conn.execute(f"CREATE TABLE timeseries ({_COLUMNS})")
+        conn.execute(
+            "INSERT INTO timeseries (sim_id, station_id, variable, timestep, time, value, unit) "
+            f"VALUES {values}"
+        )
+        conn.execute(
+            "UPDATE timeseries SET source = 'observed', variable = replace(variable, '_obs', '') "
+            "WHERE variable LIKE '%_obs'"
+        )
+        conn.execute(f"COPY timeseries TO '{path}' (FORMAT PARQUET)")
+    return path
 
 
 @pytest.fixture
-def conn() -> duckdb.DuckDBPyConnection:
-    conn = duckdb.connect()
-    conn.execute("SET TimeZone = 'UTC'")
-    conn.execute(
-        "CREATE TABLE timeseries ("
-        "sim_id VARCHAR, station_id VARCHAR, variable VARCHAR, timestep BIGINT, "
-        "time TIMESTAMPTZ, value DOUBLE, unit VARCHAR)"
-    )
-    conn.execute(
-        "INSERT INTO timeseries VALUES "
+def payload(tmp_path: Path) -> Path:
+    return _write_payload(
+        tmp_path / "timeseries.parquet",
         "('s1', 'B', 'head', 0, '2007-01-01 00:00:00+00', 2.5, 'm'), "
         "('s1', 'A', 'head', 1, '2007-01-02 00:00:00+00', 1.5, 'm'), "
         "('s1', 'A', 'head', 0, '2007-01-01 00:00:00+00', 1.0, 'm'), "
         "('s1', 'A', 'discharge', 0, NULL, 0.25, 'm3/s'), "
-        "('s2', 'A', 'head', 0, '2007-01-01 00:00:00+00', 9.0, 'm')"
+        "('s2', 'A', 'head', 0, '2007-01-01 00:00:00+00', 9.0, 'm')",
     )
-    return conn
 
 
-def test_export_orders_and_formats_like_the_pandas_path(
-    conn: duckdb.DuckDBPyConnection, tmp_path: Path
-) -> None:
-    target = tmp_path / "out.csv"
-    result = export_csv(conn, "s1", target)
-    assert result == target
-    lines = target.read_text().splitlines()
-    assert lines[0] == _HEADER
-    assert lines[1] == ",A,discharge,0.25,m3/s"  # NULL time stays empty
-    assert lines[2] == "2007-01-01 00:00:00+00:00,A,head,1.0,m"
-    assert lines[3] == "2007-01-02 00:00:00+00:00,A,head,1.5,m"
-    assert lines[4] == "2007-01-01 00:00:00+00:00,B,head,2.5,m"
-    assert len(lines) == 5
-    parsed = pd.to_datetime(pd.read_csv(target)["datetime"], utc=True)
-    assert parsed.iloc[1] == pd.Timestamp("2007-01-01", tz="UTC")
-
-
-def test_export_filters_station_and_variable(
-    conn: duckdb.DuckDBPyConnection, tmp_path: Path
-) -> None:
+def test_export_filters_station_and_variables(payload: Path, tmp_path: Path) -> None:
     target = tmp_path / "filtered.csv"
-    export_csv(conn, "s1", target, station_id="A", variable="head")
+    export_csv(payload, "s1", target, identity=_ID, station_id="A", variables=["head"])
     lines = target.read_text().splitlines()
     assert len(lines) == 3
     assert all(",A,head," in line for line in lines[1:])
 
 
-def test_export_without_rows_writes_header_only(
-    conn: duckdb.DuckDBPyConnection, tmp_path: Path
-) -> None:
+def test_export_keeps_every_variable_listed(payload: Path, tmp_path: Path) -> None:
+    target = tmp_path / "both.csv"
+    export_csv(payload, "s1", target, identity=_ID, station_id="A", variables=["head", "discharge"])
+    assert set(pd.read_csv(target)["variable"]) == {"head", "discharge"}
+
+
+def test_no_rows_header_only(payload: Path, tmp_path: Path) -> None:
     target = tmp_path / "empty.csv"
-    export_csv(conn, "missing-sim", target)
+    export_csv(payload, "missing-sim", target, identity=_ID)
     assert target.read_text().splitlines() == [_HEADER]
 
 
-def test_export_creates_parent_directories(conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
-    target = tmp_path / "nested" / "dir" / "out.csv"
-    export_csv(conn, "s2", target)
-    assert target.read_text().splitlines() == [
-        _HEADER,
-        "2007-01-01 00:00:00+00:00,A,head,9.0,m",
-    ]
+def test_budget_names_periods(tmp_path: Path) -> None:
+    budget = pd.DataFrame(
+        {
+            "sim_id": ["s"] * 3,
+            "timestep": [1, 0, 1],
+            "zone_id": ["z", "z", "z"],
+            "component": ["recharge", "recharge", "drain"],
+            "flux_in": [2.0, 1.0, 0.0],
+            "flux_out": [0.0, 0.0, 0.5],
+            "unit": ["m3/s"] * 3,
+        }
+    )
+    edges = list(pd.to_datetime(["2000-01-01", "2000-02-01", "2000-03-01"]))
+    target = tmp_path / "budget.csv"
+    export_budget_csv(budget, target, identity=_ID, timesteps=[1], edges=edges)
+    frame = pd.read_csv(target)
+    assert frame["component"].tolist() == ["drain", "recharge"]
+    assert set(frame["period_start"]) == {"2000-02-01 00:00:00"}
+    assert set(frame["period_end"]) == {"2000-03-01 00:00:00"}
+    assert "sim_id" not in frame.columns
+    assert list(frame.columns[:2]) == ["site", "case_id"]
+    assert set(frame["site"]) == {"nancon"}
+
+
+def test_missing_series_header_only(tmp_path: Path) -> None:
+    target = tmp_path / "none.csv"
+    export_csv(tmp_path / "missing.parquet", "s1", target, identity=_ID)
+    assert target.read_text().splitlines() == [_HEADER]

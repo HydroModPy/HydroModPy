@@ -1,28 +1,37 @@
-"""``hmp catalog tag`` - add or remove tags on a simulation."""
+"""``hmp catalog tag`` - add or remove tags on a run, in its ``annotations.json``."""
 
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, exit_code_for
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.cli.conventions import (
+    add_sim_ref,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.exit_codes import EXIT_USAGE, refuse
+from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of
 
 NAME: str = "tag"
-HELP: str = "Add or remove tags on a simulation (reserved tag: pinned)"
+HELP: str = "Add or remove tags on a run (reserved tag: pinned, kept out of trash and gc)"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
-        epilog="Example:\n  hmp catalog tag ab12cd34 pinned paper --rm draft",
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
+        epilog="Example:\n  hmp catalog tag baseline_v2 pinned paper --rm draft",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_sim_ref(parser)
+    parser.add_argument(
+        "--site",
+        default=None,
+        help="Narrow an @-selector (@last, @best:nse) to the runs of one site",
+    )
     parser.add_argument(
         "add_tags",
         nargs="*",
@@ -41,29 +50,41 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import tag_simulation
+    from hydromodpy.results.annotations import add_tag, read_annotations, remove_tag
+    from hydromodpy.results.catalog.discovery import resolve_rel_dir
 
-    add = tuple(t.lstrip("+") for t in args.add_tags)
-    remove = tuple(args.rm)
+    add = tuple(dict.fromkeys(t.lstrip("+") for t in args.add_tags))
+    remove = tuple(dict.fromkeys(args.rm))
     if not add and not remove:
-        print("Nothing to do: pass tags to add or --rm TAG to remove.", file=sys.stderr)
-        sys.exit(EXIT_USAGE)
+        refuse("Nothing to do: pass tags to add or --rm TAG to remove.", EXIT_USAGE)
 
-    workspace_root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
+    root = project_root_of(args)
+    rel_dir = resolve_rel_dir(root, args.sim_ref, site=args.site)
+    run_dir = root / rel_dir
+    before = read_annotations(run_dir).tags
+    for tag in add:
+        add_tag(run_dir, tag)
+    for tag in remove:
+        remove_tag(run_dir, tag)
+    after = read_annotations(run_dir).tags
+    added = [tag for tag in after if tag not in before]
+    removed = [tag for tag in before if tag not in after]
+    if added or removed:
+        from hydromodpy.results.catalog.indexer import reindex_if_indexed
+
+        reindex_if_indexed(root)
+
+    def table() -> None:
+        if added:
+            print(f"added: {', '.join(added)}  [{rel_dir}]")
+        if removed:
+            print(f"removed: {', '.join(removed)}  [{rel_dir}]")
+        if not added and not removed:
+            print("no tag change (already present / absent)")
+
+    emit(
+        args,
+        "catalog tag",
+        {"rel_dir": rel_dir, "added": added, "removed": removed, "tags": list(after)},
+        table=table,
     )
-    try:
-        result = tag_simulation(args.sim_ref, workspace=workspace_root, add=add, remove=remove)
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except Exception as exc:  # noqa: BLE001 - map resolver errors to typed exit codes
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
-
-    if result["added"]:
-        print(f"added: {', '.join(result['added'])}  [{result['sim_id'][:8]}]")
-    if result["removed"]:
-        print(f"removed: {', '.join(result['removed'])}  [{result['sim_id'][:8]}]")
-    if not result["added"] and not result["removed"]:
-        print("no tag change (already present / absent)")

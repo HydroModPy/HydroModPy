@@ -1,0 +1,24 @@
+{
+  "schema": "hydromodpy.inputs.v1",
+  "sim_id": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+  "inputs": [
+    {
+      "variable": "piezometry:groundwater_level",
+      "provider": "custom",
+      "product": null,
+      "product_version": null,
+      "request": {
+        "station": "W1",
+        "period": [
+          "2003-01-01T00:00:00",
+          "2003-01-02T00:00:00"
+        ]
+      },
+      "fetched_at": "2026-11-07T17:47:38.130255Z",
+      "path": "data/piezometry/piezometry_custom_W1_D.csv",
+      "sha256": "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3",
+      "bytes": 45,
+      "license": "LicenseRef-undetermined"
+    }
+  ]
+}

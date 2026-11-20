@@ -15,10 +15,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.adapters.flow import _collapse_to_disv_cells
+from hydromodpy.solver.modflow6.adapter import _collapse_to_disv_cells
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.calibration_extractors import extract_head_from_hds
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def test_collapse_to_disv_cells_flattens_row_col() -> None:
@@ -49,7 +50,7 @@ def test_extract_head_from_hds_reads_disv_off_row_zero(tmp_path: Path) -> None:
     top = np.full((nrow, ncol), 10.0)
     botm = np.zeros((1, nrow, ncol))
     # Build the DISV grid through the production abstraction (fake-structured DISV).
-    mesh = SolverMesh.from_structured_arrays(
+    mesh = solver_mesh_from_structured_arrays(
         nrow=nrow, ncol=ncol, top=top, botm=botm, dx=1.0, dy=1.0
     )
 
@@ -57,7 +58,7 @@ def test_extract_head_from_hds_reads_disv_off_row_zero(tmp_path: Path) -> None:
     flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])
     flopy.mf6.ModflowIms(sim, complexity="SIMPLE")
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
-    flopy.mf6.ModflowGwfdisv(gwf, nlay=1, **mesh.to_disv_kwargs(), idomain=mesh.idomain())
+    flopy.mf6.ModflowGwfdisv(gwf, nlay=1, **mesh.to_disv_kwargs(), idomain=mesh.idomain)
     flopy.mf6.ModflowGwfnpf(gwf, k=1.0)
     flopy.mf6.ModflowGwfic(gwf, strt=5.0)
     # West column high, east column low: every column gets a distinct head, so a

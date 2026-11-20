@@ -1,1 +1,0 @@
-"""Soil moisture API adapters."""

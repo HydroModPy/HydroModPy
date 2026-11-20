@@ -1,144 +1,672 @@
 """On-the-fly derived fields computed from stored primary variables.
 
-The store only persists primary variables (head, budget spatial fields,
-topography). Derived quantities like watertable_elevation and seepage_mask
-are computed transparently by ``query_field()`` when not found in Zarr.
+The store only persists primary variables: the head, the budget terms, the
+concentration and the mesh. Every derived field is rebuilt on read from them:
+``watertable_elevation``, ``watertable_depth``, ``seepage_mask``,
+``outflow_drain``, ``release_flux``, ``budget_flux_per_area``, the two
+accumulation fluxes and the solute chain ``concentration_seepage``,
+``mass_seepage``, ``mass_seepage_running_sum``. Each has a whole-range computation in
+:data:`VIRTUAL_FIELD_ROWS`, and a single step is one row of it, so a step read
+alone equals the row of a range read, bit for bit. A store written before the
+fields were rebuilt on read may still hold some of them under ``derived/``:
+every reader tries the stored array first, and a rebuilt field reads an
+upstream field stored first too.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.field_routing import (
+from hydromodpy.core.budget.flux import (
+    DRN_TO_MVR_KEYS,
+    budget_outflow_stack,
     drain_band_depth,
-    drain_budget_to_positive_outflow,
+    drain_stack_with_mover,
     find_drain_budget_key,
+    first_finite_layer,
+    has_release_budget,
+    release_flux_stack,
     seepage_mask,
     warn_on_geometric_seepage_fallback,
 )
+from hydromodpy.core.budget.terms import (
+    ACTING_PACKAGES,
+    POLICY_CONSUMERS,
+    budget_terms_for,
+    kept_budget,
+)
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results import field_registry
+from hydromodpy.results.derive.accumulation import (
+    drain_accumulation_flux_available,
+    drain_accumulation_flux_rows,
+    release_accumulation_flux_available,
+    release_accumulation_flux_rows,
+)
+from hydromodpy.results.derive.mesh_quality import (
+    MESH_QUALITY_DESCRIPTORS,
+    mesh_quality_unavailable_reason,
+    mesh_quality_values,
+)
+from hydromodpy.results.field_registry import FieldDescriptor
+from hydromodpy.results.zarr_store.zarr_reader import (
+    concentration_array,
+    has_concentration,
+    step_range_bounds,
+)
 
 logger = get_logger(__name__)
 
-
-def _get_topography(store: Any, sim_id: str) -> np.ndarray:
-    """Read per-cell surface elevation from mesh group."""
-    sz = store.open_zarr(sim_id)
-    try:
-        mesh = sz.root["mesh"]
-        if "topography" in mesh:
-            return np.asarray(mesh["topography"][:], dtype="float64")
-        if "z_interfaces" in mesh:
-            z = mesh["z_interfaces"][:]
-            n_cells = int(mesh.attrs.get("n_cells", 1))
-            return np.full(n_cells, float(z[0]), dtype="float64")
-        raise KeyError(f"No surface elevation data for sim={sim_id}")
-    finally:
-        sz.close()
+RowsOf = Callable[[int, int], np.ndarray]
+"""Rows ``[first, last)`` of a field, once its inputs are resolved."""
 
 
-def _watertable_elevation(store: Any, sim_id: str, timestep: int) -> np.ndarray:
-    """Water-table elevation: head at the uppermost saturated layer."""
-    head = store.query_field(sim_id, "head", timestep)
-    if head.ndim == 1:
-        return head.copy()
-    n_layers, n_cells = head.shape
-    wt = np.full(n_cells, np.nan, dtype="float64")
-    for lay in range(n_layers):
-        mask = np.isfinite(head[lay]) & np.isnan(wt)
-        wt[mask] = head[lay, mask]
-    return wt
+def _cell_count(root: Any, fallback: Any = None) -> int:
+    """Number of cells along the face axis of the head, else of the concentration."""
+    if "head" in root:
+        return int(root["head"].shape[-1])
+    if has_concentration(root):
+        return int(concentration_array(root).shape[-1])
+    if fallback is not None:
+        return int(fallback.shape[-1])
+    raise KeyError("The store holds neither a head nor a concentration to size the field on")
 
 
-def _watertable_depth(store: Any, sim_id: str, timestep: int) -> np.ndarray:
-    """Depth to water table: topography - watertable_elevation, clipped >= 0."""
-    wt = store.query_field(sim_id, "watertable_elevation", timestep)
-    top = _get_topography(store, sim_id)
-    return np.maximum(top - wt, 0.0)
+def _time_axis_length(root: Any) -> int | None:
+    """Number of steps of the head, else of the concentration; None when the store has neither."""
+    if "head" in root:
+        return int(root["head"].shape[0])
+    if has_concentration(root):
+        return int(concentration_array(root).shape[0])
+    return None
 
 
-def _seepage_mask(store: Any, sim_id: str, timestep: int) -> np.ndarray:
-    """Binary seepage indicator for one timestep."""
-    top = _get_topography(store, sim_id)
-    excess = _surface_excess(store, sim_id, timestep, top.size)
-    if excess is not None:
-        return seepage_mask(surface_excess=excess)
-    sz = store.open_zarr(sim_id)
-    try:
-        warn_on_geometric_seepage_fallback(sz.root, sim_id=sim_id)
-        band = drain_band_depth(sz.root)
-    finally:
-        sz.close()
-    wt = store.query_field(sim_id, "watertable_elevation", timestep)
-    return seepage_mask(watertable=wt, topography=top, band_depth=band)
+ROWS_PER_PASS_ELEMENTS = 2_000_000
+"""Steps times cells a whole-range rebuild computes in one pass (16 MB in float64)."""
 
 
-def _surface_excess(
-    store: Any,
-    sim_id: str,
-    timestep: int,
+def _in_passes(
+    compute: RowsOf,
+    start: int,
+    stop: int,
     n_cells: int,
-) -> np.ndarray | None:
-    """Return the ``budget/surface_excess`` slice, or ``None`` when absent.
+    *,
+    per_cell: int = 1,
+) -> np.ndarray:
+    """Join ``compute(first, last)`` over ``[start, stop)`` run in bounded passes.
 
-    Solvers that do not write that field (MODFLOW 6, MODFLOW-NWT) leave the
-    caller with the geometric criterion.
+    A pass over a whole daily run allocates temporaries of hundreds of MB and
+    runs several times slower than small passes whose memory is reused. Every
+    step reads its own rows only, so the joined passes equal one pass.
+    ``per_cell`` is the number of values a pass reads per output cell and step
+    (the layers of the head), so the pass size follows what is read.
     """
-    sz = store.open_zarr(sim_id)
-    try:
-        budget = sz.root.get("budget")
-        if budget is None or "surface_excess" not in budget:
-            return None
-        values = np.asarray(budget["surface_excess"][timestep], dtype="float64")
-        return values.reshape(-1)[:n_cells]
-    finally:
-        sz.close()
+    per_pass = max(1, ROWS_PER_PASS_ELEMENTS // max(1, int(n_cells) * int(per_cell)))
+    out = np.empty((max(0, int(stop) - int(start)), int(n_cells)), dtype="float64")
+    for first in range(int(start), int(stop), per_pass):
+        last = min(first + per_pass, int(stop))
+        out[first - int(start) : last - int(start)] = compute(first, last)
+    return out
 
 
-def _drn_budget_field(store: Any, sim_id: str, timestep: int) -> np.ndarray:
-    """Read raw DRN budget spatial field, raise KeyError if absent."""
-    sz = store.open_zarr(sim_id)
-    try:
-        budget = sz.root.get("budget")
-        if budget is None:
-            raise KeyError("No budget spatial fields stored - enable budget.spatial_fields")
-        key = find_drain_budget_key(budget)
-        if key is not None:
-            return np.asarray(budget[key][timestep], dtype="float64")
+def _one_step(rows: Callable[[Any, int, int], np.ndarray], root: Any, timestep: int) -> np.ndarray:
+    """Return step ``timestep`` of a whole-range rebuild; a negative step counts from the end.
+
+    Raises ``IndexError`` when the step is outside the time axis, as a stored
+    array does.
+    """
+    step = int(timestep)
+    n_steps = _time_axis_length(root)
+    if n_steps is None:
+        return rows(root, step, step + 1)[0]
+    if step < 0:
+        step += n_steps
+    first, last = step_range_bounds(step, step + 1, n_steps)
+    return rows(root, first, last)[0]
+
+
+def _has_stored(root: Any, name: str) -> bool:
+    """Say whether an older run stored ``name`` under ``derived/``."""
+    derived = root.get("derived")
+    return derived is not None and name in derived
+
+
+def _stored_rows(root: Any, name: str) -> RowsOf:
+    """Rows of the array an older run stored under ``derived/``, widened to float64."""
+    array = root["derived"][name]
+
+    def rows(first: int, last: int) -> np.ndarray:
+        stack = np.asarray(array[first:last], dtype="float64")
+        return stack.reshape(stack.shape[0], -1)
+
+    return rows
+
+
+def _stored_or(root: Any, name: str, rebuild: Callable[[], RowsOf]) -> RowsOf:
+    """Rows of ``name`` as stored when the run holds it, else as ``rebuild`` makes them."""
+    return _stored_rows(root, name) if _has_stored(root, name) else rebuild()
+
+
+def _run_label(root: Any) -> str:
+    """Name of the run folder holding the store, for a log line to point at."""
+    path = getattr(getattr(root, "store", None), "root", None)
+    return Path(str(path)).parent.name if path is not None else "unknown"
+
+
+def _surface_elevation(root: Any, n_cells: int) -> np.ndarray:
+    """Per-cell surface elevation: the mesh topography, else the top interface of each cell."""
+    mesh = root["mesh"]
+    if "topography" in mesh:
+        return np.asarray(mesh["topography"][:], dtype="float64").reshape(-1)[:n_cells]
+    if "z_interfaces" in mesh:
+        return np.asarray(mesh["z_interfaces"][0], dtype="float64").reshape(-1)[:n_cells]
+    raise KeyError("No surface elevation data in the store")
+
+
+def _has_surface_elevation(root: Any) -> bool:
+    mesh = root.get("mesh")
+    return mesh is not None and ("topography" in mesh or "z_interfaces" in mesh)
+
+
+def _watertable_plan(root: Any) -> RowsOf:
+    """Rows of the water table, the stored array first."""
+    if _has_stored(root, "watertable_elevation"):
+        return _stored_rows(root, "watertable_elevation")
+    head = root["head"]
+
+    def rows(first: int, last: int) -> np.ndarray:
+        return first_finite_layer(np.asarray(head[first:last], dtype="float64"))
+
+    return rows
+
+
+def _head_layers(root: Any) -> int:
+    """Number of layers of the stored head, 1 for a flat head or none."""
+    head = root.get("head")
+    return int(head.shape[1]) if head is not None and head.ndim == 3 else 1
+
+
+def watertable_elevation_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return the water table over steps ``[start, stop)``: head at the uppermost wet layer.
+
+    The head itself, never clipped to the surface. A cell with no finite head
+    in any layer is NaN.
+    """
+    if "head" not in root:
+        raise KeyError("No head stored")
+    return _in_passes(
+        _watertable_plan(root), start, stop, _cell_count(root), per_cell=_head_layers(root)
+    )
+
+
+def watertable_depth_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return the depth to the water table, ``max(top - water table, 0)``, over ``[start, stop)``."""
+    if "head" not in root:
+        raise KeyError("No head stored")
+    n_cells = _cell_count(root)
+    top = _surface_elevation(root, n_cells)
+    water_table = _watertable_plan(root)
+
+    def rows(first: int, last: int) -> np.ndarray:
+        return np.maximum(top - water_table(first, last), 0.0)
+
+    return _in_passes(rows, start, stop, n_cells, per_cell=_head_layers(root))
+
+
+def _has_surface_excess(root: Any) -> bool:
+    budget = root.get("budget")
+    return budget is not None and "surface_excess" in budget
+
+
+def _seepage_available(root: Any) -> bool:
+    """Say whether a seepage mask can be had: stored, from a surface excess, or geometric."""
+    return (
+        _has_stored(root, "seepage_mask")
+        or _has_surface_excess(root)
+        or ("head" in root and _has_surface_elevation(root))
+    )
+
+
+def _seepage_plan(root: Any, n_cells: int) -> RowsOf:
+    """Rows of the seepage mask: the solver surface excess, else the geometric criterion.
+
+    The geometric fallback warns once here, when the plan is made, whatever the
+    number of passes that follow.
+    """
+    if _has_surface_excess(root):
+        excess = root["budget"]["surface_excess"]
+
+        def from_excess(first: int, last: int) -> np.ndarray:
+            values = np.asarray(excess[first:last], dtype="float64")
+            return seepage_mask(surface_excess=values.reshape(values.shape[0], -1)[:, :n_cells])
+
+        return from_excess
+    if "head" not in root or not _has_surface_elevation(root):
+        raise KeyError("seepage_mask needs a surface excess, or a head and a surface elevation")
+    warn_on_geometric_seepage_fallback(root, sim_id=_run_label(root))
+    top = _surface_elevation(root, n_cells)
+    band = drain_band_depth(root)
+    water_table = _watertable_plan(root)
+
+    def geometric(first: int, last: int) -> np.ndarray:
+        return seepage_mask(watertable=water_table(first, last), topography=top, band_depth=band)
+
+    return geometric
+
+
+def seepage_mask_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return the seepage mask (1 where the cell seeps, else 0) over ``[start, stop)``.
+
+    The solver surface excess decides when the store holds it. Otherwise the
+    mask is ``water table >= top - drain band / 2``, and a run that releases its
+    seepage through a surface excess logs that it fell back to this test.
+    """
+    n_cells = _cell_count(root)
+    return _in_passes(
+        _seepage_plan(root, n_cells), start, stop, n_cells, per_cell=_head_layers(root)
+    )
+
+
+def _has_drain_term(budget: Any) -> bool:
+    return find_drain_budget_key(budget) is not None or any(
+        key in budget for key in DRN_TO_MVR_KEYS
+    )
+
+
+def outflow_drain_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return the positive drain outflow, summed over layers, over steps ``[start, stop)``.
+
+    The drain term with the drain-to-mover term added when the run holds both,
+    in the unit of the budget. The sign convention is the one of
+    :func:`hydromodpy.core.budget.flux.budget_outflow_stack`; the result is
+    non-negative and finite.
+    """
+    budget = root.get("budget")
+    if budget is None:
+        raise KeyError("the run kept no per-cell budget")
+    drn_key = find_drain_budget_key(budget)
+    if not _has_drain_term(budget):
         raise KeyError("No drain budget field (DRN/DRAINS) in store")
-    finally:
-        sz.close()
+    n_cells = _cell_count(root, budget[drn_key] if drn_key is not None else None)
+
+    def rows(first: int, last: int) -> np.ndarray:
+        stack = drain_stack_with_mover(budget, drn_key, first, last)
+        return budget_outflow_stack(stack, n_cells=n_cells)
+
+    return _in_passes(rows, start, stop, n_cells)
 
 
-def _outflow_drain(store: Any, sim_id: str, timestep: int) -> np.ndarray:
-    """Positive per-cell drain outflow summed over layers."""
-    drn = _drn_budget_field(store, sim_id, timestep)
-    n_cells = None
-    try:
-        head = store.query_field(sim_id, "head", timestep)
-    except Exception:
-        head = None
-    if head is not None:
-        n_cells = int(np.asarray(head).shape[-1])
-    return drain_budget_to_positive_outflow(drn, n_cells=n_cells)
+def package_cells_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return the boundary package acting on each cell over steps ``[start, stop)``.
+
+    Served by :mod:`hydromodpy.results.derive.stream_network.cell_fields` as a
+    rebuilt field, not as a stored one.
+
+    A package acts on a cell at a step when one of its budget terms is finite and
+    non-zero in any layer of the cell. The value is its code in
+    :data:`~hydromodpy.core.budget.terms.ACTING_PACKAGES`, 0 when none acts, the
+    code after the last when several do, and NaN where no term the run kept is
+    finite in the cell. Codes rise with priority, so the maximum over steps reads
+    the highest package that ever acted.
+    """
+    budget = root.get("budget")
+    if budget is None:
+        raise KeyError("the run kept no per-cell budget")
+    kept = [
+        (code, [term for term in terms if term in budget])
+        for code, (_, terms) in enumerate(ACTING_PACKAGES, start=1)
+    ]
+    kept = [(code, terms) for code, terms in kept if terms]
+    if not kept:
+        raise KeyError("No boundary package budget term in store")
+    n_cells = _cell_count(root, budget[kept[0][1][0]])
+    several = len(ACTING_PACKAGES) + 1
+
+    def rows(first: int, last: int) -> np.ndarray:
+        shape = (last - first, n_cells)
+        finite = np.zeros(shape, dtype=bool)
+        acting = np.zeros(shape, dtype=int)
+        code_of = np.zeros(shape, dtype="float64")
+        for code, terms in kept:
+            package = np.zeros(shape, dtype=bool)
+            for term in terms:
+                values = np.asarray(budget[term][first:last], dtype="float64")
+                values = values.reshape(last - first, -1, n_cells)
+                finite |= np.isfinite(values).any(axis=1)
+                package |= (np.isfinite(values) & (np.abs(values) > 0.0)).any(axis=1)
+            acting += package
+            code_of[package] = code
+        code_of[acting > 1] = several
+        code_of[~finite] = np.nan
+        return code_of
+
+    return _in_passes(rows, start, stop, n_cells)
 
 
-# Registry: variable name -> computation function(store, sim_id, timestep)
-# Only cheap derivations belong here.  accumulation_flux requires whitebox D8
-# routing and must be pre-computed in the derive phase (see derived.py).
+def _concentration_seepage_plan(root: Any) -> RowsOf:
+    """Rows of the concentration at seepage cells, the stored array first.
+
+    The seepage is the stored mask when the run holds one, else the surface
+    excess, else the geometric criterion. Outside the seepage the value is NaN.
+    """
+    if _has_stored(root, "concentration_seepage"):
+        return _stored_rows(root, "concentration_seepage")
+    if not has_concentration(root):
+        raise KeyError("No concentration stored: concentration_seepage needs a transport run")
+    if not _seepage_available(root):
+        raise KeyError("concentration_seepage needs a seepage mask")
+    concentration = concentration_array(root)
+    seepage = _stored_or(root, "seepage_mask", lambda: _seepage_plan(root, _cell_count(root)))
+
+    def rows(first: int, last: int) -> np.ndarray:
+        conc = np.asarray(concentration[first:last], dtype="float64")
+        if conc.ndim == 3:
+            conc = conc[:, 0]
+        mask = seepage(first, last)
+        return np.where(mask > 0, conc * mask, np.nan)
+
+    return rows
+
+
+def concentration_seepage_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return the concentration of the first layer at seepage cells, NaN elsewhere."""
+    return _in_passes(
+        _concentration_seepage_plan(root),
+        start,
+        stop,
+        _cell_count(root),
+        per_cell=_head_layers(root),
+    )
+
+
+def _mass_seepage_plan(root: Any) -> RowsOf:
+    """Rows of the solute mass flux at seepage cells, the stored array first.
+
+    The concentration at seepage cells times the positive drain outflow. Only
+    the drain term counts here, the drain-to-mover term does not, and a run
+    with no drain term multiplies by one.
+    """
+    if _has_stored(root, "mass_seepage"):
+        return _stored_rows(root, "mass_seepage")
+    budget = root.get("budget")
+    if budget is None:
+        raise KeyError("the run kept no per-cell budget")
+    concentration_seepage = _concentration_seepage_plan(root)
+    n_cells = _cell_count(root)
+    drn_key = find_drain_budget_key(budget)
+
+    def rows(first: int, last: int) -> np.ndarray:
+        if drn_key is None:
+            flux = np.ones((last - first, n_cells), dtype="float64")
+        else:
+            drain = np.asarray(budget[drn_key][first:last], dtype="float64")
+            flux = budget_outflow_stack(drain, n_cells=n_cells)
+        return concentration_seepage(first, last) * flux
+
+    return rows
+
+
+def mass_seepage_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return the solute mass flux at seepage cells over steps ``[start, stop)``."""
+    return _in_passes(
+        _mass_seepage_plan(root),
+        start,
+        stop,
+        _cell_count(root),
+        per_cell=_head_layers(root),
+    )
+
+
+def mass_seepage_running_sum_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return the running sum of ``mass_seepage`` over steps ``[start, stop)``.
+
+    The sum runs from step 0, so a range costs the steps before it too. A NaN
+    stays NaN from its step on. The passes carry the sum over, adding the
+    steps in the order ``np.cumsum`` does, so the rows equal the cumulative
+    sum of the whole run, bit for bit.
+    """
+    mass_seepage = _mass_seepage_plan(root)
+    n_cells = _cell_count(root)
+    first_row, last_row = int(start), int(stop)
+    if last_row <= first_row:
+        return np.empty((0, n_cells), dtype="float64")
+    out = np.empty((max(0, last_row - first_row), n_cells), dtype="float64")
+    per_pass = max(1, ROWS_PER_PASS_ELEMENTS // max(1, n_cells * _head_layers(root)))
+    carry: np.ndarray | None = None
+    for first in range(0, last_row, per_pass):
+        last = min(first + per_pass, last_row)
+        block = np.array(mass_seepage(first, last), dtype="float64")
+        if carry is not None:
+            block[0] += carry
+        block = np.cumsum(block, axis=0)
+        carry = block[-1]
+        kept = max(first, first_row)
+        if kept < last:
+            out[kept - first_row : last - first_row] = block[kept - first :]
+    return out
+
+
+def release_flux_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return ``release_flux`` over steps ``[start, stop)`` from the stored budget.
+
+    The ``(stop - start, n_cells)`` stack is the one the post-run derivation
+    used to store (:func:`hydromodpy.core.budget.flux.release_flux_stack`),
+    step for step: every step reads its own budget rows only.
+    """
+    budget = root.get("budget")
+    if budget is None:
+        raise KeyError("the run kept no per-cell budget")
+    if not has_release_budget(budget):
+        raise KeyError("No release budget field: expected a drain, stream, lake or surface excess")
+    n_cells = _cell_count(root)
+    return _in_passes(
+        lambda first, last: release_flux_stack(budget, n_cells=n_cells, start=first, stop=last),
+        start,
+        stop,
+        n_cells,
+    )
+
+
+FLUX_BUDGET_COMPONENTS = ("drain", "recharge")
+"""Budget terms ``budget_flux_per_area`` normalizes, the first one present wins."""
+
+
+def cell_area_from_mesh(root: Any, n_cells: int) -> np.ndarray | None:
+    """Per-cell area in m2, computed from the mesh geometry the run persisted.
+
+    A run stores its vertices and its face-node connectivity, never an area
+    array. The area is the shoelace of the derived mesh geometry, so it agrees
+    cell for cell with what the solver was given. None when the store has no
+    geometry or no cell of positive area.
+    """
+    from hydromodpy.mesh.planar.geometry import cell_areas, padded_rows
+
+    mesh = root.get("mesh")
+    if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
+        return None
+    vertices = np.asarray(mesh["vertices"][:], dtype="float64")
+    rows = padded_rows(np.asarray(mesh["face_node_connectivity"][:]), n_nodes=vertices.shape[0])
+    areas = cell_areas(vertices, rows)
+    if areas.size < n_cells or not np.any(areas > 0.0):
+        return None
+    return areas[:n_cells]
+
+
+def budget_flux_per_area_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return ``budget_flux_per_area`` over steps ``[start, stop)``.
+
+    The first stored term of :data:`FLUX_BUDGET_COMPONENTS`, summed over
+    layers, divided by the cell area: m3/s over m2, so m/s. Cells of no area
+    are NaN. This is the computation the derive step used to store.
+    """
+    from hydromodpy.results.derive.derived import budget_flux_per_area
+
+    budget = root.get("budget")
+    if budget is None:
+        raise KeyError("the run kept no per-cell budget")
+    component = next((name for name in FLUX_BUDGET_COMPONENTS if name in budget), None)
+    if component is None:
+        raise KeyError(
+            f"No budget component to normalise: expected one of {FLUX_BUDGET_COMPONENTS}"
+        )
+    n_cells = _cell_count(root)
+    area = cell_area_from_mesh(root, n_cells)
+    if area is None:
+        raise KeyError(
+            "Cell area unavailable: the run persisted no mesh geometry to derive it from"
+        )
+
+    def compute(first: int, last: int) -> np.ndarray:
+        stack = np.asarray(budget[component][first:last], dtype="float64")
+        if stack.ndim == 3:
+            stack = stack.sum(axis=1)
+        stack = stack.reshape(stack.shape[0], -1)[:, :n_cells]
+        return np.asarray(budget_flux_per_area(stack, area), dtype="float64")[:, :n_cells]
+
+    return _in_passes(compute, start, stop, n_cells)
+
+
+SIMULATED_ACTIVE_NETWORK = "simulated_active_network"
+"""The cells the network criterion counts as flowing: 1 where a stream flows, else 0.
+
+Its descriptor is in ``REBUILT_FIELDS`` and its rows in ``REBUILT_FIELD_ROWS``."""
+
+
+def field_descriptor(name: str) -> FieldDescriptor:
+    """Return the descriptor of a field, the rebuilt-only fields included.
+
+    The rebuilt-only fields are the ones of ``REBUILT_FIELDS`` and the four mesh
+    quality fields, none of which the registry lists.
+    """
+    if name in field_registry.REBUILT_FIELDS:
+        return field_registry.REBUILT_FIELDS[name]
+    if name in MESH_QUALITY_DESCRIPTORS:
+        return MESH_QUALITY_DESCRIPTORS[name]
+    return field_registry.get(name)
+
+
+def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.ndarray:
+    """Return the simulated stream network of ``run`` at each of ``timesteps``.
+
+    A ``(len(timesteps), n_cells)`` float array of 1 and 0: 1 where the network
+    criterion counts the cell as flowing at that step. "Flowing" is the
+    definition the criterion scores and the stream maps draw
+    (:func:`hydromodpy.catchment.stream_network.extent.flowing_cells`), cut with the
+    settings of the run's sealed network output: its seepage threshold, its
+    graph and its visible flow. A run that sealed none takes the criterion's
+    defaults. The graph is built once for every step, and held on ``run``.
+
+    Raises
+    ------
+    ValueError
+        The run cannot say which cells flow: no ``release_flux``, no network
+        to build the graph on, or no recharge for a positive threshold.
+    """
+    from hydromodpy.results.derive.stream_network.cell_fields import rebuilt_rows
+
+    return rebuilt_rows(run, SIMULATED_ACTIVE_NETWORK, timesteps)
+
+
+def _simulated_active_network(store: Any, sim_id: str, timestep: int) -> np.ndarray:
+    """One step of the simulated network, read through the run's catalog."""
+    if not callable(getattr(store, "resolve", None)):
+        raise KeyError(
+            f"{SIMULATED_ACTIVE_NETWORK} is rebuilt from the run and its catalog, "
+            "not from a field store alone."
+        )
+    from hydromodpy.results.run.view import Run
+
+    return simulated_active_network_stack(Run(str(sim_id), store), [int(timestep)])[0]
+
+
+def _single_step(rows: Callable[[Any, int, int], np.ndarray]) -> Callable[[Any, str, int], Any]:
+    """Return the reader of one step of a field, which is one row of its range path."""
+
+    def read(store: Any, sim_id: str, timestep: int) -> np.ndarray:
+        sz = store.open_zarr(sim_id)
+        try:
+            return _one_step(rows, sz.root, timestep)
+        finally:
+            sz.close()
+
+    return read
+
+
+#: Fields rebuilt from per-cell budget terms alone. Their other sources (a stored
+#: array, a geometric fallback) are not budget terms, so they are not listed.
+BUDGET_ONLY_FIELDS: tuple[str, ...] = (
+    "outflow_drain",
+    "release_flux",
+    "budget_flux_per_area",
+    "drain_accumulation_flux",
+    "release_accumulation_flux",
+)
+
+
+def budget_terms_kept(root: Any, field: str) -> bool:
+    """Say whether the store kept every budget term ``field`` reads.
+
+    Only a store that declares the ``"consumers"`` policy can lack a term. A
+    term it declares with no array is a term the model does not produce, which
+    is fine. Under ``"all"``, and on a store without attributes, nothing is
+    refused here.
+    """
+    kept = kept_budget(root)
+    if kept is None or kept.policy != POLICY_CONSUMERS:
+        return True
+    return set(budget_terms_for(field)) <= set(kept.terms)
+
+
+def _needing_kept_terms(field: str, rows: Callable[[Any, int, int], np.ndarray]):
+    """Wrap the rows of a budget-only field so a partly kept store refuses it."""
+
+    def gated(root: Any, start: int, stop: int) -> np.ndarray:
+        if not budget_terms_kept(root, field):
+            raise KeyError(f"The run did not keep every budget term {field} reads")
+        return rows(root, start, stop)
+
+    gated.__name__ = rows.__name__
+    gated.__doc__ = rows.__doc__
+    return gated
+
+
+# Virtual fields and their whole-range computation, function(root, start,
+# stop). A reader wanting many steps takes it: one pass over the stored chunks
+# instead of one store opening per step. A single step is one row of it, so a
+# step read alone equals the row of a range read.
+VIRTUAL_FIELD_ROWS: dict[str, Any] = {
+    "watertable_elevation": watertable_elevation_rows,
+    "watertable_depth": watertable_depth_rows,
+    "seepage_mask": seepage_mask_rows,
+    "outflow_drain": outflow_drain_rows,
+    "release_flux": release_flux_rows,
+    "budget_flux_per_area": budget_flux_per_area_rows,
+    "drain_accumulation_flux": drain_accumulation_flux_rows,
+    "release_accumulation_flux": release_accumulation_flux_rows,
+    "concentration_seepage": concentration_seepage_rows,
+    "mass_seepage": mass_seepage_rows,
+    "mass_seepage_running_sum": mass_seepage_running_sum_rows,
+}
+VIRTUAL_FIELD_ROWS.update(
+    {name: _needing_kept_terms(name, VIRTUAL_FIELD_ROWS[name]) for name in BUDGET_ONLY_FIELDS}
+)
+
+# Registry: variable name -> computation function(store, sim_id, timestep).
+# The simulated network is the exception to the range path: it needs the
+# catalog, and an export over several steps builds its graph once through
+# simulated_active_network_stack.
 VIRTUAL_FIELDS: dict[str, Any] = {
-    "watertable_elevation": _watertable_elevation,
-    "watertable_depth": _watertable_depth,
-    "seepage_mask": _seepage_mask,
-    "outflow_drain": _outflow_drain,
+    **{name: _single_step(rows) for name, rows in VIRTUAL_FIELD_ROWS.items()},
+    SIMULATED_ACTIVE_NETWORK: _simulated_active_network,
 }
 
 # Virtual fields derivable from the persisted head alone (plus mesh topography).
-# They are "available" whenever head is stored, even though results.derived.* is
-# off by default, so figures find them without a persisted derived group.
+# They are "available" whenever head is stored, so figures find them without a
+# persisted derived group.
 # ``outflow_drain`` is excluded: it needs the per-cell drain budget field.
 HEAD_DERIVED_VIRTUAL_FIELDS: frozenset[str] = frozenset(
     {"watertable_elevation", "watertable_depth", "seepage_mask"}
@@ -165,18 +693,64 @@ def available_virtual_fields(root: Any) -> list[str]:
     derived group", so ``has_field``, ``list_fields`` and the readers cannot
     disagree. The water table needs the stored head, the depth and the
     seepage mask additionally need a surface elevation, and the drain
-    outflow needs the per-cell drain budget.
+    outflow needs a drain or drain-to-mover term. The release flux needs the
+    head (for its cell count) and a budget path out of the aquifer; the unit
+    fluxes need the head, a drain or recharge term and the mesh geometry. The
+    accumulation fluxes need the head, their budget terms and a descent, stored
+    or rebuilt from the mesh topology. The solute chain needs the stored
+    concentration: ``concentration_seepage`` also a seepage mask,
+    ``mass_seepage`` also a budget group, ``mass_seepage_running_sum`` nothing more.
+    The mesh quality fields need the stored geometry, and the cell centers for
+    the offset, the non-orthogonality and the bisection offset
+    (:mod:`hydromodpy.results.derive.mesh_quality`).
+    A field an older run stored under ``derived/`` stands in for its rebuild
+    upstream. A store that declares the ``"consumers"`` budget policy serves a
+    field built from budget terms only when it kept every term the field reads
+    (:func:`budget_terms_kept`), so a partly kept field is refused, not served
+    without a word.
     """
     names: list[str] = []
+    mesh = root.get("mesh")
     if "head" in root:
         names.append("watertable_elevation")
-        mesh = root.get("mesh")
         if mesh is not None and ("topography" in mesh or "z_interfaces" in mesh):
             names.extend(("watertable_depth", "seepage_mask"))
     budget = root.get("budget")
-    if budget is not None and find_drain_budget_key(budget) is not None:
+    if budget is not None and _has_drain_term(budget):
         names.append("outflow_drain")
+    if "head" in root and budget is not None:
+        if has_release_budget(budget):
+            names.append("release_flux")
+        has_geometry = mesh is not None and "vertices" in mesh and "face_node_connectivity" in mesh
+        if has_geometry and any(name in budget for name in FLUX_BUDGET_COMPONENTS):
+            names.append("budget_flux_per_area")
+    if drain_accumulation_flux_available(root):
+        names.append("drain_accumulation_flux")
+    if release_accumulation_flux_available(root):
+        names.append("release_accumulation_flux")
+    names = [
+        name for name in names if name not in BUDGET_ONLY_FIELDS or budget_terms_kept(root, name)
+    ]
+    names.extend(_solute_fields_available(root, budget))
+    names.extend(
+        name
+        for name in MESH_QUALITY_DESCRIPTORS
+        if mesh_quality_unavailable_reason(root, name) is None
+    )
     return sorted(names)
+
+
+def _solute_fields_available(root: Any, budget: Any | None) -> list[str]:
+    """The solute chain fields this store can serve, each needing the one before it."""
+    names: list[str] = []
+    rebuildable = has_concentration(root) and _seepage_available(root)
+    if rebuildable:
+        names.append("concentration_seepage")
+    if budget is not None and (rebuildable or _has_stored(root, "concentration_seepage")):
+        names.append("mass_seepage")
+    if _has_stored(root, "mass_seepage") or "mass_seepage" in names:
+        names.append("mass_seepage_running_sum")
+    return names
 
 
 def read_field_or_virtual(
@@ -196,6 +770,12 @@ def read_field_or_virtual(
     try:
         return sz.read_field(variable, timestep, layer=layer)
     except KeyError:
+        if variable in MESH_QUALITY_DESCRIPTORS:
+            return mesh_quality_values(sz.root, variable)
+        rows = VIRTUAL_FIELD_ROWS.get(variable)
+        if rows is not None and variable in available_virtual_fields(sz.root):
+            # Rebuilt on the handle already open, not on a second opening.
+            return _one_step(rows, sz.root, timestep)
         result = compute_virtual_field(source, str(sim_id), variable, timestep)
         if result is None:
             raise KeyError(f"Variable '{variable}' not found for sim={sim_id}") from None
@@ -204,6 +784,62 @@ def read_field_or_virtual(
         return result
     finally:
         sz.close()
+
+
+def read_field_range_or_virtual(
+    source: Any,
+    sim_id: str,
+    variable: str,
+    start: int,
+    stop: int,
+    layer: int | None = None,
+) -> np.ndarray:
+    """Read timesteps ``[start, stop)`` of one field with the store opened once.
+
+    Row ``i`` of the stack is what :func:`read_field_or_virtual` returns at
+    step ``start + i``, bit for bit. A stored array is sliced directly. A field
+    of :data:`VIRTUAL_FIELD_ROWS` is rebuilt over the range in passes. The
+    simulated network builds its graph once for the range. A mesh quality field
+    is static: every row is the same read-only view of one array. Negative bounds
+    count from the end. Raises ``KeyError`` when the variable is neither
+    persisted nor derivable, ``IndexError`` when the range leaves the time axis.
+    """
+    sz = source.open_zarr(sim_id)
+    try:
+        try:
+            return sz.read_field_range(variable, start, stop, layer=layer)
+        except KeyError:
+            return _virtual_range(source, sz, str(sim_id), variable, start, stop)
+    finally:
+        sz.close()
+
+
+def _virtual_range(
+    source: Any,
+    sz: Any,
+    sim_id: str,
+    variable: str,
+    start: int,
+    stop: int,
+) -> np.ndarray:
+    """Rebuild a field that is not stored over ``[start, stop)``, on the open ``sz``."""
+    root = sz.root
+    first, last = int(start), int(stop)
+    n_steps = _time_axis_length(root)
+    if n_steps is not None:
+        first, last = step_range_bounds(start, stop, n_steps)
+    if variable in MESH_QUALITY_DESCRIPTORS:
+        values = mesh_quality_values(root, variable)
+        return np.broadcast_to(values, (max(0, last - first), values.size))
+    rows = VIRTUAL_FIELD_ROWS.get(variable)
+    if rows is not None:
+        # A store that cannot serve the field raises the plan's own error, as a step read does.
+        return rows(root, first, last)
+    if variable == SIMULATED_ACTIVE_NETWORK and callable(getattr(source, "resolve", None)):
+        from hydromodpy.results.run.view import Run
+
+        return simulated_active_network_stack(Run(sim_id, source), range(first, last))
+    raise KeyError(f"Variable '{variable}' not found for sim={sim_id}")
 
 
 class _BorrowedZarr:
@@ -218,6 +854,11 @@ class _BorrowedZarr:
 
     def read_field(self, variable: str, timestep: int, *, layer: int | None = None) -> np.ndarray:
         return self._handle.read_field(variable, timestep, layer=layer)
+
+    def read_field_range(
+        self, variable: str, start: int, stop: int, *, layer: int | None = None
+    ) -> np.ndarray:
+        return self._handle.read_field_range(variable, start, stop, layer=layer)
 
     def close(self) -> None:
         return None
@@ -269,8 +910,17 @@ def derive_field_stack(
     variable: str,
     timesteps: Sequence[int],
 ) -> np.ndarray | None:
-    """Rebuild ``variable`` over ``timesteps`` from an open Zarr handle, or None."""
+    """Rebuild ``variable`` over ``timesteps`` from an open Zarr handle, or None.
+
+    A field of :data:`VIRTUAL_FIELD_ROWS` is computed once over the range the
+    steps span, then the asked rows are picked out of it.
+    """
     if variable not in available_virtual_fields(handle.root):
         return None
+    steps = np.asarray([int(t) for t in timesteps], dtype=np.int64)
+    rows = VIRTUAL_FIELD_ROWS.get(variable)
+    if rows is not None and steps.size:
+        first = int(steps.min())
+        return rows(handle.root, first, int(steps.max()) + 1)[steps - first]
     source = ZarrFieldSource(handle, sim_id)
-    return np.stack([np.asarray(source.query_field(sim_id, variable, int(t))) for t in timesteps])
+    return np.stack([np.asarray(source.query_field(sim_id, variable, int(t))) for t in steps])

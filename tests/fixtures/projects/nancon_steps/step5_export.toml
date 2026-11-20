@@ -1,0 +1,94 @@
+# Step 5: step 4 with its results written out, one [[export]] block per kind.
+# The model does not change. Files land in runs/nancon_step5_export/exports/.
+#
+#   hmp run step5_export.toml
+#   hmp export nancon_step5_export --list    what the run can export
+
+base_config = "step4_transient.toml"
+
+# Steps 1 to 4 already export a few files. This step writes its own list
+# instead: the inherited blocks are dropped first.
+export__delete = true
+
+[simulation]
+name = "nancon_step5_export"
+
+# The catchment and the mapped network: GeoPackage. Step 3 writes the same
+# for BD Topage, with the permanent reaches apart.
+[[export]]
+variable = ["watershed", "hydrographic_network_reference"]
+
+# The same catchment as a Shapefile.
+[[export]]
+variable = "watershed"
+format = "shapefile"
+
+# The DEM the catchment was cut from: GeoTIFF.
+[[export]]
+variable = "watershed_dem"
+
+# The water table in October 2002: one GeoTIFF per variable.
+[[export]]
+variable = ["head", "watertable_depth", "seepage_mask"]
+time = "2002-10-15"
+
+# The simulated active network that month, as mesh cells in a GeoPackage.
+[[export]]
+variable = "simulated_active_network"
+time = "2002-10-15"
+format = "geopackage"
+
+# The whole record of the water table: one NetCDF chronicle.
+[[export]]
+variable = ["head", "watertable_depth"]
+file = "watertable_2000_2002.nc"
+
+# Simulated and gauged discharge over the two scored years: CSV.
+[[export]]
+variable = ["discharge", "discharge_obs"]
+period = ["2001-01-01", "2002-12-31"]
+
+# The monthly water budget: CSV.
+[[export]]
+variable = "budget"
+
+# A web-map layer, reprojected; the extension gives the format.
+[[export]]
+variable = "watertable_depth"
+time = "2002-10-15"
+file = "watertable_depth_wgs84.tif"
+crs = "EPSG:4326"
+
+# ParaView.
+[[export]]
+variable = "head"
+time = "2002-10-15"
+format = "vtu"
+
+# One figure beside most exports: the same data, drawn instead of written.
+[display]
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+preset = "water_budget"
+
+[[display.figure]]
+preset = "hydrograph"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
+
+[[display.figure]]
+variable = "network_agreement"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+
+[[display.figure]]
+variable = "simulated_active_network"
+reduce = "frequency"

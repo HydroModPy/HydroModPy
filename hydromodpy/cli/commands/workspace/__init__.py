@@ -1,43 +1,28 @@
-"""``hmp workspace`` family - workspace lifecycle and global-index commands.
+"""``hmp workspace`` family - scaffold, list and clean a workspace.
 
-The global index registers PROJECTS, one row per project root, because a
-project root is what owns an index database. The workspace-scoped actions
-(``init``, ``clean``) act on a workspace; the index-scoped ones act on the
-projects it contains.
+There is no machine-wide registry: a workspace is what its tree holds, and
+``list`` walks it.
 
 Sub-actions:
 
 - ``hmp workspace init [<path>]``: scaffold a HydroModPy workspace.
-- ``hmp workspace list``: list the projects registered in the global index.
-- ``hmp workspace register <root_uri>``: register a project, or every project
-  held by a workspace root.
-- ``hmp workspace search <term>``: full-text search across registered projects.
-- ``hmp workspace forget <project_id>``: drop one project registration.
-- ``hmp workspace prune``: drop registrations whose project index is missing.
-- ``hmp workspace clean [--dry-run]``: remove generated workspace artefacts.
+- ``hmp workspace list [<path>]``: list the sealed runs of every project under
+  a workspace, read from their directories.
+- ``hmp workspace clean [--dry-run]``: move the runs and sessions to the
+  trash of their project (``--results``) and remove the rebuildable caches.
 """
 
 from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import add_action_subparsers
-from hydromodpy.cli.commands.workspace import (
-    clean,
-    forget,
-    init_cmd,
-    list_cmd,
-    prune,
-    search,
-)
-from hydromodpy.cli.commands.workspace import (
-    register as register_cmd,
-)
+from hydromodpy.cli.commands.workspace import clean, init_cmd, list_cmd
+from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "workspace"
-HELP: str = "Workspace lifecycle, project registration in the global index, and maintenance"
+HELP: str = "Scaffold, list and clean a workspace"
 
-ACTIONS = (init_cmd, list_cmd, register_cmd, search, forget, prune, clean)
+ACTIONS = (init_cmd, list_cmd, clean)
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -48,4 +33,9 @@ def register(subparsers) -> argparse.ArgumentParser:
     return parser
 
 
-__all__ = ("NAME", "HELP", "ACTIONS", "register")
+__all__ = (
+    "NAME",
+    "HELP",
+    "ACTIONS",
+    "register",
+)

@@ -8,12 +8,21 @@ import pytest
 
 from tests.regression.golden_utils import assert_required_executables
 from tests.validation.calibration.helpers import (
+    TwinCheck,
     assert_lightweight_method_result,
     run_lightweight_twin_benchmark_case,
 )
 from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment import (
     STEADY_DUPUIT_NOISY_TWIN_CASE,
 )
+
+NOT_APPLICABLE = {
+    "modflow_nwt": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, and the 1 percent noise is a seeded factor on it. The recovery is the same on every solver (identical on NWT, MF6 triangles and Voronoi for the noise-free twin).",
+    "modflow6_irregular_tri": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, and the 1 percent noise is a seeded factor on it. The recovery is the same on every solver (identical on NWT, MF6 triangles and Voronoi for the noise-free twin).",
+    "modflow6_voronoi": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, and the 1 percent noise is a seeded factor on it. The recovery is the same on every solver (identical on NWT, MF6 triangles and Voronoi for the noise-free twin).",
+    "boussinesq": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, and the 1 percent noise is a seeded multiplicative factor on it. The cost landscape, and so the recovery, is the same on every solver.",
+    "boussinesq_local": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, and the 1 percent noise is a seeded multiplicative factor on it. The cost landscape, and so the recovery, is the same on every solver.",
+}
 
 
 @pytest.mark.validation
@@ -34,6 +43,12 @@ def test_calibration_twin_dupuit_fixed_head_noisy_modflow6_benchmark_recovers_tr
     benchmark = run_lightweight_twin_benchmark_case(
         STEADY_DUPUIT_NOISY_TWIN_CASE,
         caller_file=__file__,
+        checks={
+            "grid": TwinCheck(meets_target=True, best_within=1.0),
+            "scipy_nelder_mead": TwinCheck(meets_target=True, best_within=1.0),
+            "cma_es": TwinCheck(meets_target=True, best_within=1.0),
+            "random_search": TwinCheck(min_runs_best=2, min_runs_in_distribution=2),
+        },
     )
 
     assert benchmark.observations_truth["q_east"]
@@ -59,10 +74,4 @@ def test_calibration_twin_dupuit_fixed_head_noisy_modflow6_benchmark_recovers_tr
         assert result.mean_candidate_preparation_time_seconds is not None
         assert result.mean_candidate_simulation_time_seconds is not None
         assert_lightweight_method_result(result)
-        if result.method_name in {"grid", "simplex", "cma_es"}:
-            assert result.meets_success_target, result.to_mapping()
-            assert result.recovered_truth, result.to_mapping()
-    assert sum(1 for result in random_results if result.meets_success_target) >= 2
-    assert sum(1 for result in random_results if result.recovered_truth) >= 2
-    assert sum(1 for result in random_results if result.truth_in_distribution is True) >= 2
     assert sorted(result.seed for result in random_results) == [7, 11, 19]

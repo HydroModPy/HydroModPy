@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import boundary_head_edge_flux_from_head
+from hydromodpy.solver.boussinesq.assembly.fluxes import boundary_head_edge_flux_from_head
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 
@@ -108,8 +108,6 @@ def rebuild_boundary_edge_flux(
         supported_boundary_edges = np.flatnonzero(
             active_boundary_support & (edge_cell_a == cell_index)
         ).astype(int, copy=False)
-        if supported_boundary_edges.size == 0:
-            continue
         outward_exchange = 0.0
         has_free_neighbor = False
         for edge_index in np.flatnonzero(interior_mask).tolist():

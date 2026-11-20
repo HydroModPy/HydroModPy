@@ -1,0 +1,25 @@
+[interception]
+x_error_m = 6.8
+
+[profile]
+rmse = 0.013
+max_abs_error = 0.017
+
+[uniformity]
+row_spread = 5e-9
+
+[contact]
+max_positive_clearance_m = 7.8e-4
+
+[doc]
+reason = """
+MODFLOW 6, 40 x 3 cells of 10 m, the land surface a DRN of conductance
+K * area / b with b = 1 m, against the exact seepage-face solution; same model,
+same numbers as MODFLOW-NWT. Head profile: RMSE 6.6e-3 m, max 8.6e-3 m; bounds
+twice the measurement. The dry heads sit 8.5e-3 m low, the error of placing
+the free boundary on a 10 m cell (first order in the cell, as for NWT). The
+contact point, read on 10 m columns with a 5 cm tolerance (281.6 m), is 3.4 m
+off: bound twice that. The DRN lets the head stand above the surface by
+(R + K S^2) b / K = 3.9e-4 m (measured 3.9e-4 m): bound twice the measure. Row
+spread 2.3e-9 m measured (the IMS closes at 1e-9 m), bound 5e-9 m.
+"""

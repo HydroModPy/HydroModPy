@@ -7,7 +7,7 @@ with the SAME physics and forced through the production LAK builders:
 * IRREGULAR: a Delaunay TRIANGLE DISV over the same 600 m square, the same four
   layers and the same lake footprint, refined to ~20 m around the lake so the
   triangle footprint tiles the lake polygon exactly (nodes are pinned on the lake
-  boundary lines so ``GridIntersect`` returns the same 200 m x 200 m area as the
+  boundary lines so the lake cell rule returns the same 200 m x 200 m area as the
   quad grid). HMP ``SolverMesh`` carries homogeneous triangle cells only, so an
   irregular triangulation is the non-rectangular mesh the builder consumes.
 
@@ -32,16 +32,17 @@ import numpy as np
 from scipy.spatial import Delaunay, cKDTree
 from shapely.geometry import Polygon
 
-from hydromodpy.solver.modflow6.builders.lake import (
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args, build_lake_period_data
+from hydromodpy.solver.modflow6.builders.lake_cells import (
     apply_lake_idomain_mask,
-    build_lak_package_args,
-    build_lake_period_data,
-    build_vertex_grid_for_intersection,
     resolve_lake_cells,
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from validation_cases.shared.lake_inputs import lake_inputs
+from validation_cases.shared.solver_mesh import solver_mesh_of
 
 from .geometry import CASE_DIR, PleasantTransientGeometry, load_geometry
 from .runtime_lak import TransientLakeRunResult, run_hmp
@@ -186,8 +187,8 @@ def _triangular_solver_mesh(geometry: PleasantTransientGeometry) -> SolverMesh:
     )
     n_cells = planar.n_cells
     botm = np.stack([np.full(n_cells, b) for b in geometry.botm_m])
-    return SolverMesh(
-        planar_mesh=planar,
+    return solver_mesh_of(
+        planar,
         top=np.full(n_cells, geometry.top_m),
         botm=botm,
         inactive_mask=np.zeros((geometry.nlay, n_cells), dtype=bool),
@@ -221,7 +222,7 @@ def _lake_definition(geometry: PleasantTransientGeometry, *, period: int) -> dic
             "volume": [row[1] for row in geometry.abacus_rows],
             "sarea": [row[2] for row in geometry.abacus_rows],
         },
-        "stageinit": geometry.stage_init_m,
+        "initial_stage": geometry.stage_init_m,
         "rainfall": {"value": geometry.rainfall_m_per_s[period], "units": "m/s"},
         "evaporation": {"value": geometry.evaporation_m_per_s[period], "units": "m/s"},
         "runoff": {"value": geometry.runoff_m3_per_s[period], "units": "m3/s"},
@@ -237,7 +238,7 @@ def _build_irregular_simulation(
     """Build the transient SI MF6 simulation on the irregular triangle grid.
 
     Mirrors ``runtime_lak.build_hmp_simulation``: same TDIS, IMS, NPF, STO, IC,
-    recharge and per-period LAK forcing. Only the discretisation and the CHD edge
+    recharge and per-period LAK forcing. Only the discretization and the CHD edge
     selection differ (the irregular grid has no row / column structure, so the
     constant-head cells are picked by their x position).
     """
@@ -252,10 +253,7 @@ def _build_irregular_simulation(
         model_output_name=_MODEL_NAME,
         model_name=_MODEL_NAME,
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={"lakes": {_LAKE_ID: _lake_definition(geometry, period=0)}},
-        ),
+        inputs=lake_inputs({_LAKE_ID: _lake_definition(geometry, period=0)}),
     )
     lak_args = build_lak_package_args(
         model,
@@ -304,7 +302,7 @@ def _build_irregular_simulation(
         gwf,
         nlay=geometry.nlay,
         **masked.to_disv_kwargs(),
-        idomain=masked.idomain(),
+        idomain=masked.idomain,
         length_units="meters",
     )
     flopy.mf6.ModflowGwfnpf(
@@ -355,8 +353,8 @@ def _irregular_chd(geometry: PleasantTransientGeometry, mesh: SolverMesh) -> lis
     """
     domain = geometry.ncol * geometry.cell_size_m
     margin = geometry.cell_size_m * 0.6
-    centroids = mesh.cell_centroids()
-    idomain = mesh.idomain()
+    centroids = mesh.cell_centers()
+    idomain = mesh.idomain
     rows: list[list[Any]] = []
     for cell in range(mesh.n_cells):
         x = float(centroids[cell, 0])
@@ -408,11 +406,10 @@ def _exchange_flux_per_period(path: Path, n_periods: int) -> tuple[float, ...]:
 
 
 def _run_irregular(workspace: Path, geometry: PleasantTransientGeometry) -> GridRunResult:
-    """Build, run and summarise the irregular triangle-grid LAK simulation."""
+    """Build, run and summarize the irregular triangle-grid LAK simulation."""
     mesh = _triangular_solver_mesh(geometry)
-    vertex_grid = build_vertex_grid_for_intersection(mesh)
     lake_cells = resolve_lake_cells(
-        None, lake_id=_LAKE_ID, polygon=_lake_polygon(geometry), vertex_grid=vertex_grid
+        None, lake_id=_LAKE_ID, polygon=_lake_polygon(geometry), cell_mesh=mesh.cell_mesh
     )
     sim, gwf, connectiondata = _build_irregular_simulation(workspace, geometry, mesh, lake_cells)
     sim.write_simulation(silent=True)

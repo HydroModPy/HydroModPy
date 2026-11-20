@@ -18,10 +18,37 @@ selected through the case `config_boussinesq.toml`, so the geometry stays fixed
 while the nonlinear backend can evolve independently. The analytical
 `boussinesq` variant now defaults to PETSc TS VI.
 
+Solver variants:
+
+- `modflow_nwt` and `modflow6` use the structured grid,
+- `modflow6_irregular_tri` runs the case on one shared irregular-triangle strip,
+- `modflow6_voronoi` runs it on the Voronoi dual of that strip, one cell per node: the
+  side heads sit on the faces, and the cells are read at their nodes and binned by
+  area into the columns of the reference.
+
 Run manually:
 
 ```powershell
 python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_case
 python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_case --solver boussinesq --show
-python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_comparison
 ```
+
+Reference used by the documentation:
+
+- reference: linearized 1D unconfined response to a step of the west boundary head
+- boundary positions: each side head is posed where the model holds it, at the
+  center of the boundary column, or at the mean centroid of the boundary
+  triangles on the triangle strip; a no-flow side stays on the domain face
+  (`validation_cases/shared/strip_geometry.py`)
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+S_y\frac{\partial \eta}{\partial t}=T_0\frac{\partial^2 \eta}{\partial x^2},\qquad \eta(0,t)=\Delta h\,H(t),\qquad \eta(L,t)=0
+$$
+
+$$
+\eta(x,t)=\Delta h\left[1-\frac{x}{L}-\frac{2}{\pi}\sum_{n=1}^{\infty}\frac{\sin\left(n\pi x/L\right)}{n}\exp\left(-D\left(n\pi/L\right)^2 t\right)\right]
+$$

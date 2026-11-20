@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import zarr.codecs
 
+from hydromodpy.core.io.document_version import VersionWindow
+
 # Default Blosc-zstd codec used by every array written by HydroModPy.
 # clevel=5 with bitshuffle is the V1 sweet spot for groundwater fields.
 BLOSC_ZSTD = zarr.codecs.BloscCodec(
@@ -19,13 +21,20 @@ BLOSC_ZSTD = zarr.codecs.BloscCodec(
 # cfchecker flags them as missing standard_name.
 CF_CONVENTIONS = "CF-1.11, ACDD-1.3, UGRID-1.0"
 
-# Schema version of the Zarr layout produced by HydroModPy V1 (P6).
-# Stored in the ``meta`` group attributes and validated on open.
-ZARR_SCHEMA_VERSION = "2"
+# Schema version of the Zarr layout. Stored in the ``meta`` group attributes and
+# validated on open. Version 3 stored the vertical geometry of every cell:
+# ``mesh/z_interfaces`` (layer_interface, face), ``mesh/idomain`` (layer, face)
+# and the ``vertical_layout`` attribute of ``mesh/``. Version 4 signs every budget
+# flux of every solver as MODFLOW does, negative when water leaves the aquifer, and
+# gives every term with layers its layer axis on every solver. A run of an earlier
+# version is refused: it has to be run again.
+ZARR_SCHEMA_VERSION = "4"
+ZARR_VERSIONS = VersionWindow(oldest="4", current=ZARR_SCHEMA_VERSION)
 
-# Subgroups created at store init. ``derived`` and ``budget`` are NOT pre-created:
-# they are opt-in (results.derived.* / budget.spatial_fields) and materialised on
-# demand by the first field write, so a default run carries neither group.
+# Subgroups created at store init. ``budget`` is created by the extraction,
+# which writes the per-cell terms and the attributes that say what it kept.
+# ``derived`` holds only static parameter fields and appears on their first
+# write: every derived field is rebuilt on read.
 _SUBGROUPS = (
     "meta",
     "mesh",

@@ -6,12 +6,21 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.modflow6.extractors._prt_tracks import (
-    read_prt_track_csv,
-    read_time_units_from_tdis,
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import SolverRun
+from hydromodpy.solver.modflow6.extractors._prt_tracks import read_prt_track_csv
+from hydromodpy.solver.modflow_common.time_units import (
+    TRACKING_TIME_UNIT,
+    resolve_solver_time_unit,
 )
 
 logger = get_logger(__name__)
+
+# Axis names of the particle arrays, kept in sync with the store vocabulary of
+# ``results.field_registry`` (AXIS_PARTICLE, AXIS_TRACK_STEP).
+# The layer matrix forbids ``solver`` importing ``results``, so the names are
+# repeated here and pinned by ``tests/unit/results/test_store_axes.py``.
+_TRACK_AXES = ("particle", "track_step")
 
 
 class Modflow6PrtOutputAdapter:
@@ -23,31 +32,27 @@ class Modflow6PrtOutputAdapter:
     padding for shorter tracks.
     """
 
+    process_type = "transport"
     solver_name = "modflow6_prt"
-    category = "distributed"
 
-    def extract(
-        self,
-        sim_id: str,
-        solver_output_dir: Path,
-        store: Any,
-        *,
-        model_name: str | None = None,
-    ) -> None:
-        """Read the first PRT track CSV file found in *solver_output_dir*."""
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Read the first PRT track CSV file in the output folder of a solved run.
 
-        del model_name
-        solver_output_dir = Path(solver_output_dir)
+        Particles keep no per-cell budget, so ``retention`` is not read. The
+        tracking time is in the unit the TDIS file of the folder declares, found
+        by its extension.
+        """
+        del retention
+        solver_output_dir = Path(solver_run.output_dir)
         csv_path = self._find_track_csv(solver_output_dir)
         if csv_path is None:
             logger.warning("No MODFLOW 6 PRT track CSV found in %s", solver_output_dir)
             return
-        tdis_path = next(iter(solver_output_dir.glob("*.tdis")), solver_output_dir / "mfsim.tdis")
         self._extract_track_csv(
-            sim_id,
+            store.sim_id,
             store,
             csv_path,
-            time_units=read_time_units_from_tdis(tdis_path),
+            time_units=resolve_solver_time_unit(solver_output_dir, ""),
         )
 
     @staticmethod
@@ -88,15 +93,24 @@ class Modflow6PrtOutputAdapter:
                 ("z", arrays.z),
                 ("time", arrays.time),
             ]:
-                particles_grp.create_array(name, data=arr, overwrite=True)
+                particles_grp.create_array(
+                    name, data=arr, dimension_names=_TRACK_AXES, overwrite=True
+                )
             if arrays.status is not None:
-                particles_grp.create_array("status", data=arrays.status, overwrite=True)
+                particles_grp.create_array(
+                    "status", data=arrays.status, dimension_names=_TRACK_AXES, overwrite=True
+                )
             if arrays.reason is not None:
-                particles_grp.create_array("reason", data=arrays.reason, overwrite=True)
+                particles_grp.create_array(
+                    "reason", data=arrays.reason, dimension_names=_TRACK_AXES, overwrite=True
+                )
             particles_grp.attrs["source_solver"] = self.solver_name
             particles_grp.attrs["source_file"] = csv_path.name
             particles_grp.attrs["source_time_units"] = arrays.source_time_units
-            particles_grp.attrs["time_units"] = "days"
+            # Tracking clocks are the one product stored in days rather than in
+            # the SI seconds of the simulation time axis: a residence time is
+            # read in days and years. Declared so readers never assume.
+            particles_grp.attrs["time_units"] = TRACKING_TIME_UNIT
         finally:
             sz.close()
 
@@ -106,12 +120,3 @@ class Modflow6PrtOutputAdapter:
             arrays.max_steps,
             sim_id,
         )
-
-    def derive(
-        self,
-        sim_id: str,
-        store: Any,
-        config: dict | None = None,
-    ) -> None:
-        """No derived variables for particle tracking yet."""
-        del sim_id, store, config

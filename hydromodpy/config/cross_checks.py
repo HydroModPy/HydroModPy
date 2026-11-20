@@ -1,0 +1,1100 @@
+"""The checks that cross a document with the flow solver it runs on, and the pairs of keys that spoil each other.
+
+A document uses traits of the ``Model``: a boundary, an option of ``[solver]``, an
+initial state, a sink or a source, the soil reservoir, the K tensor, the layering.
+Each flow solver lists in ``supports`` the traits it honours. A trait the
+document uses and its solver does not list would be ignored in the solve without
+a word, so it is refused while the file is read, with the key the file wrote and
+the solvers that honour it. The rule reads the registry and names no solver.
+
+A transport solver reads products of the flow run it follows, and follows the
+flow solvers its ``requires`` names. A product its flow does not write is
+refused first, then a family its ``requires`` does not name. Two keys that
+spoil each other whatever the solver are one row of ``CONTAMINATIONS``.
+
+A sealed document, the frozen config of a run already on disk, is read as it ran:
+every refusal here only warns there, so a run sealed before a refusal existed
+still reads back.
+
+``CROSS_RULES`` is the table of every rule that reads several sections, one
+``CrossRule(rule, reads)`` per row, named by its function and run in the order of the
+table. ``reads`` names the sections that a rule needs, and a test holds it equal to what
+the function reads. The rules that cross the file with the solvers are functions of
+``solver_supports.py``, and the table names them. The checks of the ``[[export]]`` names
+and of the dates of ``[[export]]`` and ``[display]`` are rows of the same table. A rule
+on one section belongs in the model of that section. A rule that depends on the flow
+solver is not written by hand: the solver lists the trait in ``supports``, and the
+solver rows refuse it.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
+from functools import cached_property
+from typing import Any
+
+from hydromodpy.config.solver_supports import (
+    coarse_conductivity_profile,
+    flow_honors,
+    refuse,
+    refuse_a_native_step_finer_than_the_time_grid,
+    refuse_a_point_method_under_a_lumped_mesh,
+    refuse_a_transport_its_flow_does_not_feed,
+    refuse_a_window_chain_the_run_cannot_carry,
+    refuse_an_ignored_family_written,
+    refuse_face_flows_the_flow_does_not_write,
+    refuse_the_contaminations,
+    refuse_the_reads_the_flow_does_not_write,
+    refuse_the_traits_the_solver_ignores,
+)
+from hydromodpy.core.config_kit.written import written_payload
+from hydromodpy.core.exceptions import ConfigError, HydroModPyError
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.site.config import resolve_gauge
+from hydromodpy.core.time.selection import grid_edges
+from hydromodpy.core.time.window import (
+    build_simulation_time_boundaries,
+    require_flow_simulation_time_grid,
+    resolve_simulation_time_window,
+)
+from hydromodpy.model.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
+from hydromodpy.model.forcing.soil_config import (
+    soil_reservoir_of,
+    spinup_refusal,
+    steady_start_refusal,
+)
+from hydromodpy.model.forcing.validation import refuse_an_impossible_recharge
+from hydromodpy.model.properties.property_table import (
+    PROPERTIES,
+    k_tensor_parameter_ids,
+)
+from hydromodpy.solver.base.registry import solvers
+
+logger = get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# The rules of the sections that read one another, whatever the solver
+# ---------------------------------------------------------------------------
+
+REAL_CATCHMENT_DEFINITIONS: frozenset[str] = frozenset(
+    {"from_outlet_coord", "from_polyg_shp", "dem"}
+)
+"""Values of ``geographic.catchment.kind`` that model a real catchment, named by a site."""
+
+
+def require_site_for_real_catchment(config: Any) -> None:
+    """Refuse a real catchment that no site names.
+
+    A run on a real catchment is grouped, compared and published by its site,
+    never by the name of its project folder. A synthetic domain has no site,
+    and a ``[sites]`` project takes the site of each case from its table row.
+    Raises :class:`~hydromodpy.core.exceptions.ConfigError` naming
+    ``catch_def`` and the key to write.
+    """
+    if getattr(config, "site", None) is not None or getattr(config, "sites", None) is not None:
+        return
+    geographic = getattr(config, "geographic", None)
+    catch_def = getattr(geographic, "catch_def", None) if geographic is not None else None
+    if catch_def not in REAL_CATCHMENT_DEFINITIONS:
+        return
+    raise ConfigError(
+        f"geographic.catchment.kind = {catch_def!r} models a real catchment, and no "
+        '[site] names it. Add [site] with name = "<catchment>" (letters, digits and '
+        'underscores), and gauge = "<station>" when a station measures it.'
+    )
+
+
+def refuse_a_real_catchment_without_a_site(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a real catchment without [site].
+
+    The rule holds for a file read from disk and for a Python caller alike.
+    """
+    try:
+        require_site_for_real_catchment(cfg)
+    except ConfigError as exc:
+        raise ValueError(exc.message) from exc
+
+
+def refuse_a_station_other_than_the_gauge(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a ``[metrics] station`` that is not the ``[site] gauge``.
+
+    A sealed document is read as it was run, so ``[metrics] station`` is not checked.
+    """
+    if sealed:
+        return
+    try:
+        resolve_gauge(cfg.site, getattr(cfg.metrics, "station", None), field="metrics.station")
+    except ConfigError as exc:
+        raise ValueError(exc.message) from exc
+
+
+def refuse_site_and_sites_together(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a document that declares both ``[site]`` and ``[sites]``."""
+    if cfg.site is not None and cfg.sites is not None:
+        raise ValueError(
+            "[site] and [sites] are both declared: a [sites] project takes the site "
+            "of each case from its row of the site table. Remove [site], or remove "
+            "[sites] to model one catchment."
+        )
+
+
+def refuse_a_metrics_window_outside_the_run(cfg: Any, *, sealed: bool) -> list[str]:
+    """Refuse a ``[metrics] window`` that shares no day with ``[simulation.time]``.
+
+    A sealed document, the frozen config of a run already on disk, is read
+    as it was run: the window only warns, and the run has no score.
+    """
+    window = getattr(cfg.metrics, "window", None)
+    run = cfg.simulation.time
+    run_start = getattr(run, "start_datetime", None)
+    run_end = getattr(run, "end_datetime", None)
+    if window is None or run_start is None or run_end is None:
+        return []
+    if window.end >= run_start.date() and window.start <= run_end.date():
+        return []
+    missed = (
+        f"[metrics] window runs from {window.start} to {window.end} and shares no "
+        f"day with [simulation.time], which runs from {run_start.date()} to "
+        f"{run_end.date()}"
+    )
+    if sealed:
+        return [f"{missed}: this sealed run has no score."]
+    raise ValueError(
+        f"{missed}: the run would be scored on nothing. Move the window inside the "
+        "run, or remove it."
+    )
+
+
+def refuse_an_overview_without_its_section(cfg: Any, *, sealed: bool) -> None:
+    """Refuse ``workflow.mode = "overview"`` without an ``[overview]`` section."""
+    if cfg.workflow.mode == "overview" and (cfg.overview is None):
+        raise ValueError(
+            "workflow.mode = 'overview' needs an [overview] section: it names the card and "
+            "holds its window and panels. Add the section, with at least a name."
+        )
+
+
+def refuse_strict_inference_without_types(cfg: Any, *, sealed: bool) -> None:
+    """Refuse ``data.inference_mode = "strict"`` with no explicit data type."""
+    if cfg.data.inference_mode == "strict" and not cfg.data.types:
+        raise ValueError(
+            "data.inference_mode='strict' requires at least one explicit data type in data.types"
+        )
+
+
+def refuse_conditioning_choices_on_a_conditioned_dem(cfg: Any, *, sealed: bool) -> None:
+    """Refuse the conditioning keys a conditioned DEM would ignore in silence.
+
+    A DEM declared ``state = "conditioned"`` on a source of ``[data.dem]`` is
+    routed as it is, so a written ``dem_resolution``, ``crossings.enabled``,
+    ``dem_correc_type`` or ``capped_breach`` would be ignored and read as
+    applied. Each written key is named, not just the first one.
+    """
+    if not _a_dem_source_is_conditioned(cfg.data):
+        return
+    geographic = getattr(cfg, "geographic", None)
+    written: list[str] = []
+    if geographic is not None:
+        written_set = getattr(geographic, "model_fields_set", frozenset())
+        if "dem_correc_type" in written_set:
+            written.append("geographic.dem_correc_type")
+        if "capped_breach" in written_set:
+            written.append("geographic.capped_breach")
+        catchment = getattr(geographic, "catchment", None)
+        if catchment is not None and "dem_resolution" in getattr(
+            catchment, "model_fields_set", frozenset()
+        ):
+            written.append("geographic.catchment.dem_resolution")
+        crossings = getattr(geographic, "crossings", None)
+        if crossings is not None and getattr(crossings, "enabled", False):
+            written.append("geographic.crossings.enabled")
+    if not written:
+        return
+    refuse(
+        "A DEM declared state = 'conditioned' is already conditioned, so "
+        f"{', '.join(written)} would be ignored in silence. Remove the key, "
+        "or declare the DEM as raw.",
+        ConfigError,
+        sealed=sealed,
+    )
+
+
+def _a_dem_source_is_conditioned(data_cfg: Any) -> bool:
+    """Whether any source of ``[data.dem]`` declares ``state = "conditioned"``."""
+    dem = getattr(data_cfg, "dem", None)
+    for source in getattr(dem, "sources", ()) or ():
+        state = (
+            source.get("state") if isinstance(source, Mapping) else getattr(source, "state", None)
+        )
+        if state == "conditioned":
+            return True
+    return False
+
+
+def refuse_a_raster_depth_without_its_substratum(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a raster depth model when ``[data.substratum]`` declares no raster."""
+    depth_kind = cfg.domain.depth_model.kind
+    if depth_kind in RASTER_DEPTH_MODEL_KINDS and cfg.data.substratum is None:
+        raise ValueError(
+            f"domain.depth_model kind = {depth_kind!r} reads the raster declared under "
+            "[data.substratum]; declare it with one custom source."
+        )
+
+
+def refuse_a_river_mesh_without_a_threshold(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a mesh that needs the river network when no threshold is set.
+
+    The mesh switches ``[geographic.river_network]`` on by itself, so the
+    threshold check of that section never ran and the run stopped at
+    ``build_geographic`` on a message that named neither the section nor the
+    mesh. The rule is ``MeshConfig.requires_river_trace``, the one the
+    geographic step reads.
+    """
+    geographic = cfg.geographic
+    if geographic.uses_synthetic_geographic():
+        return
+    river_network = geographic.river_network
+    if bool(river_network.enabled):
+        return
+    mesh = cfg.mesh
+    if mesh is None:
+        return
+    active_bc = {str(name).lower() for name in cfg.flow.active_bc}
+    if not mesh.requires_river_trace(active_bc=active_bc, synthetic=False):
+        return
+    if mesh.triangle is not None and mesh.triangle.path is not None:
+        needed_by = "The 'stream' boundary on a [mesh.triangle] path mesh"
+    elif mesh.families.rivers == "cell":
+        needed_by = f"[mesh] engine = {mesh.engine!r} with families.rivers = 'cell'"
+    else:
+        needed_by = "[[mesh.refinement_zone]] where = 'height_above_stream'"
+    refusal = river_network.missing_threshold_refusal(needed_by=needed_by)
+    if refusal is not None:
+        raise ValueError(refusal)
+
+
+def refuse_a_calibration_without_parameters(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a ``[calibration]`` when ``flow.param_list`` names nothing to tune.
+
+    A flow solver without field properties, such as a global model, calibrates
+    its own solver options, so ``flow.param_list`` may stay empty under it.
+    """
+    if cfg.calibration is not None and flow_honors(cfg, PROPERTIES) and not cfg.flow.param_list:
+        raise ValueError(
+            "[calibration] requires flow.param_list to declare at least one tunable parameter"
+        )
+
+
+def refuse_the_soil_forcing_a_file_doubles_or_leaves_out(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a soil reservoir whose rain, ETP or discharge a data type loads twice or never."""
+    if soil_reservoir_of(cfg.flow) is None:
+        return
+    data_cfg = cfg.data
+    # data.types is read as declared here: recharge and runoff are never
+    # inferred (data/loading/planner.py), so a fully-silent double count
+    # would otherwise pass validation.
+    declared_data_types = set(getattr(data_cfg, "types", []) or [])
+    if "recharge" in declared_data_types:
+        raise ValueError(
+            "[flow.sinks_sources.recharge.soil] computes the recharge from "
+            "the precipitation and the ETP, and data.types also loads one "
+            "from [data.recharge]: the model would receive one and ignore "
+            'the other. Remove "recharge" from data.types to keep the soil '
+            "reservoir (and write recharge__delete = true under [data] if a "
+            "base file declares it), or remove "
+            "[flow.sinks_sources.recharge.soil] to use the loaded recharge."
+        )
+    if "runoff" in declared_data_types:
+        raise ValueError(
+            "[data.runoff] loads a surface runoff that already takes its "
+            "share of the rain the soil reservoir receives (SIM2 RUNC, for "
+            "instance): the streams, the lakes and the gauged discharge "
+            'would count that water twice. Remove "runoff" from data.types '
+            "(and write runoff__delete = true under [data] if a base file "
+            "declares it); in soil mode the water that seeps out of "
+            "saturated ground reaches the streams through the drains, and "
+            "sealed ground through impervious_fraction."
+        )
+    if getattr(data_cfg, "precipitation", None) is None:
+        raise ValueError(
+            "[flow.sinks_sources.recharge.soil] fills the soil with daily "
+            "precipitation, and no [data.precipitation] section says where "
+            "to read it: add a [[data.precipitation.sources]] block, for "
+            'example source = "sim2" with extent = "watershed".'
+        )
+    if getattr(data_cfg, "etp", None) is None:
+        raise ValueError(
+            "[flow.sinks_sources.recharge.soil] empties the soil with "
+            "daily ETP, and no [data.etp] section says where to read it: "
+            'add a [[data.etp.sources]] block, for example source = "sim2" '
+            'with extent = "watershed".'
+        )
+
+
+def refuse_a_soil_recharge_that_cannot_reach_the_streams(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a soil reservoir switched off, or a lake its drains could not feed."""
+    if soil_reservoir_of(cfg.flow) is None:
+        return
+    flow_cfg = cfg.flow
+    active_sinks_sources = {
+        str(name).lower() for name in getattr(flow_cfg, "active_sinks_sources", []) or []
+    }
+    if "recharge" not in active_sinks_sources:
+        raise ValueError(
+            "[flow.sinks_sources.recharge.soil] computes a recharge and its table "
+            "says enabled = false, so MODFLOW would receive none: remove "
+            "enabled = false, or remove the soil section."
+        )
+
+    soil_active_bc = {str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []}
+    if "lake" in soil_active_bc and "sfr" not in soil_active_bc:
+        raise ValueError(
+            "[flow.sinks_sources.lakes] declares a lake with no stream network: in "
+            "soil mode the water that seeps out of the ground reaches a lake "
+            "only through the stream network, so the lake would receive "
+            "none of it. Declare a [flow.sinks_sources.sfr] network, or remove "
+            "[flow.sinks_sources.recharge.soil] and load [data.runoff] as before."
+        )
+    if "lake" in soil_active_bc:
+        soil_sinks = getattr(flow_cfg, "sinks_sources", None)
+        soil_sfr = getattr(soil_sinks, "sfr", None) or {}
+        items = soil_sfr.items() if hasattr(soil_sfr, "items") else []
+        for network_id, network in items:
+            flag = (
+                network.get("route_drainage", True)
+                if isinstance(network, dict)
+                else getattr(network, "route_drainage", True)
+            )
+            if flag is False:
+                raise ValueError(
+                    f"[flow.sinks_sources.sfr.{network_id}] sets route_drainage = "
+                    "false with a lake and [flow.sinks_sources.recharge.soil]: the "
+                    "water of the drains would leave the model and the lake would "
+                    "receive only its own rain. Remove route_drainage = false "
+                    "(it is on by default)."
+                )
+
+
+def refuse_soil_precipitation_in_parts(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a soil reservoir fed by a precipitation that loads more than ``total``."""
+    if soil_reservoir_of(cfg.flow) is None:
+        return
+    for precip_source in getattr(getattr(cfg.data, "precipitation", None), "sources", []) or []:
+        components = list(getattr(precip_source, "components", []) or [])
+        if components != ["total"]:
+            raise ValueError(
+                f"[data.precipitation] loads components = {components!r}, "
+                "and the soil reservoir takes one precipitation grid: two "
+                "grids would be averaged, not added. Write "
+                'components = ["total"], which counts the snow as rain.'
+            )
+
+
+class _TimeOfTheRun:
+    """The window and the period boundaries of ``[simulation.time]``, built once.
+
+    A walk of ``CROSS_RULES`` builds one and hands it to each rule that reads the
+    time, so a run of 2 192 daily periods builds its boundaries once per walk and
+    converts them to an index once. Nothing is kept past the walk, and a value
+    that raises is raised again at each read.
+    """
+
+    def __init__(self, cfg: Any) -> None:
+        self._cfg = cfg
+
+    @cached_property
+    def window(self) -> Any:
+        """The resolved window, or ``None`` when the file has no ``[simulation.time]``."""
+        return resolve_simulation_time_window(self._cfg)
+
+    @cached_property
+    def boundaries(self) -> list[Any] | None:
+        """The half-open period boundaries of the window, or ``None`` without a window."""
+        window = self.window
+        return None if window is None else build_simulation_time_boundaries(window)
+
+    @cached_property
+    def edges(self) -> Any:
+        """The boundaries as a checked tz-naive index, which ``grid_edges`` reads."""
+        return grid_edges(self)
+
+
+def refuse_a_soil_run_the_time_cannot_carry(
+    cfg: Any, *, sealed: bool, time: _TimeOfTheRun | None = None
+) -> None:
+    """Refuse a soil reservoir without a daily window, a spin-up year, or a drained first period.
+
+    *time* is the time of the run a walk of ``CROSS_RULES`` built once. Without
+    it, the rule builds its own.
+    """
+    soil = soil_reservoir_of(cfg.flow)
+    if soil is None:
+        return
+    time = _TimeOfTheRun(cfg) if time is None else time
+    window = time.window
+    if window is None:
+        raise ValueError(
+            "[flow.sinks_sources.recharge.soil] runs day by day over "
+            "[simulation.time], which this file does not declare: add "
+            "start_datetime, end_datetime and step_value."
+        )
+
+    boundaries = time.boundaries
+    run_days = (boundaries[-1] - boundaries[0]).days
+    spinup_message = spinup_refusal(soil, run_days)
+    if spinup_message is not None:
+        raise ValueError(spinup_message)
+
+    steady_start_message = steady_start_refusal(cfg.flow, window)
+    if steady_start_message is not None:
+        raise ValueError(steady_start_message)
+
+
+def refuse_a_recharge_the_model_would_not_read(cfg: Any, *, sealed: bool) -> None:
+    """Refuse an impossible recharge rate, or one a loaded recharge replaces."""
+    declared_recharge = getattr(cfg.flow.sinks_sources, "recharge", None)
+    if declared_recharge is None:
+        return
+    refuse_an_impossible_recharge(
+        declared_recharge.peak_rate_mm_day(),
+        label="flow.sinks_sources.recharge.values",
+    )
+    if (
+        soil_reservoir_of(cfg.flow) is None
+        and "recharge" in set(getattr(cfg.data, "types", []) or [])
+        and declared_recharge.peak_rate_mm_day() != 0.0
+    ):
+        raise ValueError(
+            f"flow.sinks_sources.recharge.values = {declared_recharge.values!r} would be "
+            "replaced by the series [data.recharge] loads, so the model would not read "
+            "it: remove values (write values__delete = true if a base file declares "
+            'it), or remove "recharge" from data.types to impose this rate.'
+        )
+
+
+def refuse_a_soil_capacity_without_the_soil(cfg: Any, *, sealed: bool) -> None:
+    """Refuse ``[data.soil_capacity]`` when no soil reservoir reads it."""
+    if soil_reservoir_of(cfg.flow) is None and getattr(cfg.data, "soil_capacity", None) is not None:
+        raise ValueError(
+            "[data.soil_capacity] is read only by the soil reservoir, and this "
+            "file declares no [flow.sinks_sources.recharge.soil]: declare the "
+            "soil section, or remove [data.soil_capacity]."
+        )
+
+
+def refuse_layer_bases_that_do_not_match(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a layering by surfaces whose rasters ``[data.layer_base]`` does not match.
+
+    A layering by surfaces reads its rasters by name from ``[data.layer_base]``,
+    and the two lists must match. What a solver reads of the layering is checked
+    against its ``supports`` by ``refuse_the_traits_the_solver_ignores``.
+    """
+    layers = cfg.domain.layers
+    layer_base = cfg.data.layer_base
+    declared = set() if layer_base is None else {source.name for source in layer_base.sources}
+    read = set(layers.base_surface_names)
+    if read - declared:
+        raise ValueError(
+            f"[domain.layers] reads the base surfaces {sorted(read - declared)}, and "
+            "[data.layer_base] does not declare them. Add one "
+            "[[data.layer_base.sources]] entry per name, with its raster."
+        )
+    if declared - read:
+        raise ValueError(
+            f"[data.layer_base] declares {sorted(declared - read)}, and no layer of "
+            "[domain.layers] reads them as its surface. Give a layer that surface, or "
+            "remove the entries."
+        )
+
+
+def refuse_property_maps_that_do_not_match(cfg: Any, *, sealed: bool) -> list[str]:
+    """Refuse a raster parameter whose map ``[data.property_map]`` does not declare.
+
+    A ``[flow.param.<id>.field]`` of kind ``raster`` reads its map by name from
+    ``[data.property_map]``. A map no parameter reads is only named, since a project
+    may keep several maps and read one at a time.
+    """
+    section = cfg.data.property_map
+    declared = set() if section is None else {source.name for source in section.sources}
+    readers = {
+        param.field.map: name
+        for name, param in cfg.flow.param.items()
+        if getattr(param.field, "kind", None) == "raster"
+    }
+    unknown = sorted(set(readers) - declared)
+    if unknown:
+        raise ValueError(
+            f"{', '.join(f'flow.param.{readers[name]}' for name in unknown)} reads the map(s) "
+            f"{unknown}, and [data.property_map] declares {sorted(declared) or 'none'}. Add "
+            "one [[data.property_map.sources]] entry per name, with its raster."
+        )
+    unread = sorted(declared - set(readers))
+    if unread:
+        return [
+            f"[data.property_map] declares {unread}, and no [flow.param.<id>.field] of kind "
+            "'raster' reads them."
+        ]
+    return []
+
+
+def refuse_an_angle_with_a_depth_profile(cfg: Any, *, sealed: bool) -> None:
+    """Refuse an angle of the K tensor with a depth profile.
+
+    An angle is a direction: a vertical profile would scale it with depth,
+    which has no meaning. Whether the solver reads the tensor at all is checked
+    against its ``supports`` by ``refuse_the_traits_the_solver_ignores``.
+    """
+    params = cfg.flow.param or {}
+    for param_id in k_tensor_parameter_ids(params):
+        profile = getattr(params[param_id], "field_vertical_profile", None)
+        if param_id.startswith("angle") and profile is not None and profile.kind != "none":
+            raise ValueError(
+                f"flow.param.{param_id} has a vertical profile, which would scale the "
+                "angle with depth. Remove [flow.param."
+                f"{param_id}.field_vertical_profile]; give the angle per zone instead."
+            )
+
+
+def refuse_a_solver_that_cannot_read_the_mesh(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a solver paired with a mesh engine whose cells it cannot read.
+
+    Raised while the document is read, before any step of the pipeline runs.
+    The engine is the one of ``[mesh]``, or ``regular`` when the section is
+    absent. The rule is ``engine_accepted`` of the mesh registry.
+    """
+    from hydromodpy.mesh import registry as mesh_registry
+    from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
+
+    mesh = cfg.mesh
+    engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
+    solver_name = cfg.solver.backend_name
+    accepted = solvers.get("flow", solver_name).accepted_meshes
+    if mesh_registry.engine_accepted(accepted, engine_id):
+        return
+    names = ", ".join(sorted(accepted - {ANY_PLANAR_ENGINE}))
+    if ANY_PLANAR_ENGINE in accepted:
+        names += " and any engine with planar cells that is not lumped"
+    readers = sorted(
+        name
+        for name in solvers.names("flow")
+        if mesh_registry.engine_accepted(solvers.get("flow", name).accepted_meshes, engine_id)
+    )
+    origin = "" if mesh is not None and "engine" in mesh.model_fields_set else " (the default)"
+    raise ValueError(
+        f"solver {solver_name!r} reads the meshes of the engines {names}, and mesh.engine "
+        f"is {engine_id!r}{origin}. Write [mesh] engine with one of the engines the solver "
+        f"reads, or run a solver that reads {engine_id!r}"
+        + (f" ({', '.join(readers)})." if readers else ".")
+    )
+
+
+def refuse_a_cell_address_on_an_irregular_mesh(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a ``[lay, row, col]`` address when the mesh has no rows and columns.
+
+    A well (``location.kind = "cell"``) or an explicit SFR reach
+    (``reaches[].cell``) names its cell by layer, row and column. Only the
+    ``regular`` engine has rows and columns: on a triangle or Voronoi mesh the
+    address names no cell, and the build would stop on it after meshing. The
+    engine is the one of ``[mesh]``, or ``regular`` when the section is absent.
+    """
+    from hydromodpy.mesh import registry as mesh_registry
+
+    mesh = cfg.mesh
+    engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
+    if engine_id == "regular":
+        return
+    sinks_sources = cfg.flow.sinks_sources
+    addressed: list[str] = []
+    for well_id, well in (getattr(sinks_sources, "wells", None) or {}).items():
+        if getattr(getattr(well, "location", None), "kind", None) == "cell":
+            addressed.append(f"flow.sinks_sources.wells.{well_id}.location")
+    for network_id, network in (getattr(sinks_sources, "sfr", None) or {}).items():
+        for index, reach in enumerate(getattr(network, "reaches", None) or []):
+            if getattr(getattr(reach, "cell", None), "kind", None) == "cell":
+                addressed.append(f"flow.sinks_sources.sfr.{network_id}.reaches[{index}].cell")
+    if addressed:
+        raise ValueError(
+            f"A cell is addressed by [lay, row, col] at {', '.join(addressed)}, and "
+            f"mesh.engine is {engine_id!r}: only the 'regular' engine has rows and "
+            "columns. Locate a well by coordinates (absolute_xy or relative_xy), or "
+            'write [mesh] engine = "regular".'
+        )
+
+
+# ---------------------------------------------------------------------------
+# The rules of ``[[export]]`` and ``[display]`` against the run
+# ---------------------------------------------------------------------------
+
+
+def _time_grid(cfg: object, time: _TimeOfTheRun) -> tuple[Any, int] | None:
+    """Return the period edges and the period count of the run, or None if undecidable.
+
+    The store holds one record per stress period, so the grid
+    ``[simulation.time]`` resolves to is what a date or an index is read
+    against. Only the boundaries are built, once per walk, and the period
+    lengths a solver reads are left to the run. ``None`` is returned rather
+    than a guess when the grid does not resolve here: a config whose window is
+    refused by another validator further down. A missed check costs a late
+    error; a wrong grid would refuse a run that is correct.
+    """
+    try:
+        boundaries = time.boundaries
+    except ValueError:
+        # The window itself is malformed. It has its own message, raised where
+        # the grid is built for real; shadowing it here would say the wrong thing.
+        return None
+    if boundaries is None:
+        # No [simulation.time]: a steady flow run has one period and no dates.
+        try:
+            grid = require_flow_simulation_time_grid(cfg)
+        except ValueError:
+            return None
+        if grid is None:
+            return None
+        nper = int(getattr(grid, "nper", 0))
+        return (grid_edges(grid), nper) if nper >= 1 else None
+    nper = len(boundaries) - 1
+    if nper < 1:
+        return None
+    try:
+        edges = time.edges
+    except ValueError:
+        # Boundaries that do not increase: the run refuses them where it builds its periods.
+        return None
+    return edges, nper
+
+
+def _time_selectors(cfg: object) -> list[tuple[str, str, Any]]:
+    """Return every ``(where, kind, selector)`` a config reads a time with.
+
+    ``kind`` is ``"instant"`` for one selector, ``"dates"`` for a list of them
+    and ``"period"`` for a ``(start, end)`` pair. The ``[[export]]`` blocks give
+    ``time`` and ``period``; a ``[[display.figure]]`` gives ``time`` when it is one
+    date, at the figure level or in a panel.
+    """
+    selectors: list[tuple[str, str, Any]] = []
+    for index, request in enumerate(getattr(cfg, "export", None) or ()):
+        selectors.append((f"export[{index}].time", "dates", request.times))
+        if request.period is not None:
+            selectors.append((f"export[{index}].period", "period", request.period))
+    for index, figure in enumerate(getattr(getattr(cfg, "display", None), "figure", None) or ()):
+        for where, panel in [(f"display.figure[{index}]", figure)] + [
+            (f"display.figure[{index}].panels[{n}]", p) for n, p in enumerate(figure.panels or ())
+        ]:
+            if panel.time is not None and not isinstance(panel.time, list):
+                selectors.append((f"{where}.time", "instant", panel.time))
+    return selectors
+
+
+def refuse_a_time_the_run_does_not_hold(
+    cfg: Any, *, sealed: bool, time: _TimeOfTheRun | None = None
+) -> None:
+    """Refuse a date or a step the run will not hold.
+
+    Reads every time selector of ``[[export]]`` and ``[display]`` against the
+    stress periods ``[simulation.time]`` resolves to: a date outside the
+    record, a date on a steady run without a window, a step index past the
+    end, two dates of one list that read the same period. The mistake costs
+    nothing: no solve is paid for before it is caught. *time* is the time of
+    the run a walk of ``CROSS_RULES`` built once. Without it, the rule builds
+    its own.
+    """
+    from hydromodpy.core.time.selection import (
+        TimeSelectionError,
+        resolve_instant,
+        resolve_instants,
+        resolve_period,
+    )
+
+    selectors = _time_selectors(cfg)
+    if not selectors:
+        return
+    grid = _time_grid(cfg, _TimeOfTheRun(cfg) if time is None else time)
+    if grid is None:
+        return
+    edges, nper = grid
+    count = None if edges is not None else nper
+    refused: list[str] = []
+    for where, kind, selector in selectors:
+        try:
+            if kind == "period":
+                resolve_period(selector[0], selector[1], edges, n_periods=count)
+            elif kind == "dates":
+                resolve_instants(selector, edges, n_periods=count)
+            else:
+                resolve_instant(selector, edges, n_periods=count)
+        except TimeSelectionError as exc:
+            refused.append(f"  {where}: {exc}")
+    if refused:
+        refuse(
+            "a time names no stress period of this run "
+            f"([simulation.time] resolves to {nper} period{'s' if nper > 1 else ''}):\n"
+            + "\n".join(refused),
+            ConfigError,
+            sealed=sealed,
+        )
+
+
+_UNKNOWN_RUN_LABEL = "\0run"
+"""The run name a file of several variables is planned under before the run exists.
+
+The real stem is the name of the run directory, which a document does not hold.
+A NUL byte is in no path a file system takes, so a planned stem never meets a
+``file`` or a single name written in a block. Two blocks that both write the
+stem of the run still meet, whatever the run is called. A ``file`` that takes
+the name of the run is refused at the start of the export instead.
+"""
+
+
+def refuse_an_export_that_cannot_be_written(cfg: Any, *, sealed: bool) -> None:
+    """Refuse an ``[[export]]`` block that cannot be written.
+
+    Every name is looked up in the vocabulary of what a run can export, and
+    each block is planned file by file with the kind of each name. A name no
+    run can hold, a kind the format cannot carry, a ``crs`` or ``resolution``
+    no file takes, a ``file`` that would be several files, and two blocks
+    writing one file are refused, each naming its block (``export[2]``).
+    """
+    from hydromodpy.results.exporters.export_spec import plan_outputs
+    from hydromodpy.results.exporters.vocabulary import describe_export_names, export_kind
+
+    requests = list(getattr(cfg, "export", None) or ())
+    if not requests:
+        return
+    unknown = [
+        f"export[{index}]: {name!r}"
+        for index, request in enumerate(requests)
+        for name in request.names
+        if export_kind(name) is None
+    ]
+    if unknown:
+        refuse(
+            f"no run can export {', '.join(unknown)}. The names a run can export:\n"
+            f"{describe_export_names()}\n"
+            "'hmp export <run> --list' prints the ones a given run holds.",
+            ConfigError,
+            sealed=sealed,
+        )
+        return
+    writers: dict[str, int] = {}
+    for index, request in enumerate(requests):
+        kinds = {name: export_kind(name) for name in request.names}
+        try:
+            planned = plan_outputs(request, kinds, run_label=_UNKNOWN_RUN_LABEL)
+        except ValueError as exc:
+            refuse(f"export[{index}]: {exc}", ConfigError, sealed=sealed)
+            return
+        for item in planned:
+            path = str(item.path)
+            first = writers.setdefault(path, index)
+            if first != index:
+                path = path.replace(_UNKNOWN_RUN_LABEL, "<run>")
+                refuse(
+                    f"export[{first}] and export[{index}] both write {path}. Give one of "
+                    "them its own file or folder.",
+                    ConfigError,
+                    sealed=sealed,
+                )
+                return
+
+
+def _written_by_the_run(cfg: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """The stored names the solvers of the run write, and the names of those solvers.
+
+    A solver the registry does not know is left out: its own rule refuses it.
+    """
+    names = [str(cfg.solver.backend_name)]
+    written = list(solvers.get("flow", cfg.solver.backend_name).writes)
+    for process in getattr(cfg.simulation, "process", None) or ():
+        kind = getattr(process, "kind", None)
+        if kind in (None, "flow"):
+            continue
+        for name in getattr(process, "solvers", None) or ():
+            try:
+                written.extend(solvers.get(kind, name).writes)
+            except solvers.error:
+                continue
+            names.append(str(name))
+    return tuple(written), tuple(names)
+
+
+def warn_of_what_the_run_cannot_draw_or_export(cfg: Any, *, sealed: bool) -> list[str]:
+    """Name each figure and each export this run cannot make, before the solve.
+
+    A field no solver of the run writes (a concentration with no transport, the
+    particles with no tracking, a budget term the flow solver keeps none of), a layer
+    past the last one of the model, and a figure of a calibration session in a file
+    that calibrates nothing. The run skips each of them and says so again. A name
+    whose data depends on what the run loads, a series or a layer of the map, is
+    left to the run, which skips it when it holds none. A sealed document says
+    nothing: its run is made.
+    """
+    from fnmatch import fnmatch
+
+    from hydromodpy.display.presets import PRESETS
+    from hydromodpy.display.request import SESSION, SPECIALS, expand, file_stem, required_variables
+    from hydromodpy.results import field_registry
+    from hydromodpy.results.exporters.export_spec import PATHLINES
+
+    if sealed:
+        return []
+    written, solver_names = _written_by_the_run(cfg)
+    by_whom = f"no solver of this run writes it ({', '.join(solver_names)})"
+    layers = cfg.domain.layers.layer_count
+    mode = getattr(getattr(cfg, "workflow", None), "mode", None)
+    calibrates = mode == "calibration" or (mode is None and cfg.calibration is not None)
+
+    def unwritten(name: str) -> bool:
+        if name == PATHLINES:
+            return not any(item.startswith("particles/") for item in written)
+        if not field_registry.has(name):
+            return False
+        path = field_registry.get(name).zarr_path
+        if path.startswith("derived/"):
+            return False  # rebuilt on read from what the solver wrote
+        return not any(fnmatch(path, item) or fnmatch(f"{path}/", item) for item in written)
+
+    def past_the_layers(layer: object) -> str | None:
+        if isinstance(layer, int) and layer >= layers:
+            return f"layer {layer} is past the {layers} layer(s) of the model, 0 to {layers - 1}"
+        return None
+
+    said: list[str] = []
+    display = getattr(cfg, "display", None)
+    if display is not None and display.enabled:
+        presets = {**PRESETS, **display.presets}
+        for index, request in enumerate(display.figure):
+            where = f"display.figure[{index}] {file_stem(request)!r}"
+            figure = expand(request, presets)
+            if figure.special is not None and SPECIALS[figure.special].subject == SESSION:
+                if not calibrates and request.when != SESSION:
+                    said.append(
+                        f"{where} draws a calibration session and this file calibrates "
+                        "nothing, so the run does not draw it."
+                    )
+                continue
+            reasons = [
+                f"{name}: {by_whom}"
+                for name in required_variables(request, presets, terms=False)
+                if unwritten(name)
+            ]
+            reasons += [
+                reason
+                for panel in figure.panels
+                if (reason := past_the_layers(panel.layer)) is not None
+            ]
+            if reasons:
+                said.append(f"{where} is not drawn by the run: {'; '.join(reasons)}.")
+    for index, request in enumerate(getattr(cfg, "export", None) or ()):
+        reasons = [f"{name}: {by_whom}" for name in request.names if unwritten(name)]
+        if (reason := past_the_layers(request.layer)) is not None:
+            reasons.append(reason)
+        if reasons:
+            said.append(f"export[{index}] is not written by the run: {'; '.join(reasons)}.")
+    return said
+
+
+@dataclass(frozen=True)
+class CrossRule:
+    """One rule that reads several validated sections together.
+
+    ``reads`` names the root sections the rule reads, so the check of a draft runs
+    it only once each of them is complete. ``rule(sections, *, sealed)`` reads the
+    sections as attributes, raises a ``ValueError`` or a typed error on a
+    refusal, and returns the warnings it gives. ``code`` is the check code of its
+    refusal. The name of the rule is the name of its function.
+    """
+
+    rule: Callable[..., Iterable[str] | None]
+    reads: frozenset[str]
+    code: str = "cross_rule"
+    reads_the_time: bool = False
+    """True hands the rule, as ``time``, the window and the boundaries the walk builds once."""
+
+    @property
+    def name(self) -> str:
+        return self.rule.__name__
+
+
+@dataclass(frozen=True)
+class RuleOutcome:
+    """What one rule said of a document: its refusal, or its warnings."""
+
+    rule: CrossRule
+    error: Exception | None = None
+    warnings: tuple[str, ...] = ()
+
+
+def _reads(*sections: str) -> frozenset[str]:
+    return frozenset(sections)
+
+
+_SOLVER_AND_TRAITS = _reads("solver", "flow", "domain", "calibration")
+
+CROSS_RULES: dict[str, CrossRule] = {
+    rule.name: rule
+    for rule in (
+        CrossRule(refuse_a_real_catchment_without_a_site, _reads("geographic", "site", "sites")),
+        CrossRule(refuse_a_station_other_than_the_gauge, _reads("site", "metrics")),
+        CrossRule(refuse_site_and_sites_together, _reads("site", "sites")),
+        CrossRule(refuse_a_metrics_window_outside_the_run, _reads("metrics", "simulation")),
+        CrossRule(refuse_an_overview_without_its_section, _reads("workflow", "overview")),
+        CrossRule(refuse_strict_inference_without_types, _reads("data")),
+        CrossRule(refuse_conditioning_choices_on_a_conditioned_dem, _reads("data", "geographic")),
+        CrossRule(refuse_a_raster_depth_without_its_substratum, _reads("domain", "data")),
+        CrossRule(refuse_a_river_mesh_without_a_threshold, _reads("geographic", "mesh", "flow")),
+        CrossRule(refuse_a_calibration_without_parameters, _reads("calibration", "flow", "solver")),
+        # What the flow solver ignores is named before the checks of one section,
+        # and the traits it ignores come first, so a lake under a solver without
+        # lakes is named for that before any pair it belongs to.
+        CrossRule(refuse_the_traits_the_solver_ignores, _SOLVER_AND_TRAITS, "incompatible"),
+        CrossRule(
+            refuse_the_reads_the_flow_does_not_write, _reads("solver", "simulation"), "incompatible"
+        ),
+        CrossRule(
+            refuse_face_flows_the_flow_does_not_write,
+            _reads("solver", "simulation"),
+            "incompatible",
+        ),
+        CrossRule(refuse_an_ignored_family_written, _reads("mesh"), "incompatible"),
+        CrossRule(
+            refuse_a_point_method_under_a_lumped_mesh, _reads("mesh", "flow"), "incompatible"
+        ),
+        CrossRule(
+            refuse_a_native_step_finer_than_the_time_grid,
+            _reads("solver", "simulation", "flow"),
+            "incompatible",
+        ),
+        CrossRule(refuse_a_transport_its_flow_does_not_feed, _reads("solver", "simulation")),
+        CrossRule(refuse_the_contaminations, _SOLVER_AND_TRAITS, "contamination"),
+        CrossRule(
+            refuse_a_window_chain_the_run_cannot_carry,
+            _reads("simulation", "flow", "solver", "workflow"),
+            "incompatible",
+        ),
+        CrossRule(coarse_conductivity_profile, _reads("solver", "domain", "flow")),
+        CrossRule(refuse_the_soil_forcing_a_file_doubles_or_leaves_out, _reads("flow", "data")),
+        CrossRule(refuse_a_soil_recharge_that_cannot_reach_the_streams, _reads("flow")),
+        CrossRule(refuse_soil_precipitation_in_parts, _reads("flow", "data")),
+        CrossRule(
+            refuse_a_soil_run_the_time_cannot_carry,
+            _reads("flow", "simulation"),
+            reads_the_time=True,
+        ),
+        CrossRule(refuse_a_recharge_the_model_would_not_read, _reads("flow", "data")),
+        CrossRule(refuse_a_soil_capacity_without_the_soil, _reads("flow", "data")),
+        CrossRule(refuse_layer_bases_that_do_not_match, _reads("domain", "data")),
+        CrossRule(refuse_property_maps_that_do_not_match, _reads("flow", "data")),
+        CrossRule(refuse_an_angle_with_a_depth_profile, _reads("flow")),
+        # Last, so a fault of the solver itself is named before a mesh it would not read.
+        CrossRule(refuse_a_solver_that_cannot_read_the_mesh, _reads("solver", "mesh")),
+        CrossRule(refuse_a_cell_address_on_an_irregular_mesh, _reads("mesh", "flow")),
+        # What a run would refuse at its first step, so a mistake costs no solve.
+        CrossRule(
+            refuse_a_time_the_run_does_not_hold,
+            _reads("export", "display", "simulation", "flow"),
+            reads_the_time=True,
+        ),
+        CrossRule(refuse_an_export_that_cannot_be_written, _reads("export")),
+        # What the run would skip after the solve, said before it.
+        CrossRule(
+            warn_of_what_the_run_cannot_draw_or_export,
+            _reads(
+                "display", "export", "solver", "simulation", "domain", "workflow", "calibration"
+            ),
+        ),
+    )
+}
+"""The rules that read several sections of a validated document, in the order they run.
+
+The validator of the root walks them, and the loader and the check run them all
+and keep every refusal. A new rule is one row here, with the sections it reads.
+"""
+
+
+def run_cross_rules(
+    sections: Any,
+    *,
+    sealed: bool,
+    ready: Callable[[CrossRule], bool] | None = None,
+    first_only: bool = False,
+) -> list[RuleOutcome]:
+    """Run each row of ``CROSS_RULES`` on *sections*, in order, and return what each said.
+
+    *sections* is the built document, or any object that holds the validated
+    sections as attributes. *ready* skips a rule whose sections are not complete
+    yet. A configuration read as a draft runs a rule only once each section it
+    reads is written. *first_only* stops at the first refusal, as a validator
+    does. The time of the run is built once for the walk, and only if a rule
+    reads it.
+    """
+    written = None
+    if getattr(sections, "read_as_draft", False):
+        written = {name for name, value in written_payload(sections).items() if value}
+    outcomes: list[RuleOutcome] = []
+    time = _TimeOfTheRun(sections)
+    for rule in CROSS_RULES.values():
+        if ready is not None and not ready(rule):
+            continue
+        if written is not None and not rule.reads <= written:
+            continue
+        given = {"time": time} if rule.reads_the_time else {}
+        try:
+            said = tuple(rule.rule(sections, sealed=sealed, **given) or ())
+        except (ValueError, HydroModPyError) as exc:
+            outcomes.append(RuleOutcome(rule, error=exc))
+            if first_only:
+                break
+            continue
+        outcomes.append(RuleOutcome(rule, warnings=said))
+    return outcomes
+
+
+def check_against_the_solver(cfg: Any, *, sealed: bool) -> None:
+    """Run every row of ``CROSS_RULES`` on a validated document, and raise the first refusal.
+
+    The rows are the checks against the flow solver and the rules between sections.
+    A warning of a rule is logged as it comes, so a rule after a refusal says nothing.
+    """
+    for outcome in run_cross_rules(cfg, sealed=sealed, first_only=True):
+        for text in outcome.warnings:
+            logger.warning("%s", text)
+        if outcome.error is not None:
+            raise outcome.error
+
+
+__all__ = [
+    "CROSS_RULES",
+    "CrossRule",
+    "REAL_CATCHMENT_DEFINITIONS",
+    "RuleOutcome",
+    "check_against_the_solver",
+    "refuse_a_calibration_without_parameters",
+    "refuse_a_cell_address_on_an_irregular_mesh",
+    "refuse_a_metrics_window_outside_the_run",
+    "refuse_a_raster_depth_without_its_substratum",
+    "refuse_a_real_catchment_without_a_site",
+    "refuse_a_recharge_the_model_would_not_read",
+    "refuse_a_river_mesh_without_a_threshold",
+    "refuse_a_soil_capacity_without_the_soil",
+    "refuse_a_soil_recharge_that_cannot_reach_the_streams",
+    "refuse_a_soil_run_the_time_cannot_carry",
+    "refuse_a_solver_that_cannot_read_the_mesh",
+    "refuse_a_station_other_than_the_gauge",
+    "refuse_a_time_the_run_does_not_hold",
+    "refuse_an_angle_with_a_depth_profile",
+    "refuse_an_export_that_cannot_be_written",
+    "refuse_an_overview_without_its_section",
+    "refuse_conditioning_choices_on_a_conditioned_dem",
+    "refuse_layer_bases_that_do_not_match",
+    "refuse_property_maps_that_do_not_match",
+    "refuse_site_and_sites_together",
+    "refuse_soil_precipitation_in_parts",
+    "refuse_strict_inference_without_types",
+    "refuse_the_soil_forcing_a_file_doubles_or_leaves_out",
+    "require_site_for_real_catchment",
+    "run_cross_rules",
+    "warn_of_what_the_run_cannot_draw_or_export",
+]

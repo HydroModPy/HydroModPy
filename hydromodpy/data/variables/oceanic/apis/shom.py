@@ -1,23 +1,78 @@
 """SHOM tide gauge API client for sea-level data.
 
 Downloads sea-level observations from the Service Hydrographique et
-Oceanographique de la Marine (SHOM) API.  Stateless - no class state,
+Oceanographique de la Marine (SHOM) API. Stateless - no class state,
 returns ``list[PointRecord]``.
+
+Which gauge, and how it is named
+--------------------------------
+This was the last fetch function in the tree taking a ``geographic: object``,
+and the port that F5b built left it unported for exactly that reason: its
+selector is a point and not a box (``data/source/port.py:16``). The point is
+now two named floats. It used to be one attribute called ``centroid_long_lat``
+that held ``(lat, lon)`` -- ``Transformer.from_crs(crs, "epsg:4326")`` is built
+without ``always_xy``, so it answers in the axis order EPSG:4326 declares,
+which is latitude first. Every reader of that attribute compensated silently
+and correctly, and the name said the opposite of what it held for as long as it
+existed.
+
+The gauge is either named outright or searched for, never both: ``station_id``
+is the explicit answer and ``near_lat``/``near_lon`` the nearest-to-a-point
+one. The flag that used to sit beside them, ``nearest``, was read by nobody --
+``fetch`` accepted it and its body never mentioned it.
+
+Which gauge SHOM is asked for
+-----------------------------
+The variable used to hold a ``geographic`` object and hand it whole to
+``apis/shom.py``, which read ``centroid_long_lat`` off it. The object is gone
+and the selector is declared:
+
+- ``station_ids`` names the gauges outright, and nothing spatial is needed;
+- otherwise the extent -- ``mask_path``, which a project run fills in from the
+  delineated watershed like every other timeseries source -- gives the point
+  whose nearest gauge is read, taken as the center of that extent in WGS84.
+
+**Precedence, and not D116's refusal, and the difference is who put the second
+selector there.** D116 refuses two selectors on a *request*, where both come
+from the caller. Here the mask does not: ``_apply_default_masks`` fills
+``mask_path`` on every source whose model declares the field, so a source that
+names nothing but ``station_ids`` arrives at :meth:`fetch` carrying a watershed
+it never asked for. Refusing that pair makes ``station_ids`` unusable on every
+project run -- measured, and it is what the first version of this phase did.
+The named station is the specific answer and wins, the way ``mask_path`` wins
+over ``extent`` inside :func:`resolve_source_extent` itself. Naming neither is
+still a refusal.
 """
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
-import pandas as pd
-import requests
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
+from hydromodpy.core.exceptions import DataRequestError
+from hydromodpy.core.io.fetch import HTTPClient, open_client
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.contracts.location import StationLocation
-from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_declared_variables,
+    require_period,
+    require_selectors,
+    shipped_hosts,
+)
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from hydromodpy.data.contracts.timeseries import PointRecord
 
 logger = get_logger(__name__)
 
@@ -26,61 +81,80 @@ API_BASE = "https://services.data.shom.fr/maregraphie"
 
 def fetch(
     *,
-    geographic: object,
     date_start: datetime,
     date_end: datetime,
-    nearest: bool = True,
+    station_id: str | None = None,
+    near_lat: float | None = None,
+    near_lon: float | None = None,
+    bbox: tuple[float, ...] | None = None,
     fallback_search_radius_km: float | None = None,
+    cache_dir: Path | None = None,
     write: bool = True,
+    client: HTTPClient,
 ) -> list[PointRecord]:
-    """Download sea-level data from the nearest SHOM tide gauge.
+    """Download sea-level data from one SHOM tide gauge.
 
     Parameters
     ----------
-    geographic
-        Watershed object with ``centroid_long_lat`` attribute.
     date_start, date_end
         Date range for the download.
-    nearest
-        If True, find the nearest tide gauge to the watershed centroid.
+    station_id
+        SHOM identifier of the gauge to read. Mutually exclusive with the
+        ``near_*`` pair.
+    near_lat, near_lon
+        WGS84 latitude and longitude of the point whose nearest gauge is read.
+        Both or neither.
     fallback_search_radius_km
-        Maximum distance (km) for nearest gauge search.  None = unlimited.
+        Maximum distance (km) for the nearest-gauge search. None = unlimited.
+    cache_dir
+        Directory holding ``sealevel_shom_<id>_<start>_<end>_H.csv``. None
+        disables the cache in both directions.
     write
-        If True, cache downloaded data to CSV in the solver scratch folder.
+        If True, cache the downloaded chronicle.
+    client
+        HTTP client to use for remote requests. If None, an ephemeral client
+        is created and closed.
 
     Returns
     -------
     list[PointRecord]
         A single PointRecord with the sea-level time series.
     """
-    session = requests.Session()
-    try:
-        # 1. Discover tide gauges
-        gauges = _discover_tide_gauges(session)
 
-        # 2. Find nearest
+    import pandas as pd
+
+    from hydromodpy.data.contracts.location import StationLocation
+    from hydromodpy.data.contracts.timeseries import PointRecord
+
+    has_point = near_lat is not None and near_lon is not None
+    if (near_lat is None) != (near_lon is None):
+        raise ValueError("SHOM needs both near_lat and near_lon, or neither.")
+    if (station_id is None) == (not has_point):
+        raise ValueError(
+            "SHOM reads one gauge: name it with station_id, or give near_lat and "
+            "near_lon to search for the nearest one. Not both, not neither."
+        )
+
+    gauges = _discover_tide_gauges(client)
+
+    if station_id is not None:
+        tg_id, tg_name, tg_lat, tg_lon = _gauge_by_id(gauges, station_id)
+    else:
         tg_id, tg_name, tg_lat, tg_lon = _find_nearest(
-            geographic,
             gauges,
+            lat=float(near_lat),
+            lon=float(near_lon),
             radius_km=fallback_search_radius_km,
         )
 
-        # 3. Check for cached data
-        cached_df = _try_load_cached(geographic, tg_id, date_start, date_end)
-        if cached_df is not None:
-            df = cached_df
-        else:
-            # 4. Get vertical reference
-            zh_ref = _get_vertical_reference(session, tg_id)
-
-            # 5. Download sea-level data (chunked 31-day windows)
-            df = _download_sea_level(session, tg_id, date_start, date_end, zh_ref)
-
-            # 6. Optionally write cache
-            if write:
-                _write_cache(geographic, tg_id, date_start, date_end, df)
-    finally:
-        session.close()
+    cached_df = _try_load_cached(cache_dir, tg_id, date_start, date_end)
+    if cached_df is not None:
+        df = cached_df
+    else:
+        zh_ref = _get_vertical_reference(client, tg_id)
+        df = _download_sea_level(client, tg_id, date_start, date_end, zh_ref)
+        if write:
+            _write_cache(cache_dir, tg_id, date_start, date_end, df)
 
     if df.empty:
         logger.info("SHOM: no data returned for tide gauge %s (%s)", tg_name, tg_id)
@@ -116,33 +190,136 @@ def fetch(
     ]
 
 
-def _discover_tide_gauges(session: requests.Session) -> pd.DataFrame:
+def _parse_date(value: datetime | str | None) -> datetime | None:
+    if value is None or isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(str(value))
+
+
+class ShomSeaLevel:
+    """SHOM tide-gauge API client DataSource for sea-level observations."""
+
+    section: ClassVar[str] = "oceanic"
+    source_id: ClassVar[str] = "shom"
+    payload_kind: ClassVar[PayloadKind] = "points"
+    extent_crs: ClassVar[str] = "EPSG:4326"
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent", "station_ids")
+    period_need: ClassVar[PeriodNeed] = "optional"
+    writes_out_dir: ClassVar[bool] = True
+
+    variables: tuple[str, ...]
+    hosts: tuple[str, ...]
+
+    def __init__(
+        self,
+        *,
+        fallback_search_radius_km: float | None = None,
+        require_observations: bool = True,
+        date_start: datetime | str | None = None,
+        date_end: datetime | str | None = None,
+    ) -> None:
+        self.fallback_search_radius_km = fallback_search_radius_km
+        self.require_observations = require_observations
+        self.date_start = _parse_date(date_start)
+        self.date_end = _parse_date(date_end)
+        self.variables = ("sea_level",)
+        self.hosts = shipped_hosts(self.source_id)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        period = require_period(self, request)
+        if period is not None:
+            start, end = period.start, period.end
+        elif self.date_start is not None and self.date_end is not None:
+            start, end = self.date_start, self.date_end
+        else:
+            raise DataRequestError(
+                "SHOM source requires a period in the request or date_start/date_end on the source."
+            )
+
+        cache_dir = request.out_dir
+        records: list[PointRecord] = []
+        extent = extent_for(self, request) if request.extent is not None else None
+        bounds = getattr(request, "bounds", None)
+        with open_client(bounds=bounds) as client:
+            if request.station_ids:
+                for station_id in request.station_ids:
+                    records.extend(
+                        fetch(
+                            date_start=start,
+                            date_end=end,
+                            station_id=station_id,
+                            cache_dir=cache_dir,
+                            client=client,
+                        )
+                    )
+            else:
+                assert extent is not None
+                near_lat = (extent.ymin + extent.ymax) / 2.0
+                near_lon = (extent.xmin + extent.xmax) / 2.0
+                records = fetch(
+                    date_start=start,
+                    date_end=end,
+                    near_lat=near_lat,
+                    near_lon=near_lon,
+                    bbox=extent.bbox,
+                    fallback_search_radius_km=self.fallback_search_radius_km,
+                    cache_dir=cache_dir,
+                    client=client,
+                )
+
+        require_declared_variables(self, [r.variable for r in records])
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=period,
+            points=tuple(records),
+        )
+
+
+def _discover_tide_gauges(client: HTTPClient) -> pd.DataFrame:
     """Fetch the list of SHOM tide gauge stations."""
+    import pandas as pd
+
     url = f"{API_BASE}/service/tidegauges"
-    response = session.get(url, timeout=60)
+    response = client.get(url, timeout=60)
     response.raise_for_status()
     return pd.DataFrame(response.json())
 
 
+def _gauge_by_id(gauges: pd.DataFrame, station_id: str) -> tuple[str, str, float, float]:
+    """Read one gauge out of the discovered list, or say it is not there."""
+    match = gauges[gauges["shom_id"].astype(str) == str(station_id)]
+    if match.empty:
+        raise ValueError(f"No SHOM tide gauge with id {station_id!r}.")
+    row = match.iloc[0]
+    return (
+        str(row["shom_id"]),
+        str(row.get("name", station_id)),
+        float(row["latitude"]),
+        float(row["longitude"]),
+    )
+
+
 def _find_nearest(
-    geographic: object,
     gauges: pd.DataFrame,
     *,
+    lat: float,
+    lon: float,
     radius_km: float | None = None,
 ) -> tuple[str, str, float, float]:
-    """Find the nearest tide gauge to the watershed centroid."""
-    centroid = geographic.centroid_long_lat
+    """Find the tide gauge nearest to a WGS84 point."""
     gauges = gauges.copy()
-    gauges["_dist"] = np.sqrt(
-        (gauges["longitude"] - centroid[1]) ** 2 + (gauges["latitude"] - centroid[0]) ** 2
-    )
+    gauges["_dist"] = np.sqrt((gauges["longitude"] - lon) ** 2 + (gauges["latitude"] - lat) ** 2)
 
     if radius_km is not None:
         # Approximate degree-to-km conversion for filtering
         max_deg = radius_km / 111.0
         gauges = gauges[gauges["_dist"] <= max_deg]
         if gauges.empty:
-            raise ValueError(f"No SHOM tide gauge found within {radius_km} km of centroid.")
+            raise ValueError(f"No SHOM tide gauge found within {radius_km} km of ({lat}, {lon}).")
 
     closest = gauges.loc[gauges["_dist"].idxmin()]
     tg_id = str(closest["shom_id"])
@@ -153,23 +330,25 @@ def _find_nearest(
     return tg_id, tg_name, tg_lat, tg_lon
 
 
-def _get_vertical_reference(session: requests.Session, tg_id: str) -> float:
+def _get_vertical_reference(client: HTTPClient, tg_id: str) -> float:
     """Get the vertical reference (zh_ref) for a tide gauge."""
     url = f"{API_BASE}/service/completetidegauge/{tg_id}"
-    response = session.get(url, timeout=60)
+    response = client.get(url, timeout=60)
     response.raise_for_status()
     info = response.json()
     return float(info["verticalRef"]["zh_ref"])
 
 
 def _download_sea_level(
-    session: requests.Session,
+    client: HTTPClient,
     tg_id: str,
     date_start: datetime,
     date_end: datetime,
     zh_ref: float,
 ) -> pd.DataFrame:
     """Download sea-level data in chunked 31-day windows."""
+    import pandas as pd
+
     sources = "3"  # hourly validated data
     interval = "60"  # minutes
     chunks: list[pd.DataFrame] = []
@@ -185,7 +364,7 @@ def _download_sea_level(
                 f"{API_BASE}/observation/json/{tg_id}"
                 f"?sources={sources}&dtStart={dt_start}&dtEnd={dt_end}&interval={interval}"
             )
-            response = session.get(url, timeout=60)
+            response = client.get(url, timeout=60)
             response.raise_for_status()
             data = response.json().get("data", [])
             if data:
@@ -205,43 +384,41 @@ def _download_sea_level(
     return df
 
 
+def _cache_file(cache_dir: Path, tg_id: str, date_start: datetime, date_end: datetime) -> Path:
+    start_str = date_start.strftime("%Y%m%d")
+    end_str = date_end.strftime("%Y%m%d")
+    return Path(cache_dir) / f"sealevel_shom_{tg_id}_{start_str}_{end_str}_H.csv"
+
+
 def _try_load_cached(
-    geographic: object,
+    cache_dir: Path | None,
     tg_id: str,
     date_start: datetime,
     date_end: datetime,
 ) -> pd.DataFrame | None:
     """Try to load previously downloaded SHOM data from local cache."""
-    stable_folder = getattr(geographic, "stable_folder", None)
-    if stable_folder is None:
+    import pandas as pd
+
+    if cache_dir is None:
         return None
-    output_folder = os.path.join(stable_folder, "oceanic")
-    start_str = date_start.strftime("%Y%m%d")
-    end_str = date_end.strftime("%Y%m%d")
-    filename = f"sealevel_shom_{tg_id}_{start_str}_{end_str}_H.csv"
-    filepath = os.path.join(output_folder, filename)
-    if os.path.exists(filepath):
-        logger.debug(f"SHOM: cache hit {filename}")
+    filepath = _cache_file(cache_dir, tg_id, date_start, date_end)
+    if filepath.exists():
+        logger.debug(f"SHOM: cache hit {filepath.name}")
         return pd.read_csv(filepath, parse_dates=["timestamp"])
     return None
 
 
 def _write_cache(
-    geographic: object,
+    cache_dir: Path | None,
     tg_id: str,
     date_start: datetime,
     date_end: datetime,
     df: pd.DataFrame,
 ) -> None:
     """Write downloaded SHOM data to local cache."""
-    stable_folder = getattr(geographic, "stable_folder", None)
-    if stable_folder is None:
+    if cache_dir is None:
         return
-    output_folder = os.path.join(stable_folder, "oceanic")
-    os.makedirs(output_folder, exist_ok=True)
-    start_str = date_start.strftime("%Y%m%d")
-    end_str = date_end.strftime("%Y%m%d")
-    filename = f"sealevel_shom_{tg_id}_{start_str}_{end_str}_H.csv"
-    filepath = os.path.join(output_folder, filename)
+    filepath = _cache_file(cache_dir, tg_id, date_start, date_end)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(filepath, index=False)
-    logger.debug(f"SHOM: cached data to {filename}")
+    logger.debug(f"SHOM: cached data to {filepath.name}")

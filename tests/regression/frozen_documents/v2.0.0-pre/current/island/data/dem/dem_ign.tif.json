@@ -1,0 +1,14 @@
+{
+  "bbox": [
+    0.0,
+    0.0,
+    610.0,
+    610.0
+  ],
+  "crs": "EPSG:2154",
+  "fetched_at": null,
+  "license": "etalab-2.0",
+  "notes": "Synthetic terrain of four cells.",
+  "sha256": "9cd01bf4827744f5f3d47fdea561beb40cda77c2c399cd6515779c5bce296e8b",
+  "source": "ign"
+}

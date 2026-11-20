@@ -1,5 +1,7 @@
 """Transient multi-layer LAK validation (Plainfield Lakes abacus).
 
+Compared with: the water balance of each LAK period and the expected structure of the lake connections; there is no external reference solution.
+
 End-to-end validation of HMP's home-grown DISV LAK build on a multi-layer,
 transient reservoir. One lake is incised across the TOP 2 layers of a 4-layer
 aquifer on a structured-as-DISV grid; TDIS runs one initial steady period then
@@ -22,6 +24,14 @@ from validation_cases.numerical.transient.lak_pleasant_transient.comparison impo
     load_tolerances,
     run_pleasant_transient_scenario,
 )
+
+NOT_APPLICABLE = {
+    "modflow_nwt": "HydroModPy builds no LAK package on MODFLOW-NWT, and this case checks the HydroModPy MODFLOW 6 DISV lake builder against the upstream MODFLOW 6 example.",
+    "modflow6_irregular_tri": "The structural checks count the connections of the 15x15 quad grid (vertical and horizontal per layer), which other cell shapes do not share. The same lake problem on triangle and Voronoi meshes is run by test_lak_grid_equivalence.",
+    "modflow6_voronoi": "The structural checks count the connections of the 15x15 quad grid (vertical and horizontal per layer), which other cell shapes do not share. The same lake problem on triangle and Voronoi meshes is run by test_lak_grid_equivalence.",
+    "boussinesq": "The Boussinesq solver has no lake package: a lake boundary is refused with IncompatibleCapabilitiesError, and the lake boundary lists modflow6 as its only backend.",
+    "boussinesq_local": "The Boussinesq solver has no lake package: a lake boundary is refused with IncompatibleCapabilitiesError, and the lake boundary lists modflow6 as its only backend.",
+}
 
 
 @pytest.mark.validation

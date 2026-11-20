@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 
 def _duckdb_type_for(arrow_type: pa.DataType) -> str:
     """Return the SQL type to declare for a pyarrow Arrow type."""
+    if pa.types.is_list(arrow_type):
+        return f"{_duckdb_type_for(arrow_type.value_type)}[]"
     if pa.types.is_string(arrow_type) or pa.types.is_large_string(arrow_type):
         return "VARCHAR"
     if pa.types.is_int64(arrow_type):
@@ -43,6 +45,8 @@ def _duckdb_type_for(arrow_type: pa.DataType) -> str:
         return "BOOLEAN"
     if pa.types.is_timestamp(arrow_type):
         return "TIMESTAMPTZ" if arrow_type.tz else "TIMESTAMP"
+    if pa.types.is_date32(arrow_type):
+        return "DATE"
     if pa.types.is_binary(arrow_type) or pa.types.is_large_binary(arrow_type):
         return "BLOB"
     raise TypeError(f"Unsupported pyarrow type for DuckDB view: {arrow_type!r}")
@@ -51,18 +55,6 @@ def _duckdb_type_for(arrow_type: pa.DataType) -> str:
 def _columns_for(view_name: str) -> tuple[tuple[str, str], ...]:
     schema = VIEW_SCHEMAS[view_name]
     return tuple((field.name, _duckdb_type_for(field.type)) for field in schema)
-
-
-def parquet_view_columns(view_name: str) -> tuple[tuple[str, str], ...]:
-    """Return ``((col, type), ...)`` for one Parquet view, derived from pyarrow."""
-    try:
-        return _columns_for(view_name)
-    except KeyError as exc:
-        raise KeyError(f"Unknown Parquet view: {view_name!r}") from exc
-
-
-def _empty_view_ddl(view_name: str) -> str:
-    return _empty_view_ddl_named(view_name, view_name)
 
 
 def _empty_view_ddl_named(schema_name: str, view_name: str) -> str:
@@ -145,6 +137,5 @@ def ensure_parquet_views(
 
 __all__ = [
     "ensure_parquet_views",
-    "parquet_view_columns",
     "view_name_for",
 ]

@@ -1,0 +1,35 @@
+[radial_profile]
+rmse = 0.133
+max_abs_error = 0.19
+azimuthal_spread = 1.1e-4
+min_land_clearance = 1.78
+
+[doc]
+gap = """
+Known gap. MODFLOW 6 on the Voronoi dual sits 0.12 to 0.17 m below the
+reference inside 120 m (radial RMSE 0.12 m). Two errors add up there. The K zone
+boundaries (70 m and 140 m) pass through node rings, so those cells straddle two
+zones and take an area-weighted K: without Newton the same input files give
+0.076 m, the heads 0.08 to 0.11 m too low inside 120 m and 0.05 m too high on the
+140 m ring. Under Newton, the saturation of the upstream cell lowers
+them further, first order on rings 10 to 30 m apart. Until 2026-10-12 the top
+was the DEM, and the full-thickness weighting of the Newton conductance raised
+the heads, which offset the straddled zones: 0.056 m. MODFLOW 6 now reads a
+computational top that gives every cell the same thickness, and that offset is
+gone.
+"""
+reason = """
+Measured values with a 10 % margin: radial RMSE 0.1205 m, max error 0.173 m,
+freeboard 1.99 m. Twice the azimuthal spread of 5.2e-5 m: every cell of the
+coast ring holds the sea level, so the rings are symmetric. The run reads a 1 m
+raster whose shoreline lies 1 m inside the coast ring
+(config_modflow6_voronoi.toml). The profile is read on the node rings (5 m
+bins). The freeboard is read on the land surface the run was given, at the
+196 m ring. This case cannot see the DEM-top bias come back, since that bias
+lowered its error; the Cartesian islands and
+tests/integration/test_the_computational_top_changes_only_the_mf6_grid.py do.
+B9 of the unified mesh, measured again on 2026-10-26. Kept at a numerical
+floor, where twice the measure guarantees nothing:
+radial_profile.azimuthal_spread 1.1e-4 (measure 4e-6, the head closure is 1e-4
+m, and the measure read 5.2e-5 on 2026-10-14 on the same mesh).
+"""

@@ -1,0 +1,22 @@
+{
+  "schema": "hmp-chain-outcome/v1",
+  "status": "successful",
+  "exit_code": 0,
+  "started_at": "2026-01-01T00:00:00+00:00",
+  "finished_at": "2026-01-01T00:00:00+00:00",
+  "steps": [
+    {
+      "id": "first",
+      "dir": "01-first",
+      "process": {
+        "id": "demo",
+        "version": "1.0.0"
+      },
+      "status": "successful",
+      "exit_code": 0,
+      "job_id": "sha256:9c243fccb904e0e46747009d961f07f4d24d42757e6fcc317d1df8d0ff7929bd",
+      "reused": false,
+      "inputs_from": []
+    }
+  ]
+}

@@ -24,7 +24,7 @@ CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "lak_pleasant_transient"
 DATA_DIR = CASE_DIR / "data"
 
-# Small depression depth that smooths the dry/wet LAK behaviour for Newton.
+# Small depression depth that smooths the dry/wet LAK behavior for Newton.
 _SURFDEP_M = 0.1
 
 

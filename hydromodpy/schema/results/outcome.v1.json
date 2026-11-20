@@ -1,0 +1,317 @@
+{
+  "$defs": {
+    "OutcomeError": {
+      "additionalProperties": true,
+      "description": "The error that ended an attempt.",
+      "properties": {
+        "message": {
+          "description": "What it said",
+          "examples": [
+            "example"
+          ],
+          "title": "Message",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "type": {
+          "description": "Exception class or signal name",
+          "examples": [
+            "example"
+          ],
+          "title": "Type",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "type",
+        "message"
+      ],
+      "title": "OutcomeError",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "description": "The issue of one attempt of a run or a session.",
+  "properties": {
+    "attempt": {
+      "description": "Attempt number, 1 for the first",
+      "examples": [
+        1
+      ],
+      "minimum": 1,
+      "title": "Attempt",
+      "type": "integer",
+      "x-hmp-profile": "user"
+    },
+    "attempt_id": {
+      "description": "Id of the attempt, minted at entry",
+      "examples": [
+        "example"
+      ],
+      "title": "Attempt Id",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "case_id": {
+      "description": "Case the directory is",
+      "examples": [
+        "example"
+      ],
+      "title": "Case Id",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "ended_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Exit of the attempt, UTC",
+      "title": "Ended At",
+      "x-hmp-profile": "user"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OutcomeError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What ended a failed attempt",
+      "x-hmp-profile": "user"
+    },
+    "exit_code": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Exit code of the process, at exit",
+      "title": "Exit Code",
+      "x-hmp-profile": "user"
+    },
+    "host": {
+      "description": "Host of the attempt",
+      "examples": [
+        "example"
+      ],
+      "title": "Host",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "log_tail": {
+      "description": "Last lines of the run log",
+      "items": {
+        "type": "string"
+      },
+      "title": "Log Tail",
+      "type": "array",
+      "x-hmp-profile": "user"
+    },
+    "pid": {
+      "description": "Process of the attempt",
+      "examples": [
+        1
+      ],
+      "title": "Pid",
+      "type": "integer",
+      "x-hmp-profile": "user"
+    },
+    "project": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Project of the case",
+      "title": "Project",
+      "x-hmp-profile": "user"
+    },
+    "request_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the attempt asks for, the sha256 of its request once its inputs are resolved. Absent before then, and in an outcome written before this field existed.",
+      "title": "Request Id",
+      "x-hmp-profile": "user"
+    },
+    "scheduler_job_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Scheduler job, on a cluster",
+      "title": "Scheduler Job Id",
+      "x-hmp-profile": "user"
+    },
+    "schema": {
+      "default": "hydromodpy.outcome.v1",
+      "description": "Schema id",
+      "title": "Schema",
+      "type": "string"
+    },
+    "signal": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Signal that ended the process, if one",
+      "title": "Signal",
+      "x-hmp-profile": "user"
+    },
+    "sim_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Id of the run once it has one",
+      "title": "Sim Id",
+      "x-hmp-profile": "user"
+    },
+    "site": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Site of the case",
+      "title": "Site",
+      "x-hmp-profile": "user"
+    },
+    "solution_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the attempt computes, the solution key of its request, told with its request id. Absent before then, and in an outcome written before this field existed.",
+      "title": "Solution Key",
+      "x-hmp-profile": "user"
+    },
+    "started_at": {
+      "description": "Entry of the attempt, UTC",
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "status": {
+      "description": "What the writer knew",
+      "examples": [
+        "example"
+      ],
+      "title": "Status",
+      "type": "string",
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
+        "running",
+        "completed",
+        "failed",
+        "aborted"
+      ]
+    },
+    "step": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Pipeline step reached. An open vocabulary: x-hmp-vocabulary holds the steps of a simulation today, a later version may add one, and a reader keeps a name it does not know.",
+      "title": "Step",
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
+        "validate",
+        "resolve",
+        "build_geographic",
+        "load_data",
+        "build_mesh",
+        "setup_process",
+        "prepare_solver",
+        "run_solver",
+        "extract",
+        "derive",
+        "export",
+        "seal",
+        "display"
+      ],
+      "x-hmp-vocabulary-open": true
+    },
+    "written_by": {
+      "description": "Who wrote this document",
+      "examples": [
+        "example"
+      ],
+      "title": "Written By",
+      "type": "string",
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
+        "worker",
+        "launcher",
+        "trap"
+      ]
+    }
+  },
+  "required": [
+    "case_id",
+    "attempt",
+    "attempt_id",
+    "status",
+    "written_by",
+    "started_at",
+    "host",
+    "pid"
+  ],
+  "title": "Outcome",
+  "type": "object"
+}

@@ -1,35 +1,45 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 from pydantic import BaseModel
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.config.sites import is_sites_project
+from hydromodpy.core.config_kit.dump import dump_toml_with_comments
 from hydromodpy.core.toml_io.generator import generate_toml_from_instances
-from hydromodpy.core.toml_io.io import dump_toml_with_comments
-
-_DESIGN_DRAFT_PROJECTS = {"03_groundwater_1d"}
 
 
 def _example_project_tomls() -> list[Path]:
+    """Return the project files of the examples that load as one configuration.
+
+    A ``[sites]`` project is a plan: it loads case by case, once expanded.
+    """
     root = Path(__file__).resolve().parents[3]
     project_root = root / "examples" / "projects"
     return [
         path
         for path in sorted(project_root.glob("*/project.toml"))
-        if path.parent.name not in _DESIGN_DRAFT_PROJECTS
+        if not is_sites_project(tomllib.loads(path.read_text(encoding="utf-8")))
     ]
 
 
 def _json_payload(cfg: HydroModPyConfig) -> dict:
-    return cfg.model_dump(mode="json", exclude_none=True)
+    """Return the payload a file carries: ``project_root`` is where the file was read."""
+    payload = cfg.model_dump(mode="json", exclude_none=True)
+    payload.get("workspace", {}).pop("project_root", None)
+    return payload
 
 
-def _root_instances(cfg: HydroModPyConfig) -> dict[str, BaseModel]:
-    instances: dict[str, BaseModel] = {}
+def _root_instances(cfg: HydroModPyConfig) -> dict[str, BaseModel | list[BaseModel]]:
+    instances: dict[str, BaseModel | list[BaseModel]] = {}
     for name in HydroModPyConfig.model_fields:
         value = getattr(cfg, name)
         if isinstance(value, BaseModel):
+            instances[name] = value
+        elif isinstance(value, list) and all(isinstance(item, BaseModel) for item in value):
+            # A repeated root section such as [[export]].
             instances[name] = value
     return instances
 
@@ -43,7 +53,7 @@ def test_example_project_toml_round_trip_across_dumpers(tmp_path: Path) -> None:
         expected = _json_payload(cfg)
 
         commented_path = tmp_path / f"{source.parent.name}_commented.toml"
-        dump_toml_with_comments(cfg, commented_path, profile="expert")
+        dump_toml_with_comments(cfg, commented_path, profile="expert", written_only=True)
         commented_cfg = HydroModPyConfig.from_toml(commented_path)
         assert _json_payload(commented_cfg) == expected
 
@@ -52,7 +62,9 @@ def test_example_project_toml_round_trip_across_dumpers(tmp_path: Path) -> None:
             _root_instances(cfg),
             output_path=generated_path,
             profile="expert",
+            exclude_defaults=True,
             exclude_none=True,
+            root=HydroModPyConfig,
         )
         generated_cfg = HydroModPyConfig.from_toml(generated_path)
         assert _json_payload(generated_cfg) == expected

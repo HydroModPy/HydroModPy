@@ -2,36 +2,41 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from hydromodpy.catchment.algorithms.derived_features import coerce_geographic_derived_features
+from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
+from hydromodpy.catchment.synthetic.catchment import build_synthetic_geographic
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.rng import RngManager
-from hydromodpy.core.state.global_index import auto_register_projects
-from hydromodpy.core.workspace import Workspace
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
-from hydromodpy.simulation import ensure_flow, ensure_transport
-from hydromodpy.spatial.domain import Domain
-from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
-from hydromodpy.spatial.domain.zone_arming import arm_runtime_zone_ids
-from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
-from hydromodpy.spatial.geographic.core.derived_features import (
-    coerce_geographic_derived_features,
+from hydromodpy.core.state.rng import RngManager
+from hydromodpy.core.state.scratch import preprocessing_dir
+from hydromodpy.core.workspace.workspace import WorkspaceLayout
+from hydromodpy.model.domain.build import (
+    build_domain,
+    read_layer_base_sources,
+    read_substratum_source,
+    rebuild_domain,
 )
-from hydromodpy.spatial.geographic.structure_binders import apply_catchment_zones_to_domain
-from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
-from hydromodpy.workflow.internals.state import (
-    GeographicState,
-    MeshedState,
-    PipelineState,
-    ResolvedState,
-    SetupState,
+from hydromodpy.model.domain.spatial_support import (
+    SupportBuildContext,
+    build_default_spatial_support_provider_registry,
+    build_phase_supports,
+    validate_domain_support_contract,
 )
+from hydromodpy.model.domain.structure_binders import apply_catchment_zones_to_domain
+from hydromodpy.results.products.store import ProductStore, products_root
+from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
+from hydromodpy.workflow.products import terrain_supply
+from hydromodpy.workflow.state import PipelineState
+from hydromodpy.workflow.steps.data import ensure_flow
 
 if TYPE_CHECKING:
+    from hydromodpy.catchment.algorithms.flow_products import TerrainSupply
     from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.schema.job.inputset import InputState
 
 logger = get_logger(__name__)
 
@@ -41,445 +46,83 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def build_geographic_runtime(cfg: object, workspace: object) -> object:
-    """Build the geographic runtime selected by the validated TOML config."""
+def build_geographic_runtime(
+    cfg: object,
+    workspace: object,
+    *,
+    dem_path: Path | None = None,
+    dem_sha256: str | None = None,
+    dem_state: InputState | None = None,
+    terrain: TerrainSupply | None = None,
+    network_map_path: Path | None = None,
+) -> object:
+    """Build the geographic runtime selected by the validated TOML config.
+
+    The DEM arrives resolved through ``dem_path``, its digest and its state
+    through ``dem_sha256`` and ``dem_state``, read from the
+    ``[[data.dem.sources]]`` sources before the step runs. ``terrain`` is the
+    product-store supply the catchment asks for its regional flow, or ``None``
+    to compute it without the store.
+    """
     geographic_cfg = cfg.geographic
     uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
     if callable(uses_synthetic) and uses_synthetic():
         return build_synthetic_geographic(
             config=geographic_cfg.synthetic,
-            output_dir=Path(workspace.project_root) / PREPROCESSING_DIR / "geographic",
+            output_dir=preprocessing_dir(Path(workspace.project_root)) / "geographic",
             workspace=workspace,
         )
-    return CatchmentDelineation(geographic_cfg, workspace)
+    return CatchmentDelineation(
+        geographic_cfg,
+        workspace,
+        dem_path=dem_path,
+        dem_sha256=dem_sha256,
+        dem_state=dem_state,
+        terrain=terrain,
+        network_map_path=network_map_path,
+    )
 
 
-def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
-    """Populate ``geographic.dem_init_path`` from ``[[data.dem.sources]]`` when absent.
+def resolve_geographic_inputs(cfg: object, run_state: WorkflowContext) -> Path | None:
+    """Resolve the ``[data]`` files the geographic step reads without mutating the config.
 
-    Keeps DEM declarations symmetrical with other data managers: a user
-    can either set ``geographic.dem_init_path`` directly (shortcut) or
-    declare ``[[data.dem.sources]] source = "custom" path = ...`` (same
-    pattern as geology, hydrometry, etc.). The geographic pipeline only
-    ever sees a resolved path.
+    A synthetic geographic reads no ``[data]`` file, so it resolves nothing.
+    Otherwise every file and url source of ``[data]`` is resolved under the
+    bounds of the call, before the run is named. The DEM resolution returns a :class:`FileRecord` without writing the
+    configuration and ``None`` when the config declares no DEM source; the
+    catchment reads its raster through the ``dem_path`` the caller passes on.
+    A runner that resolved the inputs when it claimed the run has put them on the
+    context (``run_state.inputs``), and they are read from there.
     """
-    geographic_cfg = cfg.geographic
-    uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
+    import hydromodpy.data.variables.crossings.resolver as crossings_resolver
+    import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
+    from hydromodpy.data.loading.inputs import resolve_inputs
+
+    paths = getattr(run_state.setup.workspace, "paths", None)
+    data_path = getattr(paths, "data_path", None)
+    uses_synthetic = getattr(cfg.geographic, "uses_synthetic_geographic", None)
     if callable(uses_synthetic) and uses_synthetic():
-        return
-
-    existing = getattr(geographic_cfg, "dem_init_path", None)
-    if existing is not None:
-        return
-    if not _cfg_declares_dem_source(cfg):
-        return
-
-    from hydromodpy.data.variables.dem.resolver import (
-        resolve_dem_path_from_data_sources,
-    )
-
-    config_path = run_state.config_path
-    if config_path is None:
-        raise ConfigError(
-            "geographic.dem_init_path is missing and no config path is available "
-            "to resolve [[data.dem.sources]]."
-        )
-
-    cache_dir = None
-    workspace = run_state.setup.workspace
-    paths = getattr(workspace, "paths", None) if workspace is not None else None
-    data_path = getattr(paths, "data_path", None) if paths is not None else None
-    if data_path is not None:
-        cache_dir = Path(data_path) / "dem"
-
-    resolved = resolve_dem_path_from_data_sources(
-        cfg,
-        config_path=Path(config_path),
-        cache_dir=cache_dir,
-    )
-    if resolved is not None:
-        catchment = getattr(geographic_cfg, "catchment", None)
-        if catchment is None:
-            raise ConfigError(
-                "geographic.catch_def is required when [[data.dem.sources]] is the "
-                "DEM source. Set geographic.catchment.catch_def."
-            )
-        catchment.dem_init_path = resolved
-        return
-    raise ConfigError(
-        "geographic.dem_init_path is missing and [[data.dem.sources]] did not resolve."
-    )
-
-
-def _cfg_declares_dem_source(cfg: object) -> bool:
-    data_cfg = getattr(cfg, "data", None)
-    dem_cfg = getattr(data_cfg, "dem", None)
-    return bool(getattr(dem_cfg, "sources", None))
-
-
-def resolve_stream_geometry_path(cfg: object, run_state: WorkflowContext) -> None:
-    """Populate the burn network from ``[[data.hydrography.sources]]`` when absent.
-
-    Twin of :func:`resolve_dem_init_path`, and for the same reason: the stream
-    burn runs inside the geographic step, before any data manager, so the network
-    it reads has to be a file on disk. Declaring it under ``[data.hydrography]``
-    alone used to leave the burn with nothing and force the same file to be named
-    twice. An explicitly declared ``stream_geometry_path`` always wins, so burning
-    a network that differs from the one the data family loads stays possible.
-    """
-    geographic_cfg = cfg.geographic
-    uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
-    if callable(uses_synthetic) and uses_synthetic():
-        return
-
-    enforce_cfg = getattr(geographic_cfg, "enforce_streams", None)
-    if enforce_cfg is None or not getattr(enforce_cfg, "enabled", False):
-        return
-    if getattr(enforce_cfg, "stream_geometry_path", None) is not None:
-        return
-    if not _cfg_declares_hydrography_source(cfg):
-        return
-
-    from hydromodpy.data.variables.hydrography.resolver import (
-        resolve_stream_geometry_path_from_data_sources,
-    )
-
-    config_path = run_state.config_path
-    if config_path is None:
-        raise ConfigError(
-            "geographic.enforce_streams.stream_geometry_path is missing and no config path "
-            "is available to resolve [[data.hydrography.sources]]."
-        )
-
-    cache_dir = None
-    workspace = run_state.setup.workspace
-    paths = getattr(workspace, "paths", None) if workspace is not None else None
-    data_path = getattr(paths, "data_path", None) if paths is not None else None
-    if data_path is not None:
-        cache_dir = Path(data_path) / "hydrography"
-
-    resolved = resolve_stream_geometry_path_from_data_sources(
-        cfg,
-        config_path=Path(config_path),
-        cache_dir=cache_dir,
-    )
-    if resolved is None:
-        raise ConfigError(
-            "geographic.enforce_streams is enabled without a stream_geometry_path, and "
-            "[[data.hydrography.sources]] holds no vector network to fall back on. Either "
-            "set geographic.enforce_streams.stream_geometry_path, or declare a vector "
-            "hydrography source (a raster one cannot be burned)."
-        )
-    enforce_cfg.stream_geometry_path = resolved
-
-
-def _cfg_declares_hydrography_source(cfg: object) -> bool:
-    data_cfg = getattr(cfg, "data", None)
-    hydrography_cfg = getattr(data_cfg, "hydrography", None)
-    return bool(getattr(hydrography_cfg, "sources", None))
-
-
-# ---------------------------------------------------------------------------
-# Spatial support helpers
-# ---------------------------------------------------------------------------
-
-
-def collect_requested_support_ids(flow_cfg: object) -> tuple[str, ...]:
-    """Return the ordered support ids referenced by heterogeneous flow parameters."""
-    raw_param_cfg = getattr(flow_cfg, "param", {})
-    if not isinstance(raw_param_cfg, dict):
-        return ()
-
-    requested: list[str] = []
-    seen: set[str] = set()
-    for param_cfg in raw_param_cfg.values():
-        support_id = _heterogeneous_support_id(param_cfg)
-        if support_id is None:
-            continue
-        if support_id == "":
-            raise ConfigError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
-        normalized = support_id.lower()
-        if normalized in seen:
-            continue
-        seen.add(normalized)
-        requested.append(support_id)
-    return tuple(requested)
-
-
-def _heterogeneous_support_id(param_cfg: object) -> str | None:
-    """Return a heterogeneous flow parameter support id, if one is declared."""
-    if isinstance(param_cfg, dict):
-        kind = str(param_cfg.get("kind", "")).strip().lower()
-        if kind == "":
-            field_cfg = param_cfg.get("field")
-            if isinstance(field_cfg, dict):
-                kind = str(field_cfg.get("kind", "")).strip().lower()
-        if kind != "heterogeneous":
-            return None
-        support_id = param_cfg.get("field_spatial_id")
-        if support_id is None and isinstance(param_cfg.get("field"), dict):
-            support_id = param_cfg["field"].get("field_spatial_id")
-        return str(support_id or "").strip()
-
-    field_cfg = getattr(param_cfg, "field", None)
-    kind = str(getattr(field_cfg, "kind", "") or "").strip().lower()
-    if kind != "heterogeneous":
+        run_state.setup.dem_record = None
         return None
-    support_id = getattr(field_cfg, "field_spatial_id", "")
-    return str(support_id or "").strip()
-
-
-def support_provider_names(domain_supports: dict[str, object]) -> tuple[str, ...]:
-    """Return the ordered provider names declared by resolved support configs."""
-    provider_names: list[str] = []
-    seen: set[str] = set()
-    for support_cfg in domain_supports.values():
-        provider_name = str(getattr(support_cfg, "kind", "")).strip().lower()
-        if provider_name == "" or provider_name in seen:
-            continue
-        seen.add(provider_name)
-        provider_names.append(provider_name)
-    return tuple(provider_names)
-
-
-def resolve_support_configs(
-    domain_cfg: object,
-    requested_support_ids: tuple[str, ...],
-) -> dict[str, object]:
-    """Resolve support configs actually needed by the current flow parameters."""
-    if not requested_support_ids:
-        return {}
-
-    explicit_supports = getattr(domain_cfg, "supports", {})
-    if explicit_supports is None:
-        explicit_supports = {}
-    if not isinstance(explicit_supports, dict):
-        raise TypeError("domain.supports must be a dictionary")
-
-    explicit_by_lower = {
-        str(support_id).strip().lower(): support_cfg
-        for support_id, support_cfg in explicit_supports.items()
-    }
-
-    resolved: dict[str, object] = {}
-    for support_id in requested_support_ids:
-        support_cfg = explicit_by_lower.get(str(support_id).strip().lower())
-        if support_cfg is not None:
-            resolved[support_id] = support_cfg
-            continue
-        raise ConfigError(
-            f"Missing domain support declaration for '{support_id}'. "
-            "Declare [domain.supports.<id>] with an explicit provider."
+    # A runner has resolved every declared file and url source already, under the
+    # bounds of the call. Without one, they are resolved here, before the run is named.
+    resolved = run_state.inputs
+    if resolved is None:
+        resolved = resolve_inputs(
+            cfg,
+            bounds=run_state.bounds,
+            data_dir=data_path,
+            locked=getattr(run_state.setup, "locked_inputs", None),
         )
-    return resolved
-
-
-def flow_requires_spatial_support(flow: object | None) -> bool:
-    """Return True when at least one flow parameter is heterogeneous."""
-    if flow is None:
-        return False
-    parameters = getattr(flow, "parameters", {})
-    if not isinstance(parameters, dict):
-        return False
-    return any(bool(getattr(param, "is_heterogeneous", False)) for param in parameters.values())
-
-
-def validate_domain_support_contract(
-    domain_cfg: object,
-    flow: object | None,
-    requested_domain_supports: dict[str, object],
-) -> None:
-    """Fail early when heterogeneous flow parameters reference undeclared supports."""
-    _ = domain_cfg
-    if not flow_requires_spatial_support(flow):
-        return
-    parameters = getattr(flow, "parameters", {})
-    if not isinstance(parameters, dict):
-        return
-
-    declared_supports = {
-        str(support_id).strip().lower()
-        for support_id in requested_domain_supports
-        if str(support_id).strip()
-    }
-    missing_supports: list[str] = []
-    seen: set[str] = set()
-    for param in parameters.values():
-        if not bool(getattr(param, "is_heterogeneous", False)):
-            continue
-        support_id = str(getattr(param, "field_spatial_id", "")).strip()
-        if support_id == "":
-            raise ConfigError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
-        normalized_support_id = support_id.lower()
-        if normalized_support_id in declared_supports or normalized_support_id in seen:
-            continue
-        seen.add(normalized_support_id)
-        missing_supports.append(support_id)
-
-    if missing_supports:
-        raise ConfigError(
-            "Heterogeneous flow parameters require explicit "
-            "[domain.supports.<id>] declarations for: " + ", ".join(missing_supports) + "."
-        )
-
-
-def build_domain_spatial_supports(
-    cfg: object,
-    run_state: WorkflowContext,
-    requested_domain_supports: dict[str, object],
-    registry: object,
-    phase: str,
-) -> None:
-    """Materialize declared spatial supports for the requested launcher phase."""
-    if not requested_domain_supports:
-        return
-
-    setup_state = run_state.setup
-    context = SupportBuildContext(
-        cfg=cfg,
-        raw_toml=run_state.raw_toml,
-        workspace=setup_state.workspace,
-        geographic=setup_state.geographic,
-        domain_geographic=setup_state.domain_geographic,
-        domain=setup_state.domain,
-        flow=setup_state.flow,
-        loaded_data=run_state.loaded_data,
-        time_grid=setup_state.time_grid,
-        geographic_features=setup_state.geographic_features,
+    dem_record = resolved.dem
+    run_state.setup.dem_record = dem_record
+    crossings_resolver.fill_crossings_path(
+        cfg,
+        config_path=run_state.config_path,
+        data_path=data_path,
+        dem_path=None if dem_record is None else Path(dem_record.path),
     )
-
-    for support_id, support_cfg in requested_domain_supports.items():
-        existing_zone = None
-        domain_get_zone = getattr(setup_state.domain, "get_zone", None)
-        if callable(domain_get_zone):
-            existing_zone = domain_get_zone(support_id)
-        elif str(support_id).strip().lower() in getattr(setup_state.domain, "zones", {}):
-            existing_zone = setup_state.domain.zones[str(support_id).strip().lower()]
-        if (
-            existing_zone is not None
-            and str(getattr(existing_zone, "identifier", "")).strip() == str(support_id).strip()
-        ):
-            continue
-        provider = registry.get(getattr(support_cfg, "kind", ""))
-        if str(provider.build_phase).strip().lower() != str(phase).strip().lower():
-            continue
-        support_field = provider.build(
-            support_id=support_id,
-            config=support_cfg,
-            context=context,
-        )
-        setup_state.domain.set_zone(support_id, support_field)
-
-
-# ---------------------------------------------------------------------------
-# Main setup orchestration
-# ---------------------------------------------------------------------------
-
-
-def run_setup(
-    cfg: object,
-    run_state: WorkflowContext,
-    *,
-    requested_spatial_support_ids: tuple[str, ...] = (),
-    requested_domain_supports: dict[str, object] | None = None,
-    build_geographic_fn: Callable[..., object] = build_geographic_runtime,
-) -> None:
-    """Initialise the structural objects shared by all later process runs.
-
-    This function builds the stable "session context" of the simulation:
-
-    - workspace and folders,
-    - geographic context and topographic support,
-    - domain geometry,
-    - process-level context objects (``flow``, ``transport``),
-    - generic launcher settings.
-
-    It runs once, even when the simulation plan later contains several
-    solver runs. For example, two flow solvers still reuse the same domain
-    geometry and the same declared flow configuration.
-    """
-    if requested_domain_supports is None:
-        requested_domain_supports = {}
-
-    setup_state = run_state.setup
-
-    setup_state.workspace = Workspace(config=cfg.workspace)
-    auto_register_projects(
-        setup_state.workspace.project_root,
-        label=getattr(setup_state.workspace, "catch_name", None),
-    )
-    resolve_dem_init_path(cfg, run_state)
-    resolve_stream_geometry_path(cfg, run_state)
-    setup_state.geographic = build_geographic_fn(cfg, setup_state.workspace)
-    setup_state.geographic_features = coerce_geographic_derived_features(
-        geographic=setup_state.geographic,
-    )
-    if setup_state.geographic_features is None:
-        raise ConfigError(
-            "Could not resolve geographic derived features from the runtime geographic object."
-        )
-    setup_state.domain_geographic = setup_state.geographic_features.to_domain_geographic_context()
-    surface_topo = setup_state.geographic_features.surface_topo
-
-    domain_cfg = cfg.domain
-    if hasattr(domain_cfg, "model_copy"):
-        domain_cfg = domain_cfg.model_copy(deep=True)
-    domain_cfg = arm_runtime_zone_ids(domain_cfg, requested_spatial_support_ids)
-
-    setup_state.domain = Domain(config=domain_cfg, surface_topo=surface_topo)
-    apply_catchment_zones_to_domain(
-        domain=setup_state.domain,
-        geographic=setup_state.domain_geographic,
-    )
-
-    # Internal run_id (journal/scratch key) follows the simulation name:
-    # explicit config name > derive from TOML filename > "default".
-    if cfg.simulation.name:
-        setup_state.run_id = cfg.simulation.name
-    else:
-        import re
-
-        toml_path = run_state.config_path
-        setup_state.run_id = re.sub(r"^run_", "", Path(toml_path).stem) if toml_path else "default"
-
-    rng_seed = getattr(cfg.simulation, "rng_seed", None)
-    run_state.execution.rng = (
-        RngManager(master_seed=int(rng_seed)) if rng_seed is not None else None
-    )
-
-    # Eagerly create Flow/Transport so data binders can reference them.
-    ensure_flow(run_state)
-    ensure_transport(run_state)
-    validate_domain_support_contract(
-        domain_cfg=domain_cfg,
-        flow=setup_state.flow,
-        requested_domain_supports=requested_domain_supports,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Step entry point (unified signature for workflow pipelines)
-# ---------------------------------------------------------------------------
-
-
-def step_setup(
-    ctx: WorkflowContext,
-    *,
-    requested_spatial_support_ids: tuple[str, ...] = (),
-    requested_domain_supports: dict[str, object] | None = None,
-) -> None:
-    """Populate ``ctx.setup`` with workspace, geographic, domain, flow, transport."""
-    run_setup(
-        ctx.cfg,
-        ctx,
-        requested_spatial_support_ids=requested_spatial_support_ids,
-        requested_domain_supports=requested_domain_supports,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Spatial supports phase
-# ---------------------------------------------------------------------------
+    return hydrography_resolver.resolve_network_map_path(cfg, config_path=run_state.config_path)
 
 
 def step_spatial_supports(
@@ -490,25 +133,206 @@ def step_spatial_supports(
     registry: object | None = None,
 ) -> None:
     """Materialize declared spatial supports for the given build *phase*."""
-    if requested_domain_supports is None:
-        requested_domain_supports = {}
     if not requested_domain_supports:
         return
+    setup_state = ctx.setup
+    build_phase_supports(
+        setup_state.domain,
+        requested_domain_supports,
+        registry=build_default_spatial_support_provider_registry()
+        if registry is None
+        else registry,
+        phase=phase,
+        context=SupportBuildContext(
+            cfg=ctx.cfg,
+            raw_toml=ctx.raw_toml,
+            workspace=setup_state.workspace,
+            geographic=setup_state.geographic,
+            domain_geographic=setup_state.domain_geographic,
+            domain=setup_state.domain,
+            flow=setup_state.flow,
+            loaded_data=ctx.loaded_data,
+            time_grid=setup_state.time_grid,
+            geographic_features=setup_state.geographic_features,
+        ),
+    )
 
-    if registry is None:
-        from hydromodpy.spatial.domain.spatial_support import (
-            build_default_spatial_support_provider_registry,
+
+# ---------------------------------------------------------------------------
+# Setup: workspace, geographic, domain, process objects
+# ---------------------------------------------------------------------------
+
+
+def step_setup(
+    ctx: WorkflowContext,
+    *,
+    requested_spatial_support_ids: tuple[str, ...] = (),
+    requested_domain_supports: dict[str, object] | None = None,
+    run_id: str | None = None,
+) -> None:
+    """Populate ``ctx.setup`` with workspace, geographic, domain, flow, transport.
+
+    This builds the stable "session context" of the simulation, once, even
+    when the simulation plan later contains several solver runs: two flow
+    solvers still reuse the same domain geometry and the same declared flow
+    configuration.
+    """
+    cfg = ctx.cfg
+    setup_state = ctx.setup
+
+    setup_state.workspace = WorkspaceLayout(config=cfg.workspace)
+    if ctx.run_dir is not None:
+        setup_state.workspace.solver_scratch_folder = scratch_dir_for_attempt(
+            setup_state.workspace.project_root, ctx.run_dir, ctx.attempt
+        )
+    network_map_path = resolve_geographic_inputs(cfg, ctx)
+    dem_record = getattr(setup_state, "dem_record", None)
+    dem_path = Path(dem_record.path) if dem_record is not None else None
+    dem_sha256 = dem_record.sha256 if dem_record is not None else None
+    dem_state = dem_record.state if dem_record is not None else None
+    setup_state.geographic = build_geographic_runtime(
+        cfg,
+        setup_state.workspace,
+        dem_path=dem_path,
+        dem_sha256=dem_sha256,
+        dem_state=dem_state,
+        terrain=terrain_supply(ctx),
+        network_map_path=network_map_path,
+    )
+    setup_state.geographic_features = coerce_geographic_derived_features(
+        geographic=setup_state.geographic,
+    )
+    if setup_state.geographic_features is None:
+        raise ConfigError(
+            "Could not resolve geographic derived features from the runtime geographic object."
+        )
+    setup_state.domain_geographic = setup_state.geographic_features.to_domain_geographic_context()
+
+    setup_state.domain = build_domain(
+        cfg.domain,
+        surface_topo=setup_state.geographic_features.surface_topo,
+        zone_ids=requested_spatial_support_ids,
+        substratum_source=read_substratum_source(
+            cfg.domain.depth_model, getattr(cfg, "data", None)
+        ),
+        layer_base_sources=read_layer_base_sources(cfg.domain.layers, getattr(cfg, "data", None)),
+    )
+    setup_state.domain_config_source = cfg.domain
+    apply_catchment_zones_to_domain(
+        domain=setup_state.domain,
+        geographic=setup_state.domain_geographic,
+    )
+
+    # Internal run_id (journal/scratch key): the name the caller gave this run
+    # > explicit config name > derive from TOML filename > "default". A caller
+    # that already named its run has decided; deriving a name again here would
+    # rename it halfway through, and the catalog would register it under a name
+    # the journal does not carry.
+    if run_id:
+        setup_state.run_id = run_id
+    elif cfg.simulation.name:
+        setup_state.run_id = cfg.simulation.name
+    else:
+        toml_path = ctx.config_path
+        setup_state.run_id = re.sub(r"^run_", "", Path(toml_path).stem) if toml_path else "default"
+
+    rng_seed = getattr(cfg.simulation, "rng_seed", None)
+    ctx.execution.rng = RngManager(master_seed=int(rng_seed)) if rng_seed is not None else None
+
+    # Eagerly create Flow so data binders can reference it. Transport has no
+    # model object to materialize: its adapter reads the configuration itself.
+    ensure_flow(ctx)
+    validate_domain_support_contract(setup_state.flow, requested_domain_supports or {})
+
+
+def rebuild_domain_if_stale(run_state: WorkflowContext) -> bool:
+    """Rebuild ``setup.domain`` when another configuration built it.
+
+    A Project builds its model phase once and then drives several runs through
+    it. Each run resolves the configuration it is defined by, so a sweep point,
+    or a plain run following an overridden one, can arrive with a ``domain``
+    section the live geometry was not built from. Nothing downstream compares
+    the two: the run would use the previous run's geometry while archiving its
+    own configuration beside it.
+
+    Only the domain is rebuilt. The geographic tree and the loaded forcings it
+    stands on belong to the project, not to the run, and re-deriving them would
+    mean delineating the catchment again at every sweep point.
+
+    Returns True when a rebuild happened.
+    """
+    from hydromodpy.model.domain.structure_binders import apply_geology_to_domain
+
+    setup_state = run_state.setup
+    if setup_state.domain is None:
+        return False
+    if setup_state.domain_config_source is run_state.cfg.domain:
+        return False
+    if setup_state.geographic_features is None:
+        raise ConfigError(
+            "The domain was built from another configuration and cannot be rebuilt: "
+            "the geographic runtime it stands on is missing from the context."
         )
 
-        registry = build_default_spatial_support_provider_registry()
-
-    build_domain_spatial_supports(
-        cfg=ctx.cfg,
-        run_state=ctx,
-        requested_domain_supports=requested_domain_supports,
-        registry=registry,
-        phase=phase,
+    # The rebuilt domain is armed from the zone ids the live domain ended up
+    # with, binder ids included, so it can receive the catchment and geology
+    # zones: ``step_setup`` arms a copy, so the declared section never carries
+    # them. The raster is read again from the run's own configuration, which is
+    # what the rebuilt geometry has to describe. The spatial supports the
+    # project materialized are lateral zonations; a different aquifer thickness
+    # does not invalidate them, and nothing runs ``step_spatial_supports`` again
+    # for a repeat run on a live Project. Dropping them here would leave the
+    # solver reading no field while ``validate_domain_support_contract``, which
+    # reads the config, still passes. The binder zones are written again below.
+    domain_cfg = run_state.cfg.domain
+    data_cfg = getattr(run_state.cfg, "data", None)
+    domain = rebuild_domain(
+        setup_state.domain,
+        domain_cfg,
+        surface_topo=setup_state.geographic_features.surface_topo,
+        substratum_source=read_substratum_source(domain_cfg.depth_model, data_cfg),
+        layer_base_sources=read_layer_base_sources(domain_cfg.layers, data_cfg),
+        keep_binder_zones=False,
     )
+    apply_catchment_zones_to_domain(domain=domain, geographic=setup_state.domain_geographic)
+    if run_state.loaded_data.geology is not None:
+        apply_geology_to_domain(domain=domain, geology=run_state.loaded_data.geology)
+    setup_state.domain = domain
+    setup_state.domain_config_source = domain_cfg
+    return True
+
+
+def rebuild_substratum_if_depth_model_moved(run_state: WorkflowContext) -> bool:
+    """Rebuild the domain when the run's depth model is not the one it was built on.
+
+    A calibration trial writes the thickness of a ``constant_thickness`` model,
+    or the elevation of a ``flat_substratum`` one, into its own copy of the
+    configuration. The domain it forks from was built once by the shared prefix
+    and is the same object for every trial. Without this rebuild each trial
+    solves the geometry of the prefix and reports a thickness it never used.
+
+    Only the vertical extent follows the depth model. The top and the lateral
+    zones are carried over as they are, so nothing here reads a shapefile or
+    delineates a catchment again, and concurrent trials stay independent.
+
+    Returns True when a rebuild happened.
+    """
+    setup_state = run_state.setup
+    domain = setup_state.domain
+    if domain is None:
+        return False
+    declared = run_state.cfg.domain.depth_model
+    if domain.config.depth_model == declared:
+        return False
+    data_cfg = getattr(run_state.cfg, "data", None)
+    setup_state.domain = rebuild_domain(
+        domain,
+        domain.config.model_copy(update={"depth_model": declared.model_copy(deep=True)}),
+        surface_topo=domain.surface_topo,
+        substratum_source=read_substratum_source(declared, data_cfg),
+        layer_base_sources=read_layer_base_sources(domain.config.layers, data_cfg),
+    )
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -519,48 +343,53 @@ def step_spatial_supports(
 class BuildGeographicStep:
     """Build geographic runtime, domain, and setup-phase spatial supports.
 
-    Composed of three substeps invoked through ``run``:
-    :func:`step_setup` (workspace + geographic + domain + flow + transport),
-    :func:`step_spatial_supports` for the setup phase, and the post-setup
-    validation in :func:`validate_domain_support_contract` indirectly
-    triggered by :func:`run_setup`. The free-standing helpers stay
-    reusable from notebooks and other launchers.
+    Composed of two substeps invoked through ``run``: :func:`step_setup`
+    (workspace + geographic + domain + flow + transport, then the support
+    contract check) and :func:`step_spatial_supports` for the setup phase. The
+    free-standing helpers stay reusable from notebooks and other launchers.
     """
 
     name = "build_geographic"
-    tin: ClassVar[type] = ResolvedState
-    tout: ClassVar[type] = GeographicState
-    config_sections: ClassVar[tuple[str, ...]] = ("geographic", "data.dem")
+    reads: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "requested_domain_supports",
+        "requested_spatial_support_ids",
+        "run_name",
+        "spatial_support_registry",
+    )
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
+    # The terrain and its network, then the base surfaces of the domain. The
+    # domain section itself is rebuilt by ``rebuild_domain_if_stale``.
+    config_sections: ClassVar[tuple[str, ...]] = (
+        "geographic",
+        "data.dem",
+        "data.crossings",
+        "data.hydrography",
+        "data.substratum",
+        "data.layer_base",
+    )
 
     def depends_on(self) -> tuple[str, ...]:
         return ("resolve",)
 
     def run(self, state: PipelineState) -> PipelineState:
-        ctx = state.get("ctx")
+        return self._build(state)
+
+    def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
+        """Return the stored terrain this step cited, for the step journal.
+
+        The product store keeps the terrain across processes. The scratch tree
+        goes with the project, so a resume must not need it.
+        """
+        ctx = state_out.get("ctx")
         if ctx is None:
-            raise ConfigError("BuildGeographicStep requires 'ctx' in state.data")
-
-        requested_supports = state.get("requested_domain_supports") or {}
-        requested_support_ids = state.get("requested_spatial_support_ids", ())
-        registry = state.get("spatial_support_registry")
-
-        step_setup(
-            ctx,
-            requested_spatial_support_ids=requested_support_ids,
-            requested_domain_supports=requested_supports,
-        )
-        step_spatial_supports(
-            ctx,
-            phase="setup",
-            requested_domain_supports=requested_supports,
-            registry=registry,
-        )
-
-        return state.advance(
-            step_index=state.step_index + 1,
-            step_name=self.name,
-            ctx=ctx,
-        )
+            return ()
+        products = ctx.setup.products
+        key = products.get("terrain_notched") or products.get("terrain")
+        if key is None:
+            return ()
+        directory = ProductStore(products_root(ctx.cfg.workspace.project_root)).get(key)
+        return () if directory is None else tuple(str(p) for p in sorted(directory.iterdir()))
 
     def rebuild_state(
         self,
@@ -569,8 +398,39 @@ class BuildGeographicStep:
         workspace: Path,
         run_id: str,
     ) -> PipelineState:
-        """Re-run setup: idempotent given the cached DEM / watershed."""
-        return self.run(prior_state)
+        """Rebuild the geographic runtime from the terrain in the product store.
+
+        A resume reads the terrain under the key its ``products.json`` cites
+        and delineates the catchment again, which is deterministic. The runner
+        marks the resume through ``ctx.execution.resumed``, which ``ask`` reads
+        to take the cited key before recomputing one.
+        """
+        return self._build(prior_state)
+
+    def _build(self, state: PipelineState) -> PipelineState:
+        ctx = state.get("ctx")
+        if ctx is None:
+            raise ConfigError("BuildGeographicStep requires 'ctx' in state.data")
+
+        requested_supports = state.get("requested_domain_supports") or {}
+        step_setup(
+            ctx,
+            requested_spatial_support_ids=state.get("requested_spatial_support_ids", ()),
+            requested_domain_supports=requested_supports,
+            run_id=state.get("run_name"),
+        )
+        step_spatial_supports(
+            ctx,
+            phase="setup",
+            requested_domain_supports=requested_supports,
+            registry=state.get("spatial_support_registry"),
+        )
+
+        return state.advance(
+            step_index=state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+        )
 
     def is_prebuilt(self, state: PipelineState) -> bool:
         """True when the in-memory ctx already carries the setup products."""
@@ -590,8 +450,8 @@ class SetupProcessStep:
     """Instantiate flow / transport process objects bound to the domain."""
 
     name = "setup_process"
-    tin: ClassVar[type] = MeshedState
-    tout: ClassVar[type] = SetupState
+    reads: ClassVar[tuple[str, ...]] = ("ctx",)
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = (
         "domain.depth_model",
         "flow.ic",
@@ -607,12 +467,11 @@ class SetupProcessStep:
             raise ConfigError("SetupProcessStep requires 'ctx' in state.data")
 
         if getattr(ctx.setup, "domain", None) is not None:
-            flow_cfg = getattr(ctx.cfg, "flow", None)
-            if flow_cfg is not None:
+            # This step owns domain.depth_model, so a trial that moves it starts
+            # here and must find the geometry it asked for.
+            rebuild_substratum_if_depth_model_moved(ctx)
+            if getattr(ctx.cfg, "flow", None) is not None:
                 ensure_flow(ctx)
-            transport_cfg = getattr(ctx.cfg, "transport", None)
-            if transport_cfg is not None:
-                ensure_transport(ctx)
 
         return state.advance(
             step_index=state.step_index + 1,

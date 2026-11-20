@@ -1,61 +1,49 @@
-"""``hmp data`` family - workspace data cache and package exchange.
+"""``hmp data`` family - the data cache of a workspace.
+
+The cache is the sidecar ``<file>.json`` next to each fetched file. A file the
+user keeps under ``inputs/`` is read in place and is no row of the cache.
 
 Sub-actions:
 
-Cache management:
+- ``hmp data ls``: list the rows of the cache.
+- ``hmp data get <request.json | variable>``: serve a data request into a folder.
+- ``hmp data remove``: drop rows by variable, provider or station.
+- ``hmp data prune --older-than N``: drop rows older than N days, except the files a
+  run or a lockfile cites.
+- ``hmp data lock``: write ``hydromodpy.lock``, the digest of each file a project read.
+  ``hmp data lock --check [--strict]`` compares the files on disk with it.
+- ``hmp data archive --to <out>``: archive the cache and its lockfile to a portable file.
+- ``hmp data restore <in> [--to DIR]``: restore a cache archive into the workspace.
 
-- ``hmp data ls``: list artefacts indexed in the workspace cache.
-- ``hmp data get <variable>``: fetch an upstream variable.
-- ``hmp data check``: validate ``<variable>_custom/`` folders.
-- ``hmp data add <file>``: ingest a single file with explicit metadata.
-- ``hmp data remove``: drop cache entries by variable/provider/station.
-- ``hmp data prune --older-than N``: drop cache entries older than N days.
-- ``hmp data archive <out>``: archive the cache + lockfile to a portable file.
-- ``hmp data restore <in>``: restore a cache archive into the workspace.
-
-Package exchange:
-
-- ``hmp data export <project>``: export geographic data or simulation results.
-- ``hmp data export-package <sim_ref>``: bundle a simulation as a portable
-  ``.hmp`` archive (tar.zst with RO-Crate manifest).
-- ``hmp data import <package>``: import a ``.hmp`` archive and dematerialise
-  its bundled inputs into a project catalog.
+A run published by ``hmp publish`` is read back by ``hmp catalog import``.
 """
 
 from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import add_action_subparsers
 from hydromodpy.cli.commands.data import (
-    add,
     archive,
-    check,
-    export,
-    export_package,
     get,
-    import_cmd,
+    lock,
     ls,
     prune,
     remove,
     restore,
 )
+from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "data"
-HELP: str = "Workspace data cache management and .hmp package exchange"
+HELP: str = "Data cache of a workspace and the lockfile of a project"
 
 ACTIONS = (
     ls,
     get,
-    check,
-    add,
     remove,
     prune,
+    lock,
     archive,
     restore,
-    export,
-    export_package,
-    import_cmd,
 )
 
 
@@ -67,4 +55,9 @@ def register(subparsers) -> argparse.ArgumentParser:
     return parser
 
 
-__all__ = ("NAME", "HELP", "ACTIONS", "register")
+__all__ = (
+    "NAME",
+    "HELP",
+    "ACTIONS",
+    "register",
+)

@@ -1,0 +1,189 @@
+"""The end of ``hmp run`` on a calibration file: what it found and where to read it.
+
+Normal mode prints one line for the file and the protocol, one line per phase, and the
+places of the best runs, the sessions and the methods paragraph. ``--verbose`` keeps
+the full dict. Parameters are in their own units, costs have none.
+"""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+import pytest
+
+from hydromodpy.cli.commands import run as run_command
+from hydromodpy.core.logging import set_verbosity
+
+
+def _interval(name: str, lower: float, upper: float) -> dict:
+    return {
+        "name": name,
+        "lower": lower,
+        "upper": upper,
+        "reaches_lower_bound": False,
+        "reaches_upper_bound": False,
+    }
+
+
+def _phase(
+    tmp_path: Path,
+    *,
+    name: str,
+    index: int,
+    method: str,
+    n: int,
+    parameter: str,
+    value: float,
+    unit: str,
+    interval: tuple[float, float],
+    cost: float,
+    metric: str,
+    run_name: str,
+    session: str,
+) -> dict:
+    return {
+        "phase": name,
+        "index": index,
+        "report": {
+            "method": method,
+            "n_trials": n,
+            "best_cost": cost,
+            "best_parameters": {parameter: value},
+            "best_rel_dir": f"runs/{run_name}",
+            "session_dir": str(tmp_path / "sessions" / session),
+            "workspace": str(tmp_path),
+            "extra": {
+                "parameter_units": {parameter: unit},
+                "cost_metric": metric,
+                "parameter_intervals": [_interval(parameter, *interval)],
+            },
+        },
+    }
+
+
+def _staged_summary(tmp_path: Path) -> dict:
+    root = "20260928-033825-bisection-099012a0"
+    return {
+        "root_session_id": "099012a0",
+        "phases": [
+            _phase(
+                tmp_path,
+                name="steady_conductivity",
+                index=0,
+                method="bisection",
+                n=15,
+                parameter="K",
+                value=8.106887879884017e-05,
+                unit="m/s",
+                interval=(7.498942093324559e-05, 0.0001),
+                cost=1.9645705145436807,
+                metric="distance_gap",
+                run_name="nancon_calibrated_steady_conductivity",
+                session=root,
+            ),
+            _phase(
+                tmp_path,
+                name="transient_storage",
+                index=1,
+                method="scipy_nelder_mead",
+                n=6,
+                parameter="Sy",
+                value=0.04530171177248819,
+                unit="-",
+                interval=(0.04183300132670378, 0.05173374598489012),
+                cost=0.07444487299044622,
+                metric="1 - nse_log",
+                run_name="nancon_calibrated_transient_storage",
+                session="20260928-034005-scipy_nelder_mead-870992ac",
+            ),
+        ],
+        "protocol": {"name": "matching_hydrographic_network", "version": "1.2"},
+        "methods_paragraph": "Hydraulic properties were calibrated with ...",
+        "methods_path": str(tmp_path / "sessions" / root / "methods.md"),
+    }
+
+
+def _dispatches(monkeypatch, summary: dict) -> None:
+    monkeypatch.setattr(
+        "hydromodpy.project.dispatch.workflow.dispatch_workflow",
+        lambda workflow, path, **_: summary,
+    )
+    monkeypatch.setattr("hydromodpy.calibration.preflight.preflight_launch", lambda *a, **k: None)
+
+
+def _run_calibration_file(tmp_path: Path, monkeypatch, verbosity: str | None) -> None:
+    config = tmp_path / "run_calibration.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    _dispatches(monkeypatch, _staged_summary(tmp_path))
+    args = argparse.Namespace(
+        dry_run=False,
+        no_display=False,
+        verbosity=verbosity,
+        profile=None,
+    )
+    try:
+        run_command._run_toml(config, args=args)
+    finally:
+        set_verbosity("normal")
+
+
+def test_verbose_keeps_the_full_dict(tmp_path, monkeypatch, capsys) -> None:
+    _run_calibration_file(tmp_path, monkeypatch, "verbose")
+
+    err = capsys.readouterr().err
+    assert "Workflow 'calibration' complete: run_calibration.toml" in err
+    assert "methods_paragraph: Hydraulic properties" in err
+
+
+def _failed_promotion_summary(tmp_path: Path) -> dict:
+    summary = _staged_summary(tmp_path)
+    summary["phases"][0]["report"]["extra"]["promotion_failures"] = [
+        "iteration 15: step 'display' failed"
+    ]
+    return summary
+
+
+@pytest.mark.parametrize("verbosity", ["normal", "quiet", "verbose"])
+def test_failed_promotion(tmp_path, monkeypatch, capsys, verbosity) -> None:
+    # The search results are printed and kept; the exit code says a run is missing.
+    from hydromodpy.cli.exit_codes import EXIT_CALIBRATION
+
+    config = tmp_path / "run_calibration.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    _dispatches(monkeypatch, _failed_promotion_summary(tmp_path))
+    args = argparse.Namespace(dry_run=False, no_display=False, verbosity=verbosity, profile=None)
+    try:
+        with pytest.raises(SystemExit) as exited:
+            run_command._run_toml(config, args=args)
+    finally:
+        set_verbosity("normal")
+
+    assert exited.value.code == EXIT_CALIBRATION
+    err = capsys.readouterr().err
+    assert "Promotion failed: phase steady_conductivity: iteration 15: step 'display' failed" in err
+    if verbosity == "normal":
+        assert "1 steady_conductivity: bisection, 15 runs" in err
+        assert "promotion failed" in err.split("\n")[1]
+
+
+def test_successful_promotion(tmp_path, monkeypatch, capsys) -> None:
+    _run_calibration_file(tmp_path, monkeypatch, "normal")
+
+    assert "Promotion failed" not in capsys.readouterr().err
+
+
+@pytest.mark.fast
+def test_single_trial_interval(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    report = _staged_summary(tmp_path)["phases"][0]["report"]
+    report["extra"]["parameter_intervals"] = [
+        _interval("K", 8.106887879884017e-05, 8.106887879884017e-05)
+    ]
+
+    run_command._print_calibration_recap(report, Path("calibrate_k.toml"))
+
+    line = capsys.readouterr().err.splitlines()[2]
+    assert line == "    K = 8.10689e-05 m/s  (no other trial within the cost margin)"

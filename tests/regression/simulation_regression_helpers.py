@@ -21,6 +21,7 @@ from tests.regression.golden_utils import (
     resolve_tiered_golden_file,
     resolve_tiered_results_dir,
     run_hmp_cli,
+    stage_fixture_project,
     update_or_assert_goldens,
 )
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
@@ -38,13 +39,9 @@ MODFLOW_OUTPUT_NAMES = [
     "watertable_depth",
     "seepage_areas",
     "outflow_drain",
-    "accumulation_flux",
+    "drain_accumulation_flux",
 ]
 
-MODPATH_SNAPSHOT_FILES = [
-    "starting.dbf",
-    "ending.dbf",
-]
 
 TRANSPORT_OUTPUT_NAMES = [
     "concentration_seepage",
@@ -100,7 +97,8 @@ BOUSSINESQ_STATE_HISTORY_NAMES = [
 ]
 
 SHOM_TIDE_GAUGE_ID = "152"
-OCEANIC_DATA_DIR = REPO_ROOT / "examples" / "data" / "oceanic"
+EXAMPLES_DATA_DIR = REPO_ROOT / "examples" / "data"
+OCEANIC_DATA_DIR = EXAMPLES_DATA_DIR / "oceanic"
 OCEANIC_LOCAL_CSV = OCEANIC_DATA_DIR / "sealevel_shom_152_20030101_20030130_H.csv"
 
 
@@ -161,8 +159,13 @@ def run_simulation_regression(
     if extra_env:
         env.update(extra_env)
 
+    project_dir = stage_fixture_project(
+        SIMULATION_REGRESSION_CONFIG_DIR,
+        out_path,
+        {entry.name: entry for entry in sorted(EXAMPLES_DATA_DIR.iterdir())},
+    )
     run_hmp_cli(
-        config_path=SIMULATION_REGRESSION_CONFIG_DIR / config_name,
+        config_path=project_dir / config_name,
         out_path=out_path,
         extra_env=env,
         timeout=timeout,
@@ -220,7 +223,7 @@ def run_simulation_regression_boussinesq(
     config_stem: str = "run_fast_boussinesq",
     simulation_run_id: str = "simulation_regression_fast_boussinesq",
     process_id: str = "flow_main",
-    simulation_name: str = "Simulation regression fast Boussinesq",
+    simulation_name: str = "simulation_regression_fast_boussinesq",
     simulation_description: str = "Fast steady Boussinesq regression on a precomputed strip bundle",
     initial_head_m: float = 6.0,
     west_head_m: float | None = 5.0,
@@ -258,7 +261,7 @@ def run_simulation_regression_boussinesq(
     # Resolve solver scratch for Boussinesq diagnostic files (.npz, .json).
     model_ws, _, _ = resolve_model_workspace(
         out_path,
-        model_name=f"{process_id}__boussinesq",
+        model_name=simulation_name,
     )
 
     # Read field signatures from ResultStore, metadata from solver scratch files.

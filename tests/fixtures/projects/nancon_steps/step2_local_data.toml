@@ -1,0 +1,46 @@
+# Step 2: step 1 plus the mapped river network and the gauge, read from local
+# files. Still steady: the network is compared with the simulated seepage.
+#
+#   hmp run step2_local_data.toml
+
+base_config = "step1_minimal.toml"
+
+[simulation]
+name = "nancon_step2_local"
+
+[data]
+types = ["hydrography", "hydrometry"]
+
+# The permanent reaches of BD TOPO, under examples/data/hydrography/.
+[[data.hydrography.sources]]
+source = "file"
+path = "../../data/hydrography/nancon_stream_network.gpkg"
+
+# The gauge at the outlet, daily 1982-2022. Step 4 scores against it.
+[[data.hydrometry.sources]]
+source = "file"
+path = "../../data/hydrometry"
+station_ids = ["NANCON"]
+
+# The mapped network alone, then against the simulated seepage cells: the
+# confusion map says which cells agree, the distance map how far each
+# simulated cell descends before it reaches the map.
+[display]
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "network"]
+
+[[display.figure]]
+variable = "network_agreement"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+
+# Step 1's three exports, plus the mapped network as a GeoPackage.
+# `__append` adds a block to the inherited ones.
+[[export__append]]
+variable = "hydrographic_network_reference"

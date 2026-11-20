@@ -45,11 +45,17 @@ class DrainageResolutionMixin:
         self,
         ocean_stage_m: float | np.ndarray | None,
     ) -> np.ndarray:
-        """Return one boolean mask marking ocean-influenced cells."""
-        mask = np.zeros(self.mesh.n_cells, dtype=bool)
-        for edge_index in self.ocean_support_edge_indices(ocean_stage_m).tolist():
-            mask[int(self.mesh.edge_cell_a[edge_index])] = True
-        return mask
+        """Return the cells the sea covers, whose head it holds.
+
+        Every cell whose top lies at or below the stage, as MODFLOW 6 builds its
+        ocean CHD. Holding only the cells on the mesh boundary would leave a wide
+        sea free: it would take the recharge and shed it as surface excess at the
+        level of its bed, far below the sea level.
+        """
+        if ocean_stage_m is None or np.asarray(ocean_stage_m, dtype=float).size == 0:
+            return np.zeros(self.mesh.n_cells, dtype=bool)
+        sea_threshold_m = float(np.max(np.asarray(ocean_stage_m, dtype=float)))
+        return np.asarray(self.mesh.z_top_m, dtype=float) <= sea_threshold_m
 
     def ocean_supported_cell_masks_by_period(
         self,
@@ -74,10 +80,10 @@ class DrainageResolutionMixin:
         boundary = self.boundary_conditions_mapping().get("drainage")
         if boundary is None:
             raise ValueError("Active boundary 'drainage' is missing from flow.bc.")
-        boundary_kind = str(getattr(boundary, "kind", "cauchy")).strip().lower()
-        if boundary_kind not in {"cauchy", "robin"}:
+        boundary_kind = str(getattr(boundary, "kind", "drain")).strip().lower()
+        if boundary_kind != "drain":
             raise ValueError(
-                "Boundary 'drainage' must be of kind cauchy/robin for the "
+                "Boundary 'drainage' must be of kind drain for the "
                 "current boussinesq backend slice."
             )
         return self.simple_period_series(

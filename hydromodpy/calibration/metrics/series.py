@@ -1,7 +1,7 @@
 """Series helpers: observation loading, time-index resolution, runoff postprocess.
 
-These primitives massage time series into shapes the scalar/composite scorers
-expect. They do not call the solver layer.
+These primitives massage time series into shapes the block scorer
+expects. They do not call the solver layer.
 """
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ from typing import Any
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time.period_aggregation import period_mean_on_index
+from hydromodpy.core.time.period_aggregation import runoff_m3_s_on_index
+from hydromodpy.model.forcing.cells import spatial_mean_from_fields
 
 logger = get_logger(__name__)
 
@@ -26,6 +27,14 @@ class ObservedSeries:
     series: pd.Series
 
 
+DATA_FAMILY_SECTION: dict[str, str] = {
+    "discharge": "hydrometry",
+    "head": "piezometry",
+    "lake_level": "lake_levels",
+}
+"""``[data.<family>]`` TOML section behind each calibration variable ``load_observed`` reads."""
+
+
 def load_observed(ctx: Any, variable: str) -> list[ObservedSeries]:
     """Pull observation timeseries from the loaded-data context.
 
@@ -34,11 +43,7 @@ def load_observed(ctx: Any, variable: str) -> list[ObservedSeries]:
     from ``piezometry``, lake level from ``lake_levels``. Returns one
     ``ObservedSeries`` per station so multi-station calibration works uniformly.
     """
-    field_name = {
-        "discharge": "hydrometry",
-        "head": "piezometry",
-        "lake_level": "lake_levels",
-    }.get(variable)
+    field_name = DATA_FAMILY_SECTION.get(variable)
     if field_name is None:
         return []
     result = getattr(ctx.loaded_data, field_name, None)
@@ -57,7 +62,7 @@ def load_observed(ctx: Any, variable: str) -> list[ObservedSeries]:
             series = pd.Series(
                 df["value"].astype("float64").values,
                 index=pd.DatetimeIndex(idx),
-                name=f"{rec.variable}_obs",
+                name=str(rec.variable),
             )
             out.append(
                 ObservedSeries(
@@ -95,60 +100,22 @@ def resolve_time_index(ctx: Any, n_timesteps: int = 0) -> pd.DatetimeIndex | Non
         return None
 
 
-_RUNOFF_WARNING_EMITTED: set[int] = set()
+def time_grid_boundaries(ctx: Any) -> tuple[Any, ...] | None:
+    """Return the run's time-grid bounds, or ``None`` when it carries none.
 
-
-def add_runoff_to_discharge(
-    simulated: pd.Series,
-    ctx: Any,
-    *,
-    area_m2: float | None = None,
-) -> pd.Series:
-    """Add the surface-runoff forcing to a baseflow series in m³/s.
-
-    The runoff data manager exposes one or more station time-series in
-    ``mm/day``. Stations are averaged, then averaged OVER each stress period by
-    the one rule the derived catchment discharge also uses
-    (``core.time.period_aggregation.period_mean_on_index``), and converted to
-    ``m³/s`` using the catchment area read from the geographic runtime. When no runoff is loaded, a
-    one-shot warning is emitted and the baseflow is returned unchanged.
-
-    ``area_m2`` overrides that catchment area, which is what a gauge away from
-    the outlet needs: it sees the runoff of the area it drains, not of the whole
-    basin. The runoff is spatially uniform here, one rate averaged over its
-    stations, so scaling that rate by the upstream area is the exact
-    generalisation of the whole-basin formula and adds no assumption.
+    The first bound is the run window start, which a single steady stamp
+    cannot tell on its own; the scorers take each series' period start from
+    these bounds.
     """
-    runoff = getattr(getattr(ctx, "loaded_data", None), "runoff", None)
-    points = getattr(runoff, "points", None) if runoff is not None else None
-    if not points:
-        ctx_id = id(getattr(ctx, "loaded_data", None))
-        if ctx_id not in _RUNOFF_WARNING_EMITTED:
-            logger.warning(
-                "calibration discharge: no runoff data loaded — comparing "
-                "DRN baseflow only against total streamflow observations. "
-                "Add 'runoff' to [data.types] for an apples-to-apples fit."
-            )
-            _RUNOFF_WARNING_EMITTED.add(ctx_id)
-        return simulated
+    time_grid = getattr(getattr(ctx, "setup", None), "time_grid", None)
+    boundaries = getattr(time_grid, "boundaries", None)
+    if boundaries is None or len(boundaries) == 0:
+        return None
+    return tuple(boundaries)
 
-    if area_m2 is not None:
-        catch_area_m2 = float(area_m2)
-        if catch_area_m2 <= 0.0:
-            raise ValueError(
-                f"the upstream area a gauge drains must be positive, got {area_m2} m2."
-            )
-    else:
-        geo = getattr(getattr(ctx, "setup", None), "geographic", None)
-        catch_area_km2 = float(getattr(geo, "catch_area", 0.0) or 0.0)
-        if catch_area_km2 <= 0.0:
-            logger.warning(
-                "calibration discharge: catchment area unavailable in setup.geographic; "
-                "skipping runoff addition."
-            )
-            return simulated
-        catch_area_m2 = catch_area_km2 * 1e6
 
+def _station_runoff_mm_per_day(points: Any) -> pd.Series | None:
+    """Return the mean of the runoff station series, in mm/day, or None."""
     series_list: list[pd.Series] = []
     for rec in points:
         df = getattr(rec, "data", None)
@@ -160,33 +127,116 @@ def add_runoff_to_discharge(
         s = pd.Series(df["value"].astype("float64").values, index=pd.DatetimeIndex(idx))
         series_list.append(s)
     if not series_list:
+        return None
+    return pd.concat(series_list, axis=1).mean(axis=1)
+
+
+def _gridded_runoff_mm_per_day(runoff: Any) -> pd.Series | None:
+    """Return the watershed mean of a gridded runoff, in mm/day, or None.
+
+    The reduction the run persists as ``forcing/runoff/catchment``, which the
+    derived catchment discharge reads back: every cell of each field averaged,
+    in the data-manager unit, the index naive in UTC. What a trial is scored on
+    is then what its run reports. The reduction says it has nothing to reduce
+    by returning None. Its refusals, such as a day without any valid pixel,
+    propagate and fail the trial with their message.
+    """
+    series = spatial_mean_from_fields(runoff)
+    if series is None or len(series) == 0:
+        return None
+    idx = pd.DatetimeIndex(series.index)
+    if idx.tz is not None:
+        idx = idx.tz_convert("UTC").tz_localize(None)
+    return pd.Series(series.to_numpy(dtype="float64"), index=idx)
+
+
+def add_runoff_to_discharge(
+    simulated: pd.Series,
+    ctx: Any,
+    *,
+    area_m2: float | None = None,
+) -> pd.Series:
+    """Add the surface-runoff forcing to a baseflow series in m³/s.
+
+    The runoff data manager exposes one or more station time-series, or
+    gridded fields, in ``mm/day``. Stations are averaged; fields are reduced to
+    their watershed mean, the series the run persists and the derived catchment
+    discharge reads. :func:`~hydromodpy.core.time.period_aggregation.runoff_m3_s_on_index`
+    turns that rate into ``m³/s``, by the rule the derived catchment discharge also
+    calls, on the catchment area read from the geographic runtime. When no runoff is
+    loaded, each call logs a warning and returns the baseflow unchanged.
+
+    ``area_m2`` overrides that catchment area, which is what a gauge away from
+    the outlet needs: it sees the runoff of the area it drains, not of the whole
+    basin.
+    """
+    soil = getattr(getattr(ctx, "setup", None), "soil_forcings", None)
+    runoff = (
+        soil.runoff
+        if soil is not None
+        else getattr(getattr(ctx, "loaded_data", None), "runoff", None)
+    )
+    points = getattr(runoff, "points", None) if runoff is not None else None
+    fields = getattr(runoff, "fields", None) if runoff is not None else None
+    if not points and not fields:
+        logger.warning(
+            "calibration discharge: no runoff data loaded — comparing "
+            "DRN baseflow only against total streamflow observations. "
+            "Add 'runoff' to [data.types] for an apples-to-apples fit.",
+        )
         return simulated
 
-    runoff_mm_per_d = pd.concat(series_list, axis=1).mean(axis=1)
-    target_index = simulated.index
-    runoff_index = runoff_mm_per_d.index
-    if runoff_index.tz is None and target_index.tz is not None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_localize(target_index.tz)
-    elif runoff_index.tz is not None and target_index.tz is None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_localize(None)
-    elif runoff_index.tz is not None and target_index.tz is not None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_convert(target_index.tz)
-    # The canonical rule, called directly and not through the observation
-    # helper: a runoff FORCING is not an observation chronicle. The helper picks
-    # between a per-period mean and a nearest sample on the MEDIAN spacing of
-    # the two indices, which sends a single steady period, or one long period
-    # followed by short ones, to the nearest sample: the phase-one steady stage
-    # would then be scored on the runoff of one day. The derived catchment
-    # discharge already averages, and what a run is scored on has to be what it
-    # reports.
-    aligned = period_mean_on_index(runoff_mm_per_d, pd.DatetimeIndex(target_index))
-    runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
-    return simulated.add(runoff_m3_per_s, fill_value=0.0)
+    if area_m2 is None:
+        geo = getattr(getattr(ctx, "setup", None), "geographic", None)
+        catch_area_km2 = float(getattr(geo, "catch_area", 0.0) or 0.0)
+        if catch_area_km2 <= 0.0:
+            logger.warning(
+                "calibration discharge: catchment area unavailable in setup.geographic; "
+                "skipping runoff addition."
+            )
+            return simulated
+        area_m2 = catch_area_km2 * 1e6
+
+    # Stations win, as they do when the run persists its forcings.
+    if points:
+        runoff_mm_per_d = _station_runoff_mm_per_day(points)
+    else:
+        runoff_mm_per_d = _gridded_runoff_mm_per_day(runoff)
+        if runoff_mm_per_d is None:
+            logger.warning(
+                "calibration discharge: the gridded runoff could not be reduced to a "
+                "watershed mean — comparing DRN baseflow only against total streamflow "
+                "observations.",
+            )
+    if runoff_mm_per_d is None:
+        return simulated
+
+    # A runoff FORCING is not an observation chronicle: a period it misses is a
+    # gap, not the previous value. The window start bounds the first period,
+    # which a single steady stamp cannot tell on its own.
+    boundaries = time_grid_boundaries(ctx)
+    runoff_m3_per_s = runoff_m3_s_on_index(
+        runoff_mm_per_d,
+        pd.DatetimeIndex(simulated.index),
+        area_m2=area_m2,
+        start=boundaries[0] if boundaries else None,
+    )
+    # A period without runoff stays a gap: baseflow alone is not a total
+    # discharge, and the score drops the pair.
+    n_missing = int(runoff_m3_per_s.isna().sum())
+    if n_missing:
+        logger.warning(
+            f"calibration discharge: {n_missing} of {len(runoff_m3_per_s)} periods "
+            "have no runoff sample and are left out of the score.",
+        )
+    return simulated.add(runoff_m3_per_s)
 
 
 __all__ = [
+    "DATA_FAMILY_SECTION",
     "ObservedSeries",
     "load_observed",
     "resolve_time_index",
+    "time_grid_boundaries",
     "add_runoff_to_discharge",
 ]

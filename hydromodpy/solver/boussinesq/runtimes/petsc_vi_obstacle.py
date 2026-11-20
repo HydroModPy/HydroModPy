@@ -14,6 +14,10 @@ splits the runtime in three concerns:
 - ``petsc_vi.petsc``: pure PETSc utility helpers (SNES configuration, diagnostics).
 - ``petsc_vi.obstacle``: obstacle-specific math (clipping, reactions, projected residual).
 - ``petsc_vi.vi``: VI orchestration (substeps, diagnostics, top-level SNESVI).
+
+The head is bounded between the bottom and the top, and the surface and bottom reactions
+are rebuilt after convergence. The helpers of ``petsc_vi/`` hold the parts this engine
+shares with the TS engine.
 """
 
 from __future__ import annotations
@@ -23,10 +27,11 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import (
-    BoussinesqAssembly,
+from hydromodpy.solver.boussinesq.assembly.period_mean import period_mean_assembly
+from hydromodpy.solver.boussinesq.assembly.residuals import (
     assemble_steady_residual_with_saturation_excess,
 )
+from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.runtime_contract import (
     RuntimeSolveResult,
     SteadySolveInputs,
@@ -35,72 +40,7 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
 from hydromodpy.solver.boussinesq.runtimes.dry_equilibrium import (
     detect_dry_equilibrium,
 )
-from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
-    _snes_reason_label,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
-    clip_head_to_bounds as _clip_head_to_bounds,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
-    free_residual_norm as _free_residual_norm,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
-    obstacle_tolerance as _obstacle_tolerance,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
-    prescribed_head_cells as _prescribed_head_cells,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
-    projected_vi_residual as _projected_vi_residual,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
-    reconstruct_obstacle_reactions as _reconstruct_obstacle_reactions,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.petsc import (
-    accept_failed_snes_by_projected_tolerance as _accept_failed_snes_by_projected_tolerance,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.petsc import (
-    configure_vi_snes as _configure_vi_snes,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    attempt_diagnostic_record as _attempt_diagnostic_record,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    dry_equilibrium_result as _dry_equilibrium_result,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    normalize_substep_count as _normalize_substep_count,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    period_substep_diagnostics as _period_substep_diagnostics,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    restored_transient_failure_result as _restored_transient_failure_result,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    solve_transient_vi_substep as _solve_transient_vi_substep,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    solve_vi_obstacle_problem as _solve_vi_obstacle_problem,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    solver_diagnostics as _solver_diagnostics,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    substep_attempt_counts as _substep_attempt_counts,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    substep_diagnostic_record as _substep_diagnostic_record,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    sum_attempt_iterations as _sum_attempt_iterations,
-)
-from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    sum_substep_iterations as _sum_substep_iterations,
-)
-from hydromodpy.solver.boussinesq.runtimes.vi_bounds import (
-    variable_bounds as _variable_bounds,
-)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi import obstacle, vi
 
 
 def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
@@ -115,12 +55,12 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
         else np.asarray(inputs.head_initial_guess_m, dtype=float).copy()
     )
     zero_surface_rate = np.zeros(int(inputs.mesh.n_cells), dtype=float)
-    prescribed_head_m_by_cell = _prescribed_head_cells(inputs.prescribed_head_m_by_cell)
-    requested_substeps = _normalize_substep_count(
+    prescribed_head_m_by_cell = obstacle.prescribed_head_cells(inputs.prescribed_head_m_by_cell)
+    requested_substeps = vi.normalize_substep_count(
         inputs.options.vi_substeps_per_period,
         label="vi_substeps_per_period",
     )
-    attempt_counts = _substep_attempt_counts(
+    attempt_counts = vi.substep_attempt_counts(
         requested_substeps=requested_substeps,
         adaptive_enabled=bool(inputs.options.vi_substep_on_failure),
         max_adaptive_substeps=int(inputs.options.vi_max_adaptive_substeps),
@@ -141,7 +81,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
             substep_initial = (
                 head_initial if attempt_index == 0 and substep_index == 0 else head_current
             )
-            substep = _solve_transient_vi_substep(
+            substep = vi.solve_transient_vi_substep(
                 inputs=inputs,
                 head_prev_m=head_current,
                 head_initial_guess_m=substep_initial,
@@ -151,7 +91,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
             )
             substep_results.append(substep)
             substep_records.append(
-                _substep_diagnostic_record(
+                vi.substep_diagnostic_record(
                     result=substep,
                     attempt_index=attempt_index,
                     substep_index=substep_index,
@@ -164,14 +104,14 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
                 break
             head_current = np.asarray(substep.head_m, dtype=float).copy()
 
-        attempt_summary = _attempt_diagnostic_record(
+        attempt_summary = vi.attempt_diagnostic_record(
             attempt_index=attempt_index,
             n_substeps=int(n_substeps),
             substep_records=substep_records,
         )
         if substep_results and all(result.converged for result in substep_results):
             final_result = substep_results[-1]
-            diagnostics = _period_substep_diagnostics(
+            diagnostics = vi.period_substep_diagnostics(
                 final_result=final_result,
                 requested_substeps=requested_substeps,
                 used_substeps=int(n_substeps),
@@ -186,9 +126,16 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
                 termination_reason = (
                     f"{termination_reason}; adaptive_vi_substeps_used={int(n_substeps)}"
                 )
+            # A stamp closes its period: the state is the last substep, each
+            # flux the mean of the substeps, which are of equal length.
+            weight = 1.0 / float(len(substep_results))
             return replace(
                 final_result,
-                iterations=_sum_substep_iterations(substep_records),
+                assembly=period_mean_assembly(
+                    [result.assembly for result in substep_results],
+                    [weight] * len(substep_results),
+                ),
+                iterations=vi.sum_substep_iterations(substep_records),
                 termination_reason=termination_reason,
                 diagnostics=diagnostics,
             )
@@ -197,14 +144,14 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
 
     if last_failure is None:
         raise RuntimeError("PETSc VI substepping did not execute any substep.")
-    restored = _restored_transient_failure_result(
+    restored = vi.restored_transient_failure_result(
         inputs=inputs,
         head_start_m=head_start,
         prescribed_head_m_by_cell=prescribed_head_m_by_cell,
         zero_surface_rate_m_s=zero_surface_rate,
         failed_result=last_failure,
     )
-    diagnostics = _period_substep_diagnostics(
+    diagnostics = vi.period_substep_diagnostics(
         final_result=last_failure,
         requested_substeps=requested_substeps,
         used_substeps=0,
@@ -216,7 +163,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     )
     return replace(
         restored,
-        iterations=_sum_attempt_iterations(failed_attempts),
+        iterations=vi.sum_attempt_iterations(failed_attempts),
         diagnostics=diagnostics,
         termination_reason=(
             f"{last_failure.termination_reason}; failed_vi_substep_attempts="
@@ -228,7 +175,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
 def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
     """Solve one steady balance as a PETSc bounded VI in head only."""
     zero_surface_rate = np.zeros(int(inputs.mesh.n_cells), dtype=float)
-    prescribed_head_m_by_cell = _prescribed_head_cells(inputs.prescribed_head_m_by_cell)
+    prescribed_head_m_by_cell = obstacle.prescribed_head_cells(inputs.prescribed_head_m_by_cell)
 
     def _assembly_for(head_m: np.ndarray) -> BoussinesqAssembly:
         return assemble_steady_residual_with_saturation_excess(
@@ -251,7 +198,7 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
         tol_bottom_vi=max(float(inputs.options.tol_residual_inf), 1.0e-12),
     )
     if dry_equilibrium.detected:
-        return _dry_equilibrium_result(
+        return vi.dry_equilibrium_result(
             mesh=inputs.mesh,
             assembly_for=_assembly_for,
             head_m=dry_equilibrium.head_m,
@@ -262,7 +209,7 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
             dry_diagnostics=dry_equilibrium.diagnostics,
         )
 
-    return _solve_vi_obstacle_problem(
+    return vi.solve_vi_obstacle_problem(
         assembly_for=_assembly_for,
         head_initial_guess_m=np.asarray(inputs.head_initial_guess_m, dtype=float),
         mesh=inputs.mesh,
@@ -276,17 +223,4 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
     )
 
 
-__all__ = [
-    "_accept_failed_snes_by_projected_tolerance",
-    "_clip_head_to_bounds",
-    "_configure_vi_snes",
-    "_free_residual_norm",
-    "_obstacle_tolerance",
-    "_projected_vi_residual",
-    "_reconstruct_obstacle_reactions",
-    "_snes_reason_label",
-    "_solver_diagnostics",
-    "_variable_bounds",
-    "solve_steady_problem",
-    "solve_transient_step",
-]
+__all__ = ["solve_steady_problem", "solve_transient_step"]

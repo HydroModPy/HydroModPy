@@ -1,13 +1,17 @@
-"""Lake abacus comparison persistence: build sidecar -> extractor -> per-sim Zarr."""
+"""Lake abacus persistence: volume (m3) and surface area (m2) against stage (m).
+
+The builder writes a sidecar, the extractor reads it and the run keeps the curves in its Zarr.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-from hydromodpy.solver.modflow6.build import _write_lake_abacus_meta
+from hydromodpy.solver.modflow6.builders.lake import _write_lake_abacus_meta
 from hydromodpy.solver.modflow6.extractors.lake import read_lake_abacus
 
 _STAGE = [20.0, 30.0, 40.0, 50.0, 60.0]
@@ -15,7 +19,7 @@ _REAL_VOL = [0.0, 12500.0, 50000.0, 112500.0, 200000.0]
 _REAL_SAREA = [0.0, 2500.0, 5000.0, 7500.0, 10000.0]
 
 
-def test_lake_abacus_zarr_roundtrip(tmp_path: Path) -> None:
+def test_zarr_roundtrip(tmp_path: Path) -> None:
     sz = SimulationZarr.create(tmp_path / "sim.zarr", n_cells=4, n_layers=1)
     sz.write_lake_abacus(
         "lac0",
@@ -46,7 +50,7 @@ class _Model:
         self._lake_bed_reconstruction = reconstruction
 
 
-def test_lake_abacus_sidecar_roundtrip(tmp_path: Path) -> None:
+def test_sidecar_roundtrip(tmp_path: Path) -> None:
     reconstruction = {
         "lac0": {
             "abacus_stage": _STAGE,
@@ -69,11 +73,26 @@ def test_lake_abacus_sidecar_roundtrip(tmp_path: Path) -> None:
     assert entry.sim_volume == _REAL_VOL
 
 
-def test_lake_abacus_sidecar_absent_is_none(tmp_path: Path) -> None:
-    assert read_lake_abacus(tmp_path / "missing.lake_abacus.json") is None
-
-
-def test_lake_abacus_meta_noop_without_reconstruction(tmp_path: Path) -> None:
+def test_no_sidecar_without_reconstruction(tmp_path: Path) -> None:
     model = _Model(tmp_path, {})
     _write_lake_abacus_meta(model)
     assert not (tmp_path / "mymodel.lake_abacus.json").exists()
+
+
+def test_curves_of_different_lengths(tmp_path: Path) -> None:
+    # Five arrays share the stage_level axis of one Zarr group and must agree on its size.
+    # Refusing at the write names the lake and the lengths, where a store would not open.
+    sz = SimulationZarr.create(tmp_path / "sim.zarr", n_cells=4, n_layers=1)
+    try:
+        with pytest.raises(ValueError, match="different lengths"):
+            sz.write_lake_abacus(
+                "lac0",
+                stage=_STAGE,
+                real_volume=_REAL_VOL,
+                real_sarea=_REAL_SAREA,
+                sim_volume=_REAL_VOL[:3],
+                sim_sarea=_REAL_SAREA[:3],
+            )
+        assert "lake_abacus" not in sz.root
+    finally:
+        sz.close()

@@ -15,6 +15,13 @@ Comparison:
 - simulated observable: `watertable_elevation`
 - compared quantity: domain-averaged head profile along `x`
 - reference: steady Dupuit profile with uniform recharge
+- boundary positions: each side head is posed where the model holds it, at the
+  center of the boundary column, or at the mean centroid of the boundary
+  triangles on the triangle strip, or on the face on the Voronoi dual, whose
+  cells are seeded on the face; a no-flow side stays on the domain face
+  (`validation_cases/shared/strip_geometry.py`)
+- Voronoi dual: one cell per node of the triangle strip, read at its node and
+  binned by area-weighted mean into the same 40 columns as the reference
 
 Direct execution:
 
@@ -27,3 +34,15 @@ The runner saves a PNG figure with:
 - numerical mean profile as blue points,
 - analytical Dupuit profile as an orange line,
 - a residual panel and a metrics summary box.
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+\frac{\mathrm{d}}{\mathrm{d}x}\left(K\,h\,\frac{\mathrm{d}h}{\mathrm{d}x}\right)+R=0
+$$
+
+$$
+h(x)^2=h_w^2+\left(h_e^2-h_w^2\right)\frac{\xi}{L}+\frac{R}{K}\,\xi\left(L-\xi\right),\quad \xi=x-x_{\min}
+$$

@@ -18,10 +18,15 @@ from validation_cases.shared import (
     rmse,
     run_launcher_validation_case,
 )
+from validation_cases.shared.loaders import run_dual_cell_centers
+from validation_cases.shared.strip_geometry import strip_geometry_for_run
 
 from .reference import (
     build_linear_topography_values,
     expected_linearized_unconfined_hillslope_drainage_profile_at_x,
+)
+from .runtime_boussinesq import (
+    run_boussinesq_linearized_unconfined_hillslope_drainage_case,
 )
 
 CASE_DIR = Path(__file__).resolve().parent
@@ -77,6 +82,7 @@ def build_linearized_unconfined_hillslope_drainage_comparison(
         sim_id=result.sim_id,
         observable_name=observable_name,
         expected_shape=expected_shape or None,
+        cell_centers=run_dual_cell_centers(result, case_metadata),
     )
 
     if expected_shape:
@@ -86,35 +92,46 @@ def build_linearized_unconfined_hillslope_drainage_comparison(
 
     profile_axis = int(reference_cfg.get("profile_axis", 0))
     numerical_profile = mean_along_axis(heads, axis=profile_axis)
-    dx = (float(reference_cfg["xmax"]) - float(reference_cfg["xmin"])) / float(
-        numerical_profile.size
-    )
-    x = float(reference_cfg["xmin"]) + ((np.arange(numerical_profile.size, dtype=float) + 0.5) * dx)
-    nrow = int(heads.shape[0])
-    cell_area_m2 = dx * (float(reference_cfg["length_y_m"]) / float(nrow))
-    topography_profile = build_linear_topography_values(
-        x_m=x,
+    geometry = strip_geometry_for_run(
+        result,
+        ncol=numerical_profile.size,
         xmin=float(reference_cfg["xmin"]),
         xmax=float(reference_cfg["xmax"]),
-        topography_base_elevation_m=float(reference_cfg["topography_base_elevation_m"]),
-        topography_right_to_left_amplitude_m=float(
-            reference_cfg["topography_right_to_left_amplitude_m"]
-        ),
     )
-    analytical_profile = expected_linearized_unconfined_hillslope_drainage_profile_at_x(
-        x_m=x,
-        xmin=float(reference_cfg["xmin"]),
-        xmax=float(reference_cfg["xmax"]),
-        west_head_m=float(reference_cfg["west_head_m"]),
-        east_head_m=float(reference_cfg["east_head_m"]),
-        drainage_conductance_m2_per_s=float(reference_cfg["drainage_conductance_m2_per_s"]),
-        cell_area_m2=float(cell_area_m2),
-        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
-        reference_saturated_thickness_m=float(reference_cfg["reference_saturated_thickness_m"]),
-        topography_base_elevation_m=float(reference_cfg["topography_base_elevation_m"]),
-        topography_right_to_left_amplitude_m=float(
+    x = geometry.x
+    # Each drain takes C = K * cell_area / b, so the leakance per unit area is
+    # K / b on every mesh, whatever the cell sizes.
+    hydraulic_conductivity = float(reference_cfg["hydraulic_conductivity_m_per_s"])
+    drainage_leakance = hydraulic_conductivity / float(reference_cfg["drain_bed_thickness_m"])
+    topography = {
+        "topography_base_elevation_m": float(reference_cfg["topography_base_elevation_m"]),
+        "topography_right_to_left_amplitude_m": float(
             reference_cfg["topography_right_to_left_amplitude_m"]
         ),
+    }
+    topography_profile = geometry.profile(
+        lambda points: build_linear_topography_values(
+            x_m=points,
+            xmin=geometry.surface_west_x,
+            xmax=geometry.surface_east_x,
+            **topography,
+        )
+    )
+    analytical_profile = geometry.profile(
+        lambda points: expected_linearized_unconfined_hillslope_drainage_profile_at_x(
+            x_m=points,
+            surface_west_x=geometry.surface_west_x,
+            surface_east_x=geometry.surface_east_x,
+            west_x=geometry.west_x,
+            east_x=geometry.east_x,
+            west_head_m=float(reference_cfg["west_head_m"]),
+            east_head_m=float(reference_cfg["east_head_m"]),
+            drainage_leakance_per_s=drainage_leakance,
+            hydraulic_conductivity_m_per_s=hydraulic_conductivity,
+            reference_saturated_thickness_m=float(reference_cfg["reference_saturated_thickness_m"]),
+            **topography,
+        ),
+        within=(geometry.west_x, geometry.east_x),
     )
     residual_profile = np.asarray(numerical_profile - analytical_profile, dtype=float)
     numerical_clearance = np.asarray(numerical_profile - topography_profile, dtype=float)
@@ -148,15 +165,27 @@ def run_linearized_unconfined_hillslope_drainage_comparison(
     timeout: int = 1800,
     solver: str | None = None,
 ) -> LinearizedUnconfinedHillslopeDrainageComparison:
-    """Run the case and return the full comparison payload."""
+    """Run the case on one solver and return the full comparison payload.
+
+    MODFLOW variants go through the launcher. ``boussinesq`` runs the PETSc VI
+    engine on a strip bundle: the default local engine cannot hold a head above
+    the drain elevation, so it has no variant.
+    """
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
-    result = run_launcher_validation_case(
-        case_dir=CASE_DIR,
-        test_file=caller_file,
-        timeout=timeout,
-        solver=solver,
-    )
+    if solver is not None and str(solver).strip().lower() == "boussinesq":
+        result = run_boussinesq_linearized_unconfined_hillslope_drainage_case(
+            caller_file=caller_file,
+            timeout=timeout,
+            public_solver_label="boussinesq",
+        )
+    else:
+        result = run_launcher_validation_case(
+            case_dir=CASE_DIR,
+            test_file=caller_file,
+            timeout=timeout,
+            solver=solver,
+        )
     return build_linearized_unconfined_hillslope_drainage_comparison(
         result=result,
         metadata=metadata,

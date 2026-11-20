@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 HAS_CFCHECKER = (
     shutil.which("cfchecker") is not None or importlib.util.find_spec("cfchecker") is not None

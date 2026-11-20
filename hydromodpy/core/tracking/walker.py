@@ -1,13 +1,20 @@
-"""Walk a Pydantic config tree and collect ``InputFile``-annotated paths."""
+"""Walk a Pydantic config tree and collect ``InputFile``-annotated paths.
+
+``collect_input_files`` collects every marked path, and ``rewrite_input_paths`` rewrites
+those paths when a project moves.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, get_args
+from types import UnionType
+from typing import Annotated, Any, Union, get_args, get_origin
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
+from hydromodpy.core.config_kit.introspect import fields_and_tables, held_tables_of
 from hydromodpy.core.tracking.input_file import InputFile, TrackedFileEntry
 
 
@@ -48,6 +55,8 @@ def _walk(
             if marker is not None:
                 _record_path_value(marker, value, seen, entries, base)
             _walk(value, seen, entries, base)
+        for table in held_tables_of(node).values():
+            _walk(table, seen, entries, base)
         return
 
     if isinstance(node, (list, tuple)):
@@ -111,8 +120,71 @@ def _extract_raw_path(value: Any) -> str | None:
     return None
 
 
-def _contains_path_type(annotation: Any) -> bool:
-    if annotation is Path:
-        return True
+def rewrite_input_paths(
+    payload: dict[str, Any],
+    model: type[BaseModel],
+    rewrite: Callable[[InputFile, str], str],
+) -> None:
+    """Replace, in place, every ``InputFile`` path of a config document by ``rewrite(marker, value)``.
+
+    The document is the plain mapping a TOML file or ``model_dump`` gives;
+    *model* is the class it validates against. The walk follows the fields of
+    the model, and its named tables, into nested tables, lists of tables and
+    tables of tables, and tries every member of a union.
+    """
+    _rewrite(payload, [model], rewrite)
+
+
+def _rewrite(
+    payload: dict[str, Any],
+    models: list[type[BaseModel]],
+    rewrite: Callable[[InputFile, str], str],
+) -> None:
+    for key, value in list(payload.items()):
+        field_info = next(
+            (
+                fields[key]
+                for model in models
+                if key in (fields := fields_and_tables(model, shipped_only=False))
+            ),
+            None,
+        )
+        if field_info is None:
+            continue
+        marker = _input_file_marker(field_info)
+        if marker is not None and isinstance(value, str) and value.strip():
+            payload[key] = rewrite(marker, value)
+            continue
+        inner, keyed = _models_of(field_info.annotation)
+        if not inner:
+            continue
+        if isinstance(value, dict) and keyed:
+            for item in value.values():
+                if isinstance(item, dict):
+                    _rewrite(item, inner, rewrite)
+        elif isinstance(value, dict):
+            _rewrite(value, inner, rewrite)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _rewrite(item, inner, rewrite)
+
+
+def _models_of(annotation: Any) -> tuple[list[type[BaseModel]], bool]:
+    """Return the models an annotation may hold, and whether they are the values of a mapping."""
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return [annotation], False
+    origin = get_origin(annotation)
     args = get_args(annotation)
-    return any(_contains_path_type(arg) for arg in args)
+    if origin is Annotated:
+        return _models_of(args[0])
+    if origin in (dict, Mapping) and len(args) == 2:
+        return _models_of(args[1])[0], True
+    models: list[type[BaseModel]] = []
+    keyed = False
+    if origin in (list, tuple, Union, UnionType):
+        for arg in args:
+            found, mapped = _models_of(arg)
+            models.extend(found)
+            keyed = keyed or mapped
+    return models, keyed

@@ -1,0 +1,108 @@
+"""Persist loaded observation timeseries into the run.
+
+Observation-type data variables (hydrometry, piezometry, intermittency,
+water_quality) load station timeseries at project init time. This
+extractor copies those series into the ``timeseries`` table of the run,
+with ``source = observed``, beside the simulated ones of the same variable, so
+they can be read with ``Run.observed(variable, station=...)``. The
+forcing-reproducibility copy in Zarr ``forcing/`` (written by
+:func:`step_persist_forcings`) is separate.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pandas as pd
+
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import OBSERVED
+
+logger = get_logger(__name__)
+
+
+_OBSERVATION_FIELDS: tuple[str, ...] = (
+    "hydrometry",
+    "piezometry",
+    "intermittency",
+    "water_quality",
+    # Gauged lake level. Without it a lake run carries only simulated rows, so no
+    # sim-vs-obs comparison is possible on the one state a reservoir model is
+    # judged on, even when the project declares [data.lake_levels].
+    "lake_levels",
+)
+
+
+def ingest_observations(
+    sim_id: str,
+    store: Any,
+    loaded_data: Any,
+) -> int:
+    """Write observation timeseries from ``loaded_data`` into the run.
+
+    Iterates over observation-type fields on the ``LoadedDataContext``
+    and writes each :class:`PointRecord` to the ``timeseries`` table, with
+    ``source = observed``.
+
+    Parameters
+    ----------
+    sim_id : str
+        Simulation UUID.
+    store : RunStore
+        Open store of the run.
+    loaded_data : LoadedDataContext
+        Project-level data context (``project._ctx.loaded_data``).
+
+    Returns
+    -------
+    int
+        Number of timeseries successfully persisted.
+    """
+    written = 0
+    failures: list[str] = []
+    for field in _OBSERVATION_FIELDS:
+        result = getattr(loaded_data, field, None)
+        if result is None:
+            continue
+        points = getattr(result, "points", None) or []
+        for rec in points:
+            try:
+                ts = _point_to_series(rec)
+                if ts is None or ts.empty:
+                    continue
+                store.write_timeseries(
+                    sim_id,
+                    station_id=str(rec.station_id),
+                    variable=str(rec.variable),
+                    ts=ts,
+                    unit=getattr(rec, "unit", "") or "",
+                    source=OBSERVED,
+                )
+                written += 1
+            except Exception as exc:
+                failures.append(f"{field}/{getattr(rec, 'station_id', '?')}: {exc}")
+                logger.exception(
+                    "Failed to ingest observation %s/%s",
+                    field,
+                    getattr(rec, "station_id", "?"),
+                )
+    if failures:
+        raise RuntimeError("Observation ingestion failed: " + "; ".join(failures))
+    if written:
+        logger.info("Ingested %d observation timeseries for sim %s", written, sim_id)
+    return written
+
+
+def _point_to_series(rec: Any) -> pd.Series | None:
+    """Convert one ``PointRecord`` into a tz-naive ``pd.Series``."""
+    df = getattr(rec, "data", None)
+    if df is None or df.empty:
+        return None
+    idx = pd.to_datetime(df["datetime"])
+    if idx.dt.tz is not None:
+        idx = idx.dt.tz_localize(None)
+    return pd.Series(
+        df["value"].astype("float64").values,
+        index=pd.DatetimeIndex(idx),
+        name=str(rec.variable),
+    )

@@ -1,0 +1,99 @@
+[workflow]
+mode = "simulation"
+[workspace]
+project_root = "."
+[simulation]
+name = "nancon_intermittence_mf6"
+description = "Nancon catchment, monthly transient 2000-2002, seasonal seepage intermittence."
+if_exists = "replace"
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+[geographic]
+crs_project = "EPSG:2154"
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_armorican_massif.tif"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+[data]
+types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_armorican_massif.tif"
+[[data.hydrography.sources]]
+source = "custom"
+path = "nancon_stream_network.gpkg"
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+station_ids = ["NANCON"]
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["NANCON"]
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["NANCON"]
+[flow]
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+[display]
+on_error = "raise"
+time = "2002-10-15"
+figures = [
+    "watershed_id_card",
+    "flux_timeseries",
+    "hydrograph_log_nse",
+    "cross_section",
+    "watertable_depth_map",
+    "seepage_map",
+    "flow_persistence_map",
+    "flow_intermittence_map",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+    "downslope_distance_crossing",
+    "bisection_bracket_trace",
+    "parameter_cost_profile",
+    "matching_hydrographic_network_card",
+    "calibration_progress",
+]
+[display.overrides.cross_section]
+orientation = "sn"
+[display.overrides.flow_intermittence_map]
+cycle = "2002"
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2001-01-01", "2002-12-31"]
+[[export]]
+variables = ["watershed", "hydrographic_network_reference"]
+[[export]]
+variables = ["watertable_depth", "seepage_mask"]
+time = "2002-10-15"
+[[export]]
+variables = ["discharge", "discharge_obs"]
+[[export]]
+variables = "budget"

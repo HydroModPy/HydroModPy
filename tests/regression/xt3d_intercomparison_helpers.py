@@ -13,6 +13,10 @@ from tests.regression.golden_utils import (
     resolve_tiered_golden_file,
     update_or_assert_goldens,
 )
+from tests.regression.xt3d_irregular_tri_diagnostics import (
+    build_xt3d_method_choice_payload,
+    rounded_xt3d_method_choice_payload,
+)
 
 ROW_NUMERIC_FIELDS = (
     "rmse_without_xt3d",
@@ -86,20 +90,12 @@ def run_xt3d_method_choice_regression(
         require_modpath=False,
         require_mt3dms=False,
     )
-    try:
-        from tools.doc_gallery.xt3d_irregular_tri_diagnostics import (
-            build_xt3d_method_choice_payload,
-            rounded_xt3d_method_choice_payload,
+    payload = rounded_xt3d_method_choice_payload(
+        build_xt3d_method_choice_payload(
+            selected_case_slugs=tuple(case_slugs),
+            timeout=timeout,
         )
-
-        payload = rounded_xt3d_method_choice_payload(
-            build_xt3d_method_choice_payload(
-                selected_case_slugs=tuple(case_slugs),
-                timeout=timeout,
-            )
-        )
-    except ModuleNotFoundError as exc:
-        pytest.skip(f"XT3D comparison dependency is missing: {exc.name}")
+    )
 
     signature = build_xt3d_method_choice_signature(payload)
     assert_xt3d_method_choice_limits(signature, limits=limits)

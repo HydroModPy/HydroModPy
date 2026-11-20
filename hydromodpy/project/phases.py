@@ -11,19 +11,56 @@ interactive phase verbs (``prepare`` and the per-phase builders).
 
 from __future__ import annotations
 
+import copy
 import re
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
 if TYPE_CHECKING:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.core.state.run_state import SetupContext
+    from hydromodpy.project.environment import Environment
     from hydromodpy.project.facade import Project
 
 logger = get_logger(__name__)
+
+
+def _read_config(
+    project: Project,
+    config: str | Path | HydroModPyConfig,
+    *,
+    base: Path | None,
+    document: Mapping[str, Any] | None,
+    source: Path | None,
+) -> dict:
+    """Set the configuration of *project* from a built object or a TOML file; return its document.
+
+    A TOML file is read through :func:`~hydromodpy.config.loading.load`, relative
+    paths against *base* or the project root above the file. A built object is
+    copied. Its *document* is the one it was loaded from, which the planner of the
+    data reads for the sections the configuration does not hold; without it, the
+    document is what the configuration writes as a file. *source* is the file an
+    object was read from, when it came from one.
+    """
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
+    from hydromodpy.config.loading import load, read_document
+    from hydromodpy.core.config_kit.base import thawed_copy
+    from hydromodpy.core.config_kit.written import written_as_a_file
+
+    if isinstance(config, HydroModPyConfig):
+        project._config_path = None if source is None else Path(source).resolve()
+        # A frozen copy opens a project of its own: the phases below write in this object.
+        project._cfg = thawed_copy(config)
+        return copy.deepcopy(dict(document)) if document is not None else written_as_a_file(config)
+    project._config_path = Path(config).resolve()
+    project._cfg = load(project._config_path, base)
+    return read_document(project._config_path, root=ROOT_CONFIG)
 
 
 def configure(
@@ -33,82 +70,38 @@ def configure(
     solver: str | None,
     headless: bool,
     no_display: bool,
+    environment: Environment | None = None,
+    base: Path | None = None,
+    document: Mapping[str, Any] | None = None,
+    source: Path | None = None,
 ) -> None:
-    """Resolve the config, time grid and data plan, then build an empty ctx."""
-    from hydromodpy.config import HydroModPyConfig
+    """Resolve the config, time grid and data plan, then build an empty ctx.
+
+    ``base``, ``document`` and ``source`` are those of :func:`_read_config`.
+    ``environment`` is the :class:`~hydromodpy.project.environment.Environment`
+    of the call that opened the project. Only its bounds cross here: they ride
+    on the workflow context, and the object itself stays on the project state.
+    """
+    from hydromodpy.catchment.algorithms.river_network_config import river_network_for_the_mesh
+    from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.core.time import (
-        apply_explicit_time_window_to_tgrids,
-        require_flow_simulation_time_grid,
-    )
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-    from hydromodpy.data import DataPlanner
-    from hydromodpy.spatial.domain.spatial_support import (
+    from hydromodpy.data.loading.planner import DataPlanner
+    from hydromodpy.model.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
-    )
-    from hydromodpy.workflow.steps.data import log_data_plan
-    from hydromodpy.workflow.steps.mesh import (
-        resolve_optional_mesh_input,
-        resolve_optional_mesh_section,
-    )
-    from hydromodpy.workflow.steps.setup import (
         collect_requested_support_ids,
         resolve_support_configs,
         support_provider_names,
     )
+    from hydromodpy.model.forcing.soil_config import soil_reservoir_of
+    from hydromodpy.workflow.steps.data import log_data_plan
 
-    if isinstance(config, HydroModPyConfig):
-        project._config_path = None
-        project._cfg = config
-        raw_toml: dict = {}
-    else:
-        project._config_path = Path(config).resolve()
-        project._cfg = HydroModPyConfig.from_toml(project._config_path)
-        raw_toml = load_toml_with_base_config(project._config_path)
-
+    raw_toml = _read_config(project, config, base=base, document=document, source=source)
+    refuse_a_sealed_run_as_project(project._cfg.workspace.project_root)
+    _refuse_another_solver(project._cfg, solver)
     project._solver = solver or detect_solver(project)
-    ensure_simulation_block(project)
+    _ensure_simulation_block(project)
 
-    apply_explicit_time_window_to_tgrids(project._cfg)
-    project._time_grid = require_flow_simulation_time_grid(project._cfg)
-
-    if project._config_path is not None:
-        project._mesh_section_data = resolve_optional_mesh_section(raw_toml)
-        project._external_mesh_input = resolve_optional_mesh_input(
-            raw_toml,
-            project._config_path,
-        )
-    else:
-        project._mesh_section_data = project._cfg.mesh_catchment
-        project._external_mesh_input = None
-    project._mesh_constraints_mode = None
-    if project._mesh_section_data is not None and project._external_mesh_input is not None:
-        raise ConfigError(
-            "Embedded [mesh_catchment] and external [mesh_input] are mutually "
-            "exclusive. Use only one mesh source."
-        )
-    if project._mesh_section_data is not None:
-        from hydromodpy.spatial.mesh.launcher.runtime import (
-            prepare_geographic_config_for_meshing,
-        )
-
-        project._mesh_constraints_mode = project._mesh_section_data.constraints_mode
-        project._cfg.geographic = prepare_geographic_config_for_meshing(
-            project._cfg.geographic,
-            constraints_mode=project._mesh_constraints_mode,
-        )
-    elif project._external_mesh_input is not None and "stream" in {
-        str(bc_id).strip().lower() for bc_id in getattr(project._cfg.flow, "active_bc", ())
-    }:
-        from hydromodpy.spatial.mesh.launcher.runtime import (
-            prepare_geographic_config_for_meshing,
-        )
-
-        project._cfg.geographic = prepare_geographic_config_for_meshing(
-            project._cfg.geographic,
-            constraints_mode="rivers_only",
-            section_name="mesh_input",
-        )
+    project._cfg.geographic = river_network_for_the_mesh(project._cfg)
 
     project._spatial_support_registry = build_default_spatial_support_provider_registry()
     project._requested_support_ids = collect_requested_support_ids(project._cfg.flow)
@@ -126,29 +119,30 @@ def configure(
         requested_spatial_support_ids=project._requested_support_ids,
         raw_toml=raw_toml,
         flow_active_bc=project._cfg.flow.active_bc,
+        flow_soil_reservoir=soil_reservoir_of(project._cfg.flow) is not None,
     )
     log_data_plan(data_plan)
     project._cfg.data = project._cfg.data.with_resolved_types(data_plan.types)
 
     project._ctx = WorkflowContext(
         cfg=project._cfg,
-        config_path=project._config_path or Path.cwd(),
+        config_path=project._config_path
+        or Path(project._cfg.workspace.project_root) / PROJECT_MARKER_FILENAME,
         raw_toml=raw_toml,
+        bounds=environment.bounds if environment is not None else None,
     )
     project._ctx.data_plan = data_plan
-    project._ctx.setup.time_grid = project._time_grid
+    put_time_grids(project._ctx.setup, project._cfg)
+    project._time_grid = project._ctx.setup.time_grid
 
+    project._environment = environment
     project._headless = headless
     project._no_display = no_display
-    if headless:
-        project._cfg.display.save = False
-        project._cfg.display.show = False
 
     project._store = None
     project._project_name = None
     project._run_counter = 0
     project._active_runs = {}
-    project._last_wall_seconds = {}
     project._phase = "uninitialized"
     project._data_loaded = set()
     project._run_history = []
@@ -156,12 +150,22 @@ def configure(
     logger.info("Project configured: %s", source)
 
 
+def put_time_grids(setup: SetupContext, cfg: HydroModPyConfig) -> None:
+    """Put the whole time grid of ``cfg``, the grid its run solves and its chain window on ``setup``."""
+    from hydromodpy.core.time.window import require_flow_simulation_time_grid
+    from hydromodpy.project.windows import cut_grid
+
+    setup.whole_time_grid = require_flow_simulation_time_grid(cfg)
+    setup.time_grid, setup.chain_window = cut_grid(
+        setup.whole_time_grid, getattr(cfg.simulation, "time", None)
+    )
+
+
 def setup_workspace(project: Project) -> None:
     """Bootstrap shared runtime state for a Project session.
 
     Idempotent: calling twice resets workspace, geographic, domain, and process
-    objects. Opens the catalog as a side effect so later run-phase methods can
-    register simulations.
+    objects. Opens the index for reading as a side effect, when one exists.
     """
     from hydromodpy.workflow.steps.setup import step_setup, step_spatial_supports
 
@@ -180,6 +184,44 @@ def setup_workspace(project: Project) -> None:
     open_catalog(project)
 
 
+MODEL_PHASE_BY_STEP = {
+    "build_geographic": "geographic",
+    "load_data": "data",
+    "build_mesh": "mesh",
+}
+
+
+def _invalidate_data_and_mesh(project: Project) -> None:
+    """A rebuilt geographic invalidates the data and the mesh drawn on it."""
+    project._data_loaded.clear()
+    project._ctx.loaded_data.loaded_plan_types = None
+    project._ctx.setup.cell_mesh = None
+    project._ctx.setup.mesh_summary = None
+
+
+def adopt_pipeline_phase(project: Project, executed_steps: Sequence[str]) -> None:
+    """Record on the Project what a Pipeline just built on the shared context.
+
+    A run bounded before ``setup_process`` executes the model-phase steps
+    itself instead of going through the facade verbs, on the very ``ctx`` the
+    Project holds. Without this, the phase marker still reads
+    ``"uninitialized"`` and the next call rebuilds from scratch what is
+    already there. The invalidations mirror :func:`build_geographic` and
+    :func:`load_data`, which are the verbs these steps stand in for.
+    """
+    phase = None
+    for name in executed_steps:
+        phase = MODEL_PHASE_BY_STEP.get(name, phase)
+    if phase is None:
+        return
+    if phase == "geographic":
+        # A rebuilt geographic invalidates the data and the mesh drawn on it.
+        _invalidate_data_and_mesh(project)
+    else:
+        project._data_loaded = set(getattr(project._ctx.data_plan, "types", ()) or ())
+    project._phase = phase
+
+
 def build_geographic(project: Project, *, reuse_dem: bool = False) -> None:
     """Expose the geographic/domain runtime as ready for later phases.
 
@@ -192,10 +234,7 @@ def build_geographic(project: Project, *, reuse_dem: bool = False) -> None:
         with progress.phase("build_geographic"):
             setup_workspace(project)
     project._phase = "geographic"
-    project._data_loaded.clear()
-    project._ctx.loaded_data.loaded_plan_types = None
-    project._ctx.setup.mesh_planar = None
-    project._ctx.setup.mesh_bundle = None
+    _invalidate_data_and_mesh(project)
 
 
 def load_data(project: Project, *, types: list[str] | None = None) -> None:
@@ -238,43 +277,66 @@ def rebuild_geographic(project: Project, *, reuse_dem: bool = False) -> None:
 
 
 def build_mesh(project: Project, **overrides: object) -> None:
-    """Build the catchment mesh from the current geographic context.
+    """Build the cell mesh from the current geographic context.
 
-    ``overrides`` patch ``cfg.mesh_catchment`` before the mesh step runs.
+    ``overrides`` patch ``cfg.mesh`` before the mesh step runs.
     """
-    from hydromodpy.workflow.steps.mesh import step_mesh, step_mesh_input
+    from hydromodpy.mesh.mesh_config import MeshConfig
+    from hydromodpy.workflow.steps.mesh import step_mesh
 
     if project._phase == "uninitialized":
         load_data(project)
     if overrides:
-        from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
-
-        if project._cfg.mesh_catchment is None:
-            project._cfg.mesh_catchment = MeshCatchmentConfig.model_validate(overrides)
-        else:
-            merged = {**project._cfg.mesh_catchment.model_dump(), **overrides}
-            project._cfg.mesh_catchment = MeshCatchmentConfig.model_validate(merged)
-    with progress.phase("build_mesh"):
-        step_mesh(
-            project._ctx,
-            mesh_section_data=project._mesh_section_data,
-            constraints_mode=project._mesh_constraints_mode,
+        current = (
+            {} if project._cfg.mesh is None else project._cfg.mesh.model_dump(exclude_unset=True)
         )
-        step_mesh_input(project._ctx, external_mesh_input=project._external_mesh_input)
+        project._cfg.mesh = MeshConfig.model_validate({**current, **overrides})
+    with progress.phase("build_mesh"):
+        step_mesh(project._ctx)
     project._phase = "mesh"
 
 
 def open_catalog(project: Project) -> None:
-    """Open the Catalog for this workspace (idempotent)."""
-    from hydromodpy.results.catalog import Catalog
+    """Open the index of the project for reading (idempotent).
+
+    A project reads its index; it never writes it. Without an index yet
+    (a project that has not been indexed since its first run) the store
+    stays ``None`` and the read-only views answer empty.
+    """
+    from hydromodpy.core.state.layout import catalog_path_for
+    from hydromodpy.results.catalog.facade import Catalog
 
     if project._store is not None:
         return
     ws = project._ctx.setup.workspace
     if ws is None:
         return
-    project._store = Catalog.from_workspace(ws)
     project._project_name = ws.project_root.name
+    if not catalog_path_for(Path(ws.project_root)).is_file():
+        return
+    from hydromodpy.project.facade import read_sealed_config
+    from hydromodpy.project.show import render
+
+    project._store = Catalog(Path(ws.project_root), read_config=read_sealed_config, render=render)
+
+
+def _refuse_another_solver(cfg: HydroModPyConfig, solver: str | None) -> None:
+    """Refuse a ``solver=`` the plan of the configuration would not run.
+
+    The plan is read from the configuration, and so is the replay of the run: a
+    solver chosen beside it would not be what the run seals.
+    """
+    declared = [
+        name
+        for process in cfg.simulation.process or ()
+        if process.kind == "flow"
+        for name in process.solvers
+    ]
+    if solver and declared and solver not in declared:
+        raise ConfigError(
+            f"solver={solver!r} is not in [[simulation.process]], which runs "
+            f"{', '.join(declared)}. Write the solver in the file, or leave solver= out."
+        )
 
 
 def detect_solver(project: Project) -> str:
@@ -282,9 +344,9 @@ def detect_solver(project: Project) -> str:
     sim = project._cfg.simulation
     if sim.process:
         for proc in sim.process:
-            if proc.type == "flow" and proc.solvers:
+            if proc.kind == "flow" and proc.solvers:
                 return proc.solvers[0]
-        if all(proc.type == "mesh" for proc in sim.process):
+        if all(proc.kind == "mesh" for proc in sim.process):
             return "mesh"
     solver_cfg = getattr(project._cfg, "solver", None)
     engine = getattr(solver_cfg, "backend_name", None) if solver_cfg else None
@@ -292,16 +354,19 @@ def detect_solver(project: Project) -> str:
         return str(engine)
     raise ConfigMissingError(
         "No flow solver declared. Add a [[simulation.process]] entry with "
-        "type='flow' or set [solver.backend]."
+        "type='flow' or set solver.backend."
     )
 
 
-def ensure_simulation_block(project: Project) -> None:
-    """Synthesize [simulation] from [data.recharge] when it is absent."""
+def _ensure_simulation_block(project: Project) -> None:
+    """Synthesize [simulation] from [data.recharge] when it is absent.
+
+    A draft may lack both, since the lab asks for [simulation] before the step that reads it.
+    """
     if project._cfg.simulation.has_processes():
         return
 
-    from hydromodpy.simulation.planning.config import (
+    from hydromodpy.solver.base.simulation_config import (
         FlowProcessConfig,
         SimulationConfig,
         SimulationTimeConfig,
@@ -312,6 +377,8 @@ def ensure_simulation_block(project: Project) -> None:
     start = getattr(recharge_cfg, "date_start", None) if recharge_cfg else None
     end = getattr(recharge_cfg, "date_end", None) if recharge_cfg else None
     if start is None or end is None:
+        if project._cfg.read_as_draft:
+            return
         raise ConfigMissingError(
             "Simulation requires [simulation.time] or [data.recharge] with "
             "date_start/date_end to define the simulation window."

@@ -1,6 +1,12 @@
 """Workspace configuration with project-local result catalogs.
 
-Resolution order (first match wins):
+The project root is never written in a file. The config loader sets
+``project_root`` from where the file sits: the folder that holds
+``project.toml`` above it, else the folder of the file itself. A Python
+caller may pass it. It is a runtime attribute: never written back to TOML
+and never part of the config hash.
+
+Resolution order of the shared data workspace (first match wins):
 
 1. **Explicit** - the TOML declares ``root`` or ``data_dir`` under
    ``[workspace]``. A declared ``root`` derives the shared data directory
@@ -13,8 +19,8 @@ Resolution order (first match wins):
 4. **Standalone project** - the project directory itself is used as the
    shared data workspace.
 
-Results are project-local by default: ``catalog_path`` resolves to
-``<project_root>/.hmp/index.duckdb`` and ``runs_dir`` resolves to
+Results are always project-local: ``catalog_path`` is
+``<project_root>/.hmp/index.duckdb`` and ``runs_dir`` is
 ``<project_root>/runs``. The shared workspace root only owns input data
 caches.
 """
@@ -22,22 +28,18 @@ caches.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field, PrivateAttr, computed_field, model_validator
 from upath import UPath
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.state.paths import (
-    CATALOG_FILENAME,
-    PROJECT_MARKER_FILENAME,
-    catalog_path_for,
-    runs_dir_for,
-    scratch_dir_for,
-    share_dir_for,
-)
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, catalog_path_for, runs_dir_for
+from hydromodpy.core.workspace.workspace_toml import refuse_a_newer_workspace
 
 ResolutionSource = Literal["explicit", "env", "scaffold", "project"]
 _SAFE_FILENAME_WINDOWS_DRIVE = "\uf03a"
@@ -52,36 +54,38 @@ class WorkspaceConfig(HydroModelBase):
         <workspace>/
             workspace.toml
             data/
-                cache.duckdb
+                <variable>/<file> and its <file>.json sidecar
             projects/
                 <name>/
                     project.toml   <- TOML lives here when using scaffold
                     runs/<run>/
-                    share/
                     .hmp/index.duckdb
 
     Fields under ``[workspace]``:
 
-    ``project_root`` (required)
-        Directory of the project TOML. Usually auto-derived from the TOML
-        location by the loader.
+    ``project_root`` (runtime only)
+        Directory of the project. Set by the loader from the location of the
+        file; refused when a file writes it.
 
     ``root`` (explicit workspace override)
         When set, the shared data workspace root. Derives ``data_dir``
         unless it is explicitly overridden.
 
-    ``catalog_path`` / ``data_dir`` / ``runs_dir``
-        Per-component explicit overrides. ``catalog_path`` and ``runs_dir``
-        are project-local by default.
+    ``data_dir``
+        Explicit override of the folder the input data are read from. The index
+        (``catalog_path``) and the runs (``runs_dir``) are read-only properties,
+        fixed by the storage layout contract.
 
-    ``output_root``
-        Optional redirect for heavy outputs (``.hmp/scratch/`` and the
-        published ``share/`` tree). Defaults to ``project_root``.
+    Every output of a run lives in ``runs/<run>/``. The solver scratch of a
+    run is ``HMP_SCRATCH_ROOT``, else the default of the launcher.
     """
 
-    project_root: Annotated[Path | UPath, Profile.USER] = Field(
-        description="Path to the project directory. Required in TOML configs.",
-        examples=["."],
+    project_root: Annotated[Path | UPath, Profile.DEV] = Field(
+        description=(
+            "Folder of the project, set by the loader: the folder that holds "
+            "project.toml, else the folder of the file. Never written in a file."
+        ),
+        json_schema_extra=field_metadata(toml_exclude=True),
     )
 
     root: Annotated[Path | UPath | None, Profile.USER] = Field(
@@ -93,36 +97,44 @@ class WorkspaceConfig(HydroModelBase):
         examples=["../.."],
     )
 
-    catalog_path: Annotated[Path | None, Profile.DEV] = Field(
+    data_dir: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
-            f"Explicit path to the project index database. Defaults to "
-            f"<project_root>/.hmp/{CATALOG_FILENAME}."
+            "Folder the input data are read from and downloads are cached in. "
+            "Unset, it is <root>/data."
         ),
     )
 
-    data_dir: Annotated[Path | None, Profile.DEV] = Field(
-        default=None,
-        description=("Explicit path to the workspace data directory. Defaults to <root>/data."),
+    products_cap_mb: Annotated[int, Profile.USER] = Field(
+        default=5000,
+        ge=1,
+        description=(
+            "Size cap of the product store under .hmp/products/, in megabytes. "
+            "The oldest products go first when a run writes past it."
+        ),
+        json_schema_extra=field_metadata(unit="MB"),
     )
 
-    runs_dir: Annotated[Path | None, Profile.DEV] = Field(
-        default=None,
-        description=(
-            "Explicit path to the directory holding one sub-directory per run. "
-            "Defaults to <project_root>/runs."
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "catalog_path": (
+            "the index of a project is <project>/.hmp/index.duckdb, fixed by the storage "
+            "layout contract (docs/source/contribute/architecture/storage-layout.rst). "
+            "Delete the key."
         ),
-    )
-
-    output_root: Annotated[Path | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Root directory for per-project outputs (.hmp/scratch/, share/). "
-            "Defaults to project_root when not set. "
-            "Use this to redirect heavy outputs to a separate disk."
+        "runs_dir": (
+            "the runs of a project are in <project>/runs/, fixed by the storage layout "
+            "contract (docs/source/contribute/architecture/storage-layout.rst). Delete the key."
         ),
-        examples=["outputs/run_a"],
-    )
+        "output_root": (
+            "it has no replacement: the outputs of a run live in runs/<run>/, and the "
+            "solver scratch is HMP_SCRATCH_ROOT or the default of the launcher."
+        ),
+        "solver_scratch_folder": (
+            "the solver scratch is HMP_SCRATCH_ROOT or the default of the launcher."
+        ),
+        "share_folder": "it has no replacement: the outputs of a run live in runs/<run>/.",
+        "catch_name": "the name of the catchment is [site] name.",
+    }
 
     _resolution_source: ResolutionSource = PrivateAttr(default="explicit")
 
@@ -132,10 +144,7 @@ class WorkspaceConfig(HydroModelBase):
         for field_name in (
             "project_root",
             "root",
-            "catalog_path",
             "data_dir",
-            "runs_dir",
-            "output_root",
         ):
             _reject_safe_filename_path(field_name, getattr(self, field_name))
 
@@ -145,25 +154,12 @@ class WorkspaceConfig(HydroModelBase):
         root, source = _resolve_root(
             project_root=project_root,
             root=self.root,
-            catalog_path=self.catalog_path,
             data_dir=self.data_dir,
-            runs_dir=self.runs_dir,
         )
 
+        refuse_a_newer_workspace(root)
         _set_if_changed(self, "root", root)
-        _set_if_changed(
-            self,
-            "catalog_path",
-            _finalize(self.catalog_path, catalog_path_for(project_root)),
-        )
         _set_if_changed(self, "data_dir", _finalize(self.data_dir, root / "data"))
-        _set_if_changed(
-            self,
-            "runs_dir",
-            _finalize(self.runs_dir, runs_dir_for(project_root)),
-        )
-        if self.output_root is not None:
-            _set_if_changed(self, "output_root", Path(self.output_root).expanduser().resolve())
         self._resolution_source = source
         return self
 
@@ -175,29 +171,14 @@ class WorkspaceConfig(HydroModelBase):
         return getattr(self, "_resolution_source", "explicit")
 
     @property
-    def _effective_output_root(self) -> Path:
-        """Root for result directories: output_root if set, else project_root."""
-        if self.output_root is not None:
-            return self.output_root
-        return self.project_root
+    def catalog_path(self) -> Path:
+        """The project index, ``<project_root>/.hmp/index.duckdb``."""
+        return catalog_path_for(Path(self.project_root))
 
-    @computed_field
     @property
-    def catch_name(self) -> str:
-        """Project name derived from the project directory name."""
-        return self.project_root.name
-
-    @computed_field
-    @property
-    def solver_scratch_folder(self) -> Path:
-        """Path to the temporary solver scratch directory."""
-        return scratch_dir_for(self._effective_output_root)
-
-    @computed_field
-    @property
-    def share_folder(self) -> Path:
-        """Path to the published outputs directory."""
-        return share_dir_for(self._effective_output_root)
+    def runs_dir(self) -> Path:
+        """The folder of the runs, ``<project_root>/runs``."""
+        return runs_dir_for(Path(self.project_root))
 
     @computed_field
     @property
@@ -239,15 +220,9 @@ def _resolve_root(
     *,
     project_root: Path,
     root: Path | None,
-    catalog_path: Path | None,
     data_dir: Path | None,
-    runs_dir: Path | None,
 ) -> tuple[Path, ResolutionSource]:
-    """Resolve the shared data workspace root.
-
-    ``catalog_path`` and ``runs_dir`` are accepted for signature stability,
-    but they do not define the shared data root anymore.
-    """
+    """Resolve the shared data workspace root."""
     if root is not None:
         return Path(root).expanduser().resolve(), "explicit"
     if data_dir is not None:
@@ -261,9 +236,6 @@ def _resolve_root(
         candidate = project_root.parent.parent
         if (candidate / "data").is_dir():
             return candidate.resolve(), "scaffold"
-
-    if catalog_path is not None or runs_dir is not None:
-        return project_root, "explicit"
 
     return project_root, "project"
 

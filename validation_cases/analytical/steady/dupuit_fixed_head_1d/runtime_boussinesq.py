@@ -43,19 +43,17 @@ def run_boussinesq_dupuit_fixed_head_case(
 
     flow_section = {
         "flow_regime": "transient" if use_ts_vi else "steady",
-        "runtime_backend": str(runtime_backend),
-        "ic": {"type": "custom", "value": 0.5 * (west_head_m + east_head_m)},
-        "active_sinks_sources": [],
-        "active_bc": ["west_side", "east_side"],
+        "ic": {"kind": "custom", "value": 0.5 * (west_head_m + east_head_m)},
         "bc": {
             "west_side": {"value": west_head_m},
             "east_side": {"value": east_head_m},
         },
     }
+    boussinesq_settings: dict[str, object] = {"backend": str(runtime_backend)}
     if surface_interaction_model is not None:
-        flow_section["surface_interaction_model"] = str(surface_interaction_model)
+        boussinesq_settings["surface_interaction_model"] = str(surface_interaction_model)
     if use_ts_vi:
-        flow_section.update(
+        boussinesq_settings.update(
             {
                 "ts_vi_steps_per_period": 4,
                 "ts_vi_adapt": False,
@@ -78,6 +76,7 @@ def run_boussinesq_dupuit_fixed_head_case(
         hydraulic_conductivity_m_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         storage_coefficient=0.1,
         flow_section=flow_section,
+        boussinesq_settings=boussinesq_settings,
         plan_name="Boussinesq Dupuit fixed-head validation",
         plan_description=(
             "Pseudo-transient TS VI 1D strip converging to fixed west/east heads"
@@ -88,6 +87,7 @@ def run_boussinesq_dupuit_fixed_head_case(
         nper=1 if use_ts_vi else None,
         dt_seconds=1.0e8 if use_ts_vi else None,
         export_initial_state=False if use_ts_vi else None,
+        public_solver_label=public_solver_label,
     )
     return replace(result, solver_name=str(public_solver_label or "boussinesq"))
 

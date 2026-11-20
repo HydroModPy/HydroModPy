@@ -5,12 +5,23 @@ instant; one that writes into the live file leaves it half-written for much
 longer. Both are visible to whoever reads the file meanwhile, so the only
 safe publish is one atomic rename. This module is that rename, for the two
 platforms HydroModPy runs on.
+
+``rename_over_open_file`` publishes a file over one that a reader may hold, with the
+same tries on Windows.
 """
 
 from __future__ import annotations
 
 import os
+import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+
+from hydromodpy.core.io.filesystem import _retried_while_in_use
+
+_ATTEMPTS = 6
+"""Tries of a rename refused on Windows while a reader holds the target."""
 
 # Win32 constants used by the POSIX-semantics rename, from winbase.h and winnt.h.
 _FILE_RENAME_INFO_EX = 22
@@ -34,17 +45,42 @@ def rename_over_open_file(source: Path, target: Path) -> None:
     is on it. The rename is then asked of the kernel directly with
     ``FILE_RENAME_POSIX_SEMANTICS``, which unlinks the target instead of
     deleting it and so behaves like ``rename(2)``. It needs Windows 10 1709 or
-    later on NTFS, and the open handles must have allowed ``FILE_SHARE_DELETE``;
-    anywhere else it raises ``OSError`` and the target is left untouched.
+    later on NTFS, and the open handles must have allowed ``FILE_SHARE_DELETE``,
+    which ``open()`` of Python does not. Such a reader holds a file for a short
+    while, so a ``PermissionError`` of both renames is retried with the
+    schedule of :func:`~hydromodpy.core.io.filesystem.unlink_when_free` (310 ms
+    in all), and the error of the last try is raised with the target untouched.
     """
-    try:
+    if os.name != "nt":
         os.replace(source, target)
         return
-    except PermissionError:
-        if os.name != "nt":
-            raise
 
-    _rename_with_posix_semantics(source, target)
+    def rename() -> None:
+        try:
+            os.replace(source, target)
+        except PermissionError:
+            _rename_with_posix_semantics(source, target)
+
+    _retried_while_in_use(rename, _ATTEMPTS)
+
+
+@contextmanager
+def staged_path(target: Path) -> Iterator[Path]:
+    """Yield a sibling path to write, then rename it onto ``target``.
+
+    The staged name keeps the target suffix, so a format driver that reads the
+    extension (GeoPackage, GeoTIFF) accepts it. A reader sees the old file or
+    the new one, never a half-written one. If the block raises, the staged
+    file is removed and ``target`` is left as it was.
+    """
+    target = Path(target)
+    staged = target.with_name(f"{target.stem}.tmp-{uuid.uuid4().hex[:8]}{target.suffix}")
+    try:
+        yield staged
+    except BaseException:
+        staged.unlink(missing_ok=True)
+        raise
+    rename_over_open_file(staged, target)
 
 
 def _rename_with_posix_semantics(source: Path, target: Path) -> None:
@@ -109,4 +145,4 @@ def _rename_with_posix_semantics(source: Path, target: Path) -> None:
         kernel32.CloseHandle(handle)
 
 
-__all__ = ["rename_over_open_file"]
+__all__ = ["rename_over_open_file", "staged_path"]

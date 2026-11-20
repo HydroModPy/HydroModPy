@@ -1,4 +1,4 @@
-"""Geographic and mesh accessors for :class:`hydromodpy.results.run.Run`.
+"""Geographic and mesh accessors for :class:`hydromodpy.results.run.view.Run`.
 
 Mixin that bundles persisted geographic features, raster reads, the scalar
 grid metadata, the catchment mask, DEM, outlet, unstructured mesh and the
@@ -9,22 +9,34 @@ into :class:`Run`; ``self`` is the :class:`Run` instance whose ``_sim_id``,
 
 from __future__ import annotations
 
+import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
+import pandas as pd
 
+from hydromodpy.core.budget.terms import KeptBudget, kept_budget
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.derive.mesh_quality import (
+    MESH_QUALITY_DESCRIPTORS,
+    mesh_quality_unavailable_reason,
+)
 from hydromodpy.results.errors import FieldNotFoundError
-from hydromodpy.results.run.array import lookup_zarr_path
-from hydromodpy.results.run.contracts import Mesh, RasterField
+from hydromodpy.results.run.contracts import Mesh, MeshStoreIdentity, RasterField
+from hydromodpy.results.run.descent import read_basin
+from hydromodpy.results.zarr_store.zarr_reader import stored_field_array
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
 
     import geopandas as gpd
 
     from hydromodpy.results.grid import Grid
+    from hydromodpy.results.run.view import Run
+
+logger = get_logger(__name__)
 
 
 def crs_proj_from_metadata(metadata: Mapping[str, object]) -> str | None:
@@ -36,6 +48,59 @@ def crs_proj_from_metadata(metadata: Mapping[str, object]) -> str | None:
     """
     crs = metadata.get("crs_proj")
     return None if crs in (None, "") else str(crs)
+
+
+def crs_epsg(run: Run) -> int | None:
+    """Return the EPSG code the run recorded, ``None`` when unknown.
+
+    A module function rather than a ``Run`` attribute: ``Run`` is capped at 50
+    public attributes (``tests/unit/results/test_run_surface.py``).
+    """
+    value = run._load_row().get("crs_epsg")
+    return None if value is None or pd.isna(value) else int(value)
+
+
+def geographic_metadata(run: Run) -> dict[str, str]:
+    """Return the ``key -> value`` geographic metadata the geographic step wrote.
+
+    Holds the declared outlet (``x_outlet``, ``y_outlet``), the snapped one
+    (``x_outlet_snapped``, ``y_outlet_snapped``, ``outlet_snap_distance_m``)
+    and the projected CRS (``crs_proj``). Values are the stored text; an empty
+    dict when the run recorded none.
+    """
+    return run._catalog.read_geographic_metadata(run.sim_id)
+
+
+def kept_budget_of(run: Run) -> KeptBudget | None:
+    """Return what the ``budget/`` group of the store of ``run`` says it kept.
+
+    A module function rather than a ``Run`` attribute, like :func:`crs_epsg`.
+    None when the store has no ``budget/`` group or declares no policy, which
+    is a store written before the attributes existed, and for a stand-in whose
+    catalog opens no store (see :func:`field_steps`).
+    """
+    if not callable(getattr(getattr(run, "_catalog", None), "open_zarr", None)):
+        return None
+    sz = run._catalog.open_zarr(run.sim_id)
+    try:
+        return kept_budget(sz.root)
+    finally:
+        sz.close()
+
+
+def has_head_of(run: Run) -> bool:
+    """Say whether the store of ``run`` holds a head.
+
+    True for a stand-in whose catalog opens no store, which is unknown, not
+    headless. A run without a head (a lumped model) cannot hold a per-cell budget.
+    """
+    if not callable(getattr(getattr(run, "_catalog", None), "open_zarr", None)):
+        return True
+    sz = run._catalog.open_zarr(run.sim_id)
+    try:
+        return "head" in sz.root
+    finally:
+        sz.close()
 
 
 class RunGeographicMixin:
@@ -86,9 +151,10 @@ class RunGeographicMixin:
     def grid(self) -> Grid:
         """Scalar grid metadata: cell_size, shape, extent, CRS, area.
 
-        Raises ``RuntimeError`` for lumped simulations (``solver_category``
-        ``"lumped"``) which have no spatial discretisation, or when
-        geographic metadata has not been ingested.
+        A global model on the one-cell mesh answers like any run, from the one
+        pixel its DEM stores.
+
+        Raises ``RuntimeError`` when geographic metadata has not been ingested.
         """
         from hydromodpy.results.grid import build_grid
 
@@ -96,13 +162,34 @@ class RunGeographicMixin:
 
     @cached_property
     def catchment_mask(self) -> np.ndarray:
-        """2D boolean mask of active catchment cells on the DEM raster.
+        """Boolean mask of the catchment: the basin of D at the catchment outlet.
 
-        Shape matches ``run.grid.shape``. ``True`` where the DEM has a
-        valid positive elevation. Cached on first access.
+        One value per mesh face, read-only, ``True`` for the faces of the basin
+        stored as ``mesh/descent_basin``. A run sealed before the basin was
+        stored, a run with no descent (such as a Boussinesq run) and a run whose
+        basin is only the largest one of a synthetic domain (no catchment) fall
+        back, with an INFO line, to a 2D mask on the DEM raster, ``True`` where
+        the DEM has a valid positive elevation; its shape is ``run.grid.shape``.
+        Cached on first access. The mask says which cells drain to the outlet;
+        the share of each face inside the delineated polygon, which weighs a
+        catchment total of a spatial quantity, is
+        ``hydromodpy.results.derive.views.catchment_weights(run)``.
         """
+        stored = read_basin(self)
+        synthetic = stored is not None and not stored.is_catchment
+        if stored is not None and not synthetic:
+            return stored.mask
         raster = self.geographic_raster("watershed_dem")
         dem = raster.data.astype(float)
+        logger.info(
+            "Run %s %s: catchment_mask is the old support 'dem_raster' (watershed DEM > 0, "
+            "shape %s), not one value per mesh face.",
+            self._sim_id,
+            "stores the largest basin of a synthetic domain, which is no catchment"
+            if synthetic
+            else "predates the stored basin of D",
+            dem.shape,
+        )
         return np.isfinite(dem) & (dem > 0)
 
     @cached_property
@@ -141,57 +228,69 @@ class RunGeographicMixin:
     def field(
         self,
         variable: str,
-        timestep: int = -1,
-        layer: int | None = None,
         *,
+        time: int | str | datetime.date | pd.Timestamp | np.datetime64 = -1,
+        layer: int | None = None,
         bbox: tuple[float, float, float, float] | None = None,
     ) -> np.ndarray:
-        """Read one field, persisted or recomputed on the fly.
+        """Read one period of one field, persisted or recomputed on the fly, as an array.
 
-        Delegates to ``Catalog.query_field``, which falls back to the virtual
-        derivations (watertable elevation/depth, seepage mask, drain outflow)
-        when the field is not persisted. This keeps ``has_field`` honest: a
-        variable it reports as available always reads back as an array.
+        Takes the words of :func:`Run.read`, for one period. Delegates to
+        ``Catalog.query_field``, which falls back to the virtual derivations
+        (watertable elevation/depth, seepage mask, drain outflow) when the field is not
+        persisted. This keeps ``has_field`` honest: a variable it reports as available
+        always reads back as an array. Each call opens the store: many steps read through
+        :func:`field_range`.
 
         Parameters
         ----------
         variable
             Public field name registered in ``hydromodpy.results.field_registry``.
-        timestep
-            Timestep index. Negative values count from the end.
+        time
+            One period: an index (negative counts from the end), a date that resolves to
+            the stress period holding it, ``"first"`` or ``"last"``. The last by default.
         layer
-            Optional layer index for three-dimensional fields.
+            Optional layer index, 0 for the top layer, for three-dimensional fields.
         bbox
             Optional ``(xmin, ymin, xmax, ymax)`` in the simulation CRS.
-            Cells whose centroid falls outside the bounding box are set to
-            ``NaN`` (for float dtypes) or ``0`` (for integer dtypes).
+            Cells whose center (``run.mesh.cell_centers()``) falls outside the
+            bounding box are set to ``NaN`` (for float dtypes) or ``0`` (for
+            integer dtypes). The shape of the array does not change.
 
         Returns
         -------
         numpy.ndarray
             Field values for the requested time and layer selection.
         """
+        timestep = self._period_index_of(time)
         n_ts = self._load_row().get("n_timesteps")
         if n_ts is not None and timestep < 0:
             timestep = n_ts + timestep
+        if variable in field_registry.REBUILT_FIELDS:
+            return _rebuilt_field(self, variable, [timestep], bbox)[0]
         try:
             arr = self._catalog.query_field(self._sim_id, variable, timestep, layer=layer)
         except KeyError as exc:
-            from hydromodpy.results.derive.config_flags import (
-                config_option_for,
-                enable_options_hint,
-            )
-
-            option = config_option_for(variable)
-            hint = "" if option is None else f" {enable_options_hint([option])}"
-            raise FieldNotFoundError(
-                f"Field '{variable}' not found in simulation '{self._sim_id}'.{hint}",
-                sim_id=self._sim_id,
-                variable=variable,
-            ) from exc
+            raise _field_not_found(self, variable) from exc
         if bbox is not None:
             arr = _apply_bbox_mask(self, arr, bbox)
         return arr
+
+    def _period_index_of(
+        self, time: int | str | datetime.date | pd.Timestamp | np.datetime64
+    ) -> int:
+        """Turn one period selector into its index; an index stays as it is."""
+        if isinstance(time, bool):
+            raise TypeError("time must be a period index, a date, 'first' or 'last', not a bool.")
+        if isinstance(time, (int, np.integer)):
+            return int(time)
+        if isinstance(time, np.datetime64):
+            time = pd.Timestamp(time)
+        if isinstance(time, (str, datetime.date, pd.Timestamp)):
+            return int(self.periods.step_at(time))
+        raise TypeError(
+            f"time must be a period index, a date, 'first' or 'last'; got {type(time).__name__}."
+        )
 
     def has_field(self, variable: str, *, subgroup: str | None = None) -> bool:
         """Return true when a field is available for this run.
@@ -199,9 +298,10 @@ class RunGeographicMixin:
         A field counts as available when it is persisted, or when it is a
         virtual field this store can rebuild (watertable elevation/depth and
         seepage mask from the stored head, drain outflow from the per-cell
-        budget), so figures find them even though ``results.derived.*`` is
-        off by default.
+        budget), so figures find them although no array of their own is
+        written.
         """
+        from hydromodpy.results.derive.stream_network.cell_fields import rebuilt_unavailable
         from hydromodpy.results.derive.virtual_fields import available_virtual_fields
 
         sz = self._catalog.open_zarr(self._sim_id)
@@ -209,8 +309,10 @@ class RunGeographicMixin:
             if subgroup is not None:
                 group = sz.root.get(subgroup)
                 return group is not None and variable in group
+            if variable in field_registry.REBUILT_FIELDS:
+                return rebuilt_unavailable(self, variable) is None
             if field_registry.has(variable):
-                if lookup_zarr_path(sz.root, field_registry.get(variable).zarr_path) is not None:
+                if stored_field_array(sz.root, field_registry.get(variable).zarr_path) is not None:
                     return True
             elif any(
                 variable in group
@@ -238,43 +340,186 @@ class RunGeographicMixin:
         """
         if self._load_row().get("solver_category") == "lumped":
             raise RuntimeError("lumped simulation has no spatial grid")
-        crs = crs_proj_from_metadata(self._catalog.read_geographic_metadata(self._sim_id))
         sz = self._catalog.open_zarr(self._sim_id)
         try:
             mesh_grp = sz.root["mesh"]
+            attrs = mesh_grp.attrs
             topo = mesh_grp.get("topography")
-            topo_ref = mesh_grp.get("topography_reference")
-            return Mesh(
+            face_x = mesh_grp.get("face_x")
+            face_y = mesh_grp.get("face_y")
+            raw_shape = attrs.get("structured_shape")
+            crs, crs_source = self._mesh_crs(attrs.get("crs"))
+            identity = _store_identity(attrs, face_x)
+            mesh = Mesh(
                 vertices=mesh_grp["vertices"][:],
                 face_node_connectivity=mesh_grp["face_node_connectivity"][:],
                 z_interfaces=mesh_grp["z_interfaces"][:],
                 topography=None if topo is None else topo[:],
-                topography_reference=None if topo_ref is None else topo_ref[:],
                 crs=crs,
+                structured_shape=(
+                    None if raw_shape is None else (int(raw_shape[0]), int(raw_shape[1]))
+                ),
+                face_x=None if face_x is None else face_x[:],
+                face_y=None if face_y is None else face_y[:],
+                identity=identity,
+                crs_source=crs_source,
             )
         finally:
             sz.close()
+        return mesh
 
-    def _regular_shape_for_field_size(self, root, n_cells: int) -> tuple[int, int]:
-        mesh = root.get("mesh")
-        if mesh is not None:
-            raw_shape = mesh.attrs.get("structured_shape")
-            if raw_shape is not None:
-                shape = tuple(int(v) for v in raw_shape)
-                if len(shape) == 2 and shape[0] * shape[1] == int(n_cells):
-                    return shape[0], shape[1]
-        try:
-            grid_shape = self.grid.shape
-        except Exception as exc:
-            raise ValueError(
-                f"Field has {n_cells} cells but this run has no regular grid shape metadata."
-            ) from exc
-        if int(grid_shape[0]) * int(grid_shape[1]) != int(n_cells):
-            raise ValueError(
-                f"Field has {n_cells} cells; grid shape {grid_shape} "
-                f"requires {int(grid_shape[0]) * int(grid_shape[1])} cells."
-            )
-        return int(grid_shape[0]), int(grid_shape[1])
+    def _mesh_crs(self, stored: object) -> tuple[str | None, Literal["mesh", "catalog"] | None]:
+        """Return the projected CRS of the mesh and where it was read.
+
+        The ``mesh/`` group says it; a store that does not has the catalog's
+        ``crs_proj`` only.
+        """
+        if stored not in (None, ""):
+            return str(stored), "mesh"
+        crs = crs_proj_from_metadata(self._catalog.read_geographic_metadata(self._sim_id))
+        return crs, None if crs is None else "catalog"
+
+
+def _store_identity(attrs: Mapping[str, Any], face_x: Any) -> MeshStoreIdentity | None:
+    """Return who built the mesh, from the attributes of ``mesh/``; ``None`` if it says nothing."""
+    engine = attrs.get("engine")
+    if engine is None:
+        return None
+    seed = attrs.get("engine_seed")
+    center_kind = None if face_x is None else face_x.attrs.get("center_kind")
+    return MeshStoreIdentity(
+        engine=str(engine),
+        engine_version=_text_or_none(attrs.get("engine_version")),
+        request_hash=_text_or_none(attrs.get("mesh_request_hash")),
+        center_kind=_text_or_none(center_kind),
+        seed=None if seed is None else int(seed),
+    )
+
+
+def _text_or_none(value: object) -> str | None:
+    return None if value is None else str(value)
+
+
+def field_range(
+    run: Run,
+    variable: str,
+    start: int,
+    stop: int,
+    layer: int | None = None,
+) -> np.ndarray:
+    """Read one field over timesteps ``[start, stop)``, the store opened once.
+
+    Row ``i`` is ``run.field(variable, time=start + i, layer=layer)``, bit
+    for bit: a stored array is sliced in one read, a field rebuilt on read is
+    rebuilt over the whole range. Negative bounds count from the end, as the
+    timestep of ``Run.field`` does. A module function rather than a ``Run``
+    attribute, and read on the catalog's reader pair rather than through a
+    ``Catalog`` method: both classes sit at their public-surface caps.
+
+    Raises
+    ------
+    FieldNotFoundError
+        The field is neither stored nor derivable, as ``Run.field`` raises it.
+    IndexError
+        The range leaves the time axis of the run.
+    """
+    from hydromodpy.results.derive.virtual_fields import read_field_range_or_virtual
+
+    n_ts = run._load_row().get("n_timesteps")
+    if n_ts is not None:
+        start = n_ts + start if start < 0 else start
+        stop = n_ts + stop if stop < 0 else stop
+    if variable in field_registry.REBUILT_FIELDS:
+        if n_ts is not None and not 0 <= start <= stop <= n_ts:
+            raise IndexError(f"steps [{start}, {stop}) leave the {n_ts} steps of the run.")
+        return _rebuilt_field(run, variable, range(start, stop))
+    try:
+        return read_field_range_or_virtual(
+            run._catalog, run.sim_id, variable, start, stop, layer=layer
+        )
+    except KeyError as exc:
+        raise _field_not_found(run, variable) from exc
+
+
+def field_steps(run: Run, variable: str, steps: Sequence[int]) -> np.ndarray:
+    """Read one field at ``steps``, one row per step in the order given.
+
+    Each run of consecutive steps is read with :func:`field_range`, a lone
+    step with ``run.field``. A run view whose catalog opens no store, a
+    stand-in for instance, is read step by step; the rows are the same.
+    """
+    order = [int(step) for step in steps]
+    if not order:
+        return np.empty((0, 0), dtype="float64")
+    if not callable(getattr(getattr(run, "_catalog", None), "open_zarr", None)):
+        return np.stack([np.asarray(run.field(variable, time=step)) for step in order])
+    n_ts = run._load_row().get("n_timesteps")
+    if n_ts is not None:
+        order = [n_ts + step if step < 0 else step for step in order]
+    parts: list[np.ndarray] = []
+    for first, last in _consecutive_runs(order):
+        if last - first == 1:
+            parts.append(np.asarray(run.field(variable, time=order[first]))[None])
+        else:
+            parts.append(field_range(run, variable, order[first], order[last - 1] + 1))
+    return np.concatenate(parts)
+
+
+def _consecutive_runs(order: list[int]) -> list[tuple[int, int]]:
+    """Return the ``[first, last)`` positions of each run of consecutive steps.
+
+    A negative step, left when the run recorded no step count, stays alone.
+    """
+    bounds: list[tuple[int, int]] = []
+    first = 0
+    for position in range(1, len(order) + 1):
+        joined = (
+            position < len(order)
+            and order[position - 1] >= 0
+            and order[position] == order[position - 1] + 1
+        )
+        if not joined:
+            bounds.append((first, position))
+            first = position
+    return bounds
+
+
+def _field_not_found(run: Run, variable: str) -> FieldNotFoundError:
+    """Return the error a field read raises when nothing stores or rebuilds the field."""
+    from hydromodpy.results.derive.config_flags import missing_field_explanation
+
+    explanation = missing_field_explanation([variable], run) or _mesh_quality_reason(run, variable)
+    hint = f" {explanation}" if explanation else ""
+    return FieldNotFoundError(
+        f"Field '{variable}' not found in simulation '{run.sim_id}'.{hint}",
+        sim_id=run.sim_id,
+        variable=variable,
+    )
+
+
+def _mesh_quality_reason(run: Run, variable: str) -> str:
+    """Say why a mesh quality field is refused for ``run``, empty for any other field."""
+    if variable not in MESH_QUALITY_DESCRIPTORS:
+        return ""
+    sz = run._catalog.open_zarr(run.sim_id)
+    try:
+        reason = mesh_quality_unavailable_reason(sz.root, variable)
+    finally:
+        sz.close()
+    return "" if reason is None else f"{variable} is not available for this run: {reason}."
+
+
+def _rebuilt_field(
+    run: Run,
+    variable: str,
+    steps: Sequence[int],
+    bbox: tuple[float, float, float, float] | None = None,
+) -> np.ndarray:
+    """Rebuild a field of ``REBUILT_FIELDS`` at ``steps`` on this very run, so its memo holds."""
+    from hydromodpy.results.derive.stream_network.cell_fields import rebuilt_rows
+
+    rows = rebuilt_rows(run, variable, steps)
+    return rows if bbox is None else _apply_bbox_mask(run, rows, bbox)
 
 
 def _apply_bbox_mask(
@@ -282,35 +527,24 @@ def _apply_bbox_mask(
     array: np.ndarray,
     bbox: tuple[float, float, float, float],
 ) -> np.ndarray:
-    """Mask cells outside ``bbox`` (xmin, ymin, xmax, ymax) in-place style."""
-    xmin, ymin, xmax, ymax = (float(v) for v in bbox)
-    if not (xmin < xmax and ymin < ymax):
-        raise ValueError(f"bbox must satisfy xmin<xmax and ymin<ymax; got {bbox!r}")
-    try:
-        grid = run.grid
-    except Exception as exc:
-        raise ValueError(
-            "bbox= filter requires a structured grid; this run has no grid metadata."
-        ) from exc
-    xs, ys = grid.cell_centers_xy()
-    inside = (xs >= xmin) & (xs <= xmax) & (ys >= ymin) & (ys <= ymax)
+    """Mask cells whose center is outside ``bbox`` (xmin, ymin, xmax, ymax).
+
+    The centers are the ones of the run's own mesh, ``Mesh.cell_centers()``,
+    so the selection is right on any mesh, not only on a grid of DEM pixels.
+    The last axis of ``array`` is the cell axis.
+    """
+    mesh = run.mesh
+    inside = mesh.cells_in_bbox(bbox)
     arr = np.asarray(array)
-    if arr.ndim == 0 or arr.size != inside.size:
-        if arr.ndim >= 1 and arr.shape[-1] == inside.size:
-            mask = ~inside.reshape((1,) * (arr.ndim - 1) + (-1,))
-        elif arr.shape == grid.shape:
-            mask = ~inside.reshape(grid.shape)
-        else:
-            raise ValueError(
-                f"bbox= mask requires array shape compatible with grid; "
-                f"got array {arr.shape}, grid {grid.shape}."
-            )
-    else:
-        mask = ~inside.reshape(arr.shape)
+    if arr.ndim == 0 or arr.shape[-1] != inside.size:
+        raise ValueError(
+            f"bbox= mask needs the last axis of the field to hold the {inside.size} "
+            f"cells of the mesh; got array {arr.shape}."
+        )
     if arr.dtype.kind == "f":
         out = arr.astype("float64", copy=True)
-        out[mask] = np.nan
+        out[..., ~inside] = np.nan
     else:
         out = arr.copy()
-        out[mask] = 0
+        out[..., ~inside] = 0
     return out

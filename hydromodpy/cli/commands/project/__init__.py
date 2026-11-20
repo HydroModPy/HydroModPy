@@ -1,24 +1,35 @@
-"""``hmp project`` family - project lifecycle commands.
+"""``hmp project`` family: the projects of a workspace, and the plan of a ``[sites]`` project.
+
+``hmp show .`` says what a project holds, and ``hmp ls --plan`` where its plan stands.
 
 Sub-actions:
 
 - ``hmp project new <name>``: scaffold a new project under ``projects/``.
+- ``hmp project plan .``: write ``plan/<hash>/``, every site crossed with every recipe.
+- ``hmp project log . [--failed]``: the journal of the latest launch.
+- ``hmp project delete <name>``: delete a project directory.
 - ``hmp project list``: list projects in the workspace.
-- ``hmp project show <name>``: print a project summary (catalog stats).
-- ``hmp project delete <name>``: delete a project and its catalog data.
+- ``hmp project import X.tar -w <workspace>``: install a package ``hmp publish --package`` wrote.
 """
 
 from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import add_action_subparsers
-from hydromodpy.cli.commands.project import delete, list_cmd, new, show
+from hydromodpy.cli.commands.project import (
+    delete,
+    import_package,
+    list_cmd,
+    log,
+    new,
+    plan,
+)
+from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "project"
-HELP: str = "Manage projects within a workspace"
+HELP: str = "Manage the projects of a workspace and plan a [sites] project"
 
-ACTIONS = (new, list_cmd, show, delete)
+ACTIONS = (new, plan, log, delete, list_cmd, import_package)
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -29,4 +40,9 @@ def register(subparsers) -> argparse.ArgumentParser:
     return parser
 
 
-__all__ = ("NAME", "HELP", "ACTIONS", "register")
+__all__ = (
+    "NAME",
+    "HELP",
+    "ACTIONS",
+    "register",
+)

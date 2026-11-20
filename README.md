@@ -1,8 +1,8 @@
-![logo](https://github.com/HydroModPy/HydroModPy/blob/61d654ca738c488480fd22aa01c2b1002984eac9/docs/readthedocs/source/images/logoHydroModPy_long.png)
+![logo](https://raw.githubusercontent.com/HydroModPy/HydroModPy/main/docs/source/_static/logoHydroModPy_long.png)
 
 **HydroModPy** is a Python toolbox for deploying catchment-scale shallow
-groundwater models. One TOML config drives MODFLOW 6, MODFLOW-NWT, Boussinesq
-and GR4J on the same hydrology, with reproducible inputs and ML-friendly
+groundwater models. One TOML config drives MODFLOW 6, MODFLOW-NWT and
+Boussinesq on the same hydrology, with reproducible inputs and ML-friendly
 outputs.
 
 [![PyPI](https://img.shields.io/pypi/v/hydromodpy.svg)](https://pypi.org/project/hydromodpy/)
@@ -11,11 +11,13 @@ outputs.
 [![CI](https://github.com/HydroModPy/HydroModPy/actions/workflows/main-ci.yml/badge.svg?branch=main)](https://github.com/HydroModPy/HydroModPy/actions/workflows/main-ci.yml?query=branch%3Amain)
 [![Documentation](https://github.com/HydroModPy/HydroModPy/actions/workflows/docs-deploy-pages.yml/badge.svg?branch=main)](https://docs.hydromodpy.fr/main/)
 [![Codecov](https://codecov.io/gh/HydroModPy/HydroModPy/branch/main/graph/badge.svg)](https://codecov.io/gh/HydroModPy/HydroModPy/tree/main)
+[![Paper](https://img.shields.io/badge/HESS-10.5194%2Fhess--30--5571--2026-f59e0b.svg)](https://doi.org/10.5194/hess-30-5571-2026)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22141925.svg)](https://doi.org/10.5281/zenodo.22141925)
 
 ## What you get
 
-- **One config, four solvers.** A single `HydroModPyConfig` (Pydantic v2)
-  drives MODFLOW 6, MODFLOW-NWT, Boussinesq and GR4J on the same catchment.
+- **One config, three solvers.** A single `HydroModPyConfig` (Pydantic v2)
+  drives MODFLOW 6, MODFLOW-NWT and Boussinesq on the same catchment.
 - **Disk is the truth.** Every run is one plain directory under `runs/`,
   named after the run. The DuckDB file in `.hmp/` is only an index over
   those directories: delete it and `hmp catalog reindex` rebuilds it.
@@ -29,19 +31,18 @@ outputs.
 ## Install
 
 ```bash
-pip install --pre hydromodpy
+pip install hydromodpy
 ```
 
-The current `main` documentation targets the v2 alpha line. Use
-`pip install hydromodpy` only when you want the latest stable release.
-
-Optional extras: `[ide]`, `[test]`, `[viewer3d]`, `[docs]`. Solver binaries
+Optional extras: `[calibration]` (CMA-ES), `[mesh]` (gmsh), `[mf6api]`
+(the MODFLOW 6 API), `[viz]`, `[metrics]`, `[sftp]`, and `[all]` for every
+one of them. Solver binaries
 (MODFLOW 6, MODFLOW-NWT, MODPATH, MT3D-USGS) are downloaded on demand into
 `~/.cache/hydromodpy/bin/` on first solver run, or eagerly with
 `hmp install-binaries`.
 
 For developer install, conda recipes, Windows + WSL setup and the PETSc
-backend, see the [installation guide](https://docs.hydromodpy.fr/main/install.html).
+backend, see the [installation guide](https://docs.hydromodpy.fr/main/get-started/install.html).
 
 ## Quickstart
 
@@ -74,15 +75,15 @@ projects/getting_started/
 ```
 
 `figures/` appears once a figure is rendered, and a tagged run also carries
-an `annotations.json`. On-demand exports and reports go to `share/`,
-calibration sessions to `sessions/`.
+an `annotations.json`. On-demand exports go to `runs/<run>/exports/`, the tables and
+figures of a campaign to `summary/`, calibration sessions to `sessions/`.
 
 Browse it from the command line:
 
 ```bash
-hmp catalog ls                    # every run of the project
-hmp catalog show demo --detail    # metadata, metrics, parameters, store layout
-hmp viz show demo piezometric_map # render one figure into runs/demo/figures/
+hmp ls                    # every run of the project
+hmp show demo --detail    # metadata, metrics, parameters, store layout
+hmp show demo --figure watertable_elevation # draw one figure into runs/demo/figures/
 ```
 
 Or read it from Python:
@@ -90,16 +91,17 @@ Or read it from Python:
 ```python
 import hydromodpy as hmp
 
-catalog = hmp.open("projects/getting_started")
-run = catalog.latest()
+proj = hmp.open("projects/getting_started")
+run = proj.store.latest()
 
-head = hmp.read(run, "head")  # lazy xarray.DataArray
-water_table = hmp.read(run, "watertable_elevation", time=-1)  # numpy array
+head = run.read("head")  # lazy xarray.DataArray
+water_table = run.read("watertable_elevation", time=-1)  # one period, a DataArray too
 ```
 
 The tables are plain Parquet, so `pandas.read_parquet` on
-`runs/demo/tables.parquet/metrics.parquet` works too. See the
-[results guide](https://docs.hydromodpy.fr/main/user_guide/results-and-exports.html)
+`runs/demo/tables.parquet/metrics.parquet` works too. See
+[Reading the results](https://docs.hydromodpy.fr/main/understand/reading-results.html)
+and the [Python API](https://docs.hydromodpy.fr/main/reference/python/index.html)
 for the full reading and export path.
 
 ## Documentation
@@ -109,54 +111,60 @@ Full documentation lives at
 
 | Section | What it covers |
 |---------|----------------|
-| [Get started](https://docs.hydromodpy.fr/main/getting_started/index.html) | Install, scaffold, first run end to end. |
-| [User Guide](https://docs.hydromodpy.fr/main/user_guide/index.html) | Workflows, configuration, theory, cookbook. |
-| [Configuration](https://docs.hydromodpy.fr/main/user_guide/config_reference/index.html) | Every TOML section validated by `HydroModPyConfig`. |
-| [CLI](https://docs.hydromodpy.fr/main/cli/index.html) | Every `hmp` verb, its sub-actions, and the typed exit codes. |
-| [Gallery](https://docs.hydromodpy.fr/main/capability_gallery/index.html) | Validation figures, mesh illustrations, watershed diagnostics. |
-| [API Reference](https://docs.hydromodpy.fr/main/api/index.html) | Auto-generated reference for every public class and module. |
-| [Architecture](https://docs.hydromodpy.fr/main/architecture/index.html) | Layer matrix, module diagrams, contributor maps. |
+| [User guide](https://docs.hydromodpy.fr/main/user-guide/index.html) | Install, then example 04 file by file. One page per task. How to read the maps and how far to trust them. |
+| [Reference](https://docs.hydromodpy.fr/main/reference/index.html) | Every TOML parameter, every `hmp` command and the Python API, generated from the code. |
+| [Theory](https://docs.hydromodpy.fr/main/theory/index.html) | The equations, their assumptions and limits, and the validation against references. |
+| [Contribute](https://docs.hydromodpy.fr/main/contribute/index.html) | Contributor handbook, layer matrix, storage layout, one page per package with its modules. |
 
 ## Contributing
 
 Bug reports, feature requests and pull requests are welcome. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for the short version and the
-[contributor guide](https://docs.hydromodpy.fr/main/contribute.html)
+[CONTRIBUTING.md](https://github.com/HydroModPy/HydroModPy/blob/main/CONTRIBUTING.md) for the short version and the
+[contributor guide](https://docs.hydromodpy.fr/main/contribute/handbook.html)
 for the full reference. Released versions are listed in
-[CHANGELOG.md](CHANGELOG.md).
+[CHANGELOG.md](https://github.com/HydroModPy/HydroModPy/blob/main/CHANGELOG.md).
 
-Security issues: please follow [SECURITY.md](SECURITY.md) and use a private
+Security issues: please follow [SECURITY.md](https://github.com/HydroModPy/HydroModPy/blob/main/SECURITY.md) and use a private
 advisory rather than a public issue.
 
 ## How to cite
 
-If HydroModPy supports your work, please cite the software and the companion
-paper. Full BibTeX, RIS and plain-text entries are on the
-[citation page](https://docs.hydromodpy.fr/main/how_to_cite.html);
+If HydroModPy supports your work, please cite the technical note below. If you
+also cite the software, give the version you ran and its Zenodo DOI. The concept
+DOI [10.5281/zenodo.22141925](https://doi.org/10.5281/zenodo.22141925) names
+every version and resolves to the latest archive; each archived version has its
+own DOI on that page. Full BibTeX, RIS and plain-text entries are on the
+[citation page](https://docs.hydromodpy.fr/main/about/cite.html);
 GitHub renders the "Cite this repository" button from
-[`CITATION.cff`](CITATION.cff).
+[`CITATION.cff`](https://github.com/HydroModPy/HydroModPy/blob/main/CITATION.cff).
 
-> Gauvain, A., Abhervé, R., Boivin, B., Roques, C., Le Mesnil, M., Coche, A.,
-> Babey, T., Marçais, J., Bouchez, C., Leray, S., Marti, E., Bresciani, E.,
-> Figueroa, R., Pélissier, M., Guillaumot, L., Touzeau, T., Issolah, I.,
-> Maugan, E., Bagagnan, R. S., Vautier, C., Sallou, J., Bourcier, J.,
-> Combemale, B., Brunner, P., Longuevergne, L., Aquilina, L., & de Dreuzy, J.-R.
-> (2026). Technical note: HydroModPy – a Python toolbox for deploying
-> catchment-scale shallow groundwater models. *EGUsphere* [preprint], 1–31.
-> <https://doi.org/10.5194/egusphere-2026-868>
+<!-- The dash belongs to the published title. -->
+<!-- vale off -->
+> Gauvain, A., Abhervé, R., Boivin, B., Coche, A., Le Mesnil, M., Babey, T.,
+> Maugan, E., Touzeau, T., Issolah, I., Roques, C., Bouchez, C., Marçais, J.,
+> Leray, S., Marti, E., Bresciani, E., Figueroa, R., Pélissier, M., Carlier, S.,
+> Guillaumot, L., Bagagnan, R. S., Vautier, C., Longuevergne, L., Sallou, J.,
+> Bourcier, J., Combemale, B., Brunner, P., Aquilina, L., & de Dreuzy, J.-R.
+> (2026). Technical note: HydroModPy (v1.0) – a Python toolbox for deploying
+> catchment-scale shallow groundwater models. *Hydrology and Earth System
+> Sciences*, 30(17), 5571–5592. <https://doi.org/10.5194/hess-30-5571-2026>
+<!-- vale on -->
 
 ## Authors and contact
 
 HydroModPy is developed by Geosciences Rennes (Université de Rennes, CNRS)
 together with collaborators at CHYN Neuchâtel, INRAE, Pontificia Universidad
-Católica de Chile, Universidad de O'Higgins, WUR, Inria/IRISA and CNRS-LMD.
-The complete author list with affiliations is maintained in
-[`CITATION.cff`](CITATION.cff).
+Católica de Chile, Universidad de O'Higgins, BRGM, WUR, Université de Pau et
+des Pays de l'Adour, Inria/IRISA and CNRS-LMD. The complete author list is
+maintained in
+[`CITATION.cff`](https://github.com/HydroModPy/HydroModPy/blob/main/CITATION.cff);
+the affiliations are on the
+[citation page](https://docs.hydromodpy.fr/main/about/cite.html).
 
 For questions or collaboration: <alexandre.gauvain.ag@gmail.com> or
-<ronan.abherve@gmail.com>.
+<ronan.abherve@inrae.fr>.
 
 ## License
 
 HydroModPy is released under the [Eclipse Public License 2.0](https://opensource.org/licenses/EPL-2.0).
-See [LICENSE](LICENSE).
+See [LICENSE](https://github.com/HydroModPy/HydroModPy/blob/main/LICENSE).

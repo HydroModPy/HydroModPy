@@ -1,0 +1,39 @@
+base_config = "project.toml"
+export__delete = true
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "calage"
+
+[calibration]
+save_runs = "best_n"
+use_cache = false
+persist_trial_series = true
+
+[calibration.parameters.K]
+bounds = [2e-6, 2e-5]
+search_space = "log"
+
+[calibration.outputs.crest_head]
+support = "point"
+variable = "head"
+observes = "W1"
+
+[[calibration.objective_blocks]]
+name = "heads"
+metric = "rmse"
+uses_outputs = ["crest_head"]
+
+[[calibration.phases]]
+name = "k_grid"
+parameters = ["K"]
+regime = "steady"
+objective_blocks = ["heads"]
+method = "grid"
+max_trials = 3
+method_options = { points_per_dim = 3 }
+
+[display]
+enabled = false

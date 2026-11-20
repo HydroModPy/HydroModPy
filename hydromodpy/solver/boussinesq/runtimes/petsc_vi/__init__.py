@@ -8,5 +8,3 @@ This package splits the experimental SNESVI runtime in three concerns:
 
 The companion module ``petsc_vi_obstacle.py`` is the public facade.
 """
-
-from __future__ import annotations

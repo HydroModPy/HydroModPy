@@ -8,14 +8,10 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.physics.flow import Flow
-from hydromodpy.simulation.planning.plan import (
-    ProcessRun,
-    RunContext,
-    SimulationPlan,
-)
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.model.flow import Flow
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
+from validation_cases.shared.boussinesq_analytical_runtime import solve_boussinesq_bundle
 from validation_cases.shared.boussinesq_uniform_strip import (
     aggregate_triangle_history_to_structured_fields,
     build_flow_config,
@@ -320,7 +316,6 @@ def run_boussinesq_hillslope_overflow_case(
     dt_days: float | None = None,
     runtime_max_iterations: int | None = None,
     runtime_tol_residual_inf: float | None = None,
-    saturation_excess_regularization_radius: float | None = None,
 ) -> ValidationRunResult:
     """Run the transient hillslope pulse-overflow scenario for one solver flavor."""
     del timeout
@@ -354,9 +349,13 @@ def run_boussinesq_hillslope_overflow_case(
     if recharge_mm_day.size != nper:
         raise ValueError(f"Expected {nper} recharge periods, got {recharge_mm_day.size} values.")
 
+    # One directory per variant and preset: they run in parallel in one test file.
+    run_label = "_".join(
+        str(part) for part in (variant.solver_name, context_preset, forcing_preset) if part
+    )
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{CASE_ID}_{variant.solver_name}",
+        run_name=f"{CASE_ID}_{run_label}",
     )
     bundle_dir = write_uniform_strip_bundle(
         out_path / "mesh_bundle",
@@ -376,9 +375,9 @@ def run_boussinesq_hillslope_overflow_case(
 
     flow_section: dict[str, object] = {
         "flow_regime": "transient",
-        "ic": {"type": "custom", "value": float(geometry_cfg["initial_head_m"])},
-        "active_sinks_sources": ["recharge"],
-        "active_bc": ["east_side"],
+        # The pulse starts from the initial head, not from a steady state.
+        "first_period_steady": False,
+        "ic": {"kind": "custom", "value": float(geometry_cfg["initial_head_m"])},
         "sinks_sources": {
             "recharge": {
                 "values": [mm_day_to_m_s(float(value)) for value in recharge_mm_day],
@@ -389,64 +388,40 @@ def run_boussinesq_hillslope_overflow_case(
         "bc": {
             "east_side": {"value": float(geometry_cfg["east_head_m"])},
         },
+    }
+    runtime_settings: dict[str, object] = {
         "surface_interaction_model": str(variant.surface_interaction_model),
     }
     drainage_conductance_m2_s = geometry_cfg.get("drainage_conductance_m2_s", None)
     if drainage_conductance_m2_s is not None and float(drainage_conductance_m2_s) > 0.0:
-        flow_section["active_bc"] = ["east_side", "drainage"]
         flow_section["bc"]["cauchy"] = {
             "drainage": {
                 "application_domain": "top",
-                "kind": "cauchy",
                 "value": float(drainage_conductance_m2_s),
             }
         }
     if variant.runtime_backend is not None:
-        flow_section["runtime_backend"] = str(variant.runtime_backend)
+        runtime_settings["backend"] = str(variant.runtime_backend)
     if resolved_runtime_max_iterations is not None:
-        flow_section["runtime_max_iterations"] = int(resolved_runtime_max_iterations)
+        runtime_settings["max_iterations"] = int(resolved_runtime_max_iterations)
     if resolved_runtime_tol_residual_inf is not None:
-        flow_section["runtime_tol_residual_inf"] = float(resolved_runtime_tol_residual_inf)
+        runtime_settings["tol_residual_inf"] = float(resolved_runtime_tol_residual_inf)
 
     flow = Flow(build_flow_config(flow_section, case_dir=CASE_DIR))
-    if saturation_excess_regularization_radius is not None:
-        flow.saturation_excess_regularization_radius = float(
-            saturation_excess_regularization_radius
-        )
 
-    state = SimpleNamespace(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=flow,
-            domain=None,
-            time_grid=SimpleNamespace(
-                period_lengths_seconds=period_lengths_seconds,
-                window=None,
-            ),
-            workspace=SimpleNamespace(
-                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
-            ),
+    solved = solve_boussinesq_bundle(
+        flow=flow,
+        bundle_dir=bundle_dir,
+        simulations_folder=simulations_folder,
+        time_grid=SimpleNamespace(
+            period_lengths_seconds=period_lengths_seconds,
+            window=None,
         ),
+        options=BoussinesqOptions.model_validate(runtime_settings),
+        plan_name=f"Hillslope overflow pulse ({variant.label})",
+        plan_description="Transient hillslope overflow stress case",
     )
-    run = ProcessRun(
-        id=f"flow_validation::{variant.solver_name}",
-        process_id="flow_validation",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name=f"Hillslope overflow pulse ({variant.label})",
-            description="Transient hillslope overflow stress case",
-            runs=(run,),
-        ),
-        run=run,
-        state=state,
-    )
-
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    model = solved.solver_model
     field_series = aggregate_triangle_history_to_structured_fields(
         model,
         nx=nx,

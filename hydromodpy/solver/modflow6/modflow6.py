@@ -1,50 +1,46 @@
 """MODFLOW 6 flow solver facade aligned with HydroModPy workflow APIs.
 
 This module exposes the :class:`Modflow6` adapter. Concern-specific helpers
-live in ``build`` (pre_processing), ``run`` (processing), ``postprocess``
-(water table, budget, native exports) and ``diagnostics`` (matplotlib overlays).
-The class methods are thin delegators so this module stays under the 1500 LOC
-architectural limit.
+live in ``build`` (pre_processing) and ``run`` (processing).
 """
 
 from __future__ import annotations
 
 import os
 from collections.abc import Callable, Mapping
+from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.catchment.drainage.descent import Descent, DescentBasin
 from hydromodpy.core.io.filesystem import create_folder
-from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.model.model import Model
+from hydromodpy.solver.base.plan import RunSlot
 from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext
 from hydromodpy.solver.modflow6.build import (
     apply_preprocess_options,
-    mf6_safe_name,
-    resolve_flow_regime,
-    resolve_ims_complexity_for,
     resolve_xt3d_options,
     run_pre_processing,
-    select_active_dem,
-    write_solver_grid_template,
+    validate_pre_processing_inputs,
     xt3d_mode,
-    xt3d_requested,
 )
-from hydromodpy.solver.modflow6.builders import log_xt3d_resolution, xt3d_is_enabled
+from hydromodpy.solver.modflow6.builders.solver_options import (
+    resolve_ims_complexity,
+    xt3d_is_enabled,
+)
 from hydromodpy.solver.modflow6.modflow6_config import (
     Modflow6Config,
     _coerce_modflow6_config,
 )
-from hydromodpy.solver.modflow6.postprocess import run_flow_post_processing
 from hydromodpy.solver.modflow6.run import run_processing
-from hydromodpy.solver.modflow_common import (
-    ModflowPostprocessOptions,
-    ModflowPreprocessOptions,
-    ModflowRunOptions,
-    SolverRoutingContext,
+from hydromodpy.solver.modflow6.support.names import mf6_safe_name
+from hydromodpy.solver.modflow_common.binaries import (
     ensure_platform_executable,
     ensure_solver_binary,
 )
-from hydromodpy.solver.modflow_grid import SolverGridContext
+from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions, ModflowRunOptions
+from hydromodpy.solver.modflow_common.routing_context import SolverRoutingContext
+from hydromodpy.solver.modflow_grid.discretization_spatial import SolverGridContext
 
 
 class Modflow6:
@@ -52,11 +48,10 @@ class Modflow6:
 
     def __init__(
         self,
-        geographic: object,
         modflow_config: Modflow6Config | Mapping[str, object] | None = None,
-        model_folder: str = "HydroModPy_outputs",
+        model_folder: str | Path = "HydroModPy_outputs",
         model_name: str = "Default",
-        bin_path: str | None = None,
+        bin_path: str | Path | None = None,
         preprocess_options: ModflowPreprocessOptions | None = None,
     ):
         self.model_folder = model_folder
@@ -66,17 +61,32 @@ class Modflow6:
         self.model_name = model_name
         self.model_name_mf6 = mf6_safe_name(model_name)
         self.model_output_name = model_name
-        self.geographic = geographic
-        self.flow = None
-        self.domain = None
-        self.flow_regime: str | None = None
+        # The frozen Model this solver builds from, bound by pre_processing. It is
+        # read and never changed: a build leaves the Model as it found it.
+        self.inputs: Model | None = None
+        # The slot of the run, bound by pre_processing: its shared forcing folder
+        # and its binaries, which an auxiliary solve and a rerun keep.
+        self.slot: RunSlot | None = None
+        # The input files the last write left, relative to full_path, set by
+        # processing. A rerun copies them.
+        self.input_files: tuple[str, ...] = ()
+        # Whether a downstream MT3DMS run reads the output, set by the adapter.
+        self.link_mt3dms = False
         self.last_flow_solve_time_seconds: float | None = None
-        self.prob_cells = 0
 
         self.full_path = os.path.join(model_folder, model_name)
         self.dem_watershed_path = None
         self.grid_ctx: SolverGridContext | None = None
         self.routing_ctx: SolverRoutingContext | None = None
+        # The descent D of the build and its basin at the catchment outlet, set by
+        # build.run_pre_processing.
+        self.descent: Descent | None = None
+        self.descent_basin: DescentBasin | None = None
+        # The cell below each lake dam ({lake id: cell}), set with D by the build.
+        self.dam_foot_cells: dict[str, int] = {}
+        # Set by the steady initialization and the spin-up cycles: a model that
+        # is never extracted builds D only for its SFR walks and stores none.
+        self.auxiliary = False
 
         self.modflow_config = _coerce_modflow6_config(modflow_config)
         runtime = self.modflow_config.runtime
@@ -88,29 +98,37 @@ class Modflow6:
         else:
             self.exe = str(ensure_platform_executable(os.path.join(bin_path, exe_name)))
 
-        self.resolution = geographic.dem_res
-        self.xul = geographic.xmin
-        self.yul = geographic.ymax
         self.sink: np.ndarray | None = None
 
         self.preprocess_options = preprocess_options or ModflowPreprocessOptions()
         self._apply_preprocess_options(self.preprocess_options)
+        self._exposed_band_runoff_specs: list | None = None
         self._evt_rate_payload: dict[int, object] | None = None
         self._pending_negative_to_evt = False
         self._heterogeneous_recharge_source = None
         self._heterogeneous_negative_to_evt = False
         self._heterogeneous_interpolation_method = "nearest"
 
-    # build helpers ------------------------------------------------------
+    # dispatch -----------------------------------------------------------
 
-    def _select_active_dem(self, box: bool) -> None:
-        select_active_dem(self, box)
+    def required_runner(self) -> str:
+        """Return the dispatch this model needs, 'subprocess' or 'api'.
+
+        Only MODFLOW 6 has a choice to make, so the declaration lives here
+        rather than in the shared helper: the caller asks the model instead of
+        reading how it was built. Exposed-band (marnage) runoff coupling forces
+        the in-process runner whatever the configuration says, because that
+        coupling sets the LAK RUNOFF per timestep through the BMI API.
+        """
+        if self._exposed_band_runoff_specs:
+            return "api"
+        runner = getattr(self.modflow_config.runtime, "mf6_runner", "subprocess")
+        return "api" if runner == "api" else "subprocess"
+
+    # build helpers ------------------------------------------------------
 
     def _apply_preprocess_options(self, options: ModflowPreprocessOptions | None = None) -> None:
         apply_preprocess_options(self, options)
-
-    def _xt3d_requested_value(self) -> bool | None:
-        return xt3d_requested(self)
 
     def _xt3d_is_enabled(self, solver_mesh=None) -> bool:
         return xt3d_is_enabled(self, solver_mesh)
@@ -121,51 +139,43 @@ class Modflow6:
     def _resolve_xt3d_npf_options(self, solver_mesh=None) -> list[str] | None:
         return resolve_xt3d_options(self, solver_mesh)
 
-    def _resolve_ims_complexity(self, solver_mesh=None) -> str:
-        return resolve_ims_complexity_for(self, solver_mesh)
-
-    def _log_xt3d_resolution(self, solver_mesh=None) -> None:
-        log_xt3d_resolution(self, solver_mesh)
-
-    def _to_export_array(self, flat_array: np.ndarray) -> np.ndarray:
-        """Reshape flat (ncpl,) to (nrow, ncol) for raster export (structured only)."""
-        return self.solver_mesh.reshape_to_grid(flat_array)
-
-    def _write_solver_grid_template(self) -> str:
-        return write_solver_grid_template(self)
-
-    def _ensure_solver_routing_context(self) -> SolverRoutingContext:
-        from hydromodpy.solver.modflow6.build import ensure_solver_routing_context
-
-        return ensure_solver_routing_context(self)
-
-    def _resolve_flow_regime(self) -> str | None:
-        return resolve_flow_regime(self)
+    def resolved_solver_options(self) -> dict[str, object]:
+        """Return what this model decided once built, for ``provenance.json``."""
+        return {
+            "ims_complexity": resolve_ims_complexity(self),
+            "xt3d": self._xt3d_is_enabled(),
+            "xt3d_source": self._xt3d_activation_mode(),
+        }
 
     def _validate_pre_processing_inputs(self) -> None:
-        from hydromodpy.solver.modflow6.build import validate_pre_processing_inputs
-
         validate_pre_processing_inputs(self)
 
     def pre_processing(
         self,
-        flow: object,
-        domain: DomainLike,
+        model: Model,
         options: ModflowPreprocessOptions | None = None,
         *,
-        mesh_planar: object | None = None,
-        mesh_support: object | None = None,
-        flow_runtime_overrides: Mapping[str, object] | None = None,
+        slot: RunSlot | None = None,
     ):
-        run_pre_processing(
-            self,
-            flow,
-            domain,
-            options,
-            mesh_planar=mesh_planar,
-            mesh_support=mesh_support,
-            flow_runtime_overrides=flow_runtime_overrides,
-        )
+        """Build the MODFLOW 6 simulation in memory, before it is written and run.
+
+        Binds the model, applies the options, checks the inputs, then assembles
+        the discretization and the flopy packages.
+
+        Parameters
+        ----------
+        model
+            The frozen ``Model``: its geometry (the cell mesh the grid is extruded
+            from and the domain), properties, boundaries, sinks and sources, start
+            state, time and options. It is kept as ``self.inputs`` and never changed.
+        options
+            Pre-processing options. None keeps the ones the solver holds.
+        slot
+            Where the run solves. The build reads its shared forcing folder, the
+            folder a calibration trial keeps its recharge binaries in. None keeps
+            every file beside the model.
+        """
+        run_pre_processing(self, model, options, slot=slot)
 
     # run --------------------------------------------------------------
 
@@ -189,9 +199,3 @@ class Modflow6:
         if api_lib_path is not None:
             self._mf6_api_lib_path = api_lib_path
         return run_processing(self, options)
-
-    # post_processing --------------------------------------------------
-
-    def post_processing(self, options: ModflowPostprocessOptions | None = None):
-        """Run MODFLOW 6 flow post-processing."""
-        run_flow_post_processing(self, options=options)

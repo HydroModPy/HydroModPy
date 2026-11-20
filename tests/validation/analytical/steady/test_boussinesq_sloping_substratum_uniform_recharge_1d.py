@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from tests.validation.helpers import assert_metric_below
+from tests.validation.helpers import assert_metric_below, record_comparison
 from validation_cases.analytical.steady.boussinesq_sloping_substratum_uniform_recharge_1d.comparison import (
     run_boussinesq_sloping_substratum_uniform_recharge_comparison,
 )
@@ -21,7 +21,9 @@ from validation_cases.analytical.steady.boussinesq_sloping_substratum_uniform_re
         pytest.param("modflow_nwt", True, False, id="modflow_nwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
         pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
+        pytest.param("modflow6_voronoi", False, True, id="modflow6_voronoi"),
         pytest.param("boussinesq", False, False, id="boussinesq"),
+        pytest.param("boussinesq_local", False, False, id="boussinesq_local"),
     ],
 )
 def test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_profile(
@@ -29,7 +31,11 @@ def test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_pro
     require_modflow: bool,
     require_modflow6: bool,
 ) -> None:
-    """Run the case and compare the final head profile to the reference."""
+    """Run the case on each grid and compare the final head profile to the reference.
+
+    The grids are the structured MODFLOW grid, the triangle strip, its Voronoi
+    dual and the two Boussinesq strips.
+    """
     assert_required_executables(
         require_modflow=require_modflow,
         require_modflow6=require_modflow6,
@@ -41,6 +47,7 @@ def test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_pro
         caller_file=__file__,
         solver=solver,
     )
+    record_comparison(comparison)
     profile_tol = dict(comparison.tolerances.get("head_profile", {}))
 
     assert_metric_below(

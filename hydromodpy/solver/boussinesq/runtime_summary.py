@@ -6,15 +6,15 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.units.time import SECONDS_PER_DAY
-from hydromodpy.physics.flow.history_contract import build_transient_time_axes
+from hydromodpy.core.units.quantities import SECONDS_PER_DAY
+from hydromodpy.model.time.history_contract import build_transient_time_axes
 
 if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
-    from hydromodpy.solver.boussinesq.core.state import BoussinesqState
     from hydromodpy.solver.boussinesq.solver_contract import (
         BoussinesqSolverContract,
     )
+    from hydromodpy.solver.boussinesq.state import BoussinesqState
 
 
 _SURFACE_THRESHOLD_ACTIVE_RATE_EPS_M_S = 1.0e-12
@@ -82,6 +82,7 @@ def record_runtime_backend_summary(
     solver.runtime_summary["surface_interaction_model_resolved"] = (
         contract.surface_interaction_model_resolved
     )
+    solver.runtime_summary["partition_release_depth_m"] = float(options.regularization_radius)
     solver.runtime_summary["runtime_solver_kind"] = runtime_backend.nonlinear_solver_kind
     solver.runtime_summary["runtime_linear_system_layout"] = runtime_backend.linear_system_layout
     solver.runtime_summary["runtime_jacobian_strategy"] = runtime_backend.jacobian_strategy

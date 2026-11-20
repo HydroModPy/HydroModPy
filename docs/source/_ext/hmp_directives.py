@@ -1,46 +1,15 @@
-"""Custom Sphinx directives and roles for HydroModPy documentation.
+"""Custom Sphinx directive for HydroModPy documentation, and optional analytics.
 
-Seven directives:
-
-- ``.. config-field:: <dotted.path>`` renders the matching Pydantic
-  ``Field`` metadata as an admonition (default, description, type).
-- ``.. validation-case-summary:: <slug>`` reads the summary JSON of a
-  validation gallery case and renders a fact card with metrics.
-- ``.. solver-comparison::`` renders a solver x case matrix listing the
-  primary RMSE metric for each cell.
-- ``.. gallery-figure:: <png_path>`` emits a ``<picture>`` block with a
-  WebP source and a PNG fallback for the gallery figures (HTML builder
-  only). Other builders fall back to the plain PNG ``figure``.
-- ``.. image-comparison::`` renders a draggable before/after slider over
-  two images (HTML builder only). Falls back to two stacked figures.
-- ``.. page-badges::`` renders compact metadata badges (difficulty,
-  estimated reading or hands-on time) at the top of a tutorial or
-  gallery case page.
-- ``.. refresh-status::`` renders the documentation refresh status from
-  ``_static/refresh_status/index.json``.
-
-Three API stability roles:
-
-- ``:stable:`` (green badge): public API covered by SemVer guarantees.
-- ``:experimental:`` (orange badge): public surface that may change
-  between minor versions.
-- ``:deprecated:`` (red badge): scheduled for removal; pair with the
-  removal version in the badge text.
-
-Optional analytics:
-
-- Set ``HMP_DOCS_GOATCOUNTER_URL`` to the GoatCounter ``count`` endpoint
-  (for example ``https://hydromodpy.goatcounter.com/count``) to enable
-  page-view tracking and the "Was this page helpful?" widget. The widget
-  always renders, but only pushes events to GoatCounter when the script
-  has loaded.
+- ``.. image-comparison::`` renders a draggable before/after slider over two
+  images (HTML builder only). Other builders get two stacked figures.
+- Set ``HMP_DOCS_GOATCOUNTER_URL`` to the GoatCounter ``count`` endpoint (for
+  example ``https://hydromodpy.goatcounter.com/count``) to enable page-view
+  tracking.
 """
 
 from __future__ import annotations
 
-import json
 import os
-from pathlib import Path
 from typing import Any
 
 from docutils import nodes
@@ -49,167 +18,13 @@ from sphinx import addnodes
 from sphinx.application import Sphinx
 from sphinx.util.docutils import SphinxDirective
 
-_VALIDATION_GLOB = "_static/capability_gallery/validation"
-_REFRESH_STATUS_PATH = "_static/refresh_status/index.json"
 _GOATCOUNTER_ENV = "HMP_DOCS_GOATCOUNTER_URL"
-
-
-def _validation_dir(env: Any) -> Path:
-    return Path(env.srcdir) / _VALIDATION_GLOB
-
-
-class ValidationCaseSummaryDirective(SphinxDirective):
-    """Render a validation case summary card from its summary JSON."""
-
-    required_arguments = 1
-    optional_arguments = 0
-    has_content = False
-    option_spec = {
-        "show-metrics": directives.unchanged,
-    }
-
-    def run(self) -> list[nodes.Node]:
-        slug = self.arguments[0]
-        summary_path = _validation_dir(self.env) / f"{slug}_summary.json"
-        if not summary_path.exists():
-            warning = self.state.document.reporter.warning(
-                f"validation-case-summary: missing summary JSON for slug {slug!r} at {summary_path}",
-                line=self.lineno,
-            )
-            return [warning]
-        data = json.loads(summary_path.read_text())
-
-        admon = nodes.admonition(classes=["validation-case-summary"])
-        admon += nodes.title(text=data.get("title", slug))
-
-        meta = data.get("metadata", {})
-        info_lines = [
-            ("Regime", meta.get("regime", "n/a")),
-            ("Dimension", meta.get("dimension", "n/a")),
-            ("Reference", meta.get("reference_type_label", "n/a")),
-            (
-                "Solvers tested",
-                ", ".join(meta.get("solver_variants", []) or ["n/a"]),
-            ),
-        ]
-        for label, value in info_lines:
-            para = nodes.paragraph()
-            para += nodes.strong(text=f"{label}: ")
-            para += nodes.Text(str(value))
-            admon += para
-
-        runs = data.get("solver_runs", [])
-        if runs:
-            metrics_para = nodes.paragraph()
-            metrics_para += nodes.strong(text="Primary metrics: ")
-            admon += metrics_para
-            bullet = nodes.bullet_list()
-            for run in runs:
-                lines = run.get("metric_lines", []) or []
-                summary = "; ".join(lines) if lines else "no metrics recorded"
-                item = nodes.list_item()
-                para = nodes.paragraph()
-                para += nodes.literal(text=run.get("solver", "?"))
-                para += nodes.Text(f": {summary}")
-                item += para
-                bullet += item
-            admon += bullet
-
-        return [admon]
-
-
-class SolverComparisonDirective(SphinxDirective):
-    """Render a solver x case matrix listing primary RMSE per cell."""
-
-    required_arguments = 0
-    optional_arguments = 0
-    has_content = False
-    option_spec = {
-        "cases": directives.unchanged_required,
-        "solvers": directives.unchanged,
-    }
-
-    def run(self) -> list[nodes.Node]:
-        cases_opt = self.options.get("cases", "")
-        case_slugs = [s.strip() for s in cases_opt.split(",") if s.strip()]
-        if not case_slugs:
-            warning = self.state.document.reporter.warning(
-                "solver-comparison: option :cases: is required and must list one or more slugs",
-                line=self.lineno,
-            )
-            return [warning]
-        solver_filter = {s.strip() for s in self.options.get("solvers", "").split(",") if s.strip()}
-
-        rows: list[dict[str, Any]] = []
-        all_solvers: list[str] = []
-        seen: set[str] = set()
-        for slug in case_slugs:
-            path = _validation_dir(self.env) / f"{slug}_summary.json"
-            if not path.exists():
-                continue
-            data = json.loads(path.read_text())
-            row: dict[str, Any] = {"title": data.get("title", slug), "slug": slug, "cells": {}}
-            for run in data.get("solver_runs", []):
-                solver = run.get("solver", "?")
-                if solver_filter and solver not in solver_filter:
-                    continue
-                if solver not in seen:
-                    all_solvers.append(solver)
-                    seen.add(solver)
-                primary = (run.get("metric_lines") or ["n/a"])[0]
-                row["cells"][solver] = primary
-            rows.append(row)
-
-        if not rows:
-            warning = self.state.document.reporter.warning(
-                "solver-comparison: none of the listed slugs resolved to a summary JSON",
-                line=self.lineno,
-            )
-            return [warning]
-
-        table = nodes.table(classes=["solver-comparison"])
-        tgroup = nodes.tgroup(cols=1 + len(all_solvers))
-        table += tgroup
-        for _ in range(1 + len(all_solvers)):
-            tgroup += nodes.colspec(colwidth=1)
-
-        thead = nodes.thead()
-        header_row = nodes.row()
-        header_row += _entry("Case")
-        for solver in all_solvers:
-            header_row += _entry(solver)
-        thead += header_row
-        tgroup += thead
-
-        tbody = nodes.tbody()
-        for row in rows:
-            r = nodes.row()
-            r += _entry(row["title"])
-            for solver in all_solvers:
-                r += _entry(row["cells"].get(solver, ""))
-            tbody += r
-        tgroup += tbody
-
-        return [table]
-
-
-def _entry(text: str) -> nodes.entry:
-    cell = nodes.entry()
-    cell += nodes.paragraph(text=text)
-    return cell
-
-
-def _webp_path_for(png_path: str) -> str:
-    name = png_path.rsplit("/", 1)[-1]
-    if "." in name:
-        return png_path.rsplit(".", 1)[0] + ".webp"
-    return png_path + ".webp"
 
 
 def _doc_relative_uri(env: Any, path: str) -> str:
     # Convert a source-root absolute path (/_static/...) to a path relative
     # to the current doc so raw <img src=...> works when the docs are served
-    # under a sub-path (RTD versioning, file://, GH Pages).
+    # under a sub-path (versioned folders, file://, GH Pages).
     if not path.startswith("/"):
         return path
     depth = env.docname.count("/")
@@ -228,57 +43,6 @@ def _escape_attr(value: str) -> str:
 
 def _escape_text(value: str) -> str:
     return (value or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-class GalleryFigureDirective(SphinxDirective):
-    """Render a gallery figure as a ``<picture>`` block with a PNG fallback.
-
-    Emits raw HTML for the HTML builder (the only published target). Other
-    builders fall back to a standard ``image`` node pointing at the PNG.
-    """
-
-    required_arguments = 1
-    optional_arguments = 0
-    final_argument_whitespace = False
-    has_content = True
-    option_spec = {
-        "alt": directives.unchanged,
-        "width": directives.length_or_percentage_or_unitless,
-    }
-
-    def run(self) -> list[nodes.Node]:
-        png_path = self.arguments[0].strip()
-        png_uri = _doc_relative_uri(self.env, png_path)
-        webp_uri = _doc_relative_uri(self.env, _webp_path_for(png_path))
-        alt = self.options.get("alt", "")
-        width = self.options.get("width", "100%")
-        caption = "\n".join(self.content).strip()
-
-        style_attr = f' style="width: {width};"' if width else ""
-        figcaption = f"<figcaption>{_escape_text(caption)}</figcaption>" if caption else ""
-        html = (
-            '<figure class="hmp-gallery-figure">'
-            "<picture>"
-            f'<source srcset="{_escape_attr(webp_uri)}" type="image/webp">'
-            f'<img src="{_escape_attr(png_uri)}" alt="{_escape_attr(alt)}"'
-            f'{style_attr} loading="lazy">'
-            "</picture>"
-            f"{figcaption}"
-            "</figure>"
-        )
-        html_node = nodes.raw("", html, format="html")
-
-        image_node = nodes.image(uri=png_path, alt=alt)
-        if width:
-            image_node["width"] = width
-        fallback = nodes.figure(classes=["hmp-gallery-figure-fallback"])
-        fallback += image_node
-        if caption:
-            fallback += nodes.caption("", caption)
-        fallback_only = addnodes.only(expr="not html")
-        fallback_only += fallback
-
-        return [html_node, fallback_only]
 
 
 class ImageComparisonDirective(SphinxDirective):
@@ -316,15 +80,13 @@ class ImageComparisonDirective(SphinxDirective):
 
         before_uri = _doc_relative_uri(self.env, before)
         after_uri = _doc_relative_uri(self.env, after)
-        before_webp_uri = _doc_relative_uri(self.env, _webp_path_for(before))
-        after_webp_uri = _doc_relative_uri(self.env, _webp_path_for(after))
         before_html = (
-            f'<picture class="hmp-before"><source srcset="{_escape_attr(before_webp_uri)}" type="image/webp">'
-            f'<img src="{_escape_attr(before_uri)}" alt="{_escape_attr(before_alt)}" loading="lazy"></picture>'
+            f'<img class="hmp-before" src="{_escape_attr(before_uri)}" '
+            f'alt="{_escape_attr(before_alt)}" loading="lazy">'
         )
         after_html = (
-            f'<picture class="hmp-after"><source srcset="{_escape_attr(after_webp_uri)}" type="image/webp">'
-            f'<img src="{_escape_attr(after_uri)}" alt="{_escape_attr(after_alt)}" loading="lazy"></picture>'
+            f'<img class="hmp-after" src="{_escape_attr(after_uri)}" '
+            f'alt="{_escape_attr(after_alt)}" loading="lazy">'
         )
         labels_html = ""
         if before_label:
@@ -368,79 +130,6 @@ class ImageComparisonDirective(SphinxDirective):
         return [html_node, fallback_only]
 
 
-_DIFFICULTY_LEVELS = {
-    "beginner": "Beginner",
-    "intermediate": "Intermediate",
-    "advanced": "Advanced",
-}
-
-
-class PageBadgesDirective(SphinxDirective):
-    """Render compact difficulty / time badges at the top of a page."""
-
-    required_arguments = 0
-    optional_arguments = 0
-    has_content = False
-    option_spec = {
-        "difficulty": directives.unchanged,
-        "time": directives.unchanged,
-        "tags": directives.unchanged,
-    }
-
-    def run(self) -> list[nodes.Node]:
-        difficulty = (self.options.get("difficulty") or "").strip().lower()
-        time_estimate = (self.options.get("time") or "").strip()
-        tags_raw = (self.options.get("tags") or "").strip()
-        tags = [tag.strip() for tag in tags_raw.split(",") if tag.strip()]
-
-        if difficulty and difficulty not in _DIFFICULTY_LEVELS:
-            warning = self.state.document.reporter.warning(
-                f"page-badges: unknown :difficulty: {difficulty!r}; "
-                f"expected one of {sorted(_DIFFICULTY_LEVELS)}",
-                line=self.lineno,
-            )
-            return [warning]
-
-        spans: list[str] = []
-        if difficulty:
-            label = _DIFFICULTY_LEVELS[difficulty]
-            spans.append(
-                f'<span class="hmp-page-badge hmp-page-badge-difficulty '
-                f'hmp-page-badge-difficulty-{difficulty}">{_escape_text(label)}</span>'
-            )
-        if time_estimate:
-            spans.append(
-                '<span class="hmp-page-badge hmp-page-badge-time">'
-                f"{_escape_text(time_estimate)}</span>"
-            )
-        for tag in tags:
-            spans.append(
-                f'<span class="hmp-page-badge hmp-page-badge-tag">{_escape_text(tag)}</span>'
-            )
-
-        if not spans:
-            warning = self.state.document.reporter.warning(
-                "page-badges: at least one of :difficulty:, :time:, :tags: must be set",
-                line=self.lineno,
-            )
-            return [warning]
-
-        html = '<div class="hmp-page-badges">' + "".join(spans) + "</div>"
-        return [nodes.raw("", html, format="html")]
-
-
-def _stability_role(label: str, css_class: str):
-    def role(name, rawtext, text, lineno, inliner, options=None, content=None):
-        node = nodes.inline(
-            rawtext,
-            f"{label}{(': ' + text) if text else ''}",
-            classes=["api-stability", css_class],
-        )
-        return [node], []
-
-    return role
-
-
 def _register_goatcounter(app: Sphinx) -> None:
     """Inject the GoatCounter snippet when the environment variable is set."""
     url = os.environ.get(_GOATCOUNTER_ENV, "").strip()
@@ -455,13 +144,6 @@ def _register_goatcounter(app: Sphinx) -> None:
 
 
 def setup(app: Sphinx) -> dict[str, Any]:
-    app.add_directive("validation-case-summary", ValidationCaseSummaryDirective)
-    app.add_directive("solver-comparison", SolverComparisonDirective)
-    app.add_directive("gallery-figure", GalleryFigureDirective)
     app.add_directive("image-comparison", ImageComparisonDirective)
-    app.add_directive("page-badges", PageBadgesDirective)
-    app.add_role("stable", _stability_role("Stable", "api-stable"))
-    app.add_role("experimental", _stability_role("Experimental", "api-experimental"))
-    app.add_role("deprecated", _stability_role("Deprecated", "api-deprecated"))
     _register_goatcounter(app)
-    return {"version": "0.6.0", "parallel_read_safe": True, "parallel_write_safe": True}
+    return {"version": "0.7.0", "parallel_read_safe": True, "parallel_write_safe": True}

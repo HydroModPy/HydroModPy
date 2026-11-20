@@ -1,3 +1,8 @@
+"""A recharge payload already in m/s must say so, or Flow converts it again from mm/day.
+
+The scan reads every source file of ``tools`` and ``validation_cases`` as a syntax tree.
+"""
+
 from __future__ import annotations
 
 import ast
@@ -52,7 +57,7 @@ def _iter_python_files() -> list[Path]:
     return sorted(files)
 
 
-def test_boussinesq_runtime_recharge_preconverted_to_si_declares_units() -> None:
+def test_si_recharge_declares_its_units():
     violations: list[str] = []
     for path in _iter_python_files():
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

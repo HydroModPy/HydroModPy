@@ -32,6 +32,7 @@ def run_boussinesq_sloping_substratum_fixed_head_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> object:
     """Run the steady sloping-substratum fixed-head case with PETSc VI."""
     metadata = load_case_metadata(CASE_DIR)
@@ -42,6 +43,7 @@ def run_boussinesq_sloping_substratum_fixed_head_case(
         case_id=CASE_ID,
         caller_file=caller_file,
         timeout=timeout,
+        public_solver_label=public_solver_label,
         nx=NX,
         ny=NY,
         length_x_m=LENGTH_X_M,
@@ -58,17 +60,14 @@ def run_boussinesq_sloping_substratum_fixed_head_case(
         ),
         hydraulic_conductivity_m_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         storage_coefficient=0.1,
+        boussinesq_settings={"backend": "petsc", "surface_interaction_model": "vi_obstacle"},
         flow_section={
             "flow_regime": "steady",
-            "runtime_backend": "petsc",
-            "surface_interaction_model": "vi_obstacle",
             "ic": {
-                "type": "custom",
+                "kind": "custom",
                 "value": 0.5
                 * (float(reference_cfg["west_head"]) + float(reference_cfg["east_head"])),
             },
-            "active_sinks_sources": [],
-            "active_bc": ["west_side", "east_side"],
             "bc": {
                 "west_side": {"value": float(reference_cfg["west_head"])},
                 "east_side": {"value": float(reference_cfg["east_head"])},

@@ -441,18 +441,11 @@ def test_python_module_mesh_bundle_viewer_runs_from_distributed_folder(
 def test_python_module_mesh_bundle_viewer_runs_with_default_example_bundle(
     tmp_path: Path,
 ) -> None:
-    # Keep this name short: the copied tree already nests
-    # examples/projects/08_mesh_viewer, which the viewer's default-config
-    # lookup requires, and Windows caps the whole path at 259 characters.
+    # Keep this name short: Windows caps the whole path at 259 characters.
+    # The default config ships inside the package, under examples/.
     distribution_root = tmp_path / "rbflow_pkg"
     mesh_source_dir = Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
-    examples_source_dir = (
-        Path(__file__).resolve().parents[3] / "examples" / "projects" / "08_mesh_viewer"
-    )
-    mesh_target_dir = distribution_root / "mesh_bundle_viewer"
-    examples_target_dir = distribution_root / "examples" / "projects" / "08_mesh_viewer"
-    shutil.copytree(mesh_source_dir, mesh_target_dir)
-    shutil.copytree(examples_source_dir, examples_target_dir)
+    shutil.copytree(mesh_source_dir, distribution_root / "mesh_bundle_viewer")
 
     completed = subprocess.run(
         [

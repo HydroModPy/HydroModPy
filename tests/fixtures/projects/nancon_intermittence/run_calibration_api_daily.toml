@@ -1,0 +1,222 @@
+# Nancon on public data only, the DEM excepted: BD Topage for the network,
+# Hub'Eau for the gauge, SIM2 for the recharge and the runoff. Daily step,
+# 2015-2020, 2015 left out as spin-up, so five years are scored.
+#
+# No search: K takes five fixed values, one full run each, and every run is
+# kept with its figures and its exports. The best on the gauge is promoted
+# to runs/<case>/, the four others are kept under sessions/<case>/trials/.
+#
+# Needs network access at the first run; the downloads are cached after it.
+# Five daily solves of 2192 steps: a promoted run reuses the solve of its trial.
+#
+#   hmp check run_calibration_api_daily.toml
+#   hmp calibrate run_calibration_api_daily.toml --list-phases
+#   hmp run       run_calibration_api_daily.toml
+
+base_config = "project.toml"
+
+# The exports of project.toml name October 2002, outside this record. They are
+# dropped, and the blocks at the end of this file replace them.
+export__delete = true
+
+[workflow]
+mode = "calibration"
+
+# The gauge is now the Hub'Eau station of the Nancon at Lecousse, J001401001, a
+# station of the site the uri of project.toml names (hubeau:J0014010): the
+# discharge source and the calibration read it.
+[site]
+gauge = "J001401001"
+
+[simulation]
+name = "nancon_api_daily"
+description = "Nancon, daily 2015-2020 on BD Topage, Hub'Eau and SIM2, K on five fixed values."
+
+# Every [data.<type>] section reads this window: no date is repeated below.
+[simulation.time]
+start_datetime = "2015-01-01"
+end_datetime = "2020-12-31"
+step_value = "1 day"
+
+# The window every score of a run is read on, 2015 being the spin-up. The
+# window of project.toml, 2001-2002, lies outside this record. The search calibrates
+# on 2016-2018, this window minus [calibration] validation_window.
+[metrics]
+window = { start = "2016-01-01", end = "2020-12-31" }
+
+# `sources__delete` drops the local source of project.toml, so each family
+# below has only its API source. The DEM stays the local file.
+[data.hydrography]
+sources__delete = true
+
+# Every reach with its permanence, the permanent ones written apart.
+[[data.hydrography.sources]]
+source = "bdtopage"
+
+[data.hydrometry]
+sources__delete = true
+
+# Hub'Eau daily mean discharge of "Le Nançon à Lécousse - Pont aux Anes", the
+# gauge of [site].
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+
+[data.recharge]
+sources__delete = true
+
+# Meteo-France SIM2 reanalysis, 8 km grid, drainage (DRAINC_Q), averaged over
+# the watershed.
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.runoff]
+sources__delete = true
+
+# SIM2 surface runoff (RUNC_Q): the share of the gauged discharge the
+# groundwater model does not produce.
+[[data.runoff.sources]]
+source = "sim2"
+extent = "watershed"
+
+[calibration]
+# Every trial becomes a full run and renders the figures of [display].
+save_runs = "all"
+# Kept apart from the search: each trial is scored on it beside its cost.
+validation_window = { start = "2019-01-01", end = "2020-12-31" }
+
+# Log space by default: five points from 1e-6 to 1e-4 are
+# 1e-6, 3.16e-6, 1e-5, 3.16e-5 and 1e-4 m/s. Sy stays at 0.05 (project.toml).
+[calibration.parameters.K]
+bounds = [1e-6, 1e-4]
+
+# The Hub'Eau record of the gauge, on the simulated days.
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+
+# NSE on log discharge, which weights the recessions where storage shows.
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["hydrograph"]
+
+# One phase, a regular grid instead of a search: five runs, whatever the cost.
+[[calibration.phases]]
+name = "conductivity_grid"
+description = "K on five fixed values, daily transient, ranked on the Hub'Eau discharge of 2016-2018."
+parameters = ["K"]
+regime = "transient"
+objective_blocks = ["hydrograph"]
+method = "grid"
+max_trials = 5
+method_options = { points_per_dim = 5 }
+# The five K do not depend on one another, so they are solved side by side,
+# each in its own folder: the grid takes the time of its slowest run.
+parallel = 5
+
+# 2015 is spin-up: simulated, not scored.
+[calibration.phases.window]
+start = "2016-01-01"
+
+# Drawn for each of the five runs. A figure that fails is logged and the run
+# goes on, so one API gap does not cost the figures of a whole run.
+[display]
+on_error = "warn"
+# One-instant figures draw September 2019, the end of a dry summer.
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "network"]
+
+[[display.figure]]
+preset = "hydrograph"
+scale = "log"
+name = "hydrograph_log"
+
+[[display.figure]]
+preset = "hydrograph"
+
+[[display.figure]]
+variable = "discharge"
+type = "distribution"
+cumulative = true
+
+[[display.figure]]
+preset = "recession"
+
+[[display.figure]]
+preset = "water_budget"
+
+[[display.figure]]
+variable = "watertable_depth"
+time = "2019-09-15"
+
+# The seepage of February 2020, near the largest saturated extent of the record.
+[[display.figure]]
+variable = "seepage_mask"
+time = "2020-02-15"
+
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+time = "2019-09-15"
+
+[[display.figure]]
+variable = "network_agreement"
+name = "network_extent_bounds_map"
+
+[[display.figure]]  # replaces flow_persistence_map, flow_intermittence_map
+variable = "simulated_active_network"
+reduce = "frequency"
+# cycle = "2019" has no equivalent: reduce = frequency reads the whole run
+
+[[display.figure]]
+variable = "network_agreement"
+time = "2019-09-15"
+name = "seepage_network_confusion_map"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+time = "2019-09-15"
+
+[[display.figure]]
+variable = ["trials.parameter", "trials.cost"]
+type = "xy"
+facet = "parameter"
+when = "session"
+
+[[display.figure]]
+preset = "calibration_progress"
+when = "session"
+
+# What each of the five runs writes to runs/<run>/exports/.
+
+# The catchment and both BD Topage maps, all reaches and the permanent ones:
+# GeoPackage.
+[[export]]
+variable = [
+    "watershed",
+    "hydrographic_network_reference",
+    "hydrographic_network_reference_permanent",
+]
+
+# The water table and the seepage cells at the end of the dry summer of 2019:
+# one GeoTIFF each.
+[[export]]
+variable = ["watertable_depth", "seepage_mask"]
+time = "2019-09-15"
+
+# Simulated and gauged discharge, day by day over the scored years: CSV.
+[[export]]
+variable = ["discharge", "discharge_obs"]
+period = ["2016-01-01", "2020-12-31"]
+
+# The daily water budget: CSV.
+[[export]]
+variable = "budget"

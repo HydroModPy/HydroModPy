@@ -1,53 +1,46 @@
-"""Tests for the :func:`hmp.read` top-level dispatch facade.
+"""Tests for :meth:`Run.read`, the dispatch of a variable name to its reader.
 
 The facade routes a variable name to the right backend based on the
-canonical :mod:`hydromodpy.results.field_registry`, the DuckDB
-``timeseries`` table and the GeoParquet ``geographic_features`` table.
+canonical :mod:`hydromodpy.results.field_registry`, the ``timeseries``
+table and the GeoParquet ``geographic_features`` table of a sealed run.
 """
 
 from __future__ import annotations
 
-import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
+import xarray as xr
 from shapely.geometry import Polygon
 
 import hydromodpy as hmp
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.errors import FieldNotFoundError
-from hydromodpy.results.run import Run
-from tests._helpers.fixtures_catalog import simulation_catalog
+from hydromodpy.results.run.view import Run
+from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.run_stores import open_run_store
 
 
-def _sim_id() -> str:
-    return str(uuid.uuid4())
-
-
-@pytest.fixture
-def catalog(tmp_path):
-    with simulation_catalog(tmp_path / "workspace") as cat:
-        yield cat
-
-
-def _seed_field(catalog: Catalog) -> str:
-    """Seed a minimal MF6 simulation with a 1x2 ``head`` field."""
-    sid = _sim_id()
-    reg = catalog.register_simulation(
+def _write_field(store: RunStore) -> None:
+    """Write a minimal MF6 run with a 1x2 ``head`` field."""
+    sid = store.sim_id
+    # Two unit squares side by side: cell centers at x = 0.5 and x = 1.5.
+    store.write_mesh(
         sid,
-        project="p",
-        solver="modflow6",
-        n_cells=2,
-        n_layers=1,
-        n_timesteps=2,
+        np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0]], float),
+        np.array([[0, 1, 4, 3], [1, 2, 5, 4]], dtype=np.int32),
+        np.array([10.0, 0.0]),
     )
-    assert reg.zarr is not None
-    reg.zarr.close()
-    catalog.write_field(sid, "head", 0, np.array([[1.0, 2.0]]), n_timesteps=2)
-    catalog.write_field(sid, "head", 1, np.array([[3.0, 4.0]]), n_timesteps=2)
-    catalog.write_geographic_metadata(
+    store.write_field(sid, "head", 0, np.array([[1.0, 2.0]]), n_timesteps=2)
+    store.write_field(sid, "head", 1, np.array([[3.0, 4.0]]), n_timesteps=2)
+    store.write_geographic_metadata(
         sid,
         {
             "dem_res": 1.0,
@@ -57,148 +50,136 @@ def _seed_field(catalog: Catalog) -> str:
             "catch_area": 0.000002,
         },
     )
-    catalog.write_geographic_raster(
+    store.write_geographic_raster(
         sid,
         "watershed_dem",
         np.array([[10.0, 11.0]], dtype=float),
         transform=(1.0, 0.0, 0.0, 0.0, -1.0, 1.0),
         crs="EPSG:2154",
     )
-    return sid
 
 
-def _seed_timeseries(catalog: Catalog, sid: str) -> None:
+def _write_timeseries(store: RunStore) -> None:
     series = pd.Series(
         [1.5, 2.0, 2.5],
         index=pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
         name="discharge",
     )
-    catalog.write_timeseries(sid, "outlet", "discharge", series)
+    store.write_timeseries(store.sim_id, "outlet", "discharge", series)
 
 
-def _seed_geographic_feature(catalog: Catalog, sid: str) -> None:
+def _write_geographic_feature(store: RunStore) -> None:
     poly = Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)])
     gdf = gpd.GeoDataFrame(
         {"name": ["basin"], "geometry": [poly]},
         crs="EPSG:2154",
     )
-    catalog.write_geographic_feature(sid, "watershed_polygon", gdf)
+    store.write_geographic_feature(store.sim_id, "watershed_polygon", gdf)
 
 
-def test_read_zarr_field_returns_xarray_dataarray(catalog):
-    """``hmp.read(run, "head")`` returns a lazy ``xr.DataArray``."""
-    import xarray as xr
-
-    sid = _seed_field(catalog)
-    run = Run(sid, catalog)
-    da = hmp.read(run, "head")
-    assert isinstance(da, xr.DataArray)
-    assert da.dims == ("time", "layer", "cell")
-    assert da.shape == (2, 1, 2)
-
-
-def test_read_zarr_field_eager_with_time_int_returns_ndarray(catalog):
-    """When ``time`` is an int, dispatch returns the eager numpy slice."""
-    sid = _seed_field(catalog)
-    run = Run(sid, catalog)
-    arr = hmp.read(run, "head", time=0, layer=0)
-    assert isinstance(arr, np.ndarray)
-    np.testing.assert_array_equal(arr.ravel(), [1.0, 2.0])
+@contextmanager
+def _sealed(project: Path, *, timeseries: bool = False, feature: bool = False) -> Iterator[Run]:
+    """Seal the run, with a series or a feature when asked, index it and yield it."""
+    store = open_run_store(project, "run", n_cells=2, n_layers=1, n_timesteps=2)
+    _write_field(store)
+    if timeseries:
+        _write_timeseries(store)
+    if feature:
+        _write_geographic_feature(store)
+    sid = store.sim_id
+    seal_completed(store)
+    rebuild_index(project)
+    with Catalog(project) as catalog:
+        yield Run(sid, catalog)
 
 
-def test_read_zarr_field_with_layer_selects_layer(catalog):
-    """Lazy ``DataArray`` returned by ``read`` can be sliced along layer."""
-    sid = _seed_field(catalog)
-    run = Run(sid, catalog)
-    da = hmp.read(run, "head", layer=0)
-    assert da.dims == ("time", "cell")
-    assert da.shape == (2, 2)
+@pytest.fixture
+def run(tmp_path: Path) -> Iterator[Run]:
+    with _sealed(tmp_path / "workspace") as sealed:
+        yield sealed
 
 
-def test_read_zarr_field_with_time_slice(catalog):
-    """Slice the time dimension on the lazy ``DataArray``."""
-    sid = _seed_field(catalog)
-    run = Run(sid, catalog)
-    da = hmp.read(run, "head", time=slice(0, 1))
-    assert da.shape == (1, 1, 2)
+@pytest.fixture
+def run_with_series(tmp_path: Path) -> Iterator[Run]:
+    with _sealed(tmp_path / "workspace", timeseries=True) as sealed:
+        yield sealed
 
 
-def test_read_timeseries_returns_pandas_series(catalog):
-    """A persisted timeseries variable dispatches to ``pd.Series``."""
-    sid = _seed_field(catalog)
-    _seed_timeseries(catalog, sid)
-    run = Run(sid, catalog)
-    ts = hmp.read(run, "discharge", sel={"station": "outlet"})
+def test_one_period_is_a_data_array(run):
+    # ``time`` selects in a field and never changes the type.
+    for time in (0, -2, np.int64(0)):
+        da = run.read("head", time=time, layer=0)
+        assert isinstance(da, xr.DataArray)
+        assert da.dims == ("cell",)
+        np.testing.assert_array_equal(da.values, run.field("head", time=0, layer=0).ravel())
+    with pytest.raises(IndexError, match="no such period"):
+        run.read("head", time=5)
+
+
+READS = [
+    pytest.param({"layer": 0}, ("time", "cell"), (2, 2), id="one layer"),
+    pytest.param({"time": slice(0, 1)}, None, (1, 1, 2), id="time slice"),
+]
+
+
+@pytest.mark.parametrize(("kwargs", "dims", "shape"), READS)
+def test_read_field_slices(run, kwargs, dims, shape):
+    da = run.read("head", **kwargs)
+
+    assert da.shape == shape
+    if dims:
+        assert da.dims == dims
+
+
+def test_read_timeseries(run_with_series):
+    run = run_with_series
+    ts = run.read("discharge", sel={"station": "outlet"})
     assert isinstance(ts, pd.Series)
     np.testing.assert_allclose(ts.values, [1.5, 2.0, 2.5])
 
 
-def test_read_timeseries_single_station_infers_station(catalog):
-    """When a variable has a single station, ``station`` may be omitted."""
-    sid = _seed_field(catalog)
-    _seed_timeseries(catalog, sid)
-    run = Run(sid, catalog)
-    ts = hmp.read(run, "discharge")
-    assert isinstance(ts, pd.Series)
-    assert len(ts) == 3
+def test_read_without_a_station(tmp_path):
+    """A run writes a gauge series beside the catchment one, and a plain read keeps its answer."""
+    index = pd.date_range("2020-01-02", periods=2, freq="D")
+    with open_run_store(tmp_path / "demo", "two", n_cells=4, n_timesteps=2) as store:
+        store.write_timeseries(store.sim_id, "catchment", "discharge", pd.Series([1.0, 2.0], index))
+        store.write_timeseries(store.sim_id, "J001", "discharge", pd.Series([0.1, 0.2], index))
+        run = Run(store.sim_id, store)
+
+        assert run.read("discharge").tolist() == [1.0, 2.0]
+        assert run.read("discharge", sel={"station": "J001"}).tolist() == [0.1, 0.2]
 
 
-def test_read_geographic_feature_returns_geodataframe(catalog):
-    """A persisted geographic feature dispatches to ``gpd.GeoDataFrame``."""
-    sid = _seed_field(catalog)
-    _seed_geographic_feature(catalog, sid)
-    run = Run(sid, catalog)
-    gdf = hmp.read(run, "watershed_polygon")
+def test_read_geographic_feature(tmp_path):
+    with _sealed(tmp_path / "workspace", feature=True) as run:
+        gdf = run.read("watershed_polygon")
     assert isinstance(gdf, gpd.GeoDataFrame)
     assert len(gdf) == 1
 
 
-def test_read_unknown_variable_raises_field_not_found(catalog):
-    """An unknown variable raises :class:`FieldNotFoundError`."""
-    sid = _seed_field(catalog)
-    run = Run(sid, catalog)
-    with pytest.raises(FieldNotFoundError):
-        hmp.read(run, "no_such_variable")
+def test_unknown_variable(run):
+    with pytest.raises(FieldNotFoundError) as raised:
+        run.read("no_such_variable")
+    assert isinstance(raised.value, KeyError)
 
 
-def test_read_unknown_variable_is_keyerror_compatible(catalog):
-    """``FieldNotFoundError`` inherits from ``KeyError`` for compat."""
-    sid = _seed_field(catalog)
-    run = Run(sid, catalog)
-    with pytest.raises(KeyError):
-        hmp.read(run, "no_such_variable")
+def test_read_needs_a_run():
+    from hydromodpy.results.derive.reading import read_variable
 
-
-def test_read_requires_run_argument(catalog):
-    """Passing a non-Run object raises ``TypeError``."""
     with pytest.raises(TypeError, match="Run"):
-        hmp.read("not-a-run", "head")
+        read_variable("not-a-run", "head")
 
 
-def test_read_bbox_restricts_cells(catalog):
-    """``bbox=`` restricts the returned DataArray to faces within the box."""
-    sid = _seed_field(catalog)
-    run = Run(sid, catalog)
-    # With ncol=2 cells centred at x=0.5 and x=1.5, only cell 0 has centre <= 0.9
-    da = hmp.read(run, "head", bbox=(0.0, -1.0, 1.0, 1.0))
+def test_read_bbox(run):
+    # The cells of the stored mesh are centered at x=0.5 and x=1.5: only cell 0 is in the box.
+    da = run.read("head", bbox=(0.0, -1.0, 1.0, 1.0))
     assert da.sizes["cell"] == 1
 
 
-def test_read_attribute_exposed_on_module_top_level():
-    """``hmp.read`` must be exported at the top-level facade."""
-    assert callable(hmp.read)
+def test_read_top_level(run):
+    """``Run.read`` reads; ``hmp.read`` stays for the frozen runs and reads through it."""
+    assert callable(Run.read)
     assert "read" in hmp.__all__
-
-
-def test_facade_read_dispatch_rule(catalog):
-    """One rule: ``time`` int -> ndarray, otherwise lazy DataArray."""
-    import xarray as xr
-
-    sid = _seed_field(catalog)
-    run = Run(sid, catalog)
-
-    arr = hmp.read(run, "head", time=0, layer=0)
-    assert isinstance(arr, np.ndarray)
-
-    da = hmp.read(run, "head")
-    assert isinstance(da, xr.DataArray)
+    assert hmp.read(run, "head", time=0).equals(run.read("head", time=0))
+    with pytest.raises(TypeError):
+        hmp.read("not a run", "head")

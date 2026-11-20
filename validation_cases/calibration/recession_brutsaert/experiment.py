@@ -24,18 +24,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from hydromodpy.calibration import (
-    CalibParameter,
-    CalibrationEngine,
-    EvaluationResult,
-    ObservationSet,
-    ParameterSpace,
-    ParamSuggestion,
-    ScalarObjective,
-    SimulationOutput,
-    build_optimizer,
-)
-from hydromodpy.calibration.optim.objective import evaluate_objective
+from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.objective import CompositeObjective, SimulationOutput
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+from validation_cases.calibration.shared.standalone import build_standalone_calibration
 
 # ---------------------------------------------------------------------------
 # Forward model
@@ -85,13 +77,13 @@ class BrutsaertRecessionCase:
                     name="a",
                     lower=self.bounds["a"][0],
                     upper=self.bounds["a"][1],
-                    transform="log",
+                    search_space="log",
                 ),
                 CalibParameter(
                     name="b",
                     lower=self.bounds["b"][0],
                     upper=self.bounds["b"][1],
-                    transform="identity",
+                    search_space="identity",
                 ),
             ]
         )
@@ -99,7 +91,7 @@ class BrutsaertRecessionCase:
     def times(self) -> np.ndarray:
         return np.arange(self.n_days, dtype=float)
 
-    def synthetic_observations(self) -> ObservationSet:
+    def synthetic_observations(self) -> dict[str, np.ndarray]:
         t = self.times()
         clean = recession_discharge(
             a=float(self.truth["a"]),
@@ -110,12 +102,7 @@ class BrutsaertRecessionCase:
         rng = np.random.default_rng(self.noise_seed)
         noise = rng.normal(0.0, self.log_noise_sigma, size=t.size)
         noisy = clean * np.exp(noise)
-        return ObservationSet(
-            stations=("outlet",),
-            times=t,
-            values={"outlet": noisy},
-            variable="discharge",
-        )
+        return {"outlet": noisy}
 
     def simulate(self, values: Mapping[str, float]) -> SimulationOutput:
         t = self.times()
@@ -139,51 +126,24 @@ BRUTSAERT_RECESSION_CASE = BrutsaertRecessionCase(
 )
 
 
-# ---------------------------------------------------------------------------
-# Calibration driver
-# ---------------------------------------------------------------------------
-
-
 def build_calibration(
     case: BrutsaertRecessionCase = BRUTSAERT_RECESSION_CASE,
     *,
     optimizer_name: str = "scipy_nelder_mead",
-    max_iter: int = 80,
+    max_trials: int = 80,
     seed: int = 11,
     metric: str = "rmse",
-) -> tuple[CalibrationEngine, ScalarObjective]:
-    space = case.parameter_space()
-    observations = case.synthetic_observations()
-    objective = ScalarObjective(observations, metric=metric)
-
-    optimizer_kwargs: dict[str, object] = {"seed": seed}
-    if optimizer_name == "scipy_nelder_mead":
-        optimizer_kwargs["maxiter"] = max_iter
-    elif optimizer_name == "scipy_de":
-        optimizer_kwargs.update({"maxiter": 20, "popsize": 10, "tol": 1e-4})
-    elif optimizer_name == "grid":
-        optimizer_kwargs["points_per_dim"] = 9
-    optimizer = build_optimizer(optimizer_name, space, **optimizer_kwargs)
-
-    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        sim = case.simulate(sugg.values)
-        obj = evaluate_objective(objective, sim)
-        return EvaluationResult(
-            trial_id=sugg.trial_id,
-            sim_id=sim.sim_id,
-            objective_value=obj.total,
-            components=dict(obj.components),
-            status="completed",
-            metadata={"values": dict(sugg.values)},
-        )
-
-    engine = CalibrationEngine(
-        space=space,
-        optimizer=optimizer,
-        evaluator=evaluator,
-        max_iter=max_iter,
+) -> tuple[CalibrationEngine, CompositeObjective]:
+    """Assemble a ready-to-run CalibrationEngine for this case."""
+    return build_standalone_calibration(
+        case,
+        optimizer_name=optimizer_name,
+        max_trials=max_trials,
+        seed=seed,
+        metric=metric,
+        popsize=10,
+        grid_points=9,
     )
-    return engine, objective
 
 
 __all__ = [

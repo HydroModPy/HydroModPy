@@ -1,0 +1,526 @@
+"""Each test states one thing a hydrogeologist can check by hand."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from types import SimpleNamespace as NS
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from hydromodpy.project import api
+from hydromodpy.project import compare as c
+from tests._helpers.run_records import make_identity, make_record
+
+pytestmark = pytest.mark.fast
+
+D = pd.Timestamp
+TWO_CELLS = ((0.0, 0.0), (10.0, 0.0))
+
+
+def make_run(
+    name="a",
+    start="2000-01-01",
+    freq="D",
+    n=4,
+    q=1.0,
+    site="s",
+    mesh="m",
+    centers=TWO_CELLS,
+    areas=(100.0, 100.0),
+    head=(1.0, 2.0),
+    params=None,
+    gauge="G",
+    unit="m3 s-1",
+    networks=(),
+    flows=True,
+    regime="transient",
+    fields=("watertable_elevation", "watertable_depth", "head"),
+    has_budget=True,
+):
+    """A run answering the public Run API, with values chosen to be checked by hand.
+
+    A field grows by 10 per step and a term of the budget is 2 + step, so that a
+    wrong step, variable or weight changes the answer.
+    """
+    stamps = pd.date_range(start, periods=n + 1, freq=freq)[1:]
+    q_at = q if callable(q) else lambda _: q
+    series = {"discharge": ("catchment", 0.0), "head": ("P1", 50.0)}
+    offsets = {"watertable_elevation": 0.0, "watertable_depth": 100.0, "head": 0.0}
+    terms = (("recharge", 2.0, 0.0), ("drain", 0.0, 2.0))
+    budget = pd.DataFrame(
+        {
+            "timestep": t,
+            "zone_id": zone,
+            "component": term,
+            "flux_in": fin and fin + t,
+            "flux_out": fout and fout + t,
+            "unit": unit,
+        }
+        for t in range(n if has_budget else 0)
+        for zone in ("domain", "catchment")
+        for term, fin, fout in terms
+    )
+    columns = ("station", "variable", "metric", "value", "window_start", "window_end", "n_samples")
+    rows = ((gauge, "discharge", m, 0.123456, "w0", "w1", n) for m in ("nse", "rmse"))
+    metrics = pd.DataFrame(rows, columns=columns) if gauge else pd.DataFrame()
+    x, y = np.array(centers).T
+    corners = np.column_stack([np.repeat(x, 4), np.repeat(y, 4)]) + [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+    ] * len(x)
+
+    def timeseries(variable, station):
+        assert station == series[variable][0]
+        values = [q_at(d) + series[variable][1] for d in stamps]
+        return pd.Series(values, index=stamps, name=variable)
+
+    def stations(variable, *, source="simulated"):
+        return ([gauge] if gauge else []) if source == "observed" else [series[variable][0]]
+
+    return NS(
+        name=name,
+        site=site,
+        solver="modflow6",
+        params=params or {"K": 1e-5},
+        metrics=metrics,
+        time_index=None if regime == "steady" else stamps,
+        checks=NS(budget_pct=0.1),
+        record=NS(
+            period=NS(start=f"{start}T00:00:00Z", end=str(stamps[-1])),
+            identity=NS(site_fingerprint=site, mesh_hash=mesh),
+            run=NS(flow_regime=regime),
+        ),
+        mesh=NS(
+            cell_centers=lambda: np.array(centers),
+            cell_areas=lambda: np.array(areas),
+            vertices=corners,
+            face_node_connectivity=np.arange(len(x) * 4).reshape(-1, 4),
+            z_interfaces=np.zeros((2, len(x))),
+            crs="EPSG:2154",
+        ),
+        catchment_mask=np.ones(len(x), dtype=bool),
+        outlet=(float(x[0]), float(y[0])),
+        n_layers=1,
+        stations=stations,
+        timeseries=timeseries,
+        field=lambda v, time: np.asarray(head) + offsets[v] + 10.0 * time,
+        budget=lambda: budget,
+        has_field=lambda v: v in fields or (flows and v == "drain_accumulation_flux"),
+        has_hydrographic_network=lambda role: role in networks,
+        observed=lambda v: pd.DataFrame({"datetime": stamps, "value": 1.0}),
+    )
+
+
+@pytest.fixture(autouse=True)
+def _stand_in_parameters(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The stand-in runs hold their global parameters in ``params``, not in a table."""
+    monkeypatch.setattr(c, "global_parameters", lambda run: run.params)
+
+
+@pytest.mark.parametrize(
+    ("runs", "message"),
+    [
+        ([make_run()], "A comparison needs at least two runs"),
+        ([make_run(), make_run()], "distinct names"),
+        ([make_run(), make_run("b", site="other")], "a: s, b: other.*--by site"),
+        (
+            [make_run(), make_run("b", start="2015-01-01")],
+            "a: 2000-01-01 to 2000-01-05, b: 2015-01-01 to 2015-01-05",
+        ),
+        ([make_run(), make_run("b", start="2000-01-05")], "share no date"),
+        ([make_run(regime="steady", n=1), make_run("b")], "Steady and transient"),
+        ([make_run(), make_run("b", unit="m3/d")], "b has budget rows in ..m3/d.., not m3 s-1"),
+        ([make_run(), make_run("b", head=[[1.0, 2.0]])], "watertable_elevation is not one value"),
+    ],
+)
+def test_refusals(runs, message) -> None:
+    with pytest.raises(c.ComparisonCaseError, match=message):
+        c.compare(runs)
+
+
+def test_series_on_shared_dates() -> None:
+    late = make_run("b", start="2000-01-03", q=3.0)  # two days shared with the reference
+    rows = c.compare([make_run(), late]).tables["series"].to_dict("records")
+    assert rows[0] == {
+        "variable": "discharge",
+        "station": "catchment",
+        "run": "b",
+        "reference": "a",
+        "first": "2000-01-04 00:00:00",
+        "last": "2000-01-05 00:00:00",
+        "n": 2,
+        "reference_mean": 1.0,
+        "bias": 2.0,
+        "mae": 2.0,
+        "rmse": 2.0,
+    }
+    assert (rows[1]["variable"], rows[1]["station"], rows[1]["reference_mean"]) == (
+        "head",
+        "P1",
+        51.0,
+    )
+
+
+def test_period_mean_weights() -> None:
+    dates = pd.to_datetime(["2000-01-01", "2000-01-02", "2000-01-04"])
+    series = pd.Series([100.0, 1.0, 4.0], index=dates, name="q")
+    means = c.period_means(series, D("2000-01-01"), pd.DatetimeIndex(["2000-01-04"]))
+    assert means.to_dict() == {D("2000-01-04"): 3.0}  # (1 x 1 + 4 x 2) / 3
+    assert means.name == "q"
+
+
+def test_daily_against_monthly() -> None:
+    daily = make_run("d", n=60, q=2.0)
+    row = c.compare([daily, make_run("m", freq="MS", n=2, q=1.0)]).tables["series"].iloc[0]
+    assert (row["n"], row["bias"], row["last"]) == (2, -1.0, "2000-03-01 00:00:00")
+
+
+def test_partial_period_left_out() -> None:
+    daily = make_run("d", start="2000-01-16", n=60, q=2.0)  # to 16 March, so February only
+    row = c.compare([daily, make_run("m", freq="MS", n=3, q=1.0)]).tables["series"].iloc[0]
+    assert (row["n"], row["bias"], row["first"]) == (1, -1.0, "2000-03-01 00:00:00")
+
+
+def test_no_common_period() -> None:
+    tables = c.compare([make_run(), make_run("m", freq="MS", n=1)]).tables
+    assert tables["series"].empty
+    assert tables["maps"].empty
+
+
+def test_steps_never_meet() -> None:
+    tables = c.compare([make_run(freq="2D"), make_run("b", start="2000-01-02", freq="2D")]).tables
+    assert tables["maps"].empty
+    assert tables["series"]["n"].iloc[0] == 3
+
+
+def test_steady_runs(tmp_path: Path) -> None:
+    first = make_run(regime="steady", n=1)
+    second = make_run("b", start="2003-06-01", regime="steady", n=1, q=3.0, head=(2.0, 3.0))
+    result = c.compare([first, second], ["head"])
+    assert result.tables["series"].iloc[0][["first", "n", "bias"]].tolist() == ["steady", 1, 2.0]
+    assert result.tables["maps"].iloc[0][["date", "bias"]].tolist() == ["steady", 1.0]
+    budget = (
+        result.tables["budget"].query("run == 'b' and zone == 'domain'").set_index("term")["m3_s"]
+    )
+    assert budget.to_dict() == {"drain": -2.0, "recharge": 2.0, "residual": 0.0}
+    text = result.write(tmp_path).read_text()
+    assert "Reference a. Steady state." in text
+    assert not list(tmp_path.glob("discharge*.png"))
+
+
+def test_map_error_by_area() -> None:
+    wide = {"areas": (100.0, 300.0)}
+    ahead = make_run("b", start="1999-12-31", n=3, head=(1.0, 1.0), **wide)  # one step ahead
+    rows = c.compare([make_run(**wide), ahead], ["head"]).tables["maps"].to_dict("records")
+    assert rows == [
+        {
+            "variable": "head",
+            "date": "2000-01-03 00:00:00",
+            "run": "b",
+            "reference": "a",
+            "same_mesh": True,
+            "n": 2,
+            "reference_mean": 11.75,
+            "bias": 9.25,
+            "mae": 9.25,
+            "rmse": pytest.approx(np.sqrt((100 + 3 * 81) / 4)),
+        }
+    ]
+
+
+def test_other_mesh_nearest_cell() -> None:
+    reference = make_run(centers=((0.0, 0.0), (30.0, 0.0)))
+    other = make_run("b", mesh="n", centers=((10.0, 0.0), (500.0, 0.0)), head=(4.0, 9.0))
+    row = c.compare([reference, other], ["head"]).tables["maps"].iloc[0]
+    assert (row["n"], row["bias"], row["same_mesh"]) == (1, 3.0, False)
+    apart = make_run("c", mesh="n", centers=((900.0, 0.0), (950.0, 0.0)))
+    assert c.compare([reference, apart], ["head"]).tables["maps"]["n"].iloc[0] == 0
+
+
+def test_mapped_fields() -> None:
+    runs = [make_run(), make_run("b", fields=("watertable_depth",))]
+    assert c.compare(runs).tables["maps"]["variable"].tolist() == ["watertable_depth"]
+    with pytest.raises(c.ComparisonCaseError, match="'head'.*not fields of every"):
+        c.compare(runs, ["head"])
+
+
+def test_budget_by_zone() -> None:
+    uneven = make_run(n=4)
+    uneven.time_index = pd.to_datetime(["2000-01-02", "2000-01-03", "2000-01-04", "2000-01-07"])
+    uneven.record.period.end = "2000-01-07"
+    table = c.compare([uneven, make_run("b", start="2000-01-03")]).tables["budget"]
+    one = table.query("run == 'a' and zone == 'catchment'").set_index("term")["m3_s"]
+    # (4 x 1 + 5 x 3) / 4
+    assert one.to_dict() == {"drain": -4.75, "recharge": 4.75, "residual": 0.0}
+    assert set(table["zone"]) == {"domain", "catchment"}
+
+
+def test_run_without_budget() -> None:
+    table = c.compare([make_run(has_budget=False), make_run("b")]).tables["budget"]
+    assert set(table["run"]) == {"b"}
+
+
+def test_network_table(monkeypatch) -> None:
+    def overlap(run, network_role):
+        assert run.name == "a"
+        return {"network_role": network_role, "cell_f1_ratio": 0.5, "other": 1}
+
+    def distance(run, network_role):
+        assert run.name == "a" and network_role.startswith("reference")
+        return {"sim_to_network_distance_median_m": 30.0}
+
+    monkeypatch.setattr(c.views, "cell_field_network_overlap_metrics", overlap)
+    monkeypatch.setattr(c.views, "cell_field_network_distance_metrics", distance)
+    runs = [
+        make_run(networks=("reference", "reference_permanent")),
+        make_run("b", networks=("generated",)),
+        make_run("c", networks=("reference",), flows=False),
+    ]
+    table = c.network_table(runs)
+    columns = ["run", "network_role", "cell_f1_ratio", "sim_to_network_distance_median_m"]
+    assert table[columns].values.tolist() == [
+        ["a", "reference", 0.5, 30.0],
+        ["a", "reference_permanent", 0.5, 30.0],
+    ]
+    assert "other" not in table
+    assert c.network_table(runs[1:]).empty
+
+
+def test_runs_table() -> None:
+    runs = [make_run(), make_run("b", mesh="0123456789")]
+    assert c.compare(runs).tables["runs"].to_dict("records")[1] == {
+        "run": "b",
+        "solver": "modflow6",
+        "start": "2000-01-01T00:00:00Z",
+        "end": "2000-01-05 00:00:00",
+        "n_steps": 4,
+        "budget_pct": 0.1,
+        "mesh": "01234567",
+    }
+
+
+def test_differing_parameters() -> None:
+    first = make_run(params={"K": 1.0, "Sy": 0.1})
+    second = make_run("b", params={"K": 2.0, "Sy": 0.1, "Ss": 0.3})
+    table = c.compare([first, second]).tables["parameters"].set_index("parameter")
+    assert sorted(table.index) == ["K", "Ss"]
+    assert table.loc["K"].to_dict() == {"a": 1.0, "b": 2.0}
+
+
+def test_scores_table() -> None:
+    table = c.compare([make_run(), make_run("b", gauge=None)]).tables["scores"]
+    assert table.to_dict("records") == [
+        {
+            "run": "a",
+            "station": "G",
+            "variable": "discharge",
+            "metric": "nse",
+            "value": 0.123456,
+            "window_start": "w0",
+            "window_end": "w1",
+            "n_samples": 4,
+        }
+    ]
+    assert c.scores_table([make_run(gauge=None)]).empty
+
+
+def test_written_folder(tmp_path: Path) -> None:
+    readme = c.compare([make_run(), make_run("b", head=(2.0, 3.0))]).write(tmp_path / "new" / "dir")
+    tmp_path = readme.parent
+    text = readme.read_text()
+    assert readme.name == "README.md"
+    assert pd.read_csv(tmp_path / "runs.csv").columns[0] == "run"
+    tables = ("runs", "parameters", "scores", "budget", "network", "series", "maps")
+    assert {p.name for p in tmp_path.glob("*.csv")} == {f"{t}.csv" for t in tables}
+    assert {p.name for p in tmp_path.glob("*.png")} == {
+        "discharge_catchment.png",
+        "head_P1.png",
+        "watertable_elevation.png",
+        "watertable_depth.png",
+    }
+    assert text.startswith("# a vs b\n\nReference a. Dates compared 2000-01-01 to 2000-01-05.\n")
+    assert "## parameters\n\nNothing to compare." in text
+    assert "| a | G | discharge | nse | 0.1235 | w0 | w1 | 4 |" in text
+    assert "| --- | --- |" in text
+    assert all(f"![{v}]" in text for v in ("discharge", "head", "watertable_depth"))
+
+
+def _seal(
+    project: Path, name: str, *, recipe: str = "r", site: str = "s", version: int = 1
+) -> Path:
+    """Write one sealed run under ``runs/``, enough to resolve and to refuse."""
+    base = make_record()
+    run_dir = project / "runs" / name
+    run_dir.mkdir(parents=True)
+    make_record(
+        run=base.run.model_copy(
+            update={
+                "name": name,
+                "recipe": recipe,
+                "version": version,
+                "case_id": f"{site}-{recipe}",
+                "rel_dir": f"runs/{name}",
+            }
+        ),
+        site=base.site.model_copy(update={"name": site, "fingerprint": f"fp_{site}"}),
+        identity=make_identity(
+            site=site, site_fingerprint=f"fp_{site}", case_id=f"{site}-{recipe}"
+        ),
+    ).write(run_dir)
+    return run_dir
+
+
+@pytest.fixture
+def project(tmp_path: Path) -> Path:
+    root = tmp_path / "bretagne"
+    root.mkdir()
+    (root / "project.toml").write_text("", encoding="utf-8")
+    return root
+
+
+def test_resolve_references(project: Path) -> None:
+    directory = _seal(project, "x-base", recipe="base")
+    _seal(project, "y-base", recipe="base", site="y")
+    _seal(project, "y-base_v2", recipe="base", site="y", version=2)
+    _seal(project, "y-other", recipe="other", site="y")
+    named = c.resolve_references([str(directory), "y-other", "base"], project_root=project)
+    assert [[run.name for run in runs] for runs in named] == [
+        ["x-base"],
+        ["y-other"],
+        ["x-base", "y-base_v2"],
+    ]
+    only_a_directory = c.resolve_references([str(directory)], project_root=None)
+    assert only_a_directory[0][0].name == "x-base"
+
+
+@pytest.mark.parametrize("root", ["project", None])
+def test_unsealed_reference_refused(project: Path, root: str | None) -> None:
+    (project / "runs" / "failed").mkdir(parents=True)
+    with pytest.raises(c.ComparisonReferenceError, match="'failed' names no sealed run"):
+        c.resolve_references(["failed"], project_root=project if root else None)
+
+
+def test_references_reach_comparison(monkeypatch) -> None:
+    monkeypatch.setattr(c, "resolve_references", lambda refs, project_root: [[project_root], refs])
+    monkeypatch.setattr(c, "compare", lambda runs, variables: (runs, variables))
+    compared = c.compare_references(["a", "b"], project_root="root", variables=["head"])
+    assert compared == (["root", "a", "b"], ["head"])
+
+
+def test_facade_writes_when_asked(project: Path, monkeypatch) -> None:
+    written: list[Path] = []
+    comparison = NS(write=written.append)
+    monkeypatch.setattr(c, "compare_references", lambda refs, **_: comparison)
+    assert api.compare(["a", "b"], workspace=project) is comparison
+    assert written == []
+    api.compare(["a", "b"], out=project / "study", workspace=project)
+    assert written == [project / "study"]
+
+
+def test_compare_by_site(tmp_path: Path, monkeypatch) -> None:
+    first = [make_run("a1", site="x", gauge=None), make_run("a2", site="y")]
+    second = [make_run("b1", site="x")]
+    monkeypatch.setattr(c, "resolve_references", lambda refs, project_root: project_root and refs)
+    path = c.compare_by_site([first, second], tmp_path, project_root=True, variables=["head"])
+    assert path == tmp_path / "by_site.csv"
+    assert (tmp_path / "x" / "head.png").exists()
+    assert not (tmp_path / "y").exists()
+    assert pd.read_csv(path)["site"].tolist() == ["x"]
+    with pytest.raises(c.ComparisonCaseError, match="No site holds a run in two"):
+        c.compare_by_site([first], tmp_path, project_root=True)
+    with pytest.raises(c.ComparisonCaseError, match="One reference holds two runs"):
+        c.compare_by_site([[make_run("m"), make_run("n")]], tmp_path, project_root=True)
+
+
+def _scored(name: str, *scores: tuple[str, str, str, float, str, str, int]) -> NS:
+    """A run that holds only the rows of its metric table, each as it is sealed."""
+    columns = ("station", "variable", "metric", "window_start", "window_end", "value", "n_samples")
+    rows = [
+        (station, variable, metric, start, end, value, n)
+        for station, variable, metric, value, start, end, n in scores
+    ]
+    frame = pd.DataFrame(rows, columns=columns).assign(window_name="metrics")
+    return NS(name=name, metrics=frame)
+
+
+def test_headline_table() -> None:
+    first = _scored(
+        "a",
+        ("G", "discharge", "nse", 0.6, "2016-01-01", "2020-12-31", 1827),
+        ("G", "discharge", "kge", 0.5, "2016-01-01", "2020-12-31", 1827),
+    )
+    second = _scored("b", ("G", "discharge", "nse", 0.7, "2018-01-01", "2020-12-31", 1096))
+    table = c.headline_table([first, second])
+    assert list(table.index.names) == ["metric", "station", "variable"]
+    nse = table.loc[("nse", "G", "discharge")]
+    assert (nse["a"], nse["b"]) == (0.6, 0.7)
+    assert (nse["a_n"], nse["b_n"]) == (1827, 1096)
+    assert (nse["a_window"], nse["b_window"]) == ("2016-01-01/2020-12-31", "2018-01-01/2020-12-31")
+    kge = table.loc[("kge", "G", "discharge")]
+    assert kge["a"] == 0.5
+    assert pd.isna(kge["b"]) and pd.isna(kge["b_window"])
+
+
+def test_headline_window_only() -> None:
+    run = _scored("a", ("G", "discharge", "nse", 0.6, "2016-01-01", "2020-12-31", 10))
+    run.metrics.loc[len(run.metrics)] = (
+        "G",
+        "discharge",
+        "nse",
+        "2010-01-01",
+        "2012-01-01",
+        0.1,
+        3,
+        "other",
+    )
+    assert c.headline_table([run])["a"].tolist() == [0.6]
+
+
+def test_headline_table_empty() -> None:
+    assert c.headline_table([_scored("a"), _scored("b")]).empty
+
+
+def test_comparison_json(monkeypatch) -> None:
+    import json
+
+    comparison = c.compare([make_run(), make_run("b", head=(2.0, 3.0))])
+    monkeypatch.setattr(c, "headline_table", lambda runs: ("table", [run.name for run in runs]))
+    assert comparison.table == ("table", ["a", "b"])
+    document = json.loads(json.dumps(comparison.to_dict()))
+    assert document["runs"] == ["a", "b"]
+    assert document["reference"] == "a"
+    assert document["start"] == "2000-01-01 00:00:00" and document["end"] == "2000-01-05 00:00:00"
+    assert set(document["tables"]) == set(comparison.tables)
+    assert document["tables"]["parameters"] == comparison.tables["parameters"].to_dict("records")
+    assert set(document["series"]) == {"discharge/catchment", "head/P1"}
+    assert set(document["maps"]) == {"watertable_elevation", "watertable_depth"}
+
+
+def test_steady_comparison_json() -> None:
+    comparison = c.compare([make_run(regime="steady", n=1), make_run("b", regime="steady", n=1)])
+    assert comparison.to_dict()["end"] == "steady"
+
+
+@pytest.mark.parametrize(
+    ("refs", "name"),
+    [
+        (["runs/a", "b c"], "a-vs-b_c"),
+        (["a", "b"], "a-vs-b"),
+        (["a" * 100, "b"], None),
+    ],
+)
+def test_comparison_folder_name(tmp_path, refs, name) -> None:
+    """A long name becomes a hash of twelve characters."""
+    folder = c.compare_folder(refs, tmp_path)
+
+    assert folder.parent == tmp_path / "summary" / "report" / "compare"
+    assert folder.name == name if name else len(folder.name) == 12
+
+
+def test_comparison_folder_needs_project() -> None:
+    with pytest.raises(c.ComparisonCaseError, match="pass --to"):
+        c.compare_folder(["a", "b"], None)

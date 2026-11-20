@@ -1,7 +1,7 @@
-"""Lazy catchment-scale views computed on demand from a Run.
+"""Lazy views of a run computed on demand, over the catchment or the active domain.
 
-These functions read already-persisted spatial fields (``derived/`` and
-``budget/`` groups in the simulation Zarr) and reduce them to scalar
+These functions read spatial fields, stored or rebuilt on read from the
+``budget/`` group of the simulation Zarr, and reduce them to scalar
 timeseries on the fly. Nothing is written to DuckDB: results are returned
 as ``pd.Series`` so that callers can plot, combine or aggregate them
 freely.
@@ -13,24 +13,47 @@ catalog.
 
 Module-level functions are the canonical implementation. ``Run`` exposes
 thin lazy wrappers for notebook ergonomics.
+
+A view whose name says catchment reads the catchment. A total or a mean of a
+spatial quantity (:func:`budget_over`, :func:`catchment_mean`) weighs each
+cell by the share of its area inside the delineated catchment polygon
+(:func:`catchment_weights`), the area-weighted overlay of GSFLOW, or inside any
+polygon given to :func:`budget_over`. A hydraulic
+flux keeps the basin of D as its support: the outlet discharge stays the
+``catchment`` row of the budget, whole cells that drain to the outlet.
+
+A view whose name does not say catchment keeps its own support, which its
+docstring names. ``saturated_fraction`` and ``recharge_forcing`` read the active
+cells of the model domain, the cells with a finite model top, whatever lies inside
+or outside the catchment.
+
+The drainage density and the metrics of an active cell field
+(:func:`drainage_density`, :func:`cell_field_active_metrics` and the network
+overlap and distance metrics) count cells of the catchment, the active faces of
+the basin of D taken whole. ``catchment_cell_count`` is their number.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.time.period_aggregation import period_end_stamps
 from hydromodpy.results.derive.time_alignment import solver_time_index
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.core.io.crs import CrsLike
     from hydromodpy.results.run.contracts import Mesh
+    from hydromodpy.results.run.view import Run
+
+logger = get_logger(__name__)
 
 CellFieldActiveMode = Literal[
     "last",
@@ -63,9 +86,9 @@ __all__ = [
     "cell_field_active_metrics",
     "cell_field_network_overlap_metrics",
     "cell_field_network_distance_metrics",
-    "release_flux_network_overlap_metrics",
-    "release_flux_network_distance_metrics",
+    "budget_over",
     "catchment_mean",
+    "catchment_weights",
     "recharge_forcing",
 ]
 
@@ -78,9 +101,11 @@ __all__ = [
 def _time_index(sim: Run, n: int) -> pd.DatetimeIndex:
     """Return a ``pd.DatetimeIndex`` aligned with the simulation timesteps.
 
+    Each stamp is the END of its stress period, as the solvers write it.
     Prefers the solver's persisted CF ``/time`` axis (the exact stress-period
     clock shared by every field array) so derived series never drift relative to
-    the native solver series. Falls back to the catalog period bounds.
+    the native solver series. Falls back to the catalog period bounds and time
+    unit, the same rebuild as ``Run.time_index``.
     """
     idx = solver_time_index(sim._catalog, sim._sim_id, n)
     if idx is not None:
@@ -95,11 +120,16 @@ def _time_index(sim: Run, n: int) -> pd.DatetimeIndex:
             f"Simulation '{sim._sim_id}' has no /time axis and no period bounds "
             "in the catalog - cannot build a time index."
         )
-    return pd.date_range(start=start, end=end, periods=n)
+    # The bounds keep the wall clock they were written with, as in
+    # Run.time_index. The window end is exclusive and closes the last period.
+    start, end = pd.Timestamp(start), pd.Timestamp(end)
+    start = start.tz_localize(None) if start.tz is not None else start
+    end = end.tz_localize(None) if end.tz is not None else end
+    return period_end_stamps(start, end, int(n), step_unit=row.get("time_unit"))
 
 
-def _catchment_mask(sim: Run) -> np.ndarray | None:
-    """Boolean mask of active cells from ``mesh/topography``."""
+def _active_mask(sim: Run) -> np.ndarray | None:
+    """Boolean mask of the active cells of the model domain, from ``mesh/topography``."""
     sz = sim._catalog.open_zarr(sim._sim_id)
     try:
         mesh = sz.root.get("mesh")
@@ -119,10 +149,14 @@ def _stack_field(sim: Run, variable: str) -> np.ndarray:
     closed the store, so a long run triggered thousands of open/close round-trips
     per figure.
 
-    A field absent from the store is not an error: derived fields are off by
-    default and are rebuilt on read, so the miss falls back to ``Run.field``
-    (the single virtual-aware read path) instead of failing.
+    A field absent from the store is not an error: derived fields are rebuilt
+    on read. The miss is rebuilt on the same open handle when the store holds
+    what it needs, and otherwise falls back to ``Run.field`` (the single
+    virtual-aware read path), which says what the run kept when nothing can
+    rebuild it.
     """
+    from hydromodpy.results.derive.virtual_fields import derive_field_stack
+
     n = sim.n_timesteps or 1
     sz = sim._catalog.open_zarr(sim._sim_id)
     try:
@@ -134,7 +168,8 @@ def _stack_field(sim: Run, variable: str) -> np.ndarray:
                     np.asarray(sz.read_field(variable, t, layer=None)).ravel() for t in range(n)
                 ]
             except KeyError:
-                frames = None
+                derived = derive_field_stack(sz, sim._sim_id, variable, range(n))
+                frames = None if derived is None else list(derived.reshape(n, -1))
     finally:
         sz.close()
     if frames is None:
@@ -146,23 +181,23 @@ def _stack_virtual_field(sim: Run, variable: str, n: int) -> list[np.ndarray]:
     """Stack a non-persisted field through the virtual-derivation fallback.
 
     Raises :class:`~hydromodpy.results.errors.FieldNotFoundError` when the
-    variable is neither stored nor derivable. When a ``[simulation.results]``
-    option would have kept it, the message names that option: the field is
-    written during the run, so reading it back needs a new solve.
+    variable is neither stored nor derivable. When the run did not keep the
+    per-cell budget terms the field is rebuilt from, the message says what it
+    kept and what to set.
     """
-    from hydromodpy.results.derive.config_flags import config_option_for, enable_options_hint
+    from hydromodpy.results.derive.config_flags import missing_field_explanation
     from hydromodpy.results.errors import FieldNotFoundError
 
     try:
         with progress.status(f"Deriving {variable}"):
-            return [np.asarray(sim.field(variable, timestep=t)).ravel() for t in range(n)]
+            return [np.asarray(sim.field(variable, time=t)).ravel() for t in range(n)]
     except FieldNotFoundError:
-        option = config_option_for(variable)
-        if option is None:
+        explanation = missing_field_explanation([variable], sim)
+        if not explanation:
             raise
         raise FieldNotFoundError(
             f"Field '{variable}' is not in the store of simulation '{sim.sim_id}' and "
-            f"cannot be rebuilt from what the run kept. {enable_options_hint([option])}",
+            f"cannot be rebuilt from what the run kept. {explanation}",
             sim_id=sim.sim_id,
             variable=variable,
         ) from None
@@ -171,7 +206,7 @@ def _stack_virtual_field(sim: Run, variable: str, n: int) -> list[np.ndarray]:
 def _stack_field_with_mask(sim: Run, variable: str) -> tuple[np.ndarray, np.ndarray]:
     """Return ``(stack, active_cell_mask)`` and validate cell dimensions."""
     stack = _stack_field(sim, variable)
-    mask = _catchment_mask(sim)
+    mask = _active_mask(sim)
     if mask is None:
         mask = np.ones(stack.shape[1], dtype=bool)
     else:
@@ -184,9 +219,40 @@ def _stack_field_with_mask(sim: Run, variable: str) -> tuple[np.ndarray, np.ndar
     return stack, mask
 
 
+def _basin_cells(sim: Run, n_cells: int) -> np.ndarray | None:
+    """Return the faces of the basin of D, whole, or None when the run stores no catchment.
+
+    A run that stores no basin of D, or only the largest one of a synthetic domain,
+    has no catchment inside its domain. The caller keeps the active domain, which
+    is the only support such a run has, and an INFO line says so.
+    """
+    from hydromodpy.results.run.descent import read_basin
+
+    stored = read_basin(sim)
+    if stored is None or not stored.is_catchment:
+        logger.info(
+            "Run %s stores no catchment, so its catchment cell counts read the active domain.",
+            sim.sim_id,
+        )
+        return None
+    basin = np.asarray(stored.mask, dtype=bool).ravel()
+    if basin.size != n_cells:
+        raise ValueError(
+            f"Basin of D holds {basin.size} faces and the cell field {n_cells}: "
+            "they do not describe one mesh."
+        )
+    return basin
+
+
+def _in_catchment(sim: Run, mask: np.ndarray) -> np.ndarray:
+    """Return ``mask`` restricted to the basin of D, unchanged for a run with no catchment."""
+    basin = _basin_cells(sim, mask.size)
+    return mask if basin is None else mask & basin
+
+
 def _mesh_cell_polygons(sim: Run) -> tuple[Mesh, np.ndarray]:
     """Read the mesh once and build one Shapely polygon per face."""
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
+    from hydromodpy.mesh.planar.geometry import cell_polygons
 
     mesh = sim.mesh
     return mesh, cell_polygons(mesh.vertices, mesh.face_node_connectivity)
@@ -201,7 +267,7 @@ def _network_cells(
     distance_m: float = 0.0,
 ) -> np.ndarray:
     """Boolean mask of the mesh cells one vector network reaches."""
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import vector_cell_mask
+    from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
 
     return vector_cell_mask(
         polygons,
@@ -351,13 +417,14 @@ def saturated_fraction(
     *,
     threshold: float = 0.0,
 ) -> pd.Series:
-    """Fraction of active catchment cells where seepage exceeds ``threshold``.
+    """Share of the active cells of the model domain where seepage exceeds ``threshold``.
 
-    Reads ``derived/seepage_mask`` from the simulation Zarr and
-    reduces each timestep to the percentage of active cells above the
-    threshold. Unit: ``%``.
+    Reads ``seepage_mask`` (rebuilt on read) and reduces each timestep to the
+    percentage of active cells above the threshold. The support is the active
+    domain, every cell with a finite model top, not the catchment: on a mesh
+    that extends past the basin the cells outside it count. Unit: ``%``.
     """
-    mask = _catchment_mask(sim)
+    mask = _active_mask(sim)
     stack = _stack_field(sim, "seepage_mask")
     if mask is None:
         mask = np.ones(stack.shape[1], dtype=bool)
@@ -374,19 +441,20 @@ def drainage_density(
     *,
     threshold: float = 0.0,
 ) -> pd.Series:
-    """Fraction of active catchment cells whose routed drain flux is positive.
+    """Share of the active cells of the catchment whose routed drain flux is positive.
 
-    Reads ``derived/accumulation_flux`` (m³/d) from the simulation Zarr
-    and returns the fraction of active cells above ``threshold``, per
-    timestep. Unit: ``%``.
-
-    Matches the headwater-study definition of "active drainage density"
-    (stream-network occupation of the catchment).
+    Reads ``drain_accumulation_flux`` (m³/d, rebuilt on read) and returns the share of
+    cells above ``threshold``, per timestep. The support is the catchment, the
+    active faces of the basin of D taken whole, the cells that
+    ``cell_field_active_metrics`` counts as ``catchment_cell_count``, so the view
+    and the ``drainage_density_*_pct`` keys of that result read the same cells.
+    A run that stores no catchment reads the active domain instead. Unit: ``%``.
     """
-    mask = _catchment_mask(sim)
-    stack = _stack_field(sim, "accumulation_flux")
+    mask = _active_mask(sim)
+    stack = _stack_field(sim, "drain_accumulation_flux")
     if mask is None:
         mask = np.ones(stack.shape[1], dtype=bool)
+    mask = _in_catchment(sim, mask)
     n_active = int(mask.sum())
     if n_active == 0:
         return pd.Series(dtype="float64", name="drainage_density")
@@ -398,7 +466,7 @@ def drainage_density(
 def persistence(
     sim: Run,
     *,
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     window: Literal["year", "full"] = "full",
 ) -> np.ndarray | pd.DataFrame:
@@ -425,7 +493,7 @@ def persistence(
 def cell_field_active_mask(
     sim: Run,
     *,
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
@@ -434,7 +502,9 @@ def cell_field_active_mask(
     """Return a per-cell active mask view for a scalar cell field.
 
     The default mode is regime-aware: steady simulations use the last active
-    step, transient or unknown simulations use persistent active cells.
+    step, transient or unknown simulations use persistent active cells. The
+    support is the active domain: a cell with no model top is NaN, a cell outside
+    the catchment is not.
     """
     persistence_threshold = float(persistence_threshold)
     if not 0.0 <= persistence_threshold <= 1.0:
@@ -478,15 +548,22 @@ def cell_field_active_mask(
 def cell_field_active_metrics(
     sim: Run,
     *,
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     persistence_threshold: float = 0.5,
 ) -> dict[str, float | int | str]:
-    """Return scalar active-cell metrics for a time-varying cell field."""
+    """Return scalar active-cell metrics for a time-varying cell field.
+
+    The support is the catchment: the active faces of the basin of D, whole.
+    ``catchment_cell_count`` counts them and is the denominator of every share
+    and density of the result. A run that stores no catchment reads the active
+    domain instead.
+    """
     if not 0.0 <= float(persistence_threshold) <= 1.0:
         raise ValueError("persistence_threshold must be between 0 and 1.")
 
     stack, mask = _stack_field_with_mask(sim, variable)
+    mask = _in_catchment(sim, mask)
 
     n_cells = int(mask.sum())
     n_timesteps = int(stack.shape[0])
@@ -550,13 +627,17 @@ def cell_field_active_metrics(
 def _cell_field_active_state(
     sim: Run,
     *,
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
 ) -> tuple[str, np.ndarray, np.ndarray, np.ndarray]:
-    """Return ``(mode, values, valid_mask, active_mask)`` for a cell field."""
+    """Return ``(mode, values, valid_mask, active_mask)`` for a cell field.
+
+    ``valid_mask`` is the catchment support: the active faces of the basin of D,
+    or the active domain for a run that stores no catchment.
+    """
     resolved_mode = resolve_cell_field_active_mode(sim, mode)
     values = cell_field_active_mask(
         sim,
@@ -566,7 +647,7 @@ def _cell_field_active_state(
         persistence_threshold=persistence_threshold,
         timestep=timestep,
     )
-    valid = np.isfinite(values)
+    valid = _in_catchment(sim, np.isfinite(values))
     if resolved_mode == "persistence":
         active = values >= float(persistence_threshold)
     else:
@@ -578,14 +659,19 @@ def cell_field_network_overlap_metrics(
     sim: Run,
     *,
     network_role: str = "reference",
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
     buffer_m: float = 0.0,
 ) -> dict[str, float | int | str]:
-    """Compare active cells from any scalar field with a vector network role."""
+    """Compare active cells from any scalar field with a vector network role.
+
+    Both sets are read on the catchment, the active faces of the basin of D, which
+    ``catchment_cell_count`` counts. A run that stores no catchment reads the
+    active domain.
+    """
     resolved_mode, values, valid, active = _cell_field_active_state(
         sim,
         variable=variable,
@@ -648,7 +734,7 @@ def cell_field_network_distance_metrics(
     sim: Run,
     *,
     network_role: str = "reference",
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
@@ -667,7 +753,10 @@ def cell_field_network_distance_metrics(
       the selected vector network to the union of active cell polygons.
 
     ``network_gdf`` overrides the persisted role with a caller-supplied layer,
-    for a reference network that lives outside the run.
+    for a reference network that lives outside the run. The cells are those of
+    the catchment, the active faces of the basin of D, which
+    ``catchment_cell_count`` counts. A run that stores no catchment reads the
+    active domain.
 
     This is a lazy result view: it reads persisted fields and vector features
     from ``sim`` and does not mutate the catalog.
@@ -768,86 +857,185 @@ def cell_field_network_distance_metrics(
     }
 
 
-def release_flux_network_overlap_metrics(
-    sim: Run,
-    *,
-    network_role: str = "reference",
-    variable: str = "release_flux",
-    threshold: float = 0.0,
-    mode: CellFieldActiveMode | None = None,
-    persistence_threshold: float = 0.5,
-    timestep: int | None = None,
-    buffer_m: float = 0.0,
-) -> dict[str, float | int | str]:
-    """Compare direct groundwater-release cells with a vector network role."""
-    return cell_field_network_overlap_metrics(
-        sim,
-        network_role=network_role,
-        variable=variable,
-        threshold=threshold,
-        mode=mode,
-        persistence_threshold=persistence_threshold,
-        timestep=timestep,
-        buffer_m=buffer_m,
-    )
-
-
-def release_flux_network_distance_metrics(
-    sim: Run,
-    *,
-    network_role: str = "reference",
-    variable: str = "release_flux",
-    threshold: float = 0.0,
-    mode: CellFieldActiveMode | None = None,
-    persistence_threshold: float = 0.5,
-    timestep: int | None = None,
-) -> dict[str, float | int | str | None]:
-    """Return raw planar distances between release cells and a vector network.
-
-    Unlike the overlap metric, this diagnostic intentionally has no network
-    buffer parameter: distances remain continuous geometric distances to the
-    observed linework and to the calculated active-cell polygons.
-    """
-    return cell_field_network_distance_metrics(
-        sim,
-        network_role=network_role,
-        variable=variable,
-        threshold=threshold,
-        mode=mode,
-        persistence_threshold=persistence_threshold,
-        timestep=timestep,
-        network_buffer_m=0.0,
-        distance_method="raw_planar_cell_centroid_to_network",
-    )
-
-
 def catchment_mean(
     sim: Run,
     variable: str,
     *,
     name: str | None = None,
 ) -> pd.Series:
-    """Arithmetic mean of ``variable`` over active catchment cells per timestep.
+    """Mean of ``variable`` over the catchment per timestep, weighted by area.
 
     Works for any cell-scalar variable persisted under ``derived/`` or
-    ``budget/`` (e.g. ``watertable_depth``, ``watertable_elevation``).
+    ``budget/`` (e.g. ``watertable_depth``, ``watertable_elevation``). Each face
+    counts by its area inside the delineated catchment, the plan area of the face
+    times :func:`catchment_weights`, so a boundary face counts by the part of it
+    that lies in the catchment and a large face counts more than a small one. A
+    face where the field is NaN is left out of the sum and of the weights. A run
+    with no catchment raises ``ValueError``, as :func:`catchment_weights` does.
     """
-    mask = _catchment_mask(sim)
+    weights = catchment_weights(sim) * np.nan_to_num(sim.mesh.cell_areas(), nan=0.0)
     stack = _stack_field(sim, variable)
-    if mask is None:
-        mask = np.ones(stack.shape[1], dtype=bool)
-    if not mask.any():
-        return pd.Series(dtype="float64", name=name or variable)
-    masked = np.where(mask[None, :], stack, np.nan)
-    means = np.nanmean(masked, axis=1)
+    if weights.size != stack.shape[1]:
+        raise ValueError(
+            f"Field '{variable}' holds {stack.shape[1]} cells and the catchment "
+            f"fraction {weights.size}."
+        )
+    finite = np.isfinite(stack)
+    weight_sum = finite @ weights
+    with np.errstate(invalid="ignore", divide="ignore"):
+        means = np.where(finite, stack, 0.0) @ weights / weight_sum
+    means = np.where(weight_sum > 0.0, means, np.nan)
     return pd.Series(means, index=_time_index(sim, stack.shape[0]), name=name or variable)
 
 
-def recharge_forcing(sim: Run) -> pd.Series:
-    """Input recharge rate per stress period (from ``budget/recharge``).
+def catchment_weights(sim: Run) -> np.ndarray:
+    """Weight of each mesh face in a catchment total, one value per face in [0, 1].
 
-    Reads the first substep of each stress period from the MODFLOW
-    budget; constant within a period by the forcing contract.
+    The stored ``mesh/catchment_fraction``: the share of the face area inside
+    the delineated catchment polygon, so a boundary cell counts by the part of
+    it that lies in the catchment. A run that stores the basin of D but no
+    fraction (sealed before it was stored, or with no polygon) counts the
+    basin cells whole and says so. A run with no catchment, a synthetic
+    domain or a run without a basin, raises ``ValueError``.
+    """
+    from hydromodpy.results.run.descent import read_basin, read_catchment_fraction
+
+    fraction = read_catchment_fraction(sim)
+    if fraction is not None:
+        return fraction
+    stored = read_basin(sim)
+    if stored is None or not stored.is_catchment:
+        raise ValueError(
+            f"Run {sim.sim_id} stores no catchment: its basin of D "
+            f"{'is missing' if stored is None else 'is only the largest one of its domain'}, "
+            "so a catchment total has no support. Sum the field over the domain instead."
+        )
+    logger.info(
+        "Run %s stores no catchment fraction, so its catchment totals count the cells of "
+        "the basin of D whole.",
+        sim.sim_id,
+    )
+    return np.asarray(stored.mask, dtype="float64")
+
+
+def budget_over(
+    sim: Run,
+    term: str,
+    polygon: BaseGeometry | None = None,
+    *,
+    crs: CrsLike | None = None,
+    split: bool = False,
+    name: str | None = None,
+) -> pd.Series | pd.DataFrame:
+    """Total of a per-cell budget term over a polygon, per time step, in m3/s.
+
+    ``polygon=None`` is the catchment, each face weighted by
+    :func:`catchment_weights`. A polygon weighs each face by the share of its
+    area inside it, the polygon given in ``crs``, or in the CRS of the run when
+    ``crs`` is None. ``term`` is a term of ``budget/`` or a family of
+    ``core.budget.terms.TERM_FAMILIES``: ``"storage"`` sums ``storage_ss`` and
+    ``storage_sy`` under MODFLOW 6. Inflow and outflow are split per element
+    (layer, cell). The series is the net, inflow minus outflow, with the budget
+    sign; ``split=True`` gives the two positive columns ``inflow`` and
+    ``outflow``. A term that is not in ``budget/`` may be a field in m3/s
+    stored per cell elsewhere, such as ``release_flux`` under ``derived/``,
+    and is summed the same way. It is not the outlet discharge, which is a
+    hydraulic flux and stays the ``catchment`` row of ``run.budget()``.
+    """
+    from hydromodpy.core.budget.flux import inflow_outflow
+    from hydromodpy.core.budget.terms import family_terms
+    from hydromodpy.results.derive.config_flags import missing_field_explanation
+    from hydromodpy.results.errors import FieldNotFoundError
+
+    weights = catchment_weights(sim) if polygon is None else _polygon_weights(sim, polygon, crs)
+    n = sim.n_timesteps or 1
+    inflow, outflow = np.zeros(n, dtype="float64"), np.zeros(n, dtype="float64")
+    where = "the catchment" if polygon is None else "the polygon"
+    sz = sim._catalog.open_zarr(sim._sim_id)
+    try:
+        budget = sz.root.get("budget")
+        group: str | None = "budget"
+        members = family_terms(term, () if budget is None else budget.array_keys())
+        if not members:
+            group, members = _stored_volume_flux(sz.root, term)
+        if not members:
+            explanation = missing_field_explanation([term], sim)
+            raise FieldNotFoundError(
+                f"Field '{term}' is not stored per cell in simulation '{sim.sim_id}' "
+                f"as a budget term or a field in m3/s, so it has no total over {where}. "
+                f"{explanation}".rstrip(),
+                sim_id=sim.sim_id,
+                variable=term,
+            )
+        with progress.status(f"Summing {term} over {where}"):
+            for member in members:
+                for t0 in range(0, n, _TOTAL_SLAB_STEPS):
+                    t1 = min(t0 + _TOTAL_SLAB_STEPS, n)
+                    stack = sz.read_field_range(member, t0, t1, subgroup=group)
+                    stack = stack.reshape(t1 - t0, -1, stack.shape[-1])
+                    if stack.shape[-1] != weights.size:
+                        raise ValueError(
+                            f"Field '{member}' holds {stack.shape[-1]} cells and the "
+                            f"weights of {where} {weights.size}."
+                        )
+                    step_in, step_out = inflow_outflow(stack, weights)
+                    inflow[t0:t1] += step_in
+                    outflow[t0:t1] += step_out
+    finally:
+        sz.close()
+    index = _time_index(sim, n)
+    if split:
+        return pd.DataFrame({"inflow": inflow, "outflow": outflow}, index=index)
+    return pd.Series(inflow - outflow, index=index, name=name or term)
+
+
+def _stored_volume_flux(root: Any, term: str) -> tuple[str | None, tuple[str, ...]]:
+    """Return the group and the name of ``term`` when it is a field in m3/s stored per cell."""
+    from hydromodpy.results import field_registry
+
+    if not field_registry.has(term) or field_registry.get(term).units != "m3 s-1":
+        return None, ()
+    group, _, key = field_registry.get(term).zarr_path.rpartition("/")
+    node = root.get(group) if group else root
+    if node is None or key not in node:
+        return None, ()
+    return group or None, (key,)
+
+
+_TOTAL_SLAB_STEPS = 256
+"""Time steps read in one slice by :func:`budget_over`."""
+
+_MESH_COORDINATES = (
+    'ENGCRS["mesh coordinates",EDATUM["mesh"],CS[Cartesian,2],'
+    'AXIS["x",east,ORDER[1],LENGTHUNIT["metre",1]],'
+    'AXIS["y",north,ORDER[2],LENGTHUNIT["metre",1]]]'
+)
+"""The frame of a run that stores no CRS, named on both sides so a polygon stays where it is."""
+
+
+def _polygon_weights(sim: Run, polygon: BaseGeometry, crs: CrsLike | None) -> np.ndarray:
+    """Share of the area of each face inside ``polygon``, placed on the mesh of the run."""
+    from hydromodpy.mesh.cells.in_polygons import cell_area_fraction
+
+    mesh, polygons = _mesh_cell_polygons(sim)
+    if mesh.crs is None and crs is not None:
+        raise ValueError(
+            f"Run {sim.sim_id} stores no CRS, so a polygon in {crs} cannot be placed on its "
+            "mesh. Pass the polygon in the coordinates of the mesh and crs=None."
+        )
+    mesh_crs = mesh.crs or _MESH_COORDINATES
+    return cell_area_fraction(polygons, [polygon], mesh_crs=mesh_crs, geometry_crs=crs or mesh_crs)
+
+
+def recharge_forcing(sim: Run) -> pd.Series:
+    """Input recharge rate per stress period, in m/s (from ``budget/recharge``).
+
+    The stored term is a volume per second on each cell. Each period sums it
+    over the active cells of the model domain and divides by their area, so
+    the rate is the depth of water per second the domain receives, whatever
+    the cell sizes. A mean of the per-cell volumes would weigh a large cell
+    like a small one. The support is the active domain, not the catchment: for
+    a catchment total of the recharge use :func:`budget_over`.
     """
     sz = sim._catalog.open_zarr(sim._sim_id)
     try:
@@ -860,15 +1048,23 @@ def recharge_forcing(sim: Run) -> pd.Series:
 
         arr = budget[rch_key]
         n_t = arr.shape[0]
-        mask = _catchment_mask(sim)
-        means = []
+        areas = np.asarray(sim.mesh.cell_areas(), dtype="float64").ravel()
+        mask = _active_mask(sim)
+        support = np.isfinite(areas) & (areas > 0.0)
+        if mask is not None and mask.size == areas.size:
+            support &= mask
+        rates = []
         with progress.status("Reading recharge forcing"):
             for t in range(n_t):
-                field = np.asarray(arr[t], dtype="float64").ravel()
-                if mask is not None and mask.size == field.size:
-                    field = np.where(mask, field, np.nan)
-                means.append(float(np.nanmean(field)))
+                # A layered term sums its layers: the recharge of a column.
+                layers = np.asarray(arr[t], dtype="float64").reshape(-1, areas.size)
+                field = np.where(np.isfinite(layers).any(axis=0), np.nansum(layers, axis=0), np.nan)
+                cells = support & np.isfinite(field)
+                total_area = float(areas[cells].sum())
+                rates.append(float(field[cells].sum()) / total_area if total_area else np.nan)
     finally:
         sz.close()
 
-    return pd.Series(means, index=_time_index(sim, n_t), name="recharge_forcing")
+    series = pd.Series(rates, index=_time_index(sim, n_t), name="recharge_forcing")
+    series.attrs["unit"] = "m s-1"
+    return series

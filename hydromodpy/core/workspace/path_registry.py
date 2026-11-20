@@ -2,22 +2,43 @@
 
 from __future__ import annotations
 
+import functools
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-from hydromodpy.core.state.paths import (
-    INTERNAL_DIRNAME,
-    REPORTS_DIRNAME,
-    scratch_dir_for,
-    share_dir_for,
-)
+from hydromodpy.core.state.scratch import run_scratch, scratch_dir_for
 
-#: Preprocessing intermediates go under .hmp/scratch/_preprocessing/.
-#: These files are needed on disk by whitebox/rasterio during the pipeline,
-#: then ingested into the project store and cleaned up.
-PREPROCESSING_DIRNAME = "_preprocessing"
-PREPROCESSING_DIR = f"{INTERNAL_DIRNAME}/scratch/{PREPROCESSING_DIRNAME}"
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+def in_run_scratch(
+    root_of: Callable[..., Path],
+    label_of: Callable[..., str],
+    *,
+    check: Callable[..., None] | None = None,
+) -> Callable[[_F], _F]:
+    """Run the decorated function inside its own run scratch (``core.state.scratch.run_scratch``).
+
+    ``root_of`` and ``label_of`` receive the call's arguments and return the
+    project root and the name the scratch folder starts with. ``check``, when
+    given, receives them first and raises to refuse the call before anything is
+    written, so a refused call leaves nothing on disk.
+    """
+
+    def decorate(fn: _F) -> _F:
+        @functools.wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if check is not None:
+                check(*args, **kwargs)
+            with run_scratch(root_of(*args, **kwargs), label_of(*args, **kwargs)):
+                return fn(*args, **kwargs)
+
+        return cast(_F, wrapper)
+
+    return decorate
+
 
 if TYPE_CHECKING:
     from hydromodpy.core.workspace.config import WorkspaceConfig
@@ -25,14 +46,18 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class WorkspacePathRegistry:
-    """Centralize shared data and project-local result paths."""
+    """Centralize the shared data paths and the project-local index and runs paths.
+
+    A result is written in the directory of what produced it (a run, a
+    session, the summary), never in a project-wide output folder: this
+    registry names no figures, reports or exports folder.
+    """
 
     project_root: Path
     root: Path
     catalog_path: Path
     data_dir: Path
     runs_dir: Path
-    output_root: Path | None = None
 
     @classmethod
     def from_config(cls, config: WorkspaceConfig) -> WorkspacePathRegistry:
@@ -43,53 +68,16 @@ class WorkspacePathRegistry:
             catalog_path=Path(config.catalog_path),
             data_dir=Path(config.data_dir),
             runs_dir=Path(config.runs_dir),
-            output_root=Path(config.output_root) if config.output_root else None,
         )
-
-    # -- Derived convenience names -----------------------------------------
-
-    @property
-    def _effective_output_root(self) -> Path:
-        """Root for result directories: output_root if set, else project_root."""
-        if self.output_root is not None:
-            return self.output_root
-        return self.project_root
-
-    @property
-    def catch_name(self) -> str:
-        return self.project_root.name
 
     @property
     def solver_scratch_folder(self) -> Path:
-        return scratch_dir_for(self._effective_output_root)
+        return scratch_dir_for(self.project_root)
 
     def solver_scratch_run_folder(self, sim_id: str) -> Path:
         """Return the scratch folder for a specific solver run."""
         return self.solver_scratch_folder / sim_id
 
     @property
-    def share_folder(self) -> Path:
-        return share_dir_for(self._effective_output_root)
-
-    @property
-    def reports_folder(self) -> Path:
-        return self.share_folder / REPORTS_DIRNAME
-
-    @property
-    def figures_folder(self) -> Path:
-        """Figures that belong to the project, not to one run."""
-        return self.share_folder / "figures"
-
-    @property
     def data_path(self) -> Path:
         return self.data_dir
-
-    def figures_subdir(self, *parts: str) -> Path:
-        return self.figures_folder.joinpath(*parts)
-
-    def manager_figure_folder(self, manager_type: str) -> Path:
-        """Return canonical figure folder for one data-manager type."""
-        token = str(manager_type).strip().lower()
-        if not token:
-            raise ValueError("manager_type cannot be empty")
-        return self.figures_subdir(token)

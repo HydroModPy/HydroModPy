@@ -20,14 +20,17 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.solver.modflow6.builders.lake import (
-    apply_lake_idomain_mask,
     build_lak_package_args,
     build_lake_connectiondata,
 )
+from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from validation_cases.shared.lake_inputs import lake_inputs
+from validation_cases.shared.solver_mesh import solver_mesh_of
 
 from .geometry import LakeP01Geometry, load_geometry
 from .reference import LakeRunResult, read_lake_budget_csv
@@ -36,7 +39,7 @@ _MODEL_NAME = "lakp01hmp"
 
 
 def _variable_spacing_planar_mesh(*, delr_m: np.ndarray, delc_m: np.ndarray) -> HydroMesh:
-    """Build a structured quad ``HydroMesh`` honouring variable column/row widths.
+    """Build a structured quad ``HydroMesh`` honoring variable column/row widths.
 
     Cumulative edges give the real p01 cell sizes; rows run top (highest y) to
     bottom so flat row-major cell ids match the upstream ``(row, col)`` order.
@@ -69,38 +72,35 @@ def build_hmp_solver_mesh(geometry: LakeP01Geometry) -> SolverMesh:
     top = np.full(n_cells, geometry.top_m)
     botm = np.stack([np.full(n_cells, b) for b in geometry.botm_m])
     inactive = np.zeros((geometry.nlay, n_cells), dtype=bool)
-    return SolverMesh(planar_mesh=planar, top=top, botm=botm, inactive_mask=inactive)
+    return solver_mesh_of(planar, top=top, botm=botm, inactive_mask=inactive)
 
 
 def _hmp_model(geometry: LakeP01Geometry) -> SimpleNamespace:
     """Build the minimal HMP-model namespace the LAK builder reads.
 
-    The LAK builder only needs ``model_output_name``, ``time_units`` and the flow
-    ``active_bc`` / ``sinks_sources.lakes`` payload; the rest of the model is built
-    directly with flopy in :func:`run_hmp`.
+    The LAK builder only needs ``model_output_name``, ``time_units`` and the lake
+    tables of ``inputs``; the rest of the model is built directly with flopy in
+    :func:`run_hmp`.
     """
     abacus = geometry.abacus_si_rows()
     return SimpleNamespace(
         model_output_name=_MODEL_NAME,
         model_name=_MODEL_NAME,
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {
-                        "polygon": None,
-                        "bedleak": geometry.bedleak_per_s,
-                        "abacus": abacus,
-                        "stageinit": geometry.stage_init_m,
-                        "rainfall": {"value": geometry.rainfall_m_per_s, "units": "m/s"},
-                        "evaporation": {
-                            "value": geometry.evaporation_m_per_s,
-                            "units": "m/s",
-                        },
-                    }
+        inputs=lake_inputs(
+            {
+                "lac0": {
+                    "polygon": None,
+                    "bedleak": geometry.bedleak_per_s,
+                    "abacus": abacus,
+                    "initial_stage": geometry.stage_init_m,
+                    "rainfall": {"value": geometry.rainfall_m_per_s, "units": "m/s"},
+                    "evaporation": {
+                        "value": geometry.evaporation_m_per_s,
+                        "units": "m/s",
+                    },
                 }
-            },
+            }
         ),
     )
 
@@ -165,7 +165,7 @@ def build_hmp_simulation(workspace: Path, *, geometry: LakeP01Geometry | None = 
         gwf,
         nlay=geom.nlay,
         **masked.to_disv_kwargs(),
-        idomain=masked.idomain(),
+        idomain=masked.idomain,
         length_units="meters",
     )
     flopy.mf6.ModflowGwfnpf(
@@ -206,7 +206,7 @@ def build_hmp_simulation(workspace: Path, *, geometry: LakeP01Geometry | None = 
 
 
 def run_hmp(workspace: Path, *, geometry: LakeP01Geometry | None = None) -> LakeRunResult:
-    """Build, run, and summarise the HMP SI LAK build."""
+    """Build, run, and summarize the HMP SI LAK build."""
     from collections import Counter
 
     sim, gwf, connectiondata = build_hmp_simulation(workspace, geometry=geometry)

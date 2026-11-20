@@ -71,10 +71,8 @@ _CONTROL_DRAWDOWN_MARGIN_M = 0.1
 
 
 def _config_body(*, with_sfr: bool) -> str:
-    active_bc = '"lake", "sfr", "drainage"' if with_sfr else '"lake", "drainage"'
     sfr_toml = """
 [flow.sinks_sources.sfr.net0]
-stream_threshold_km2 = 0.1
 streambed_k = 1e-5
 streambed_k_unit = "m/s"
 streambed_thickness = "1 m"
@@ -98,18 +96,19 @@ kind = "constant"
 value = "2 m"
 """
     return f"""\
+[site]
+name = "cheze"
+
 [workflow]
 mode = "simulation"
 
 [workspace]
-project_root = "."
 
 [geographic]
 crs_project = "{_PROJECT_CRS}"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
-dem_init_path = "{_DEM_PATH}"
+kind = "from_outlet_coord"
 x_outlet = {_X_OUTLET}
 y_outlet = {_Y_OUTLET}
 snap_dist = "60 m"
@@ -128,7 +127,7 @@ kind = "constant_thickness"
 thickness = "30.0 m"
 
 [simulation]
-name = "sfr cheze e2e"
+name = "sfr_cheze_e2e"
 
 [simulation.results]
 keep_solver_files = true
@@ -141,13 +140,11 @@ coverage_policy = "warn"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [flow]
 flow_regime = "transient"
-active_sinks_sources = ["recharge"]
-active_bc = [{active_bc}]
 param_list = ["K", "Ss", "Sy"]
 
 [flow.param.K.field]
@@ -163,7 +160,7 @@ kind = "homogeneous"
 value = "0.05 -"
 
 [flow.ic]
-type = "top"
+kind = "top"
 
 [flow.bc.drainage]
 application_domain = "top"
@@ -175,7 +172,7 @@ first_clim = "mean"
 [flow.sinks_sources.lakes.{_LAKE_ID}]
 bedleak = 1e-10
 bedleak_unit = "1/s"
-stageinit = "{_STAGE_INIT_M} m"
+initial_stage = "{_STAGE_INIT_M} m"
 
 # The managed withdrawal that empties the reservoir unless the catchment
 # streamflow feeds it (the Cheze regime: supply abstraction vs river inflow).
@@ -185,7 +182,7 @@ value = 0.0004
 units = "m3/s"
 
 [[flow.sinks_sources.lakes.{_LAKE_ID}.outlets]]
-couttype = "WEIR"
+kind = "WEIR"
 invert = "{_SPILLWAY_INVERT_M} m"
 width = "5.0 m"
 lakeout = 0
@@ -197,27 +194,28 @@ types = ["recharge"]
 source = "synthetic"
 values = [2.0, 2.0, 2.0, 1.5, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0, 1.5, 2.0]
 freq = "MS"
-runoff_ratio = 0.0
+
+[[data.dem.sources]]
+source = "file"
+path = "{_DEM_PATH}"
 
 [[data.lake_geometry.sources]]
-source = "custom"
+source = "file"
 path = "{_GEOMETRY_PATH}"
 
 [[data.lake_abacus.sources]]
-source = "custom"
+source = "file"
 path = "{_ABACUS_PATH}"
 lake_id = "{_LAKE_ID}"
 
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 30
-ny = 30
+[mesh.regular]
+shape = [30, 30]
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 2
 
 [display]
-show = false
+enabled = false
 """
 
 
@@ -303,13 +301,17 @@ def test_sfr_fed_reservoir_holds_its_level_and_control_drains(tmp_path: Path) ->
     assert max(float(v) for v in from_mvr.values) > 0.0, "lake never received MVR inflow"
 
     # The GWF budget closes on the real solver listing.
-    from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
+    from hydromodpy.solver.modflow_common.listing import last_percent_discrepancy
 
     scratch_dirs = [path.parent for path in out_path.rglob("*.lst") if path.name != "mfsim.lst"]
     assert scratch_dirs, "solver listing not kept; set keep_solver_files"
     discrepancy = last_percent_discrepancy(scratch_dirs[0])
     assert discrepancy is not None
     assert abs(discrepancy) <= _BUDGET_PERCENT_DISCREPANCY
+
+    # The reaches end in the reservoir, so the routed discharge leaves through the
+    # lake outlet: a series that only counted the reaches would read zero here.
+    _assert_routed_discharge_leaves_through_the_lake_outlet(scratch_dirs[0])
 
     # Produce the golden-vs-sim figure next to the run outputs.
     figure_path = _plot_sim_vs_golden(out_path, sim=sim, golden=golden)
@@ -326,6 +328,25 @@ def test_sfr_fed_reservoir_holds_its_level_and_control_drains(tmp_path: Path) ->
     )
     # The control declines monotonically: the withdrawal empties it.
     assert all(b <= a for a, b in zip(control, control[1:], strict=False))
+
+
+def _assert_routed_discharge_leaves_through_the_lake_outlet(solver_dir: Path) -> None:
+    import flopy
+    import numpy as np
+
+    from hydromodpy.solver.modflow6.extractors.sfr import routed_outflow_series
+    from hydromodpy.solver.modflow_common.time_units import seconds_per_solver_time_unit
+
+    model_name = next(solver_dir.glob("*.hds")).stem
+    times = flopy.utils.HeadFile(str(solver_dir / f"{model_name}.hds")).get_times()
+    routed = routed_outflow_series(
+        solver_dir,
+        model_name,
+        times=times,
+        seconds_per_time_unit=seconds_per_solver_time_unit(solver_dir, model_name),
+    )
+    assert routed is not None and len(routed) == len(times)
+    assert np.all(np.asarray(routed) > 0.0), "the routed discharge reads zero at some stamp"
 
 
 def _plot_sim_vs_golden(out_path: Path, *, sim: list[float], golden: list[float]) -> Path:

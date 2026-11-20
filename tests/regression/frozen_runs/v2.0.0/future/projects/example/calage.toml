@@ -1,0 +1,41 @@
+base_config = "run_demo.toml"
+export__delete = true
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "calage"
+description = "K on three values, scored on one head of the demo."
+
+[calibration]
+save_runs = "best_n"
+use_cache = false
+
+[calibration.parameters.K]
+bounds = [5e-5, 2e-4]
+search_space = "log"
+
+[calibration.outputs.upland_head]
+support = "point"
+variable = "head"
+x = 25.0
+y = 525.0
+observed_values = [20.91]
+
+[[calibration.objective_blocks]]
+name = "heads"
+metric = "rmse"
+uses_outputs = ["upland_head"]
+
+[[calibration.phases]]
+name = "k_grid"
+parameters = ["K"]
+regime = "steady"
+objective_blocks = ["heads"]
+method = "grid"
+max_trials = 3
+method_options = { points_per_dim = 3 }
+
+[display]
+enabled = false

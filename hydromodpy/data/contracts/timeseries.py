@@ -5,10 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
 
-from hydromodpy.data.common.validation import compute_completeness
+from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.scope import station_name_refusal
+from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.location import StationLocation
 
 REQUIRED_COLUMNS = ("datetime", "value")
@@ -34,13 +38,21 @@ class PointRecord:
     file_path: Path | None = None
     source_unit: str | None = None
     quality: dict | None = None
+    # The files the location of the station was read from, beside file_path.
+    # A run records them as inputs, so a frozen replay finds them pinned.
+    location_files: tuple[Path, ...] = ()
 
     def __post_init__(self):
+        refusal = station_name_refusal(self.station_id)
+        if refusal is not None:
+            raise DataContractViolation(f"{self.variable} from {self.source}: {refusal}")
         missing = [c for c in REQUIRED_COLUMNS if c not in self.data.columns]
         if missing:
             raise ValueError(
                 f"PointRecord.data missing columns: {missing}. Got: {list(self.data.columns)}"
             )
+        import pandas as pd
+
         self.data["datetime"] = pd.to_datetime(self.data["datetime"], errors="coerce")
         self.data["value"] = pd.to_numeric(self.data["value"], errors="coerce")
 
@@ -69,6 +81,8 @@ class PointRecord:
 
     def filter_by_period(self, start: datetime, end: datetime) -> PointRecord:
         """Return a new PointRecord filtered to [start, end]."""
+        import pandas as pd
+
         mask = (self.data["datetime"] >= pd.Timestamp(start)) & (
             self.data["datetime"] <= pd.Timestamp(end)
         )
@@ -85,4 +99,5 @@ class PointRecord:
             is_constant=self.is_constant,
             file_path=self.file_path,
             source_unit=self.source_unit,
+            location_files=self.location_files,
         )

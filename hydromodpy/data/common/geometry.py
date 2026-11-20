@@ -1,0 +1,119 @@
+"""Spatial helpers: bbox, haversine, nearest station, mask filtering."""
+
+from __future__ import annotations
+
+import hashlib
+import math
+from collections.abc import Sequence
+from pathlib import Path
+
+from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.data.contracts.location import StationLocation
+
+
+def require_declared_crs(crs: object, *, path: Path | str, variable: str) -> str:
+    """Return the CRS a user file declares, or refuse the file.
+
+    A file without a CRS used to be labeled EPSG:2154 or EPSG:4326 without a
+    word. Read in the wrong frame, it is cut by a box in another frame, or
+    placed kilometers away. No guess is made: the file names its CRS.
+    """
+    text = "" if crs is None else str(crs).strip()
+    if text:
+        return text
+    raise DataContractViolation(
+        f"{variable}: {path} declares no CRS, and HydroModPy does not guess one. "
+        "Write the CRS into the file: for a raster, "
+        "'gdal_edit.py -a_srs EPSG:<code> <file>'; for a vector, "
+        "'ogr2ogr -a_srs EPSG:<code> <new file> <file>', or a .prj file beside a shapefile."
+    )
+
+
+def crs_of_a_user_file(crs: object, source_cfg: object, *, path: Path | str, variable: str) -> str:
+    """Return the CRS of a user file, or the ``default_crs`` the user wrote, or refuse.
+
+    The ``default_crs`` default (EPSG:2154) is never applied: only a value written in
+    the source table stands in for a file that declares none.
+    """
+    fields_set = getattr(source_cfg, "model_fields_set", ())
+    if "default_crs" in fields_set and not (crs is not None and str(crs).strip()):
+        written = str(getattr(source_cfg, "default_crs", "")).strip()
+        if written:
+            return written
+    return require_declared_crs(crs, path=path, variable=variable)
+
+
+def bbox_hash(bbox: tuple) -> str:
+    """Short deterministic hash of a bounding box for filenames."""
+    s = f"{bbox[0]:.6f}_{bbox[1]:.6f}_{bbox[2]:.6f}_{bbox[3]:.6f}"
+    return hashlib.md5(s.encode()).hexdigest()[:8]
+
+
+def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    """Great-circle distance in km (WGS84)."""
+    R = 6371.0
+    dlon = math.radians(lon2 - lon1)
+    dlat = math.radians(lat2 - lat1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    )
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def geometry_to_bbox(geometry) -> tuple[float, float, float, float]:
+    """Extract (xmin, ymin, xmax, ymax) from a shapely geometry."""
+    return geometry.bounds
+
+
+def filter_locations_by_geometry(
+    locations: Sequence[StationLocation],
+    geometry,
+    *,
+    geometry_crs: str = "EPSG:4326",
+) -> list[StationLocation]:
+    """Keep locations that fall inside a shapely geometry (spatial join).
+
+    Reprojects each location to ``geometry_crs`` before testing, so that
+    stations declared in a projected CRS (e.g. Lambert-93 / EPSG:2154) can
+    be matched against a mask loaded via
+    :func:`~hydromodpy.data.common.source_extent.mask_geometry_wgs84`.
+    """
+    try:
+        from shapely.geometry import Point
+    except ImportError as exc:
+        raise ImportError("shapely required for geometry filtering. pip install shapely") from exc
+    from pyproj import Transformer
+
+    target_crs = str(geometry_crs)
+    transformers: dict[str, Transformer] = {}
+    kept: list[StationLocation] = []
+    for loc in locations:
+        src_crs = str(loc.crs) if loc.crs else target_crs
+        if src_crs == target_crs:
+            x, y = loc.x, loc.y
+        else:
+            tr = transformers.get(src_crs)
+            if tr is None:
+                tr = Transformer.from_crs(src_crs, target_crs, always_xy=True)
+                transformers[src_crs] = tr
+            x, y = tr.transform(loc.x, loc.y)
+        # ``intersects`` is more permissive than ``contains`` at boundaries -
+        # relevant for outlet stations that land exactly on the watershed
+        # boundary after snapping.
+        if geometry.intersects(Point(x, y)):
+            kept.append(loc)
+    return kept
+
+
+def expand_bbox(
+    bbox: tuple[float, float, float, float],
+    radius_km: float,
+) -> tuple[float, float, float, float]:
+    """Expand bbox by radius_km in all directions (approximate, WGS84)."""
+    xmin, ymin, xmax, ymax = bbox
+    # ~111 km per degree latitude, longitude varies with latitude
+    lat_mid = (ymin + ymax) / 2
+    deg_lat = radius_km / 111.0
+    deg_lon = radius_km / (111.0 * math.cos(math.radians(lat_mid)))
+    return (xmin - deg_lon, ymin - deg_lat, xmax + deg_lon, ymax + deg_lat)

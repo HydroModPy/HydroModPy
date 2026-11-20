@@ -16,7 +16,7 @@ CONF_PATH = ROOT / "docs" / "source" / "conf.py"
 LOCAL_EXTENSION_DIR = ROOT / "docs" / "source" / "_ext"
 # Namespace packages whose distribution name cannot be derived from the module
 # path by replacing separators with dashes.
-MODULE_TO_DISTRIBUTION = {"sphinxcontrib.autodoc_pydantic": "autodoc-pydantic"}
+MODULE_TO_DISTRIBUTION: dict[str, str] = {}
 
 
 def _normalize_requirement(requirement: str) -> str:
@@ -26,7 +26,7 @@ def _normalize_requirement(requirement: str) -> str:
     return requirement.strip().lower().replace("_", "-")
 
 
-def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
+def test_docs_extra_covers_local_sphinx_notebook_build_deps() -> None:
     pyproject = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
     docs_extra = {
         _normalize_requirement(requirement)
@@ -39,9 +39,6 @@ def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
         "myst-parser",
         "sphinx-copybutton",
         "sphinx-design",
-        "sphinx-polyversion",
-        "sphinxcontrib-plantuml",
-        "autodoc-pydantic",
     }
     docs_requirements = {
         _normalize_requirement(line)
@@ -53,7 +50,7 @@ def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
     missing = expected - docs_extra
 
     assert not missing, (
-        "The docs extra should install the core local Sphinx/PlantUML/notebook "
+        "The docs extra should install the core local Sphinx/notebook "
         f"build dependencies. Missing: {sorted(missing)}"
     )
 
@@ -74,44 +71,6 @@ def test_editable_conda_environments_install_docs_extra() -> None:
     assert not missing_docs_extra, (
         "Editable conda environments should install the repository docs extra "
         f"so local Sphinx builds include notebook extensions. Missing: {missing_docs_extra}"
-    )
-
-
-def test_editable_conda_environments_preinstall_graphviz_stack() -> None:
-    missing_packages: dict[str, list[str]] = {}
-    required_packages = {"graphviz", "pygraphviz"}
-
-    for environment_path in EDITABLE_ENVIRONMENT_PATHS:
-        text = environment_path.read_text(encoding="utf-8")
-        environment_packages = {
-            line.strip().removeprefix("-").strip().split("=", 1)[0].lower()
-            for line in text.splitlines()
-            if line.strip().startswith("- ")
-        }
-        missing = sorted(required_packages - environment_packages)
-        if missing:
-            missing_packages[environment_path.name] = missing
-
-    assert not missing_packages, (
-        "Editable conda environments install the docs-uml extra, which pulls erdantic. "
-        "erdantic's pygraphviz dependency must come from conda-forge "
-        f"instead of a pip source build. Missing: {missing_packages}"
-    )
-
-
-def test_docs_extra_excludes_erdantic_to_avoid_pygraphviz_source_build() -> None:
-    pyproject = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
-    extras = pyproject["project"]["optional-dependencies"]
-    docs_extra = {_normalize_requirement(requirement) for requirement in extras["docs"]}
-    docs_uml_extra = {_normalize_requirement(requirement) for requirement in extras["docs-uml"]}
-
-    assert "erdantic" not in docs_extra, (
-        "erdantic must stay out of the docs extra. It pulls pygraphviz, a C "
-        "extension with no Linux wheels, so a bare 'pip install -e .[docs]' "
-        "fails to compile it against the system Graphviz headers (issue #43)."
-    )
-    assert "erdantic" in docs_uml_extra, (
-        "The docs-uml extra regenerates the config ER diagrams and must provide erdantic."
     )
 
 

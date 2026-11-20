@@ -1,0 +1,5 @@
+[[simulation.process]]
+solvers = ["modflow_nwt"]
+
+[domain.layers]
+nlay = 1

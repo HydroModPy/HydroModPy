@@ -4,30 +4,40 @@ Emits a JSON-LD ``ro-crate-metadata.json`` describing one simulation,
 including its inputs, outputs, lockfile, solver binary fingerprint and
 license. The embedded PROV-O ``CreateAction`` is produced by
 :mod:`hydromodpy.results.export.prov`, so the same payload can be re-used
-when serialised on its own.
+when serialized on its own.
 
 The generated graph stays self-contained: every ``hasPart`` / ``object`` /
 ``result`` reference resolves to a sibling entity in the same ``@graph``.
+
+:class:`RoCrateView` is the RO-Crate format of the export port: the view a
+``format = "rocrate"`` request writes is the same crate this module builds,
+declared for the registry the way every export format declares itself.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from hydromodpy.results.export.context import (
     AssetEntry,
     FairExportContext,
     _is_missing,
-    build_context,
     to_json,
 )
+from hydromodpy.results.export.directory import context_from_directory, sealed_root_of
 from hydromodpy.results.export.prov import HYDROMODPY_NAMESPACE, build_prov_document
+from hydromodpy.schema.generated_views import RO_CRATE_VIEW_FILENAME
+from hydromodpy.schema.media_types import OCTET_STREAM_MEDIA_TYPE
+
+if TYPE_CHECKING:
+    from hydromodpy.results.exporters.export_spec import PlannedFile
+    from hydromodpy.results.exporters.job import ExportJob
 
 RO_CRATE_CONFORMS = "https://w3id.org/ro/crate/1.1"
 RO_CRATE_CONTEXT = "https://w3id.org/ro/crate/1.1/context"
-RO_CRATE_METADATA_FILENAME = "ro-crate-metadata.json"
+RO_CRATE_METADATA_FILENAME = RO_CRATE_VIEW_FILENAME
 
 
 def _person_id(name: str) -> str:
@@ -61,7 +71,7 @@ def _input_node(idx: int, entry: Any) -> dict[str, Any]:
         "@id": base_id,
         "@type": "File",
         "name": Path(entry.original_path).name or entry.role,
-        "encodingFormat": "application/octet-stream",
+        "encodingFormat": OCTET_STREAM_MEDIA_TYPE,
         "hydromodpy:role": entry.role,
         "hydromodpy:category": entry.category,
     }
@@ -147,6 +157,19 @@ def build_ro_crate(context: FairExportContext) -> dict[str, Any]:
         "hasPart": [{"@id": asset.relative_path} for asset in context.assets],
         "wasGeneratedBy": {"@id": "#action/simulation"},
     }
+    property_values = [
+        {"@id": f"#property/{key}", "@type": "PropertyValue", "name": key, "value": str(value)}
+        for key, value in (
+            ("request_id", _safe("request_id")),
+            ("solution_key", _safe("solution_key")),
+            ("replay_class", _safe("replay_class")),
+        )
+        if value is not None
+    ]
+    if property_values:
+        dataset_node["hydromodpy:propertyValue"] = [
+            {"@id": node["@id"]} for node in property_values
+        ]
     doi = _safe("doi")
     if doi:
         dataset_node["sameAs"] = str(doi)
@@ -204,6 +227,7 @@ def build_ro_crate(context: FairExportContext) -> dict[str, Any]:
     graph.extend(software_nodes)
     graph.extend(creator_nodes)
     graph.extend(place_nodes)
+    graph.extend(property_values)
     if creator_ref is not None:
         action_node = {**action_node, "agent": creator_ref}
     graph.append(action_node)
@@ -222,43 +246,77 @@ def build_ro_crate(context: FairExportContext) -> dict[str, Any]:
     }
 
 
-def write_ro_crate(
-    catalog: Any,
-    sim_id: str,
-    output_path: Path | str,
-    *,
-    context: FairExportContext | None = None,
-) -> Path:
-    """Render the RO-Crate for *sim_id* and write it to *output_path*.
+def write_ro_crate(context: FairExportContext, output_path: Path | str) -> Path:
+    """Render the RO-Crate of *context* and write it to *output_path*.
 
     *output_path* may point at a directory (the file is then named
     ``ro-crate-metadata.json``) or at an explicit ``.json`` file.
     """
-    ctx = context or build_context(catalog, sim_id)
-    crate = build_ro_crate(ctx)
+    crate = build_ro_crate(context)
     out = Path(output_path)
     if out.is_dir() or out.suffix == "":
         out = out / RO_CRATE_METADATA_FILENAME
     return to_json(crate, out)
 
 
-def write_ro_crate_to_staging(context: FairExportContext, staging: Path) -> Path:
-    """Write the RO-Crate alongside an ``.hmp`` staging directory."""
-    crate = build_ro_crate(context)
-    return to_json(crate, staging / RO_CRATE_METADATA_FILENAME)
+def write_ro_crate_view(
+    directory: Path | str,
+    *,
+    context: FairExportContext | None = None,
+) -> Path:
+    """Render the RO-Crate of a sealed run or job directory, inside it.
+
+    The directory becomes the crate root ``./``, which is what RO-Crate means
+    by a crate: every ``hasPart`` path resolves against the directory that
+    holds ``ro-crate-metadata.json``. No catalog and no workspace are read.
+    """
+    root = Path(directory)
+    ctx = context or context_from_directory(root)
+    return to_json(build_ro_crate(ctx), root / RO_CRATE_METADATA_FILENAME)
 
 
 def loads(payload: str) -> dict[str, Any]:
-    """Parse a serialised RO-Crate string back to a dict (test helper)."""
+    """Parse a serialized RO-Crate string back to a dict (test helper)."""
     return json.loads(payload)
+
+
+class RoCrateView:
+    """The RO-Crate format of the export port, the one view the wheel ships."""
+
+    name: ClassVar[str] = "rocrate"
+    suffix: ClassVar[str] = ".json"
+    writes: ClassVar[tuple[str, ...]] = ("run",)
+    natural: ClassVar[tuple[str, ...]] = ()
+    instants: ClassVar[str] = "many"
+    reprojects: ClassVar[bool] = False
+    help: ClassVar[str] = "The RO-Crate metadata of the run."
+
+    def write(
+        self,
+        job: ExportJob | None,
+        item: PlannedFile | None,
+        dest: Path,
+    ) -> list[Path]:
+        """Render the crate of the sealed directory *dest* lands in.
+
+        *dest* is the run directory itself for a request without ``folder``
+        and ``file``, so the crate sits at the crate root ``./`` where its
+        relative paths resolve, or one exact path under ``exports/``, whose
+        hrefs then name the files of the run directory.
+        """
+        del job, item  # a view renders the seal; it reads no run data.
+        out = Path(dest)
+        root = sealed_root_of(out)
+        return [write_ro_crate(context_from_directory(root), out)]
 
 
 __all__ = [
     "RO_CRATE_CONFORMS",
     "RO_CRATE_CONTEXT",
     "RO_CRATE_METADATA_FILENAME",
+    "RoCrateView",
     "build_ro_crate",
     "loads",
     "write_ro_crate",
-    "write_ro_crate_to_staging",
+    "write_ro_crate_view",
 ]

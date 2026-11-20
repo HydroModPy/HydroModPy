@@ -1,0 +1,31 @@
+{
+  "schema": "hmp-inputset/v1",
+  "id": "sha256:5dd29a819cfe3241a474c88be31ade69d51ff5b4dd682c14181b160e164a5d29",
+  "created_at": "2026-01-01T00:00:00+00:00",
+  "resources": [
+    {
+      "name": "value",
+      "role": "parameter",
+      "href": "request.json#/inputs/value",
+      "copied_to": null,
+      "mediaType": "application/json",
+      "bytes": null,
+      "sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "spatial": null,
+      "temporal": null,
+      "source": null,
+      "licence": {
+        "spdx": "LicenseRef-undetermined",
+        "share_alike": false,
+        "confidence": "undetermined"
+      }
+    }
+  ],
+  "licence_rollup": {
+    "expression": "LicenseRef-undetermined",
+    "redistributable": false,
+    "share_alike": false,
+    "confidence": "undetermined",
+    "attribution": []
+  }
+}

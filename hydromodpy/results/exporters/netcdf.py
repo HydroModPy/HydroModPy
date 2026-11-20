@@ -1,21 +1,49 @@
 """Export simulation fields from Zarr to NetCDF-4 with UGRID topology.
 
 The exported file can be opened in QGIS (MDAL driver), THREDDS, or any
-tool that understands the UGRID-1.0 convention.
+tool that understands the UGRID-1.0 convention. QGIS lists the file three times,
+as a raster, a mesh and a vector. Only the mesh draws the cells: GDAL reads each
+variable as a raster one row high.
+
+QGIS reads a mesh through MDAL, which binds a dataset to the face dimension and
+leaves out an array carrying a third one. So the file keeps as few dimensions as
+it can. On a model of one layer a field has no ``layer`` dimension and carries the
+layer as a scalar coordinate. On a model of several layers a field keeps its
+``layer`` dimension, and a file for QGIS asks for one layer. The ``crs`` variable
+states the CRS twice, the CF way in ``crs_wkt`` and the MDAL way in ``epsg`` and
+``wkt``, since MDAL follows the ``grid_mapping`` of the node coordinates to it.
+
+The face centers are the ones the model used (``mesh/face_x`` and
+``mesh/face_y`` of the store). A store without them gives the mean of the
+vertices of each face, which is off the generator of a Voronoi cell.
 """
 
 from __future__ import annotations
 
+import json
+import numbers
+import os
+import uuid
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import xarray as xr
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.derive.virtual_fields import field_descriptor
+from hydromodpy.results.exporters.fields import is_timed
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
+from hydromodpy.results.zarr_store.zarr_reader import stored_field_array
 
 logger = get_logger(__name__)
+
+_LAYER_ATTRS: dict[str, object] = {
+    "long_name": "Model layer, counted from 0 at the top",
+    "units": "1",
+}
 
 
 def export_netcdf(
@@ -25,6 +53,9 @@ def export_netcdf(
     output_path: str | Path,
     *,
     timesteps: list[int] | None = None,
+    values: Mapping[str, np.ndarray] | None = None,
+    global_attrs: Mapping[str, Any] | None = None,
+    layer: int | None = None,
 ) -> Path:
     """Export selected fields to a NetCDF-4 file with UGRID topology.
 
@@ -35,11 +66,24 @@ def export_netcdf(
     sim_id : str
         Simulation UUID.
     variables : list[str]
-        Field names to export (e.g. ``["head", "watertable_depth"]``).
+        Field names to export (e.g. ``["head", "watertable_depth"]``). A field
+        stored per layer is written as one variable with a ``layer`` dimension
+        at any number of layers, the layers counted from 0 at the top like
+        every layer index of HydroModPy.
     output_path : str or Path
         Destination ``.nc`` file.
     timesteps : list[int], optional
-        Subset of timestep indices to export. ``None`` exports all.
+        Subset of timestep indices to export. ``None`` exports all. A static
+        field (topography, a conductivity) is written once, without time.
+    values : mapping of str to numpy.ndarray, optional
+        Fields the caller computed, by name, each a ``(len(timesteps),
+        n_cells)`` stack. The store is not read for them.
+    global_attrs : mapping, optional
+        Global attributes laid over the ones the store holds: the ACDD block
+        of the run when it is exported before the seal writes it.
+    layer : int, optional
+        Keep this layer of every field that has layers, as a variable without
+        a ``layer`` dimension, which is the form QGIS reads.
 
     Returns
     -------
@@ -62,7 +106,8 @@ def export_netcdf(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    descriptors = {name: field_registry.get(name) for name in variables}
+    descriptors = {name: field_descriptor(name) for name in variables}
+    computed = dict(values or {})
 
     sz = SimulationZarr(zarr_path)
     try:
@@ -82,6 +127,11 @@ def export_netcdf(
         connectivity = mesh["face_node_connectivity"][:]
         z_interfaces = mesh["z_interfaces"][:]
         start_index = int(mesh.attrs.get("start_index", 0))
+        centres = (
+            (mesh["face_x"][:], mesh["face_y"][:])
+            if "face_x" in mesh and "face_y" in mesh
+            else None
+        )
     finally:
         sz.close()
     n_nodes = vertices.shape[0]
@@ -92,11 +142,16 @@ def export_netcdf(
     # override Conventions to advertise UGRID-1.0 alongside CF/ACDD and pin
     # the simulation_id explicitly. The Zarr root advertises
     # ``CF-1.11, ACDD-1.3, UGRID-1.0`` already, so this is mostly defensive
-    # in case the store was migrated from an older layout.
-    for key, value in root_attrs.items():
-        ds.attrs[key] = value
+    # for a store that says nothing.
+    for key, value in {**root_attrs, **dict(global_attrs or {})}.items():
+        if value is None:
+            continue
+        ds.attrs[key] = _netcdf_attr(value)
     ds.attrs.setdefault("Conventions", "CF-1.11, ACDD-1.3, UGRID-1.0")
     ds.attrs["simulation_id"] = sim_id
+    # The mesh says how large it is; a root written before the seal says 0.
+    ds.attrs["n_cells"] = int(connectivity.shape[0])
+    ds.attrs["n_layers"] = max(int(z_interfaces.shape[0]) - 1, 1)
 
     # Mesh topology variable (scalar placeholder per UGRID convention)
     ds["mesh2d"] = xr.DataArray(
@@ -106,12 +161,13 @@ def export_netcdf(
             "topology_dimension": 2,
             "node_coordinates": "node_x node_y",
             "face_node_connectivity": "face_nodes",
+            "face_coordinates": "face_x face_y",
             "face_dimension": "n_face",
         },
     )
 
-    ds["node_x"] = xr.DataArray(vertices[:, 0], dims=("n_node",))
-    ds["node_y"] = xr.DataArray(vertices[:, 1], dims=("n_node",))
+    ds["node_x"] = xr.DataArray(vertices[:, 0], dims=("n_node",), attrs=_axis_attrs("x", crs_attrs))
+    ds["node_y"] = xr.DataArray(vertices[:, 1], dims=("n_node",), attrs=_axis_attrs("y", crs_attrs))
     if vertices.shape[1] == 3:
         ds["node_z"] = xr.DataArray(vertices[:, 2], dims=("n_node",))
 
@@ -124,16 +180,25 @@ def export_netcdf(
             "_FillValue": -1,
         },
     )
-    ds["z_interfaces"] = xr.DataArray(z_interfaces, dims=("n_z_interface",))
+    ds["z_interfaces"] = xr.DataArray(
+        z_interfaces,
+        dims=("n_z_interface", "n_face"),
+        attrs={
+            "long_name": "Altitude of layer interfaces: model top, then the bottom of each layer",
+            "units": "m",
+            "positive": "up",
+        },
+    )
     if crs_attrs:
-        ds["crs"] = xr.DataArray(np.int32(0), attrs=crs_attrs)
+        ds["crs"] = xr.DataArray(np.int32(0), attrs={**crs_attrs, **_mdal_crs_attrs(crs_attrs)})
 
-    # Compute face centroids for spatial reference
-    valid_mask = connectivity >= 0
-    cx = np.where(valid_mask, vertices[np.clip(connectivity, 0, n_nodes - 1), 0], np.nan)
-    cy = np.where(valid_mask, vertices[np.clip(connectivity, 0, n_nodes - 1), 1], np.nan)
-    ds["face_x"] = xr.DataArray(np.nanmean(cx, axis=1), dims=("n_face",))
-    ds["face_y"] = xr.DataArray(np.nanmean(cy, axis=1), dims=("n_face",))
+    if centres is None:
+        valid_mask = connectivity >= 0
+        cx = np.where(valid_mask, vertices[np.clip(connectivity, 0, n_nodes - 1), 0], np.nan)
+        cy = np.where(valid_mask, vertices[np.clip(connectivity, 0, n_nodes - 1), 1], np.nan)
+        centres = (np.nanmean(cx, axis=1), np.nanmean(cy, axis=1))
+    ds["face_x"] = xr.DataArray(centres[0], dims=("n_face",), attrs=_axis_attrs("x", crs_attrs))
+    ds["face_y"] = xr.DataArray(centres[1], dims=("n_face",), attrs=_axis_attrs("y", crs_attrs))
 
     zarr_time: np.ndarray | None = None
     zarr_time_attrs: dict[str, object] = {}
@@ -143,32 +208,39 @@ def export_netcdf(
         if "time" in grp:
             zarr_time = np.asarray(grp["time"][:])
             zarr_time_attrs = dict(grp["time"].attrs)
-        # Locate each requested variable in the Zarr hierarchy
+        ts_idx = None if timesteps is None else [int(t) for t in timesteps]
         for var_name in variables:
             descriptor = descriptors[var_name]
-            arr = _resolve_zarr_path(grp, descriptor.zarr_path)
-            if arr is None:
-                data = _derive_stack(sz, sim_id, var_name, timesteps, zarr_time)
-                if data is None:
-                    logger.warning(
-                        "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
-                        var_name,
-                        descriptor.zarr_path,
-                        sim_id,
-                    )
-                    continue
+            timed = is_timed(descriptor)
+            if var_name in computed:
+                data = np.asarray(computed[var_name])
             else:
-                data = arr[:]
-                ts_idx = list(range(data.shape[0])) if timesteps is None else timesteps
-                data = data[ts_idx]
-
-            attrs = {**field_registry.cf_attrs(var_name), "mesh": "mesh2d", "location": "face"}
-            if data.ndim == 3:
-                ds[var_name] = xr.DataArray(data, dims=("time", "layer", "n_face"), attrs=attrs)
-            elif data.ndim == 2:
-                ds[var_name] = xr.DataArray(data, dims=("time", "n_face"), attrs=attrs)
+                arr = stored_field_array(grp, descriptor.zarr_path)
+                if arr is None:
+                    data = _derive_stack(sz, sim_id, var_name, ts_idx, zarr_time)
+                    if data is None:
+                        logger.warning(
+                            "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
+                            var_name,
+                            descriptor.zarr_path,
+                            sim_id,
+                        )
+                        continue
+                else:
+                    data = np.asarray(arr[:])
+                    if timed and ts_idx is not None:
+                        data = data[ts_idx]
+            _add_field(ds, var_name, data, timed=timed, attrs=_field_attrs(var_name), layer=layer)
     finally:
         sz.close()
+    layered = sorted(name for name, var in ds.data_vars.items() if "layer" in var.dims)
+    if layered:
+        logger.warning(
+            "%s holds %s with a layer dimension, which QGIS leaves out of the mesh. "
+            "Export one layer for QGIS, with layer = 0 for the top one.",
+            output_path.name,
+            ", ".join(layered),
+        )
 
     if "time" in ds.dims:
         time_indices = list(range(ds.sizes["time"])) if timesteps is None else list(timesteps)
@@ -180,9 +252,6 @@ def export_netcdf(
             dims=("time",),
             attrs={"standard_name": "time", **zarr_time_attrs},
         )
-    if "layer" in ds.dims:
-        ds["layer"] = xr.DataArray(np.arange(ds.sizes["layer"]), dims=("layer",))
-
     # zlib-compress the array variables (the Zarr source is Blosc-compressed, so
     # an uncompressed .nc balloons) and give float fields a CF _FillValue when
     # none is declared. Skip vars that already carry _FillValue in attrs (e.g.
@@ -203,9 +272,163 @@ def export_netcdf(
         if enc:
             encoding[name] = enc
 
-    ds.to_netcdf(output_path, engine="netcdf4", format="NETCDF4", encoding=encoding)
+    # Write beside the destination, then rename. netCDF4 truncates its output
+    # before writing it, so exporting onto a file QGIS still holds open failed
+    # halfway and left a zero-byte file where the previous export was. A rename
+    # swaps the inode instead: the open layer keeps reading what it already has
+    # until it is reloaded, and a failed export destroys nothing.
+    tmp_path = output_path.with_name(f"{output_path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        ds.to_netcdf(tmp_path, engine="netcdf4", format="NETCDF4", encoding=encoding)
+        os.replace(tmp_path, output_path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
     logger.info("Exported NetCDF: %s", output_path)
     return output_path
+
+
+def _netcdf_attr(value: object) -> object:
+    """Return a global attribute in a form NetCDF stores.
+
+    NetCDF takes text, numbers and flat lists of either. A mapping, such as
+    the identity block of the run, or a list of anything else becomes JSON
+    text, and a boolean becomes 0 or 1.
+    """
+    if isinstance(value, bool | np.bool_):
+        return int(value)
+    if isinstance(value, Mapping):
+        return json.dumps(value, sort_keys=True, default=_json_scalar)
+    if isinstance(value, list | tuple):
+        texts = all(isinstance(item, str) for item in value)
+        reals = all(
+            isinstance(item, numbers.Real) and not isinstance(item, bool | np.bool_)
+            for item in value
+        )
+        if not (texts or reals):
+            return json.dumps(list(value), sort_keys=True, default=_json_scalar)
+    return value
+
+
+def _json_scalar(value: object) -> object:
+    """Return a numpy scalar as the Python number JSON writes; refuse anything else."""
+    if isinstance(value, np.generic):
+        return value.item()
+    raise TypeError(f"{type(value).__name__} is not JSON serializable")
+
+
+def _axis_attrs(axis: str, crs_attrs: Mapping[str, object]) -> dict[str, object]:
+    """Return the attributes of an x or y coordinate, naming the CRS when there is one."""
+    attrs: dict[str, object] = {
+        "standard_name": f"projection_{axis}_coordinate",
+        "units": "m",
+    }
+    if crs_attrs:
+        attrs["grid_mapping"] = "crs"
+    return attrs
+
+
+def _field_attrs(name: str) -> dict[str, object]:
+    """Return the CF attributes of one field, the rebuilt-only ones included."""
+    if field_registry.has(name):
+        attrs = field_registry.cf_attrs(name)
+    else:
+        descriptor = field_descriptor(name)
+        attrs = {
+            "long_name": descriptor.long_name,
+            "units": descriptor.units,
+            "cell_methods": descriptor.cell_methods,
+        }
+        if descriptor.valid_min is not None:
+            attrs["valid_min"] = descriptor.valid_min
+        if descriptor.valid_max is not None:
+            attrs["valid_max"] = descriptor.valid_max
+    return {**attrs, "coordinates": "face_x face_y", "mesh": "mesh2d", "location": "face"}
+
+
+def _add_field(
+    ds: xr.Dataset,
+    var_name: str,
+    data: np.ndarray,
+    *,
+    timed: bool,
+    attrs: dict[str, object],
+    layer: int | None,
+) -> None:
+    """Add one field to the dataset, as one variable.
+
+    On a model of several layers a field with layers has a ``layer`` dimension.
+    A field with fewer layers than the model, a recharge applied to the top one,
+    names its own dimension, since a NetCDF dimension has one size. With ``layer``,
+    or on a model of one layer, the variable holds that layer alone, under a
+    scalar ``layer`` coordinate, which is the form QGIS reads. An integer narrower
+    than 32 bits, the ``idomain`` byte, is widened: MDAL cannot read it, and one such
+    variable makes QGIS drop the whole mesh.
+    """
+    if data.dtype == np.bool_ or (np.issubdtype(data.dtype, np.integer) and data.itemsize < 4):
+        data = data.astype(np.int32)
+    dims: tuple[str, ...] = ("time", "n_face") if timed else ("n_face",)
+    if data.ndim != (3 if timed else 2):
+        ds[var_name] = xr.DataArray(data, dims=dims, attrs=attrs)
+        return
+    axis = 1 if timed else 0
+    n_layers = int(data.shape[axis])
+    if layer is None and int(ds.attrs["n_layers"]) == 1:
+        layer = 0
+    if layer is not None:
+        if not 0 <= int(layer) < n_layers:
+            raise ValueError(
+                f"layer = {layer} is out of range: {var_name!r} holds {n_layers} layer"
+                f"{'s' if n_layers > 1 else ''} (0 to {n_layers - 1})."
+            )
+        ds[var_name] = xr.DataArray(
+            np.take(data, int(layer), axis=axis),
+            dims=dims,
+            attrs={**attrs, "coordinates": f"{attrs['coordinates']} layer"},
+        )
+        # A scalar variable the fields name, not an xarray coordinate: xarray
+        # would name a scalar coordinate on every variable, the node coordinates
+        # included, and MDAL then reads no face at all.
+        if "layer" not in ds.variables:
+            ds["layer"] = xr.DataArray(np.int32(layer), attrs=_LAYER_ATTRS)
+        return
+    name = "layer" if n_layers == int(ds.attrs["n_layers"]) else f"{var_name}_layer"
+    dims = (*dims[:axis], name, *dims[axis:])
+    ds[var_name] = xr.DataArray(data, dims=dims, attrs=attrs)
+    if name not in ds.coords:
+        ds[name] = xr.DataArray(
+            np.arange(n_layers, dtype=np.int32),
+            dims=(name,),
+            attrs=_LAYER_ATTRS,
+        )
+
+
+def _mdal_crs_attrs(crs_attrs: dict[str, object]) -> dict[str, object]:
+    """CRS attributes MDAL reads, laid beside the CF ones on the ``crs`` variable.
+
+    The CF way of georeferencing a file is a grid-mapping variable carrying
+    ``crs_wkt``. MDAL, which is what QGIS opens a UGRID mesh with, follows the
+    ``grid_mapping`` of the node coordinates to that variable but does not read
+    ``crs_wkt``: it takes ``epsg``, then ``wkt``, which it parses as WKT1 only.
+    Without them it keeps no CRS at all, and QGIS then draws the mesh in
+    whatever the project uses, nowhere near the catchment. So the EPSG code goes
+    first and the WKT is downgraded.
+    """
+    attrs: dict[str, object] = {}
+    epsg = crs_attrs.get("epsg_code")
+    if epsg is not None:
+        attrs["epsg"] = int(epsg)  # type: ignore[arg-type]
+    wkt = crs_attrs.get("crs_wkt")
+    if wkt:
+        from pyproj import CRS as _CRS
+
+        try:
+            attrs["wkt"] = _CRS.from_wkt(str(wkt)).to_wkt("WKT1_GDAL")
+        except Exception as exc:
+            # A CRS pyproj cannot round-trip to WKT1 (a compound or a custom
+            # one) leaves the EPSG code to carry the georeferencing alone.
+            logger.debug("No WKT1 form for the run CRS, keeping the EPSG code only: %s", exc)
+    return attrs
 
 
 def _derive_stack(sz, sim_id: str, variable: str, timesteps, zarr_time) -> np.ndarray | None:
@@ -224,20 +447,11 @@ def _derive_stack(sz, sim_id: str, variable: str, timesteps, zarr_time) -> np.nd
         n_time = int(sz.root["head"].shape[0])
     if n_time is None:
         return None
-    indices = list(range(n_time)) if timesteps is None else [int(t) % n_time for t in timesteps]
+    if timesteps is None:
+        return derive_field_stack(sz, sim_id, variable, list(range(n_time)))
+    outside = [int(t) for t in timesteps if not -n_time <= int(t) < n_time]
+    if outside:
+        # A stored field indexed by numpy refuses these steps too.
+        raise IndexError(f"timesteps {outside} are outside the {n_time} steps of the run")
+    indices = [int(t) % n_time for t in timesteps]
     return derive_field_stack(sz, sim_id, variable, indices)
-
-
-def _resolve_zarr_path(grp, zarr_path: str):
-    """Resolve a registry zarr_path inside the simulation group, or None if absent."""
-    parts = zarr_path.split("/")
-    cursor = grp
-    for part in parts[:-1]:
-        sub = cursor.get(part)
-        if sub is None:
-            return None
-        cursor = sub
-    leaf = parts[-1]
-    if leaf in cursor:
-        return cursor[leaf]
-    return None

@@ -7,56 +7,22 @@ import math
 import numpy as np
 
 SECONDS_PER_DAY = 86400.0
-EULER_GAMMA = 0.5772156649015329
-
-
-def _exponential_integral_e1_scalar(
-    value: float, *, tol: float = 1e-12, max_terms: int = 200
-) -> float:
-    """Return ``E1(x)`` for one positive scalar using series/asymptotic expansions."""
-    x = float(value)
-    if x <= 0.0:
-        raise ValueError("E1 is defined only for strictly positive values in this reference.")
-
-    if x <= 1.0:
-        factorial = 1.0
-        power = -x
-        series = power
-        for n in range(2, max_terms + 1):
-            factorial *= float(n)
-            power *= -x
-            delta = power / (float(n) * factorial)
-            series += delta
-            if abs(delta) <= tol * max(1.0, abs(series)):
-                break
-        return -EULER_GAMMA - math.log(x) - series
-
-    total = 1.0
-    term = 1.0
-    best_total = total
-    best_term_abs = abs(term)
-    for n in range(1, max_terms + 1):
-        term *= -float(n) / x
-        candidate = total + term
-        if abs(term) > best_term_abs:
-            break
-        total = candidate
-        best_total = total
-        best_term_abs = abs(term)
-        if abs(term) <= tol * max(1.0, abs(total)):
-            break
-    return math.exp(-x) * best_total / x
 
 
 def exponential_integral_e1(values) -> np.ndarray:
-    """Vectorized wrapper around the positive-argument exponential integral ``E1``."""
+    """Return the exponential integral ``E1``, the Theis well function.
+
+    SciPy evaluates it to machine precision for every positive argument. A
+    hand-written series and asymptotic expansion stood here before: the
+    asymptotic branch is wrong between 1 and about 8, by up to 98 per cent
+    just above 1, which bent the reference beyond ``u = 1``.
+    """
+    from scipy.special import exp1
+
     values_arr = np.asarray(values, dtype=float)
-    out = np.empty_like(values_arr, dtype=float)
-    flat_out = out.reshape(-1)
-    flat_values = values_arr.reshape(-1)
-    for index, value in enumerate(flat_values):
-        flat_out[index] = _exponential_integral_e1_scalar(float(value))
-    return out
+    if np.any(values_arr <= 0.0):
+        raise ValueError("E1 is defined only for strictly positive values in this reference.")
+    return np.asarray(exp1(values_arr), dtype=float)
 
 
 def expected_late_time_unconfined_pumping_drawdown(

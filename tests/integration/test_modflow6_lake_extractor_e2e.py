@@ -27,14 +27,15 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.builders import build_lake_obs_spec
+from hydromodpy.solver.modflow6.builders.lake_obs import build_lake_obs_spec
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow6.extractors.lake import lake_station_id
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
+from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
 
 class _RecordingStore:
-    """Minimal SimulationStore double capturing the extractor's writes.
+    """Minimal RunStore double capturing the extractor's writes.
 
     ``save_zarr`` is False: the extractor then skips every array-store write
     (spatial mesh, lake restart state), which is out of scope here.
@@ -42,9 +43,18 @@ class _RecordingStore:
 
     save_zarr = False
 
-    def __init__(self) -> None:
+    def __init__(self, sim_id: str = "sim", *, run_dir: Path | None = None) -> None:
+        self.sim_id = sim_id
+        self._run_dir = run_dir
         self.timeseries: list[dict] = []
         self.budgets: list[dict] = []
+
+    def run_dir_for(self, sim_id: str) -> Path:
+        """The run folder the extractor writes ``final_state/`` in."""
+        del sim_id
+        if self._run_dir is None:
+            raise AssertionError("this store was built without a run folder")
+        return self._run_dir
 
     def write_time(self, sim_id, values, *, epoch=None, calendar=None, units=None) -> None:
         del sim_id, values, epoch, calendar, units
@@ -70,7 +80,7 @@ class _RecordingStore:
 
     def open_zarr(self, sim_id):
         # Never reached: ``save_zarr`` is False, so the extractor must not ask
-        # for an array store. Raising proves the guard is honoured.
+        # for an array store. Raising proves the guard is honored.
         raise RuntimeError("zarr export disabled in this test")
 
 
@@ -209,8 +219,8 @@ def test_lake_extractor_end_to_end_disv(tmp_path: Path) -> None:
     success, _buff = sim.run_simulation(silent=True)
     assert success, "MF6 single-lake DISV run did not converge"
 
-    store = _RecordingStore()
-    Modflow6OutputAdapter().extract("sim-lake", tmp_path, store, model_name="lakd")
+    store = _RecordingStore("sim-lake", run_dir=tmp_path / "run")
+    Modflow6OutputAdapter().extract(solved_run(tmp_path), store, keep_all)
 
     station = lake_station_id("lac0")
     by_variable: dict[str, list[float]] = {}
@@ -235,8 +245,8 @@ def test_lake_extractor_end_to_end_disv(tmp_path: Path) -> None:
 
     # Every connection is VERTICAL (under the footprint), so under-dam leakage
     # equals the total exchange.
-    assert "seepage_under_dam" in by_variable
-    assert by_variable["seepage_under_dam"][-1] == pytest.approx(exchange)
+    assert "lake_bed_vertical_exchange" in by_variable
+    assert by_variable["lake_bed_vertical_exchange"][-1] == pytest.approx(exchange)
 
     # The spillway series exists as a rate (no spill here -> 0 m3/s, but present).
     assert "ext_outflow" in by_variable

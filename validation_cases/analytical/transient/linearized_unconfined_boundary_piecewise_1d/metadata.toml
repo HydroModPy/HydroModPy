@@ -10,7 +10,9 @@ base_config = "config_modflownwt.toml"
 modflow_nwt = "config_modflownwt.toml"
 modflow6 = "config_modflow6.toml"
 modflow6_irregular_tri = "config_modflow6_irregular_tri.toml"
+modflow6_voronoi = "config_modflow6_voronoi.toml"
 boussinesq = "config_boussinesq.toml"
+boussinesq_local = "config_boussinesq_local.toml"
 
 
 [workspace]

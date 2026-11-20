@@ -2,32 +2,29 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.units.volumetric_flow import (
-    convert_to_m3_per_s,
-    normalize_m3_per_s_unit,
-)
+from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
+
+if TYPE_CHECKING:
+    from hydromodpy.model.model import Model
 
 
 class WellResolutionMixin:
     """Resolve localized wells to cell-wise flux vectors."""
 
     mesh: object
-    flow: object
-    time_grid: object
+    inputs: Model
 
     def resolve_well_flux_by_period(self, nper: int) -> np.ndarray:
         """Resolve all localized well fluxes to one cell vector per period."""
-        active = tuple(getattr(self.flow, "active_sinks_sources", ()) or ())
-        if "wells" not in active:
+        if "wells" not in self.inputs.active_sinks_sources:
             return np.zeros((nper, self.mesh.n_cells), dtype=float)
 
-        sinks_sources = getattr(self.flow, "sinks_sources", {})
-        wells = sinks_sources.get("wells", {}) if isinstance(sinks_sources, Mapping) else {}
-        if not isinstance(wells, Mapping) or not wells:
+        wells = self.inputs.wells
+        if not wells:
             return np.zeros((nper, self.mesh.n_cells), dtype=float)
 
         by_period = np.zeros((nper, self.mesh.n_cells), dtype=float)
@@ -75,9 +72,7 @@ class WellResolutionMixin:
         """Resolve one well rate to one value per period in m3/s."""
         forcing = getattr(well_cfg, "forcing", None)
         if forcing is not None:
-            from hydromodpy.physics.flow.time_forcing import (
-                resolve_period_values_from_forcing,
-            )
+            from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 
             raw_values = resolve_period_values_from_forcing(
                 forcing=forcing,

@@ -7,12 +7,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.physics.flow.boundary_condition_registry import (
-    active_side_dirichlet_boundary_ids,
-)
-
 if TYPE_CHECKING:
-    from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
+    from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 
 
 @dataclass(frozen=True)
@@ -48,15 +44,8 @@ class DirichletSupportResolutionMixin:
         support_label = self.boundary_support_label(boundary)
         if support_label is None:
             return None
-        support = self.require_runtime_mesh_support(label=f"flow.bc.{bc_id}")
-        edge_indices = np.asarray(
-            support.edge_indices_for_label(support_label),
-            dtype=int,
-        ).reshape(-1)
-        cell_indices = np.asarray(
-            support.cell_indices_for_label(support_label),
-            dtype=int,
-        ).reshape(-1)
+        edge_indices = np.asarray(self.mesh.edge_indices_for_label(support_label), dtype=int)
+        cell_indices = np.asarray(self.mesh.cell_indices_for_label(support_label), dtype=int)
         if edge_indices.size == 0 or cell_indices.size == 0:
             raise ValueError(
                 f"flow.bc.{bc_id}.support_label='{support_label}' did not match any runtime mesh support."
@@ -96,13 +85,8 @@ class DirichletSupportResolutionMixin:
         if labelled_support is not None:
             return labelled_support
 
-        support = self.runtime_mesh_support()
-        if support is not None:
-            edge_indices = np.asarray(support.river_edge_indices(), dtype=int).reshape(-1)
-            cell_indices = np.asarray(support.river_cell_indices(), dtype=int).reshape(-1)
-        else:
-            edge_indices = self.mesh.river_edge_indices()
-            cell_indices = self.mesh.river_cell_indices()
+        edge_indices = self.mesh.edge_indices_for_label("stream")
+        cell_indices = self.mesh.cell_indices_for_label("stream")
         if edge_indices.size == 0:
             raise ValueError(
                 "Boundary 'stream' is active but no edge is tagged is_river in the mesh bundle."
@@ -170,7 +154,7 @@ class DirichletSupportResolutionMixin:
                     )
                 )
 
-        for bc_id in active_side_dirichlet_boundary_ids(self.flow):
+        for bc_id in self.inputs.boundaries.active_side_dirichlet_ids():
             boundary = self.require_active_dirichlet_boundary(
                 boundary_conditions=boundary_conditions,
                 bc_id=bc_id,

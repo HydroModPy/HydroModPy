@@ -7,15 +7,15 @@ mode = "simulation"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [[simulation.process]]
 id = "transport_main"
-type = "transport"
+kind = "transport"
 solvers = ["mt3dms"]
 
-[transport.mt3dms.parameters]
+[transport.mt3dms]
 spc_name = "NO3"
 sconc_init = 0.1
 sconc_input = 0.05
@@ -26,25 +26,14 @@ rate_decay = 0.00136986301369863
 [simulation.results]
 keep_solver_files = true
 
-[simulation.results.derived]
-accumulation_flux = true
-outflow_drain = true
-concentration_seepage = true
-mass_seepage = true
+[solver.modflow_nwt.runtime]
 
-[simulation.results.budget]
-spatial_fields = true
-
-[modflownwt.runtime]
-
-[modflownwt.runtime.dis]
+[solver.modflow_nwt.runtime.dis]
 itmuni = 1
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 60
-ny = 60
+[mesh.regular]
+shape = [60, 60]
 
-[modflownwt.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 2
 lay_decay = 1.2

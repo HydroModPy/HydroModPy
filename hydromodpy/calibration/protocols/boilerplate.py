@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+from hydromodpy.calibration.protocols.base import protocol_support
 from hydromodpy.calibration.protocols.registry import get_protocol
 
 
@@ -28,15 +29,50 @@ def methods_paragraph(
     chosen: Mapping[str, object] | None = None,
     options: Sequence[Mapping[str, object]] | None = None,
     backend: str | None = None,
+    conditional_widths: Mapping[str, str] | None = None,
+    absent_widths: Mapping[str, str] | None = None,
+    steady_window: Mapping[str, object] | None = None,
+    version: str | None = None,
+    held: Mapping[str, float] | None = None,
+    stages_declared: int | None = None,
+    conditional_in_force: Sequence[str] = (),
 ) -> str:
     """Return the Methods prose for one calibration that ran.
 
     ``stages_that_ran`` names the stages that completed, so the sentence
     describes the run rather than the plan. ``calibrated`` carries the values the
-    search returned, ``chosen`` the settings this file set on keys the protocol
-    departs from its publication on, ``options`` the protocol options it moved off
-    the recipe, and ``backend`` the solver, whose support status is stated when it
-    is not one this repository tests.
+    search returned, ``chosen`` the settings this file actually set on keys the
+    protocol declares a departure on -- only the ones whose value differs from
+    ``Deviation.paper_value`` are reported, so a file that merely restates the
+    publication's own default is not read as having left it. ``options`` is the
+    protocol options moved off the recipe, and ``backend`` the solver, whose
+    support status is stated when it is not one this repository tests.
+
+    ``version`` is the version the file pinned, the installed one when None.
+
+    ``held`` carries the best value of each parameter of a stage that did not
+    settle, which is the value the promoted run holds. ``stages_declared`` is the
+    number of stages the file declares, the protocol's own when None.
+    ``conditional_in_force`` names the departures that depend on the file and hold
+    in this run.
+
+    ``steady_window`` carries the span stage one actually averaged its recharge
+    over -- ``start``, ``end``, ``days``, and ``mean_recharge_m_s`` when it is
+    known -- so a reader can tell a multi-decade normal from the three years a
+    project happened to load, without reading the model that ran.
+
+    ``conditional_widths`` names, per stage, a parameter uncertainty that WAS
+    reported but is conditional rather than absolute -- typically frozen
+    upstream values it does not carry. A conditional width read as an absolute
+    one is a wrong number, not a missing detail, so it belongs in the paragraph
+    a reader actually cites, not only in a log line.
+
+    ``absent_widths`` names, per stage, why NO parameter uncertainty was built
+    at all (a reused stage that was not resolved, or a stage with no residual
+    vector to take a width from). This must stay a separate key from
+    ``conditional_widths``: a stage with nothing to report is not the same
+    claim as a stage reporting a number that comes with a caveat, and folding
+    the two together reads as if every listed stage carried a width.
     """
     protocol = get_protocol(name)
     parts: list[str] = []
@@ -47,7 +83,7 @@ def methods_paragraph(
     )
     parts.append(
         f"Hydraulic properties were calibrated with the {protocol.title!r} protocol "
-        f"({protocol.name} version {protocol.version}), after {citation}."
+        f"({protocol.name} version {version or protocol.version}), after {citation}."
     )
 
     ran = [str(stage) for stage in stages_that_ran]
@@ -55,17 +91,44 @@ def methods_paragraph(
         parts.append("No stage of the protocol completed, so no calibrated value is reported.")
         return " ".join(parts)
 
+    total = (
+        len(protocol.stages)
+        if stages_declared is None
+        else min(stages_declared, len(protocol.stages))
+    )
     described = [str(text).rstrip(".") for text in list(protocol.stages)[: len(ran)]]
     parts.append(
-        f"{len(ran)} of the {len(protocol.stages)} stages completed: "
+        f"{len(ran)} of the {total} stages completed: "
         + "; ".join(f"({index}) {text}" for index, text in enumerate(described, start=1))
         + "."
     )
-    if len(ran) < len(protocol.stages):
-        parts.append(
-            "The remaining stage did not complete, so any parameter it would have "
-            "calibrated keeps the value it entered the calibration with."
-        )
+    left_out = any(item["key"] == "storage" and not item["here"] for item in options or ())
+    if left_out:
+        parts.append("The file left the stage that fits the storage out (storage = false).")
+    elif len(ran) < total:
+        if held:
+            kept = ", ".join(f"{key} = {value:.4g}" for key, value in sorted(held.items()))
+            parts.append(
+                "The remaining stage did not settle, so the run holds the best value its "
+                f"search had reached when it stopped: {kept}."
+            )
+        else:
+            parts.append(
+                "The remaining stage did not complete, so any parameter it would have "
+                "calibrated keeps the value it entered the calibration with."
+            )
+
+    if steady_window:
+        start = steady_window.get("start")
+        end = steady_window.get("end")
+        days = steady_window.get("days")
+        piece = f"Stage one averaged recharge over its steady window, {start} to {end}"
+        if days is not None:
+            piece += f" ({days} day(s))"
+        recharge = steady_window.get("mean_recharge_m_s")
+        if recharge is not None:
+            piece += f", mean recharge {float(recharge):.4g} m/s"
+        parts.append(piece + ".")
 
     if calibrated:
         rendered = ", ".join(f"{key} = {value:.4g}" for key, value in sorted(calibrated.items()))
@@ -74,7 +137,9 @@ def methods_paragraph(
     departures = [
         deviation
         for deviation in protocol.deviations
-        if chosen is not None and deviation.key in chosen
+        if chosen is not None
+        and deviation.key in chosen
+        and chosen[deviation.key] != deviation.paper_value
     ]
     if departures:
         listed = "; ".join(
@@ -85,21 +150,52 @@ def methods_paragraph(
         )
         parts.append(f"This run departs from the published method as follows: {listed}.")
 
+    always = "; ".join(
+        f"{deviation.key}: {deviation.here}"
+        for deviation in protocol.deviations
+        if deviation.always
+    )
+    if always:
+        parts.append(f"This implementation departs from it in every run: {always}.")
+
+    conditional = "; ".join(
+        f"{deviation.key}: {deviation.here}"
+        for deviation in protocol.deviations
+        if deviation.key in conditional_in_force
+    )
+    if conditional:
+        parts.append(
+            f"With the declarations of this file it also departs from it as follows: {conditional}."
+        )
+
     if options:
         listed = ", ".join(
             f"{item['key']} = {item['here']!r} instead of {item['recipe']!r}" for item in options
         )
         parts.append(f"Protocol options were moved off the recipe: {listed}.")
 
+    if conditional_widths:
+        listed = "; ".join(f"{stage}: {note}" for stage, note in sorted(conditional_widths.items()))
+        parts.append(f"Reported parameter uncertainty is conditional on the following: {listed}.")
+
+    if absent_widths:
+        listed = "; ".join(f"{stage}: {note}" for stage, note in sorted(absent_widths.items()))
+        parts.append(f"No parameter uncertainty was built for: {listed}.")
+
     if backend:
-        verdict = protocol.support.get(str(backend))
-        if verdict == "expected_untested":
+        verdict = protocol_support(get_protocol(protocol.name), backend)
+        if verdict.verdict == "expected_untested":
             parts.append(
                 f"The protocol was run on the {backend} backend, on which it is expected "
                 "to work but is not covered by a test case."
             )
-        elif verdict == "unsupported":
-            parts.append(f"The protocol is not supported on the {backend} backend.")
+        elif verdict.verdict == "unsupported":
+            read = ", ".join(str(name) for name in protocol.declared_observables)
+            handed = f" The backend says: {verdict.reason}." if verdict.reason else "."
+            parts.append(
+                f"The protocol is not supported on the {backend} backend, which does "
+                f"not serve every observable it reads ({read}).{handed}"
+            )
 
     parts.append(
         "Full citations: " + " ".join(reference.cite() for reference in protocol.references)

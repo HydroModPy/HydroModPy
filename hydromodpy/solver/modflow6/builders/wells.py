@@ -1,4 +1,7 @@
-"""MF6 well stress-period data builder."""
+"""MF6 well stress-period data builder.
+
+It builds WEL, with the flow reduction under Newton.
+"""
 
 from __future__ import annotations
 
@@ -6,13 +9,21 @@ from collections.abc import Mapping
 from numbers import Real
 from typing import Any
 
+import flopy
 import numpy as np
 
-from hydromodpy.core.units.volumetric_flow import (
+from hydromodpy.core.units.quantities import (
     convert_to_m3_per_s,
+    forcing_units,
     normalize_m3_per_s_unit,
 )
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.mesh.cells.locate import locate_cells
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow6.builders.boundary_conditions import (
+    assemble_constant_head_stress_period_data,
+)
+from hydromodpy.solver.modflow6.builders.period_forcing import simulation_window
+from hydromodpy.solver.modflow6.support.computational_top import well_flow_reduce_fraction
 
 
 def well_cell_to_disv(*, ncol: int, lay: int, row: int, col: int) -> tuple[int, int]:
@@ -21,12 +32,11 @@ def well_cell_to_disv(*, ncol: int, lay: int, row: int, col: int) -> tuple[int, 
 
 
 def _validate_resolved_well_cell(model, *, well_id: str, lay: int, cell_id: int) -> None:
-    """A WEL cell must exist in the grid and be active (idomain != 0).
+    """A WEL cell must exist in the grid and be active (idomain > 0).
 
     MODFLOW errors here are cryptic, so we fail early naming the well. Layers and
     cells are 0-based. The per-layer mask ``solver_mesh.inactive_mask`` (nlay,
-    n_cells) is used when present; otherwise ``model.dem_mask`` is the flat
-    layer-0 active mask. In both, True means inactive.
+    n_cells) tells which cells are inactive (True).
     """
     nlay = int(model.nlay)
     if lay < 0 or lay >= nlay:
@@ -34,41 +44,24 @@ def _validate_resolved_well_cell(model, *, well_id: str, lay: int, cell_id: int)
             f"flow.sinks_sources.wells.{well_id} layer {lay} is outside the grid: "
             f"valid layers are 0..{nlay - 1} (0-based)."
         )
-    solver_mesh = getattr(model, "solver_mesh", None)
-    if solver_mesh is not None:
-        mask = np.asarray(solver_mesh.inactive_mask, dtype=bool)
-        n_cells = int(mask.shape[1])
-        if cell_id < 0 or cell_id >= n_cells:
-            raise ValueError(
-                f"flow.sinks_sources.wells.{well_id} cell {cell_id} is outside the grid "
-                f"({n_cells} cells)."
-            )
-        inactive = bool(mask[lay, cell_id])
-    else:
-        flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
-        if cell_id < 0 or cell_id >= flat.size:
-            raise ValueError(
-                f"flow.sinks_sources.wells.{well_id} cell {cell_id} is outside the grid "
-                f"({int(flat.size)} cells)."
-            )
-        inactive = bool(flat[cell_id])
-    if inactive:
+    mask = np.asarray(model.solver_mesh.inactive_mask, dtype=bool)
+    n_cells = int(mask.shape[1])
+    if cell_id < 0 or cell_id >= n_cells:
+        raise ValueError(
+            f"flow.sinks_sources.wells.{well_id} cell {cell_id} is outside the grid "
+            f"({n_cells} cells)."
+        )
+    if bool(mask[lay, cell_id]):
         raise ValueError(
             f"flow.sinks_sources.wells.{well_id} targets an inactive cell (layer {lay}, "
             f"cell {cell_id}); place the well inside the catchment."
         )
 
 
-def _forcing_units(forcing: object, *, fallback: object) -> object:
-    if isinstance(forcing, Mapping):
-        return forcing.get("units", fallback)
-    return getattr(forcing, "units", fallback)
-
-
 def _resolve_well_location(well_id: str, well_cfg: object) -> tuple[str, dict[str, Any]]:
     """Return ``(kind, fields)`` for one well payload (config or raw mapping)."""
     if isinstance(well_cfg, Mapping):
-        from hydromodpy.physics.flow.sinks_sources.wells import FlowWellConfig
+        from hydromodpy.model.sinks_sources.wells import FlowWellConfig
 
         well_cfg = FlowWellConfig.model_validate(dict(well_cfg))
     location = getattr(well_cfg, "location", None)
@@ -77,13 +70,13 @@ def _resolve_well_location(well_id: str, well_cfg: object) -> tuple[str, dict[st
         return "cell", {"cell": tuple(location.cell)}
     if kind == "absolute_xy":
         return "absolute_xy", {
-            "layer": int(location.layer),
+            "layer": location.layer,
             "x": float(location.x),
             "y": float(location.y),
         }
     if kind == "relative_xy":
         return "relative_xy", {
-            "layer": int(location.layer),
+            "layer": location.layer,
             "x_rel": float(location.x_rel),
             "y_rel": float(location.y_rel),
         }
@@ -98,12 +91,22 @@ def resolve_well_disv_cell(
     *,
     well_id: str,
     well_cfg: object,
-    grid: object | None,
 ) -> tuple[int, int]:
-    """Resolve one well payload to one DISV (layer, cell_id) tuple."""
+    """Resolve one well payload to one DISV (layer, cell_id) tuple.
+
+    A ``[lay, row, col]`` address names a cell of a regular grid only, and the
+    configuration refuses it on another mesh before any meshing. A coordinate
+    is located in the cell mesh the solver was given: by floor arithmetic on a
+    regular grid, by containment on any other mesh.
+    """
     location_kind, fields = _resolve_well_location(well_id, well_cfg)
     solver_mesh = getattr(model, "solver_mesh", None)
-    ncol = int(getattr(model, "ncol", 0) or 0)
+    if solver_mesh is None:
+        raise ValueError(
+            f"flow.sinks_sources.wells.{well_id} is placed on the cells of the solver mesh, "
+            "but none is set."
+        )
+    cell_mesh = solver_mesh.cell_mesh
 
     if location_kind == "cell":
         cell_seq = fields["cell"]
@@ -112,86 +115,49 @@ def resolve_well_disv_cell(
                 f"flow.sinks_sources.wells.{well_id}.cell must contain [lay, row, col]."
             )
         lay, row, col = int(cell_seq[0]), int(cell_seq[1]), int(cell_seq[2])
-        # [lay, row, col] only maps to a DISV cell id on a structured grid (row * ncol +
-        # col). ncol is set only for a structured grid, so ncol <= 0 means a DISV
-        # (Voronoi/triangle) grid where the mapping is undefined: reject rather than
-        # silently collapse to cell_id = col.
-        if ncol <= 0:
+        shape = cell_mesh.structured_shape
+        if shape is None:
             raise ValueError(
                 f"flow.sinks_sources.wells.{well_id}.cell [lay, row, col] addressing needs a "
-                "structured grid; use a coordinate-based location on a DISV (Voronoi/triangle) "
-                "mesh."
+                "regular grid; use a coordinate-based location on a triangle or Voronoi mesh."
             )
-        nrow = int(getattr(model, "nrow", 0) or 0)
-        if nrow > 0 and (row < 0 or row >= nrow):
+        nrow, ncol = shape
+        if row < 0 or row >= nrow:
             raise ValueError(f"flow.sinks_sources.wells.{well_id}.cell row is outside the grid.")
-        if ncol > 0 and (col < 0 or col >= ncol):
+        if col < 0 or col >= ncol:
             raise ValueError(f"flow.sinks_sources.wells.{well_id}.cell col is outside the grid.")
         lay_cell = well_cell_to_disv(ncol=ncol, lay=lay, row=row, col=col)
         _validate_resolved_well_cell(model, well_id=well_id, lay=lay_cell[0], cell_id=lay_cell[1])
         return lay_cell
 
-    if solver_mesh is None or getattr(solver_mesh, "is_structured", False):
-        if grid is None:
-            raise ValueError(
-                f"flow.sinks_sources.wells.{well_id} cannot resolve coordinate-based addressing "
-                "without one structured solver grid."
-            )
-        layer = int(fields["layer"])
-        if location_kind == "absolute_xy":
-            x_m = float(fields["x"])
-            y_m = float(fields["y"])
-        elif location_kind == "relative_xy":
-            x_m = float(grid.xmin) + float(fields["x_rel"]) * (float(grid.xmax) - float(grid.xmin))
-            y_m = float(grid.ymin) + float(fields["y_rel"]) * (float(grid.ymax) - float(grid.ymin))
-        else:
-            raise ValueError(
-                f"Unsupported well location mode for flow.sinks_sources.wells.{well_id}: "
-                f"{location_kind!r}."
-            )
-        xmin = float(grid.xmin)
-        xmax = float(grid.xmax)
-        ymin = float(grid.ymin)
-        ymax = float(grid.ymax)
-        if x_m < xmin or x_m > xmax or y_m < ymin or y_m > ymax:
-            raise ValueError(
-                f"flow.sinks_sources.wells.{well_id} coordinates are outside "
-                "the structured solver grid extent."
-            )
-        col = int((x_m - xmin) / float(grid.dx))
-        row = int((ymax - y_m) / float(grid.dy))
-        if col == int(grid.ncol) and x_m == xmax:
-            col = int(grid.ncol) - 1
-        if row == int(grid.nrow) and y_m == ymin:
-            row = int(grid.nrow) - 1
-        lay = layer
-        lay_cell = well_cell_to_disv(ncol=ncol, lay=int(lay), row=int(row), col=int(col))
-        _validate_resolved_well_cell(model, well_id=well_id, lay=lay_cell[0], cell_id=lay_cell[1])
-        return lay_cell
-
-    support = getattr(model, "runtime_mesh_support", None)
-    if support is None:
-        raise ValueError(
-            f"flow.sinks_sources.wells.{well_id} requires runtime gmsh support metadata "
-            "but mesh_support is unavailable."
-        )
-    layer = int(fields["layer"])
     if location_kind == "absolute_xy":
         x_m = float(fields["x"])
         y_m = float(fields["y"])
     elif location_kind == "relative_xy":
-        x_rel = float(fields["x_rel"])
-        y_rel = float(fields["y_rel"])
-        x_m = float(support.x_min_m) + x_rel * (float(support.x_max_m) - float(support.x_min_m))
-        y_m = float(support.y_min_m) + y_rel * (float(support.y_max_m) - float(support.y_min_m))
+        xmin, ymin, xmax, ymax = (float(v) for v in cell_mesh.mesh.bounds())
+        x_m = xmin + float(fields["x_rel"]) * (xmax - xmin)
+        y_m = ymin + float(fields["y_rel"]) * (ymax - ymin)
     else:
         raise ValueError(
             f"Unsupported well location mode for flow.sinks_sources.wells.{well_id}: "
             f"{location_kind!r}."
         )
-    cell_id = int(support.locate_cell_index_for_point(x_m, y_m, allow_nearest=False))
-    _validate_resolved_well_cell(model, well_id=well_id, lay=layer, cell_id=cell_id)
-    return (layer, cell_id)
+    cell_id = int(locate_cells(cell_mesh, np.array([[x_m, y_m]]), allow_nearest=False)[0])
+    if cell_id < 0:
+        raise ValueError(
+            f"flow.sinks_sources.wells.{well_id} coordinates ({x_m}, {y_m}) are outside "
+            "the mesh domain."
+        )
+    layer = fields["layer"]
+    if layer is None:
+        layer = int(solver_mesh.top_active_layer()[cell_id])
+        if layer < 0:
+            raise ValueError(
+                f"flow.sinks_sources.wells.{well_id} lies in a column with no active cell "
+                f"(cell {cell_id}); place the well inside the catchment."
+            )
+    _validate_resolved_well_cell(model, well_id=well_id, lay=int(layer), cell_id=cell_id)
+    return (int(layer), cell_id)
 
 
 def build_well_stress_period_data(
@@ -199,26 +165,15 @@ def build_well_stress_period_data(
     n_stress_periods: int,
 ) -> dict[int, list[list[float]]]:
     """Build MF6 WEL stress-period data from the configured wells."""
-    if n_stress_periods <= 0 or model.flow is None:
+    if n_stress_periods <= 0:
         return {}
 
-    active = getattr(model.flow, "active_sinks_sources", [])
-    if "wells" not in active:
+    if "wells" not in model.inputs.active_sinks_sources:
         return {}
 
-    sinks_sources = getattr(model.flow, "sinks_sources", {})
-    if not isinstance(sinks_sources, Mapping):
-        return {}
-
-    wells = sinks_sources.get("wells", {})
-    if wells is None:
-        return {}
-    if not isinstance(wells, Mapping):
-        raise TypeError("flow.sinks_sources['wells'] must be a mapping of well ids to payloads.")
+    wells = model.inputs.wells
     if len(wells) == 0:
         return {}
-    grid = None if model.grid_ctx is None else model.grid_ctx.grid
-
     normalized_wells: list[tuple[tuple[int, int], np.ndarray]] = []
     for well_id, raw_well_payload in wells.items():
         flux_payload = getattr(raw_well_payload, "flux", None)
@@ -233,13 +188,12 @@ def build_well_stress_period_data(
             model,
             well_id=well_id,
             well_cfg=raw_well_payload,
-            grid=grid,
         )
 
         if forcing_payload is not None:
             raw_values = resolve_period_values_from_forcing(
                 forcing=forcing_payload,
-                simulation_window=None if model.time_grid is None else model.time_grid.window,
+                simulation_window=simulation_window(model),
                 nper=int(n_stress_periods),
                 label=f"flow.sinks_sources.wells.{well_id}.forcing",
             )
@@ -249,7 +203,7 @@ def build_well_stress_period_data(
                 else getattr(raw_well_payload, "units", "m3/s")
             )
             canonical_units = normalize_m3_per_s_unit(
-                _forcing_units(forcing_payload, fallback=fallback_units),
+                forcing_units(forcing_payload, fallback=fallback_units),
             )
             flux_vector = np.asarray(
                 [
@@ -298,3 +252,39 @@ __all__ = [
     "resolve_well_disv_cell",
     "well_cell_to_disv",
 ]
+
+
+def build_constant_heads_and_wells(
+    model,
+    ocean_chd_spd,
+    ocean_support_mask,
+    stream_chd_spd,
+    stream_support_mask,
+    side_chd_spd,
+    runtime,
+):
+    """CHD and WEL."""
+    chd_spd = assemble_constant_head_stress_period_data(
+        model,
+        ocean=(ocean_chd_spd, ocean_support_mask),
+        stream=(stream_chd_spd, stream_support_mask),
+        side=side_chd_spd,
+    )
+    if any(len(v) > 0 for v in chd_spd.values()):
+        model.chd = flopy.mf6.ModflowGwfchd(model.gwf, stress_period_data=chd_spd, save_flows=True)
+
+    wel_spd = build_well_stress_period_data(model, int(model.nper))
+    if any(len(v) > 0 for v in wel_spd.values()):
+        wel_kwargs: dict[str, object] = {"stress_period_data": wel_spd, "save_flows": True}
+        if runtime.mf6_newton:
+            # Under the Newton formulation a well that dewaters its cell makes
+            # the head oscillate across the confined/unconfined threshold and the
+            # solve diverges. AUTO_FLOW_REDUCE tapers the extraction as the
+            # saturated thickness drops below 10% of the cell (physically
+            # correct: you cannot pump water that is not there), which removes
+            # the oscillation. No effect on cells that stay saturated. The 10 %
+            # are of the aquifer, not of a cell raised to the computational top.
+            wel_kwargs["auto_flow_reduce"] = well_flow_reduce_fraction(
+                model, wel_spd, of_aquifer=0.1
+            )
+        model.wel = flopy.mf6.ModflowGwfwel(model.gwf, **wel_kwargs)

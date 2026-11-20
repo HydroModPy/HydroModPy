@@ -21,6 +21,7 @@ def run_boussinesq_linearized_unconfined_boundary_piecewise_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> object:
     """Run the boundary-piecewise case through the local transient Boussinesq backend."""
     metadata = load_case_metadata(CASE_DIR)
@@ -36,6 +37,7 @@ def run_boussinesq_linearized_unconfined_boundary_piecewise_case(
         case_id=CASE_ID,
         caller_file=caller_file,
         timeout=timeout,
+        public_solver_label=public_solver_label,
         nx=NX,
         ny=NY,
         nper=int(output_cfg["expected_periods"]),
@@ -48,9 +50,7 @@ def run_boussinesq_linearized_unconfined_boundary_piecewise_case(
         storage_coefficient=float(reference_cfg["specific_yield"]),
         flow_section={
             "flow_regime": "transient",
-            "ic": {"type": "custom", "value": base_head_m},
-            "active_sinks_sources": [],
-            "active_bc": ["west_side", "east_side"],
+            "ic": {"kind": "custom", "value": base_head_m},
             "bc": {
                 "west_side": {"value": list(reference_cfg["west_head_levels_m"])},
                 "east_side": {"value": base_head_m},

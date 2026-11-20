@@ -1,140 +1,48 @@
-"""Unit tests for shared simulation time-window helpers."""
+"""The simulation time window and its stress-period grid, from ``[simulation.time]``.
+
+Dates are calendar timestamps, steps are a count of a unit (day, hour, month) and
+period lengths are in seconds."""
 
 from __future__ import annotations
 
+import warnings
 from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 
-from hydromodpy.core.time import (
-    ResolvedSteadySimulationTimeGrid,
-    apply_explicit_time_window_to_tgrids,
+from hydromodpy.core.time.window import (
     require_flow_simulation_time_grid,
     resolve_simulation_time_grid,
     resolve_simulation_time_window,
-    validate_recharge_coverage,
+    simulation_time_pandas_frequency,
 )
 
 
-def _make_cfg_with_time(
-    *,
-    coverage_policy: str = "error",
-    mode: str = "explicit",
-    step_value: int = 1,
-    step_unit: str = "day",
-) -> SimpleNamespace:
+def a_config(regime: str = "transient", **time) -> SimpleNamespace:
+    """A flow config over 2020-01-01 to 2020-01-03 in 1 day steps, with ``time`` overriding."""
+    fields = {
+        "mode": "explicit",
+        "start_datetime": "2020-01-01 00:00:00",
+        "end_datetime": "2020-01-03 00:00:00",
+        "step_value": 1,
+        "step_unit": "day",
+        "coverage_policy": "error",
+    } | time
     return SimpleNamespace(
         simulation=SimpleNamespace(
-            time=SimpleNamespace(
-                mode=mode,
-                start_datetime="2020-01-01 00:00:00",
-                end_datetime="2020-01-03 00:00:00",
-                step_value=step_value,
-                step_unit=step_unit,
-                coverage_policy=coverage_policy,
-            ),
-            process=[
-                SimpleNamespace(type="flow", solvers=["modflow_nwt"]),
-            ],
+            time=SimpleNamespace(**fields),
+            process=[SimpleNamespace(kind="flow", solvers=["modflow_nwt"])],
         ),
-        modflownwt=SimpleNamespace(
-            tgrid=SimpleNamespace(start_datetime=None, end_datetime=None),
-        ),
-        flow=SimpleNamespace(flow_regime="transient"),
+        flow=SimpleNamespace(flow_regime=regime),
     )
 
 
-def test_apply_simulation_time_window_updates_solver_tgrids() -> None:
-    cfg = _make_cfg_with_time()
-
-    apply_explicit_time_window_to_tgrids(cfg)
-
-    assert str(cfg.modflownwt.tgrid.start_datetime).startswith("2020-01-01")
-    assert str(cfg.modflownwt.tgrid.end_datetime).startswith("2020-01-03")
-    assert cfg.modflownwt.tgrid.nper == 3
-    assert cfg.modflownwt.tgrid.lenper == [86400.0, 86400.0, 86400.0]
-    assert cfg.modflownwt.tgrid.itmuni == "seconds"
-    assert cfg.modflownwt.tgrid.ntsp == 1
-    assert cfg.modflownwt.tgrid.tsmult == 1.0
-    # MODFLOW 6 has no tgrid section: it reads stress periods from [simulation.time].
-    assert not hasattr(cfg, "modflow6")
-
-
-def test_get_simulation_time_window_rejects_from_modflow_mode() -> None:
-    cfg = _make_cfg_with_time(mode="from_modflow")
-
-    with pytest.raises(ValueError, match="must be 'explicit'"):
-        resolve_simulation_time_window(cfg)
-
-
-def test_validate_recharge_coverage_raises_when_range_not_covered() -> None:
-    cfg = _make_cfg_with_time(coverage_policy="error")
-    window = resolve_simulation_time_window(cfg)
-    recharge = pd.Series(
-        [0.1, 0.2],
-        index=pd.to_datetime(["2020-01-02 00:00:00", "2020-01-03 00:00:00"]),
-    )
-
-    with pytest.raises(ValueError, match="does not fully cover"):
-        validate_recharge_coverage(recharge, window)
-
-
-def test_validate_recharge_coverage_warns_when_policy_warn() -> None:
-    cfg = _make_cfg_with_time(coverage_policy="warn")
-    window = resolve_simulation_time_window(cfg)
-    recharge = pd.Series(
-        [0.1, 0.2],
-        index=pd.to_datetime(["2020-01-02 00:00:00", "2020-01-03 00:00:00"]),
-    )
-
-    with pytest.warns(UserWarning, match="Recharge coverage check failed"):
-        validate_recharge_coverage(recharge, window)
-
-
-def test_validate_recharge_coverage_passes_for_full_coverage() -> None:
-    cfg = _make_cfg_with_time(coverage_policy="error")
-    window = resolve_simulation_time_window(cfg)
-    recharge = pd.Series(
-        [0.1, 0.2, 0.3],
-        index=pd.to_datetime(["2020-01-01 00:00:00", "2020-01-02 00:00:00", "2020-01-03 00:00:00"]),
-    )
-
-    validate_recharge_coverage(recharge, window)
-
-
-def test_validate_recharge_coverage_accepts_period_aligned_series() -> None:
-    cfg = _make_cfg_with_time(step_value=10, step_unit="day", coverage_policy="error")
-    cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
-    cfg.simulation.time.end_datetime = "2020-01-30 00:00:00"
-    window = resolve_simulation_time_window(cfg)
-    recharge = pd.Series(
-        [0.1, 0.2, 0.3],
-        index=pd.to_datetime(["2020-01-01 00:00:00", "2020-01-11 00:00:00", "2020-01-21 00:00:00"]),
-    )
-
-    validate_recharge_coverage(recharge, window)
-
-
-def test_apply_simulation_time_window_monthly_calendar_lengths() -> None:
-    cfg = _make_cfg_with_time(step_value=1, step_unit="month")
-    cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
-    cfg.simulation.time.end_datetime = "2020-03-31 00:00:00"
-
-    apply_explicit_time_window_to_tgrids(cfg)
-
-    assert cfg.modflownwt.tgrid.nper == 3
-    assert cfg.modflownwt.tgrid.lenper == [2678400.0, 2505600.0, 2678400.0]
-
-
-def test_resolve_simulation_time_grid_explicit_mode() -> None:
-    cfg = _make_cfg_with_time(step_value=10, step_unit="day")
-    cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
-    cfg.simulation.time.end_datetime = "2020-01-30 00:00:00"
+def test_explicit_grid() -> None:
+    cfg = a_config(end_datetime="2020-01-30 00:00:00", step_value=10)
 
     grid = resolve_simulation_time_grid(cfg)
 
-    assert grid is not None
     assert grid.nper == 3
     assert list(grid.period_lengths_seconds) == [864000.0, 864000.0, 864000.0]
     assert list(grid.period_starts) == [
@@ -144,61 +52,88 @@ def test_resolve_simulation_time_grid_explicit_mode() -> None:
     ]
 
 
-def test_resolve_simulation_time_grid_rejects_from_modflow_mode() -> None:
-    cfg = _make_cfg_with_time(mode="from_modflow")
+def test_inline_step_value_and_unit() -> None:
+    cfg = a_config(end_datetime="2020-03-30 00:00:00", step_value="30 day", step_unit=None)
 
-    with pytest.raises(ValueError, match="must be 'explicit'"):
-        _ = resolve_simulation_time_grid(cfg)
+    grid = resolve_simulation_time_grid(cfg)
+
+    assert grid.nper == 3
+    assert grid.period_lengths_seconds == (2592000.0, 2592000.0, 2592000.0)
 
 
-def test_require_flow_simulation_time_grid_requires_window_for_flow_process() -> None:
-    cfg = _make_cfg_with_time()
+def test_steady_window_need_not_align_with_the_step() -> None:
+    cfg = a_config(
+        "steady",
+        start_datetime="2020-01-01",
+        end_datetime="2021-12-15",
+        step_value="1 month",
+        step_unit=None,
+    )
+
+    grid = resolve_simulation_time_grid(cfg)
+
+    assert grid.nper == 1
+    assert grid.boundaries[-1] == pd.Timestamp("2021-12-16")
+
+
+def test_hourly_frequency_uses_lowercase_alias() -> None:
+    cfg = a_config(step_value=6, step_unit="hour")
+    window = resolve_simulation_time_window(cfg)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        freq = simulation_time_pandas_frequency(window)
+        pd.date_range(cfg.simulation.time.start_datetime, periods=3, freq=freq)
+
+    assert freq == "6h"
+
+
+def test_flow_process_needs_no_window_without_flow() -> None:
+    cfg = a_config()
     cfg.simulation.time = None
-    cfg.flow = SimpleNamespace(flow_regime="transient")
+    cfg.simulation.process = [SimpleNamespace(kind="transport", solvers=["mt3dms"])]
+
+    assert require_flow_simulation_time_grid(cfg) is None
+
+
+# (changes to [simulation.time], part of the message that names the fix)
+REFUSED_TIMES = [
+    pytest.param({"mode": "from_modflow"}, "must be 'explicit'", id="from_modflow mode"),
+    pytest.param(
+        {"step_value": 2},
+        "not aligned with step_value/step_unit",
+        id="end not aligned with the step",
+    ),
+    pytest.param(
+        {"step_unit": None},
+        "simulation.time.step_value has no unit",
+        id="step value without unit",
+    ),
+    # The sign and the type are diagnosed before the missing unit.
+    pytest.param(
+        {"step_value": -5, "step_unit": None},
+        "must be a positive integer",
+        id="negative step value",
+    ),
+    pytest.param(
+        {"step_value": True, "step_unit": None},
+        "must be a positive integer",
+        id="boolean step value",
+    ),
+]
+
+
+@pytest.mark.parametrize(("time", "message"), REFUSED_TIMES)
+def test_refused_times(time, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        resolve_simulation_time_grid(a_config(**time))
+
+
+def test_flow_process_requires_a_window() -> None:
+    cfg = a_config()
+    cfg.simulation.time = None
 
     with pytest.raises(
         ValueError, match=r"Launcher flow processes require a valid \[simulation\.time\] section"
     ):
         require_flow_simulation_time_grid(cfg)
-
-
-def test_require_flow_simulation_time_grid_keeps_window_optional_without_flow_process() -> None:
-    cfg = _make_cfg_with_time()
-    cfg.simulation.time = None
-    cfg.simulation.process = [SimpleNamespace(type="transport", solvers=["mt3dms"])]
-
-    assert require_flow_simulation_time_grid(cfg) is None
-
-
-def test_require_flow_simulation_time_grid_returns_dedicated_steady_grid_without_window() -> None:
-    cfg = _make_cfg_with_time()
-    cfg.simulation.time = None
-    cfg.flow = SimpleNamespace(flow_regime="steady")
-
-    grid = require_flow_simulation_time_grid(cfg)
-
-    assert isinstance(grid, ResolvedSteadySimulationTimeGrid)
-    assert grid.nper == 1
-    assert grid.period_lengths_seconds == (1.0,)
-
-
-def test_apply_simulation_time_window_raises_when_end_not_aligned_with_step() -> None:
-    cfg = _make_cfg_with_time(step_value=2, step_unit="day")
-    cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
-    cfg.simulation.time.end_datetime = "2020-01-03 00:00:00"
-
-    with pytest.raises(ValueError, match="not aligned with step_value/step_unit"):
-        apply_explicit_time_window_to_tgrids(cfg)
-
-
-def test_apply_simulation_time_window_accepts_inline_step_value_unit() -> None:
-    cfg = _make_cfg_with_time(step_value=1, step_unit="day")
-    cfg.simulation.time.step_value = "30 day"
-    cfg.simulation.time.step_unit = None
-    cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
-    cfg.simulation.time.end_datetime = "2020-03-30 00:00:00"
-
-    apply_explicit_time_window_to_tgrids(cfg)
-
-    assert cfg.modflownwt.tgrid.nper == 3
-    assert cfg.modflownwt.tgrid.lenper == [2592000.0, 2592000.0, 2592000.0]

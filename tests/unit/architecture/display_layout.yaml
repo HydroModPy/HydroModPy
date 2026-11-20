@@ -1,0 +1,59 @@
+# Import rules inside hydromodpy/display, described on the page
+# docs/source/contribute/architecture/packages/display.rst.
+# Checked by test_package_layouts.py. A part is a root module or a subpackage of
+# hydromodpy/display; it may always import itself. "<init>" is the package facade.
+# Every import counts: module level, in a function, under TYPE_CHECKING.
+# What lies outside hydromodpy/display is the business of layer_matrix.yaml.
+#
+# Rows are written lowest first: a row names only rows written above it, so
+# this table cannot allow a cycle.
+allowed:
+  "<init>":         []
+  request:          []
+  theme:            []
+  static:           [request, theme]
+  quicklook:        []
+  subject:          [request, theme]
+  interactive:      [subject, theme]
+  variables:        [request, theme]
+  overlays:         ["<init>", request, subject, static, theme]
+  output:           ["<init>", request, interactive, static, theme]
+  frames:           ["<init>", request, subject, variables, interactive, static, theme]
+  special:          ["<init>", frames, subject, variables, overlays, static, theme]
+  presets:          [request]
+  render:           ["<init>", request, presets, frames, special, subject, overlays, interactive, static, theme]
+  config:           [request, presets, theme]
+  cohort:           ["<init>", theme]
+  run_comparison:   ["<init>", frames, subject, variables, static, theme]
+  runs:             ["<init>", config, request, presets, subject, output, render, theme]
+  catalog_figures:  [request, presets, runs]
+  overview:         ["<init>", theme]
+  report:           [config, presets, request, runs]
+
+# The renderer imports a frame of hydromodpy.display.frames by its name in
+# request.FRAMES and a special figure of hydromodpy.display.special by its name
+# in request.SPECIALS. Only this file may name a module so.
+text_paths:
+  - hydromodpy/display/render.py
+
+# What another layer of hydromodpy may import from hydromodpy/display.
+public:
+  - hydromodpy.display
+  - hydromodpy.display.config
+  - hydromodpy.display.runs
+  - hydromodpy.display.theme
+  - hydromodpy.display.static
+  - hydromodpy.display.request
+  - hydromodpy.display.presets
+  - hydromodpy.display.render
+  - hydromodpy.display.output
+  - hydromodpy.display.subject
+  - hydromodpy.display.catalog_figures
+  - hydromodpy.display.cohort
+  - hydromodpy.display.run_comparison
+  - hydromodpy.display.quicklook.viz
+  - hydromodpy.display.overview
+  - hydromodpy.display.overview.config
+  - hydromodpy.display.overview.location
+  - hydromodpy.display.overview.report
+  - hydromodpy.display.report.*

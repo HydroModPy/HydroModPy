@@ -5,15 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.tracking import InputFile
-from hydromodpy.data.managers.base_config import BaseVariableConfig
-from hydromodpy.data.variables.timeseries_variable_config import (
+from hydromodpy.core.tracking.input_file import InputFile
+from hydromodpy.data.families.base_config import BaseVariableConfig
+from hydromodpy.data.families.timeseries_config import (
     SparseStationFallbackMixin,
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    registered_section_source,
 )
 
 
@@ -27,25 +29,35 @@ class PiezometrySourceConfig(
     station selection, and source units are declared here.
     """
 
-    source: Annotated[Literal["custom", "hubeau"], Profile.USER] = Field(
+    source: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Data provider.",
+        description=(
+            "Where the groundwater-level records come from: your own files, or the id of a "
+            "source registered for the piezometry section, such as the Hub'Eau API."
+        ),
         json_schema_extra={
             "value_docs": {
-                "custom": (
-                    "Loads groundwater-level records from local station and chronicle files."
-                ),
+                "file": ("Loads groundwater-level records from local station and chronicle files."),
                 "hubeau": "Downloads public groundwater-level observations from the Hub'Eau API.",
             }
         },
     )
+
+    @field_validator("source")
+    @classmethod
+    def _check_the_source_is_served_for_piezometry(cls, source: str) -> str:
+        return registered_section_source(source, "piezometry")
 
     # --- Custom source fields ---
     path: Annotated[
         Path | None,
         Profile.USER,
         InputFile(role="piezometry", category="data"),
-    ] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
+    ] = Field(
+        default=None,
+        description="Directory containing location file and chronicle CSVs.",
+        json_schema_extra=field_metadata(site_scoped=True),
+    )
 
     # --- API source fields ---
     product: Annotated[Literal["level", "depth"] | None, Profile.USER] = Field(
@@ -61,10 +73,10 @@ class PiezometrySourceConfig(
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> PiezometrySourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles)."
+                    "File source requires 'path' (directory with location + chronicles)."
                 )
         if self.source == "hubeau":
             if self.product is None:

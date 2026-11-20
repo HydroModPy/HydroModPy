@@ -25,14 +25,17 @@ Design principles
 from __future__ import annotations
 
 import gc
+import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
 import geopandas as gpd
@@ -40,9 +43,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.state.paths import scratch_dir_for
-from hydromodpy.solver.modflow_common import ensure_platform_executable
+from hydromodpy.core.state.layout import RUNS_DIRNAME
+from hydromodpy.results.storage.contract import RUN_SOLVER_DIRNAME
+from hydromodpy.solver.modflow_common.binaries import ensure_platform_executable
 from tests._helpers.tolerances import tol
+from validation_cases.shared.runtime import budgeted_dir_name
 
 # Golden / signature comparison tolerances (single source: tests/TOLERANCES.md).
 # Rows 14/15 (regression goldens arrays) and rows 16/17 (signature stats
@@ -65,13 +70,6 @@ _SCHEMA_VERSION_KEY = "_schema_version"
 
 # Common MODFLOW outputs checked by many tests.
 # Individual tests can override this list when needed.
-DEFAULT_MODFLOW_OUTPUT_NAMES = [
-    "watertable_elevation",
-    "outflow_drain",
-    "groundwater_flux",
-    "groundwater_storage",
-    "accumulation_flux",
-]
 
 NODATA_SENTINELS_BY_VARIABLE = {
     "watertable_elevation": (-9999.0, -99999.0, -999999.0, -1.0e30, 1.0e30),
@@ -88,7 +86,7 @@ NODATA_ABS_LIMIT_BY_VARIABLE = {
 def _rmtree_onerror(func, path, exc_info) -> None:
     """Retry one failed ``rmtree`` step after clearing a read-only bit.
 
-    Windows test runs sometimes inherit read-only flags on generated artefacts.
+    Windows test runs sometimes inherit read-only flags on generated artifacts.
     ``shutil.rmtree`` can recover from that case by marking the current path
     writable and replaying the failed removal callback once.
     """
@@ -118,7 +116,7 @@ def remove_tree_with_retry(
 ) -> None:
     """Remove one directory tree with a few retries for transient Windows locks.
 
-    HydroModPy regression outputs contain GIS artefacts (`.shp`, `.dbf`, `.tif`)
+    HydroModPy regression outputs contain GIS artifacts (`.shp`, `.dbf`, `.tif`)
     that can remain briefly locked on Windows after a previous run, even though
     the producing process has already exited. Retrying the cleanup avoids
     spurious test failures when the lock clears a fraction of a second later.
@@ -214,6 +212,7 @@ def resolve_tiered_results_dir(
     *,
     test_file: str | Path,
     run_name: str,
+    generated_path_length: int = 0,
 ) -> Path:
     """
     Build and prepare one deterministic output directory for a regression test.
@@ -225,6 +224,10 @@ def resolve_tiered_results_dir(
     If ``HMP_OUT_PATH`` is not set, a deterministic temporary root is
     used: ``<tempdir>/hydromodpy_regression_outputs``.
 
+    ``generated_path_length`` is what the test writes below the directory. On
+    Windows the run name is shortened until that fits under the path limit of
+    the solvers.
+
     The target directory is cleaned before each run to avoid stale artifacts.
     """
     base_out_path = os.environ.get("HMP_OUT_PATH")
@@ -235,7 +238,10 @@ def resolve_tiered_results_dir(
     file_path = Path(test_file).resolve()
     file_parts = set(file_path.parts)
     tier = "extensive" if "extensive" in file_parts else "fast"
-    out_dir = results_root / tier / str(run_name)
+    tier_root = results_root / tier
+    out_dir = tier_root / budgeted_dir_name(
+        tier_root, str(run_name), generated_length=generated_path_length
+    )
     if out_dir.exists():
         remove_tree_with_retry(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -514,7 +520,7 @@ def collect_json_signatures(
 
 def _open_result_store(workspace_path: Path):
     """Open a read-only Catalog for golden comparison."""
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     return Catalog(workspace_path)
 
@@ -538,23 +544,32 @@ def store_field_signature(store, sim_id: str, variable: str) -> dict:
     Reads the last available timestep and computes the same stats as
     ``modflow_signature`` so golden comparison is identical.
     """
-    # Scan all available timesteps for this variable (up to a reasonable max).
-    available = 0
-    for t in range(10000):
-        try:
-            store.query_field(sim_id, variable, t)
-            available = t + 1
-        except (KeyError, IndexError, Exception) as exc:
-            # Zarr raises BoundsCheckError (subclass of IndexError) when out of range.
-            if "out of bounds" in str(exc).lower() or isinstance(exc, (KeyError, IndexError)):
-                break
-            break
+    from hydromodpy.results.derive.virtual_fields import read_field_range_or_virtual
+
+    sz = store.open_zarr(sim_id)
+    try:
+        # The time axis is the one of the stored array, else the one of the head
+        # a rebuilt field follows.
+        owner = next(
+            (
+                group
+                for group in (sz.root, sz.root.get("derived"), sz.root.get("budget"))
+                if group is not None and variable in group
+            ),
+            None,
+        )
+        axis = owner[variable] if owner is not None else sz.root.get("head")
+        available = int(axis.shape[0]) if axis is not None and axis.ndim > 1 else 0
+    finally:
+        sz.close()
 
     if available == 0:
         raise KeyError(f"Variable '{variable}' has no timesteps for sim={sim_id}")
 
     last_t = available - 1
-    arr = np.asarray(store.query_field(sim_id, variable, last_t), dtype=float)
+    arr = np.asarray(
+        read_field_range_or_virtual(store, sim_id, variable, last_t, available)[0], dtype=float
+    )
     # Flatten multi-layer to 1D (same as legacy .npy which stored flat arrays).
     if arr.ndim > 1:
         arr = arr.reshape(-1)
@@ -583,7 +598,7 @@ def collect_store_field_signatures(
         try:
             result[name] = store_field_signature(store, sim_id, name)
         except KeyError:
-            # Variable may not exist (e.g. accumulation_flux when no drain).
+            # Variable may not exist (e.g. drain_accumulation_flux when no drain).
             # Mirror legacy behavior: skip silently so golden comparison
             # only covers variables that exist.
             pass
@@ -654,6 +669,18 @@ def assert_modpath_signatures(actual_by_name: dict, expected_by_name: dict) -> N
         assert_stats(actual["time"], expected["time"])
 
 
+# Fields whose magnitude is far below 1, so the absolute floor of rows 15 and 17
+# of tests/TOLERANCES.md would hide any move. They are compared relatively, with
+# the floor scaled to the field (row 190).
+SMALL_MAGNITUDE_FIELDS = frozenset({"final_recharge_rate_m_s"})
+
+
+def _small_field_floor(expected: dict, abs_tol: float) -> float:
+    """Return the absolute floor of a small field, scaled to its golden values."""
+    scale = max(abs(expected[key]) for key in ("mean", "p50", "p95") if expected[key] is not None)
+    return abs_tol * scale
+
+
 def assert_array_signatures(
     actual_by_name: dict,
     expected_by_name: dict,
@@ -666,11 +693,14 @@ def assert_array_signatures(
     for name, expected in expected_by_name.items():
         actual = actual_by_name[name]
         assert actual["shape"] == expected["shape"]
-        assert_stats(actual, expected, rel=rel, abs_tol=abs_tol)
+        key_abs_tol = abs_tol
+        if name in SMALL_MAGNITUDE_FIELDS:
+            key_abs_tol = _small_field_floor(expected, abs_tol)
+        assert_stats(actual, expected, rel=rel, abs_tol=key_abs_tol)
         if expected["sum"] is None:
             assert actual["sum"] is None
         else:
-            assert actual["sum"] == pytest.approx(expected["sum"], rel=rel, abs=abs_tol)
+            assert actual["sum"] == pytest.approx(expected["sum"], rel=rel, abs=key_abs_tol)
 
 
 def _assert_json_signature_value(
@@ -771,32 +801,28 @@ def assert_required_executables(
         ensure_platform_executable(path)
 
 
-def require_url_available(url: str, *, timeout: float = 15.0, attempts: int = 3) -> None:
+def connectiondata_sha256(rows) -> str:
+    """Stable SHA-256 over a MODFLOW 6 LAK CONNECTIONDATA geometry.
+
+    Rounding the floating geometry to 6 decimals keeps the hash stable across
+    platforms while still detecting a real change to the connection set.
     """
-    Require an external HTTP endpoint to be reachable, otherwise skip the test.
-
-    This keeps network-dependent regression tests stable in CI/environments
-    where outbound internet connectivity is not guaranteed.
-
-    The helper is intentionally permissive:
-    - try a few times,
-    - skip instead of fail if the endpoint is unavailable.
-    """
-    try:
-        import requests
-    except Exception as exc:  # pragma: no cover - import failure is environment-specific
-        pytest.skip(f"Cannot import 'requests' to probe network dependency: {exc}")
-
-    last_error = None
-    for _ in range(attempts):
-        try:
-            response = requests.get(url, timeout=timeout)
-            response.raise_for_status()
-            return
-        except Exception as exc:  # pragma: no cover - depends on network conditions
-            last_error = exc
-
-    pytest.skip(f"External service unavailable ({url}): {last_error}")
+    serialised = [
+        [
+            int(row[0]),
+            int(row[1]),
+            [int(row[2][0]), int(row[2][1])],
+            str(row[3]),
+            round(float(row[4]), 12),
+            round(float(row[5]), 6),
+            round(float(row[6]), 6),
+            round(float(row[7]), 6),
+            round(float(row[8]), 6),
+        ]
+        for row in rows
+    ]
+    payload = json.dumps(serialised, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def resolve_model_workspace(
@@ -809,19 +835,17 @@ def resolve_model_workspace(
     """
     Resolve the solver working folders of a completed example run.
 
-    Raw solver files live in the disposable scratch of the project
-    (``<project>/.hmp/scratch``), one directory per solved model, possibly
-    nested one level under the run name.
+    A run keeps its raw solver files under ``runs/<run>/solver/`` when
+    ``[simulation.results] keep_solver_files`` is set, one directory per
+    solved model.
 
     Returns
     -------
     tuple
         (model_ws, postprocess_dir, particles_dir)
     """
-    scratch_root = scratch_dir_for(out_path)
-    if scratch_root.is_dir():
-        search_roots = [scratch_root, *(p for p in sorted(scratch_root.iterdir()) if p.is_dir())]
-        for results_dir in search_roots:
+    for results_dir in sorted(Path(out_path).glob(f"{RUNS_DIRNAME}/*/{RUN_SOLVER_DIRNAME}")):
+        if results_dir.is_dir():
             if model_name is not None:
                 model_ws = results_dir / model_name
                 if model_ws.is_dir():
@@ -842,7 +866,10 @@ def resolve_model_workspace(
                 particles_dir = postprocess_dir / "_particles"
                 return model_ws, postprocess_dir, particles_dir
 
-    raise AssertionError(f"No solver working folder found under {scratch_root}")
+    raise AssertionError(
+        f"No solver working folder found under {out_path}/{RUNS_DIRNAME}/*/{RUN_SOLVER_DIRNAME}: "
+        "set [simulation.results] keep_solver_files = true"
+    )
 
 
 def update_or_assert_goldens(
@@ -954,10 +981,8 @@ def run_example_script(
     - non-interactive execution without monkeypatching.
     """
     env = os.environ.copy()
-    # Redirect outputs into the per-test output directory via project root override.
+    # Redirect outputs into the per-test output directory.
     env[out_env_var] = str(out_path)
-    env["HMP_PROJECT_ROOT"] = str(out_path)
-    env["HMP_WORKSPACE"] = str(out_path)
     # Force non-interactive plotting backend for headless execution.
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
@@ -969,7 +994,7 @@ def run_example_script(
     # double-load crashes caused by .pth files or "coverage run".
     run_args = [] if script_args is None else list(script_args)
     if os.environ.get("HMP_COVERAGE"):
-        wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
+        wrapper = Path(__file__).resolve().parents[2] / "tools" / "ci" / "coverage_runner.py"
         command = [sys.executable, str(wrapper), str(script_path), *run_args]
     else:
         command = [sys.executable, str(script_path), *run_args]
@@ -992,40 +1017,66 @@ def run_example_script(
     )
 
 
+def stage_fixture_project(
+    fixture_dir: Path,
+    out_path: Path,
+    inputs: Mapping[str, Path],
+) -> Path:
+    """Make ``out_path`` a project that holds the TOML files of ``fixture_dir``.
+
+    ``hmp run --base`` reads the relative paths of a run from the folder it
+    writes the run in, so a fixture writes its data paths from the project
+    root (``inputs/dem/...``). The TOML files are copied to ``out_path`` and each
+    ``inputs`` entry (name below ``inputs/`` to the file or folder it stands for)
+    is linked there. Returns the folder that now holds the copies.
+    """
+    out_path.mkdir(parents=True, exist_ok=True)
+    for toml_file in sorted(Path(fixture_dir).glob("*.toml")):
+        shutil.copy2(toml_file, out_path / toml_file.name)
+    inputs_dir = out_path / "inputs"
+    inputs_dir.mkdir(exist_ok=True)
+    for name, source in inputs.items():
+        link = inputs_dir / name
+        if not link.exists():
+            link.symlink_to(Path(source).resolve())
+    return out_path
+
+
 def run_hmp_cli(
     *,
     config_path: Path,
     out_path: Path,
     extra_env: dict | None = None,
+    extra_args: tuple[str, ...] = (),
     timeout: int = 1200,
     cwd: Path = REPO_ROOT,
 ) -> None:
     """Run ``hmp run <config>`` as a subprocess.
 
     Uses ``python -m hydromodpy run`` which invokes
-    :class:`Simulation` - the production entry point.
+    :class:`Simulation` - the production entry point. ``extra_args`` follow
+    the config path on the command line (``--until export``).
     """
     env = os.environ.copy()
-    env["HMP_PROJECT_ROOT"] = str(out_path)
-    env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
             env[key] = str(value)
 
-    # Regression runs never persist ``hydromodpy.lock``: the file is opaque
-    # noise for golden comparisons and would otherwise pollute git status under
-    # tests/regression/fixtures/.
+    # The run is written in the folder of the outputs, named by argument.
+    out_path.mkdir(parents=True, exist_ok=True)
+    base = ["--base", str(out_path)]
     if os.environ.get("HMP_COVERAGE"):
-        wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
+        wrapper = Path(__file__).resolve().parents[2] / "tools" / "ci" / "coverage_runner.py"
         command = [
             sys.executable,
             str(wrapper),
             "-m",
             "hydromodpy",
             "run",
-            "--no-lock",
             str(config_path),
+            *base,
+            *extra_args,
         ]
     else:
         command = [
@@ -1033,8 +1084,9 @@ def run_hmp_cli(
             "-m",
             "hydromodpy",
             "run",
-            "--no-lock",
             str(config_path),
+            *base,
+            *extra_args,
         ]
 
     completed = subprocess.run(

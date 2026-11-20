@@ -1,0 +1,292 @@
+"""MODFLOW 6 PRT: release cells, control times in model units, and the track files.
+
+Track times are written in the time unit of the flow model and come back in days.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from types import SimpleNamespace
+
+import flopy
+import numpy as np
+import zarr
+
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.results.run.particles import read_particle_tracks
+from hydromodpy.solver.modflow6.extractors._prt_tracks import read_prt_track_csv
+from hydromodpy.solver.modflow6.extractors.prt import Modflow6PrtOutputAdapter
+from hydromodpy.solver.modflow6.prt import Modflow6Prt
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
+from tests._helpers.solver_meshes import solver_mesh_from
+from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
+
+
+class _ZarrHandle:
+    def __init__(self, path: Path):
+        self.root = zarr.open_group(str(path), mode="a")
+
+    def close(self) -> None:
+        pass
+
+
+class _Store:
+    def __init__(self, root: Path, sim_id: str):
+        self.root = root
+        self.sim_id = sim_id
+
+    def open_zarr(self, sim_id: str) -> _ZarrHandle:
+        return _ZarrHandle(self.root / f"{sim_id}.zarr")
+
+
+def test_upstream_release_excludes_stream_cells() -> None:
+    flow_model = SimpleNamespace(
+        solver_mesh=SimpleNamespace(
+            top=np.array([1.0, 5.0, 10.0, 9.0, 8.0, 7.0]),
+            inactive_mask=np.array([[False, False, False, False, False, False]]),
+        ),
+        ncpl=6,
+        _stream_support_mask=np.array([False, False, True, False, True, False]),
+    )
+
+    prt = Modflow6Prt(
+        make_model(),
+        flow_model,
+        options={"release_zone": "upstream_nonriver", "upstream_top_quantile": 0.5},
+    )
+
+    assert prt._select_release_cells().tolist() == [3]
+
+
+def test_domain_release_spreads_cells() -> None:
+    flow_model = SimpleNamespace(
+        solver_mesh=SimpleNamespace(
+            top=np.ones(7, dtype=float),
+            inactive_mask=np.array([[False, False, False, False, False, False, False]]),
+            cell_centers=lambda: np.array(
+                [
+                    [0.0, 0.0],
+                    [1.0, 0.0],
+                    [2.0, 0.0],
+                    [3.0, 0.0],
+                    [4.0, 0.0],
+                    [5.0, 0.0],
+                    [6.0, 0.0],
+                ]
+            ),
+        ),
+        ncpl=7,
+        _stream_support_mask=np.array([False, True, False, False, True, False, False]),
+    )
+
+    prt = Modflow6Prt(
+        make_model(), flow_model, options={"release_zone": "domain_nonriver", "max_particles": 3}
+    )
+    selected = prt._select_release_cells()
+
+    assert selected.size == 3
+    assert not np.any(flow_model._stream_support_mask[selected])
+    assert 0 in selected
+    assert 6 in selected
+
+
+def test_extractor_writes_vectorized_particles(tmp_path: Path) -> None:
+    output_dir = tmp_path / "solver"
+    output_dir.mkdir()
+    # Track times below are days, so the run has to say so: an undeclared unit
+    # means the launcher unit, seconds.
+    (output_dir / "case.tdis").write_text(
+        "BEGIN options\n  TIME_UNITS  days\nEND options\n",
+        encoding="utf-8",
+    )
+    (output_dir / "case_prt.trk.csv").write_text(
+        "\n".join(
+            [
+                "iprp,irpt,trelease,time,x,y,z,istatus",
+                "0,0,0,0,0,0,1,1",
+                "0,0,0,1,1,0,1,2",
+                "0,1,0,0,0,1,2,1",
+                "0,1,0,2,2,1,2,2",
+                "0,1,0,3,3,1,2,2",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    store = _Store(tmp_path / "catalog", "sim_a")
+
+    Modflow6PrtOutputAdapter().extract(solved_run(output_dir), store, keep_all)
+
+    handle = store.open_zarr("sim_a")
+    try:
+        grp = handle.root["particles"]
+        x = np.asarray(grp["x"])
+        time = np.asarray(grp["time"])
+        status = np.asarray(grp["status"])
+    finally:
+        handle.close()
+
+    assert x.shape == (2, 3)
+    assert np.allclose(x[0, :2], [0.0, 1.0])
+    assert np.isnan(x[0, 2])
+    assert np.allclose(time[1], [0.0, 2.0, 3.0])
+    assert np.allclose(status[1], [1.0, 2.0, 2.0])
+
+
+def test_track_csv_reader(tmp_path: Path) -> None:
+    csv_path = tmp_path / "case_prt.trk.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "iprp,irpt,trelease,time,x,y,z,istatus",
+                "0,0,0,0,0,0,1,1",
+                "0,0,0,86400,1,0,1,2",
+                "0,1,0,0,0,1,2,1",
+                "0,1,0,172800,2,1,2,2",
+                "0,1,0,259200,3,1,2,2",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    arrays = read_prt_track_csv(csv_path, time_units="SECONDS")
+
+    assert arrays is not None
+    assert arrays.x.shape == (2, 3)
+    assert np.allclose(arrays.time[0, :2], [0.0, 1.0])
+    assert np.isnan(arrays.time[0, 2])
+    assert np.allclose(arrays.time[1], [0.0, 2.0, 3.0])
+    assert arrays.source_file == csv_path
+
+
+def write_prt_model(tmp_path: Path, *, time_units: str, perlen: float, options: dict) -> None:
+    """Write the PRT files of one 10 x 10 m cell, flow model in the given time units."""
+    sim = flopy.mf6.MFSimulation(sim_name="sim", sim_ws=str(tmp_path), exe_name="mf6")
+    flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(perlen, 1, 1.0)], time_units=time_units)
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="flow", save_flows=True)
+    ims = flopy.mf6.ModflowIms(sim, filename="flow.ims")
+    sim.register_ims_package(ims, [gwf.name])
+    hydro_mesh = HydroMesh(
+        vertices=np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]),
+        cell_blocks=(CellBlock(CellType.QUADRILATERAL, np.array([[0, 1, 2, 3]], dtype=int)),),
+    )
+    solver_mesh = solver_mesh_from(
+        hydro_mesh,
+        top=np.array([1.0]),
+        botm=np.array([[0.0]]),
+        inactive_mask=np.array([[False]]),
+    )
+    flopy.mf6.ModflowGwfdisv(
+        gwf,
+        nlay=1,
+        **solver_mesh.to_disv_kwargs(),
+        idomain=np.array([[1]]),
+        xorigin=0.0,
+        yorigin=0.0,
+    )
+    flow_model = SimpleNamespace(
+        sim=sim,
+        gwf=gwf,
+        ims=ims,
+        tdis=sim.tdis,
+        solver_mesh=solver_mesh,
+        open_water_cell_ids=[],
+        nlay=1,
+        ncpl=1,
+        sy=np.array([[0.25]]),
+        model_name="flow",
+        exe="mf6",
+    )
+    prt = Modflow6Prt(make_model(), flow_model, str(tmp_path), "flow", options=options)
+    prt.pre_processing()
+    prt.processing(write_model=True, run_model=False, verbose=False)
+
+
+def test_prt_converts_day_controls_to_model_seconds(tmp_path: Path) -> None:
+    options = {
+        "release_zone": "domain",
+        "max_particles": 1,
+        "release_times": [1.0],
+        "track_times": [2.0],
+        "stop_time": 3.0,
+        "stop_travel_time": 4.0,
+    }
+
+    write_prt_model(tmp_path, time_units="SECONDS", perlen=86400.0, options=options)
+
+    prp_text = (tmp_path / "flow_prt.prp").read_text(encoding="utf-8")
+    oc_text = (tmp_path / "flow_prt.oc").read_text(encoding="utf-8")
+    assert "STOPTIME  2.59200000E+05" in prp_text
+    assert "STOPTRAVELTIME  3.45600000E+05" in prp_text
+    assert "86400.00000000" in prp_text
+    assert "1.72800000E+05" in oc_text
+
+
+def test_prt_generates_regular_track_times(tmp_path: Path) -> None:
+    options = {
+        "release_zone": "domain",
+        "max_particles": 1,
+        "release_times": [0.0],
+        "track_time_step": 10.0,
+        "stop_time": 30.0,
+    }
+
+    write_prt_model(tmp_path, time_units="DAYS", perlen=30.0, options=options)
+
+    oc_text = (tmp_path / "flow_prt.oc").read_text(encoding="utf-8")
+    for time in ("0.00000000", "10.00000000", "20.00000000", "30.00000000"):
+        assert time in oc_text
+
+
+def test_extractor_converts_seconds_to_days(tmp_path: Path) -> None:
+    output_dir = tmp_path / "solver"
+    output_dir.mkdir()
+    (output_dir / "case.tdis").write_text(
+        "BEGIN options\n  TIME_UNITS  seconds\nEND options\n",
+        encoding="utf-8",
+    )
+    (output_dir / "case_prt.trk.csv").write_text(
+        "\n".join(
+            [
+                "iprp,irpt,trelease,t,x,y,z,istatus",
+                "1,1,86400,0,0,0,1,1",
+                "1,1,86400,172800,2,0,1,2",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    store = _Store(tmp_path / "catalog", "sim_time")
+
+    Modflow6PrtOutputAdapter().extract(solved_run(output_dir), store, keep_all)
+
+    handle = store.open_zarr("sim_time")
+    try:
+        time = np.asarray(handle.root["particles/time"])
+        attrs = dict(handle.root["particles"].attrs)
+    finally:
+        handle.close()
+
+    assert np.allclose(time[0], [0.0, 2.0])
+    assert attrs["source_time_units"] == "SECONDS"
+    assert attrs["time_units"] == "days"
+
+
+def test_particle_tracks_reader(tmp_path: Path) -> None:
+    store = _Store(tmp_path / "catalog", "sim_b")
+    handle = store.open_zarr("sim_b")
+    try:
+        grp = handle.root.require_group("particles")
+        grp.create_array("x", data=np.array([[0.0, 1.0, np.nan], [2.0, 3.0, 4.0]]))
+        grp.create_array("y", data=np.array([[0.0, 0.0, np.nan], [1.0, 1.0, 1.0]]))
+        grp.create_array("z", data=np.array([[5.0, 5.0, np.nan], [6.0, 6.0, 6.0]]))
+    finally:
+        handle.close()
+
+    sim = SimpleNamespace(_catalog=store, sim_id="sim_b")
+    tracks = read_particle_tracks(sim)
+
+    assert len(tracks) == 2
+    assert tracks[0].shape == (2, 4)
+    assert np.allclose(tracks[0][:, :2], [[0.0, 0.0], [1.0, 0.0]])
+    assert tracks[1].shape == (3, 4)

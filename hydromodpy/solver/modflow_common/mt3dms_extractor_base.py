@@ -1,9 +1,11 @@
 """Shared base for MT3DMS / MF6-GWT concentration output adapters.
 
-The unformatted concentration file (``.ucn``) format is identical between
-MT3DMS (shipped with the NWT toolchain) and MODFLOW 6's GWT model. Both
-backends derive thin subclasses from ``Mt3dmsExtractorBase`` that only set
-their ``solver_name`` class attribute.
+Both backends write one concentration array per layer and time step, but not
+with the same record header. MT3DMS writes single precision with its own
+header (``ntrans`` first), which ``UcnFile`` reads. MODFLOW 6 GWT writes the
+MODFLOW 6 head layout in double precision with the text ``CONCENTRATION``,
+which ``HeadFile`` reads. Each subclass opens its own layout through
+``_open_concentration_file``.
 """
 
 from __future__ import annotations
@@ -13,7 +15,10 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import NothingThereError, SolverInputError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
@@ -27,38 +32,39 @@ class Mt3dmsExtractorBase:
     ``solver_name``.
     """
 
+    process_type = "transport"
     solver_name: str
-    category = "distributed"
 
-    def extract(
-        self,
-        sim_id: str,
-        solver_output_dir: Path,
-        store: Any,
-        *,
-        model_name: str | None = None,
-    ) -> None:
-        """Read .ucn file and write concentration fields into the store."""
-        import flopy.utils.binaryfile as bf
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Read the ``.ucn`` file of a solved run and write its concentration into the store.
 
-        solver_output_dir = Path(solver_output_dir)
-        if model_name is None:
-            ucn_files = list(solver_output_dir.glob("*.ucn")) + list(
-                solver_output_dir.glob("*.UCN")
+        The concentration is stored under ``concentration/<spc_name>``, one
+        path per solute, named the way ``[transport.<name>]`` spells it. A
+        concentration run keeps no per-cell budget, so ``retention`` is not
+        read.
+        """
+        del retention
+        sim_id = store.sim_id
+        options = solver_run.options
+        spc_name = getattr(options, "spc_name", None)
+        if spc_name is None or not str(spc_name).strip() or "/" in str(spc_name):
+            raise SolverInputError(
+                f"[transport.{self.solver_name}] spc_name = {spc_name!r} does not name "
+                "one solute: the concentration is stored at concentration/<spc_name>, "
+                "so the name must be non-empty and hold no '/'."
             )
-            if not ucn_files:
-                raise FileNotFoundError(f"No .ucn file in {solver_output_dir}")
-            model_name = ucn_files[0].stem
+        variable = str(spc_name)
+        solver_output_dir = Path(solver_run.output_dir)
+        ucn_files = list(solver_output_dir.glob("*.ucn")) + list(solver_output_dir.glob("*.UCN"))
+        if not ucn_files:
+            raise NothingThereError(f"No .ucn file in {solver_output_dir}")
+        model_name = ucn_files[0].stem
 
         ucn_path = solver_output_dir / f"{model_name}.ucn"
         if not ucn_path.exists():
             ucn_path = solver_output_dir / f"{model_name}.UCN"
 
-        # MT3DMS uses UcnFile; MF6-GWT uses the same binary format as HeadFile.
-        try:
-            ucn = bf.UcnFile(str(ucn_path))
-        except (EOFError, Exception):
-            ucn = bf.HeadFile(str(ucn_path), text="concentration")
+        ucn = self._open_concentration_file(ucn_path)
         times = ucn.get_times()
         n_timesteps = len(times)
 
@@ -74,7 +80,8 @@ class Mt3dmsExtractorBase:
             n_cells = conc0.size
 
         logger.info(
-            "Extracting MT3DMS concentration: %d timesteps, %d layers, %d cells",
+            "Extracting %s concentration: %d timesteps, %d layers, %d cells",
+            self.solver_name,
             n_timesteps,
             nlay,
             n_cells,
@@ -82,7 +89,8 @@ class Mt3dmsExtractorBase:
 
         # Batched stack write in time slabs: one shard encode instead of a
         # per-timestep read-modify-write, without holding the whole
-        # (nper, nlay, ncells) stack in RAM.
+        # (nper, nlay, ncells) stack in RAM. The slabs write into the
+        # concentration subgroup, under the solute the run carries.
         slab = slab_steps(nlay, n_cells)
         try:
             for t0 in range(0, n_timesteps, slab):
@@ -91,19 +99,18 @@ class Mt3dmsExtractorBase:
                 for t in range(t0, t1):
                     chunk[t - t0] = ucn.get_data(totim=times[t]).reshape(nlay, n_cells)
                 store.write_field_stack(
-                    sim_id, "concentration", chunk, n_timesteps=n_timesteps, timestep_offset=t0
+                    sim_id,
+                    variable,
+                    chunk,
+                    n_timesteps=n_timesteps,
+                    timestep_offset=t0,
+                    subgroup="concentration",
                 )
         finally:
             ucn.close()
 
-    def derive(
-        self,
-        sim_id: str,
-        store: Any,
-        config: dict | None = None,
-    ) -> None:
-        """Compute derived variables from stored concentration fields."""
-        from hydromodpy.simulation.extraction.derivation.derived import compute_derived
+    def _open_concentration_file(self, ucn_path: Path) -> Any:
+        """Open the concentration file in the MT3DMS layout (single precision)."""
+        import flopy.utils.binaryfile as bf
 
-        cfg = config or {}
-        compute_derived(sim_id, store, cfg)
+        return bf.UcnFile(str(ucn_path))

@@ -1,7 +1,7 @@
 """Shared Boussinesq budget helpers for prescribed-cell control volumes.
 
 These helpers reconstruct one consistent control-volume budget for the current
-cell-centred Boussinesq runs:
+cell-centered Boussinesq runs:
 
 - the external east-boundary flux is measured on the interior interface between
   free cells and prescribed Dirichlet cells,
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.physics.flow.history_contract import step_history_from_history
+from hydromodpy.model.time.history_contract import step_history_from_history
 
 
 @dataclass(frozen=True, slots=True)

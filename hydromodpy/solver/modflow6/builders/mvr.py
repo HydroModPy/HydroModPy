@@ -4,7 +4,7 @@ The MVR package routes water from a *provider* package feature to a *receiver*
 package feature, controlled by a transfer rule. This module is general: it knows
 nothing about LAK, SFR or MAW; it only formats and validates the transfer records
 shared by two packages of the same GWF model. The LAK adapter that compiles lake
-outlets into :class:`MoverRecord` instances lives in ``builders/lake.py``.
+outlets into :class:`MoverRecord` instances lives in ``builders/lake_outflow.py``.
 
 A record follows the FloPy single-model layout
 ``[pname1, id1, pname2, id2, mvrtype, value]`` (model names are omitted because
@@ -22,6 +22,10 @@ from __future__ import annotations
 import dataclasses
 from collections.abc import Sequence
 from typing import Any
+
+import flopy
+
+from hydromodpy.solver.modflow6.builders.solver_options import output_control_records
 
 # Transfer rules MF6 accepts on an MVR record (FloPy passes the string straight
 # through). FACTOR = a fraction of the provider flow; UPTO = capped at value;
@@ -101,3 +105,63 @@ __all__ = [
     "build_mvr_period_records",
     "mover_package_count",
 ]
+
+
+# The receivers whose size the build knows: package name, model attribute, and
+# the FloPy variable that counts its features.
+_RECEIVER_SIZES = {"SFR": ("sfr", "nreaches"), "LAK": ("lak", "nlakes")}
+
+
+def refuse_movers_without_receiver(model, rows: Sequence[Sequence[Any]]) -> None:
+    """Refuse a record whose SFR reach or LAK lake was not built.
+
+    A ``mover.reach`` or ``mover.lake`` past the end of its package, or a mover
+    to SFR when no SFR network is active, is otherwise met by MODFLOW 6 with a
+    message that names no config key, or moves the water to the wrong feature.
+    """
+    for row in rows:
+        name, feature = str(row[2]), int(row[3])
+        if name not in _RECEIVER_SIZES:
+            continue
+        attribute, counter = _RECEIVER_SIZES[name]
+        package = getattr(model, attribute, None)
+        if package is None:
+            raise ValueError(
+                f"MVR record {row[0]} {int(row[1]) + 1} -> {name} {feature + 1}: the model "
+                f"has no {name} package. Check the outlet mover of the lake and that the "
+                f"{name} boundary is active."
+            )
+        size = int(getattr(package, counter).get_data())
+        if not 0 <= feature < size:
+            raise ValueError(
+                f"MVR record {row[0]} {int(row[1]) + 1} -> {name} feature {feature + 1} "
+                f"(1-based) is outside the {size} feature(s) of the {name} package."
+            )
+
+
+def build_mover_and_output(model, all_mover_rows):
+    """MVR, built last, then OC."""
+    # MVR last: it routes provider features to receiver features by package name,
+    # so every package it references must already exist. The packages list is
+    # derived from the record rows so LAK-only, SFR-only and mixed models all
+    # produce a consistent block.
+    if all_mover_rows:
+        refuse_movers_without_receiver(model, all_mover_rows)
+        mvr_packages = sorted(
+            {(str(row[0]),) for row in all_mover_rows} | {(str(row[2]),) for row in all_mover_rows}
+        )
+        model.mvr = flopy.mf6.ModflowGwfmvr(
+            model.gwf,
+            pname="MVR",
+            maxmvr=len(all_mover_rows),
+            maxpackages=mover_package_count(all_mover_rows),
+            packages=mvr_packages,
+            perioddata={0: all_mover_rows},
+        )
+
+    model.oc = flopy.mf6.ModflowGwfoc(
+        model.gwf,
+        head_filerecord=f"{model.model_output_name}.hds",
+        budget_filerecord=f"{model.model_output_name}.cbc",
+        **output_control_records(print_head=model.modflow_config.runtime.print_head),
+    )

@@ -1,253 +1,210 @@
-"""Tests for the ``hmp report catchment`` command wiring."""
+"""``hmp show --report``: the command reads a sealed run and hands its options to the report engine.
+
+The engine itself is replaced by a recorder, so no figure is drawn.
+"""
 
 from __future__ import annotations
 
 import importlib
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_CONFIG
-from hydromodpy.display.catchment_report.pipeline import CatchmentReportPipelineResult
-from hydromodpy.display.catchment_report.presets import CatchmentReportPreset
+from hydromodpy.cli.commands.show import REFUSED_REPORT_FILE, REPORT_PRESETS
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_USAGE
+from hydromodpy.display.report.presets import PRESETS
+from hydromodpy.results.run.view import Run
+
+pytestmark = pytest.mark.fast
 
 
-def _load_main():
-    return importlib.import_module("hydromodpy.cli.main")
+class _OpenedRun(Run):
+    # A run directory the report is asked for, with nothing sealed in it.
+
+    def __init__(self, directory: Path) -> None:
+        self._directory = directory
+
+    @property
+    def dir(self) -> Path:
+        return self._directory
 
 
-def test_report_catchment_dispatches_to_pipeline(monkeypatch, capsys, tmp_path) -> None:
-    config_path = tmp_path / "catchment_report.toml"
-    captured = {}
+def _main(argv: list[str]) -> None:
+    importlib.import_module("hydromodpy.cli.main").main(argv)
 
-    def fake_pipeline(
-        report_config: Path,
-        *,
-        preset: CatchmentReportPreset | None,
-        run_overview: bool | None,
-        run_simulation: bool | None,
-        build_context_artifacts: bool | None,
-        build_report_html: bool | None,
-        no_lock: bool | None,
-        stream_run_logs: bool | None,
-        strict_figure_postflight: bool | None,
-    ) -> CatchmentReportPipelineResult:
-        captured.update(
-            report_config=report_config,
-            preset=preset,
-            run_overview=run_overview,
-            run_simulation=run_simulation,
-            build_context_artifacts=build_context_artifacts,
-            build_report_html=build_report_html,
-            no_lock=no_lock,
-            stream_run_logs=stream_run_logs,
-            strict_figure_postflight=strict_figure_postflight,
+
+@pytest.fixture
+def written(monkeypatch, tmp_path: Path) -> dict:
+    # report_run is replaced by a function that records its call and writes a report.json.
+    captured: dict = {}
+
+    def fake_report_run(run_dir: Path, **options) -> Path:
+        captured.update(run_dir=run_dir, **options)
+        out = tmp_path / "report"
+        out.mkdir(exist_ok=True)
+        (out / "report.json").write_text(
+            json.dumps({"missing": ["seepage_mask"]}), encoding="utf-8"
         )
-        return CatchmentReportPipelineResult(
-            overview_config=None,
-            simulation_config=None,
-            context_summary=tmp_path / "context_summary.json",
-            html_report=tmp_path / "web" / "index.html",
-        )
+        return out / "index.html"
 
+    monkeypatch.setattr("hydromodpy.project.report.report_run", fake_report_run)
     monkeypatch.setattr(
-        "hydromodpy.display.catchment_report.pipeline.run_catchment_report_pipeline",
-        fake_pipeline,
+        "hydromodpy.project.api._subject", lambda ref, workspace, **_: _OpenedRun(Path(ref))
     )
+    return captured
 
-    _load_main().main(["report", "catchment", str(config_path)])
 
-    assert captured == {
-        "report_config": config_path,
-        "preset": None,
-        "run_overview": None,
-        "run_simulation": None,
-        "build_context_artifacts": None,
-        "build_report_html": None,
-        "no_lock": None,
-        "stream_run_logs": None,
-        "strict_figure_postflight": None,
-    }
+def test_report_of_a_run_directory(written, capsys, tmp_path) -> None:
+    run_dir = tmp_path / "runs" / "base"
+    run_dir.mkdir(parents=True)
+
+    _main(["show", str(run_dir), "--report"])
+
+    assert written == {"run_dir": run_dir.resolve(), "strict": False}
     out = capsys.readouterr().out
-    assert f"context_summary={tmp_path / 'context_summary.json'}" in out
-    assert f"html_report={tmp_path / 'web' / 'index.html'}" in out
+    assert f"html_report={tmp_path / 'report' / 'index.html'}" in out
+    assert f"report_json={tmp_path / 'report' / 'report.json'}" in out
+    assert "missing=seepage_mask" in out
 
 
-def test_report_catchment_flags_control_pipeline(monkeypatch, capsys, tmp_path) -> None:
-    config_path = tmp_path / "catchment_report.toml"
-    captured = {}
+def test_report_options(written, tmp_path) -> None:
+    run_dir = tmp_path / "base"
+    overview = tmp_path / "selune"
+    run_dir.mkdir()
+    overview.mkdir()
 
-    def fake_pipeline(
-        report_config: Path,
-        *,
-        preset: CatchmentReportPreset | None,
-        run_overview: bool | None,
-        run_simulation: bool | None,
-        build_context_artifacts: bool | None,
-        build_report_html: bool | None,
-        no_lock: bool | None,
-        stream_run_logs: bool | None,
-        strict_figure_postflight: bool | None,
-    ) -> CatchmentReportPipelineResult:
-        captured.update(
-            report_config=report_config,
-            preset=preset,
-            run_overview=run_overview,
-            run_simulation=run_simulation,
-            build_context_artifacts=build_context_artifacts,
-            build_report_html=build_report_html,
-            no_lock=no_lock,
-            stream_run_logs=stream_run_logs,
-            strict_figure_postflight=strict_figure_postflight,
-        )
-        return CatchmentReportPipelineResult(
-            overview_config=tmp_path / "overview.toml",
-            simulation_config=tmp_path / "simulation.toml",
-            context_summary=tmp_path / "context_summary.json",
-            html_report=None,
-        )
-
-    monkeypatch.setattr(
-        "hydromodpy.display.catchment_report.pipeline.run_catchment_report_pipeline",
-        fake_pipeline,
-    )
-
-    _load_main().main(
+    _main(
         [
-            "report",
-            "catchment",
-            str(config_path),
-            "--run-overview",
-            "--run-simulation",
-            "--context-only",
-            "--with-lock",
-            "--stream-run-logs",
-            "--strict-figure-postflight",
+            "show",
+            str(run_dir),
+            "--report",
+            "--overview",
+            str(overview),
+            "--preset",
+            "management",
+            "--station",
+            "J0014010",
+            "--strict",
         ]
     )
 
-    assert captured == {
-        "report_config": config_path,
-        "preset": None,
-        "run_overview": True,
-        "run_simulation": True,
-        "build_context_artifacts": True,
-        "build_report_html": False,
-        "no_lock": False,
-        "stream_run_logs": True,
-        "strict_figure_postflight": True,
-    }
-    out = capsys.readouterr().out
-    assert f"overview_config={tmp_path / 'overview.toml'}" in out
-    assert f"simulation_config={tmp_path / 'simulation.toml'}" in out
-    assert f"context_summary={tmp_path / 'context_summary.json'}" in out
-    assert "html_report=" not in out
+    assert written["preset"] == "management"
+    assert written["overview_dir"] == overview.resolve()
+    assert written["station"] == "J0014010"
+    assert written["strict"] is True
 
 
-def test_report_catchment_can_disable_toml_run_simulation(monkeypatch, tmp_path) -> None:
-    config_path = tmp_path / "catchment_report.toml"
-    captured = {}
+def test_report_json(written, capsys, tmp_path) -> None:
+    run_dir = tmp_path / "base"
+    run_dir.mkdir()
 
-    def fake_pipeline(
-        report_config: Path,
-        *,
-        preset: CatchmentReportPreset | None,
-        run_overview: bool | None,
-        run_simulation: bool | None,
-        build_context_artifacts: bool | None,
-        build_report_html: bool | None,
-        no_lock: bool | None,
-        stream_run_logs: bool | None,
-        strict_figure_postflight: bool | None,
-    ) -> CatchmentReportPipelineResult:
-        captured.update(
-            report_config=report_config,
-            preset=preset,
-            run_overview=run_overview,
-            run_simulation=run_simulation,
-            build_context_artifacts=build_context_artifacts,
-            build_report_html=build_report_html,
-            no_lock=no_lock,
-            stream_run_logs=stream_run_logs,
-            strict_figure_postflight=strict_figure_postflight,
-        )
-        return CatchmentReportPipelineResult(
-            overview_config=None,
-            simulation_config=None,
-            context_summary=None,
-            html_report=tmp_path / "web" / "index.html",
-        )
+    _main(["show", str(run_dir), "--report", "--format", "json"])
 
-    monkeypatch.setattr(
-        "hydromodpy.display.catchment_report.pipeline.run_catchment_report_pipeline",
-        fake_pipeline,
-    )
-
-    _load_main().main(["report", "catchment", str(config_path), "--no-run-simulation"])
-
-    assert captured["run_simulation"] is False
+    document = json.loads(capsys.readouterr().out)
+    assert document["schema"] == "hmp.show.report.v2"
+    assert set(document["data"]) == {"html_report", "report_json", "missing"}
+    assert document["data"]["missing"] == ["seepage_mask"]
 
 
-def test_report_catchment_report_only_skips_run_steps_by_default(
-    monkeypatch,
-    tmp_path,
-) -> None:
-    config_path = tmp_path / "catchment_report.toml"
-    captured = {}
-
-    def fake_pipeline(
-        report_config: Path,
-        *,
-        preset: CatchmentReportPreset | None,
-        run_overview: bool | None,
-        run_simulation: bool | None,
-        build_context_artifacts: bool | None,
-        build_report_html: bool | None,
-        no_lock: bool | None,
-        stream_run_logs: bool | None,
-        strict_figure_postflight: bool | None,
-    ) -> CatchmentReportPipelineResult:
-        captured.update(
-            run_overview=run_overview,
-            run_simulation=run_simulation,
-            build_context_artifacts=build_context_artifacts,
-            build_report_html=build_report_html,
-        )
-        return CatchmentReportPipelineResult(
-            overview_config=None,
-            simulation_config=None,
-            context_summary=None,
-            html_report=tmp_path / "web" / "index.html",
-        )
-
-    monkeypatch.setattr(
-        "hydromodpy.display.catchment_report.pipeline.run_catchment_report_pipeline",
-        fake_pipeline,
-    )
-
-    _load_main().main(["report", "catchment", str(config_path), "--report-only"])
-
-    assert captured == {
-        "run_overview": False,
-        "run_simulation": False,
-        "build_context_artifacts": False,
-        "build_report_html": True,
-    }
-
-
-def test_report_catchment_rejects_context_only_with_report_only(capsys, tmp_path) -> None:
-    config_path = tmp_path / "catchment_report.toml"
+@pytest.mark.parametrize("table", ["[report]\nname = 'x'\n", "[layout]\nname = 'x'\n"])
+def test_refused_report_toml(written, capsys, tmp_path, table: str) -> None:
+    config = tmp_path / "catchment_report.toml"
+    config.write_text(table, encoding="utf-8")
 
     with pytest.raises(SystemExit) as exc_info:
-        _load_main().main(
-            [
-                "report",
-                "catchment",
-                str(config_path),
-                "--context-only",
-                "--report-only",
-            ]
-        )
+        _main(["show", str(config), "--report"])
 
     assert exc_info.value.code == EXIT_CONFIG
-    assert "mutually exclusive" in capsys.readouterr().err
+    assert REFUSED_REPORT_FILE in " ".join(capsys.readouterr().err.split())
+    assert written == {}
+
+
+@pytest.mark.parametrize(
+    ("flag", "new_form"),
+    [
+        ("--run-overview", "hmp run <toml>"),
+        ("--run-simulation", "hmp run <toml>"),
+        ("--context-only", "hmp run <toml>"),
+        ("--report-only", "hmp show RUN --report"),
+        ("--stream-run-logs", "hmp run <toml>"),
+        ("--strict-figure-postflight", "--strict"),
+    ],
+)
+def test_gone_pipeline_flags(written, capsys, tmp_path, flag: str, new_form: str) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        _main(["report", "catchment", str(tmp_path), flag])
+
+    assert exc_info.value.code == EXIT_USAGE
+    err = capsys.readouterr().err
+    assert f"hmp report catchment {flag} is gone" in err
+    assert new_form in err
+    assert written == {}
+
+
+def test_gone_report_command(written, capsys, tmp_path) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        _main(["report", "catchment", str(tmp_path)])
+
+    assert exc_info.value.code == EXIT_USAGE
+    assert "hmp report catchment is gone. Write: hmp show RUN --report" in capsys.readouterr().err
+    assert written == {}
+
+
+def test_report_of_the_latest_session(monkeypatch, capsys, tmp_path) -> None:
+    from tests._helpers.sealed_runs import make_project, write_session_dir
+
+    root = make_project(tmp_path / "p")
+    write_session_dir(root, "calage", trials=0, best_trial=None)
+    page = root / "sessions" / "calage" / "report" / "index.html"
+    seen: dict = {}
+
+    def fake_report_session(directory: Path) -> Path:
+        seen["directory"] = directory
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text("<html></html>", encoding="utf-8")
+        return page
+
+    monkeypatch.setattr("hydromodpy.project.report.report_session", fake_report_session)
+
+    _main(["show", "--report", "-w", str(root)])
+
+    assert seen["directory"].name == "calage"
+    assert f"wrote {page}" in capsys.readouterr().err
+
+
+def test_unknown_preset(capsys, tmp_path) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        _main(["show", str(tmp_path), "--report", "--preset", "generic"])
+
+    assert exc_info.value.code == EXIT_USAGE
+    err = capsys.readouterr().err
+    assert "research" in err
+    assert "management" in err
+
+
+@pytest.mark.allow_subprocess
+def test_parser_stays_light() -> None:
+    # Every hmp call builds the whole parser, so it must not import the engine.
+    # A fresh interpreter, because this process has imported both long ago.
+    probe = (
+        "import sys\n"
+        "from hydromodpy.cli.main import _build_parser\n"
+        "_build_parser()\n"
+        "heavy = ('hydromodpy.display.report', 'matplotlib.pyplot')\n"
+        "print(','.join(name for name in heavy if name in sys.modules))\n"
+    )
+    loaded = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+    assert loaded == "", f"building the hmp parser imported {loaded}"
+
+
+def test_preset_choices() -> None:
+    assert set(REPORT_PRESETS) == set(PRESETS), (
+        "a report preset was added or removed in hydromodpy/display/report/presets.py; "
+        "write the same names in REPORT_PRESETS, hydromodpy/cli/commands/show.py"
+    )

@@ -1,0 +1,138 @@
+[workflow]
+mode = "overview"
+[workspace]
+project_root = "."
+output_root = ""
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+bottom_path = ""
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = 150
+buff_area = 20.0
+polyg_shp_path = ""
+[geographic.synthetic]
+case_id = "flat20"
+[geographic.synthetic.grid]
+length_x = 100.0
+length_y = 1.0
+nx = 100
+ny = 1
+xmin = 0.0
+ymin = 0.0
+crs = "EPSG:2154"
+nodata = -9999.0
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 20.0
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+prune_short_streams = false
+min_stream_length_m = 0.0
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = false
+[data]
+types = [
+    "geology",
+    "hydrography",
+    "hydrometry",
+    "piezometry",
+    "intermittency",
+    "precipitation",
+    "etp",
+    "temperature",
+    "recharge",
+    "runoff",
+    "wind",
+    "humidity",
+    "radiation",
+    "soil_moisture",
+    "water_quality",
+]
+[[data.dem.sources]]
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+resolution_m = 25.0
+extent = "watershed"
+[data.geology]
+[[data.geology.sources]]
+source = "brgm_1m"
+extent = "watershed"
+[[data.hydrography.sources]]
+source = "bdtopage"
+[data.hydrometry]
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+extent = "watershed"
+[data.intermittency]
+[[data.intermittency.sources]]
+source = "hubeau"
+extent = "watershed"
+[data.piezometry]
+[[data.piezometry.sources]]
+source = "hubeau"
+product = "level"
+extent = "watershed"
+nearest = true
+[[data.water_quality.sources]]
+source = "hubeau"
+extent = "watershed"
+[data.recharge]
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+[data.runoff]
+[[data.runoff.sources]]
+source = "sim2"
+extent = "watershed"
+[data.precipitation]
+[[data.precipitation.sources]]
+source = "sim2"
+extent = "watershed"
+[data.etp]
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+[data.temperature]
+[[data.temperature.sources]]
+source = "sim2"
+extent = "watershed"
+[data.wind]
+[[data.wind.sources]]
+source = "sim2"
+extent = "watershed"
+[data.humidity]
+[[data.humidity.sources]]
+source = "sim2"
+extent = "watershed"
+[data.radiation]
+[[data.radiation.sources]]
+source = "sim2"
+extent = "watershed"
+[data.soil_moisture]
+[[data.soil_moisture.sources]]
+source = "sim2"
+extent = "watershed"
+[overview]
+name = "Nancon"
+date_start = "2000-01-01"
+date_end = "2025-12-31"
+regional_context_label = "Situation dans le Massif Armoricain"
+[overview.panels]
+map_dem = true
+map_geology = true
+map_hydrography = true
+stats_card = true
+timeseries_discharge = true
+timeseries_piezometry = true
+climatic_summary = true
+station_inventory = true

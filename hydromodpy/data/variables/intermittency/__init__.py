@@ -1,1 +1,1 @@
-"""Intermittency variable manager - ONDE stream-flow observations."""
+"""Intermittency data variable - ONDE stream-flow observations."""

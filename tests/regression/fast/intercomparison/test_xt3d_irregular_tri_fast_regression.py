@@ -26,9 +26,10 @@ def test_modflow6_irregular_tri_xt3d_auto_improves_uniform_recharge(
         update_goldens=update_goldens,
         limits={
             "dupuit_uniform_recharge_1d": {
-                "rmse_with_xt3d_max": 0.05,
-                "max_error_with_xt3d_max": 0.08,
-                "rmse_improvement_factor_min": 5.0,
+                # Twice the golden: 0.0077 m RMSE, 0.011 m max, a factor of 27.
+                "rmse_with_xt3d_max": 0.016,
+                "max_error_with_xt3d_max": 0.022,
+                "rmse_improvement_factor_min": 10.0,
             },
         },
     )

@@ -15,12 +15,13 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.errors import FieldNotFoundError
+from hydromodpy.results.zarr_store.zarr_reader import field_array_view, stored_field_array
 
 if TYPE_CHECKING:
     import xarray as xr
     import xugrid as xu
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 
@@ -49,15 +50,65 @@ def _optional_dask_array():
     return da
 
 
-def lookup_zarr_path(root, zarr_path: str):
-    """Resolve a registry zarr_path against a Zarr root, returning ``None`` if absent."""
-    if "/" in zarr_path:
-        grp_name, var_name = zarr_path.split("/", 1)
-        grp = root.get(grp_name)
-        if grp is None or var_name not in grp:
-            return None
-        return grp[var_name]
-    return root.get(zarr_path)
+_DEFAULT_SLAB_STEPS = 64
+"""Steps read at once from a store that does not declare a time chunk."""
+
+
+def acting_faces_over_run(run: Run, names: list[str], n_faces: int) -> dict[str, np.ndarray]:
+    """Return, per flux component, the faces it acts on at any persisted step.
+
+    One store opening for the whole run. Asking the run for one timestep at a
+    time reopens the Zarr store on every call: six components over a 365-day
+    chronicle is 2 190 openings for one figure, and a ten-year daily run is
+    twenty times that. The stack of each component is read once instead, in
+    slabs of the chunking it was written in, so the memory stays bounded
+    whatever the chronicle is worth.
+    """
+    store = run._catalog.open_zarr(run.sim_id)
+    try:
+        return {
+            name: _acting_over_stack(
+                stored_field_array(store.root, field_registry.get(name).zarr_path), name, n_faces
+            )
+            for name in names
+        }
+    finally:
+        store.close()
+
+
+def _acting_over_stack(stack, name: str, n_faces: int) -> np.ndarray:
+    """Reduce one stored component to the faces it ever acts on."""
+    if stack is None:
+        raise ValueError(f"the '{name}' budget is not an array of the store of this run.")
+    acting = np.zeros(n_faces, dtype=bool)
+    slab = _slab_steps(stack)
+    for start in range(0, int(stack.shape[0]), slab):
+        acting |= acting_faces(np.asarray(stack[start : start + slab]), name, n_faces)
+        if acting.all():
+            break
+    return acting
+
+
+def _slab_steps(stack) -> int:
+    """Return how many steps to read at once, from how they were written."""
+    chunks = getattr(stack, "chunks", None)
+    return int(chunks[0]) if chunks else _DEFAULT_SLAB_STEPS
+
+
+def acting_faces(values: np.ndarray, name: str, n_faces: int) -> np.ndarray:
+    """Return the faces one block of fluxes carries a finite non-zero value on.
+
+    Every axis but the last is reduced away, so a layered component names the
+    face whichever layer the package sits in, and signed layer fluxes that
+    cancel out over the column are still an acting face.
+    """
+    if values.shape[-1] != n_faces:
+        raise ValueError(
+            f"the '{name}' budget holds {values.shape[-1]} values per step, which is not "
+            f"the {n_faces} cells the mesh holds."
+        )
+    carried = np.isfinite(values) & (np.abs(values) > 0.0)
+    return np.any(carried, axis=tuple(range(values.ndim - 1)))
 
 
 class RunArrayProvider:
@@ -98,28 +149,32 @@ class RunArrayProvider:
         mesh = run.mesh
         verts = np.asarray(mesh.vertices, dtype=float)
         fnc = np.asarray(mesh.face_node_connectivity, dtype=int)
-        grid = xu.Ugrid2d(
-            node_x=verts[:, 0],
-            node_y=verts[:, 1],
-            fill_value=-1,
-            face_node_connectivity=fnc,
-        )
-        face_dim = grid.face_dimension
-
-        face_shapes = {
-            field_registry.SHAPE_FACE: (face_dim,),
-            field_registry.SHAPE_LAYER_FACE: ("layer", face_dim),
-            field_registry.SHAPE_TIME_FACE: ("time", face_dim),
-            field_registry.SHAPE_TIME_LAYER_FACE: ("time", "layer", face_dim),
-        }
 
         sz = run._catalog.open_zarr(run._sim_id)
         try:
+            edges = sz.root["mesh"].get("edge_node_connectivity")
+            grid = xu.Ugrid2d(
+                node_x=verts[:, 0],
+                node_y=verts[:, 1],
+                fill_value=-1,
+                face_node_connectivity=fnc,
+                # Stored edges keep the numbering of mesh/edge_*: edge_family and
+                # edge_face_connectivity then index the edge dimension of the grid.
+                edge_node_connectivity=None if edges is None else np.asarray(edges[:], dtype=int),
+            )
+            face_dim = grid.face_dimension
+            face_shapes = {
+                field_registry.SHAPE_FACE: (face_dim,),
+                field_registry.SHAPE_LAYER_FACE: ("layer", face_dim),
+                field_registry.SHAPE_TIME_FACE: ("time", face_dim),
+                field_registry.SHAPE_TIME_LAYER_FACE: ("time", "layer", face_dim),
+            }
             if variable is None:
                 names = [
                     n
                     for n, d in field_registry.FIELD_REGISTRY.items()
-                    if d.shape in face_shapes and lookup_zarr_path(sz.root, d.zarr_path) is not None
+                    if d.shape in face_shapes
+                    and stored_field_array(sz.root, d.zarr_path) is not None
                 ]
             else:
                 desc = field_registry.get(variable)
@@ -127,7 +182,7 @@ class RunArrayProvider:
                     raise ValueError(
                         f"Field '{variable}' has shape '{desc.shape}', not face-aligned"
                     )
-                if lookup_zarr_path(sz.root, desc.zarr_path) is None:
+                if stored_field_array(sz.root, desc.zarr_path) is None:
                     raise FieldNotFoundError(
                         f"Field '{variable}' not found in simulation '{run._sim_id}'",
                         sim_id=run._sim_id,
@@ -138,15 +193,11 @@ class RunArrayProvider:
             data_vars: dict[str, xr.DataArray] = {}
             for name in names:
                 desc = field_registry.get(name)
-                arr = lookup_zarr_path(sz.root, desc.zarr_path)
+                arr = stored_field_array(sz.root, desc.zarr_path)
                 dims = face_shapes[desc.shape]
                 if len(dims) != arr.ndim:
                     continue
-                if da is None:
-                    values = np.asarray(arr)
-                else:
-                    chunks = arr.chunks if arr.chunks else "auto"
-                    values = da.from_array(arr, chunks=chunks)
+                values = field_array_view(arr, da)
                 data_vars[name] = xr.DataArray(
                     values,
                     dims=dims,
@@ -201,13 +252,13 @@ class RunArrayProvider:
         (no copy on read). ``variables`` lists field-registry names to
         include; missing fields raise ``FieldNotFoundError``. ``time_slice``
         is an optional ``slice`` object applied to the time dimension.
-        ``bbox`` restricts the dataset to cells whose centroid lies within
-        the bounding box.
+        ``bbox`` restricts the dataset to cells whose center
+        (``run.mesh.cell_centers()``) lies within the bounding box.
 
         A variable that is not persisted but is derivable on the fly
         (water-table elevation/depth, seepage mask, drain outflow) is
-        rebuilt timestep by timestep and loaded eagerly, so ``has_field``
-        and this reader agree on what a run exposes.
+        rebuilt over the periods of ``time_slice`` and loaded eagerly, so
+        ``has_field`` and this reader agree on what a run exposes.
         """
         import xarray as xr
 
@@ -218,8 +269,8 @@ class RunArrayProvider:
             data_vars: dict[str, xr.DataArray] = {}
             for name in variables:
                 desc = field_registry.get(name)
-                arr = lookup_zarr_path(sz.root, desc.zarr_path)
-                derived = _virtual_field_stack(run, sz, name) if arr is None else None
+                arr = stored_field_array(sz.root, desc.zarr_path)
+                derived = _virtual_field_stack(run, sz, name, time_slice) if arr is None else None
                 if arr is None and derived is None:
                     raise FieldNotFoundError(
                         f"Field '{name}' not found in simulation '{run._sim_id}'",
@@ -238,16 +289,10 @@ class RunArrayProvider:
                     dims = ("cell",)
                 else:
                     dims = tuple(f"d{i}" for i in range(source.ndim))
-                if derived is not None:
-                    values = derived
-                elif da is None:
-                    values = np.asarray(arr)
-                else:
-                    chunks = arr.chunks if arr.chunks else "auto"
-                    values = da.from_array(arr, chunks=chunks)
+                values = derived if derived is not None else field_array_view(arr, da)
                 if shape == field_registry.SHAPE_TIME_LAYER_FACE and values.ndim == 2:
                     values = values[:, np.newaxis, :]
-                if time_slice is not None and dims and dims[0] == "time":
+                if derived is None and time_slice is not None and dims and dims[0] == "time":
                     values = values[time_slice]
                 data_vars[name] = xr.DataArray(
                     values,
@@ -265,28 +310,17 @@ class RunArrayProvider:
         return ds
 
 
-def _virtual_field_stack(run, sz, name: str) -> np.ndarray | None:
+def _virtual_field_stack(run, sz, name: str, time_slice: slice | None) -> np.ndarray | None:
     """Rebuild a non-persisted field as a ``(time, cell)`` array, or ``None``.
 
-    Reuses the already-open Zarr handle so a whole-run stack costs one
-    open instead of one per timestep.
+    Reuses the already-open Zarr handle so a stack costs one open instead of one per
+    timestep, and only the periods of *time_slice* are rebuilt.
     """
-    from hydromodpy.results.derive.virtual_fields import (
-        ZarrFieldSource,
-        available_virtual_fields,
-        read_field_or_virtual,
-    )
+    from hydromodpy.results.derive.virtual_fields import derive_field_stack
 
-    if name not in available_virtual_fields(sz.root):
-        return None
-    source = ZarrFieldSource(sz, run._sim_id)
-    n_steps = int(run.n_timesteps or 1)
-    return np.stack(
-        [
-            np.asarray(read_field_or_virtual(source, run._sim_id, name, t)).ravel()
-            for t in range(n_steps)
-        ]
-    )
+    steps = range(int(run.n_timesteps or 1))[time_slice or slice(None)]
+    stack = derive_field_stack(sz, run._sim_id, name, steps)
+    return None if stack is None else stack.reshape(len(steps), -1)
 
 
 def _bbox_select_ugrid(ds, grid, bbox, face_dim):
@@ -302,17 +336,6 @@ def _bbox_select_ugrid(ds, grid, bbox, face_dim):
 
 
 def _bbox_select_flat(ds, run, bbox):
-    """Slice a flat xarray dataset using a bbox; assumes regular ``run.grid``."""
-    xmin, ymin, xmax, ymax = (float(v) for v in bbox)
-    if not (xmin < xmax and ymin < ymax):
-        raise ValueError(f"bbox must satisfy xmin<xmax and ymin<ymax; got {bbox!r}")
-    try:
-        grid = run.grid
-    except Exception as exc:
-        raise ValueError(
-            "bbox= filter requires a structured grid; this run has no grid metadata."
-        ) from exc
-    xs, ys = grid.cell_centers_xy()
-    inside = (xs >= xmin) & (xs <= xmax) & (ys >= ymin) & (ys <= ymax)
-    idx = np.where(inside)[0]
-    return ds.isel(cell=idx)
+    """Slice a flat xarray dataset to the cells of the run mesh whose center is in ``bbox``."""
+    inside = run.mesh.cells_in_bbox(bbox)
+    return ds.isel(cell=np.flatnonzero(inside))

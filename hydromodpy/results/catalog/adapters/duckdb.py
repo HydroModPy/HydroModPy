@@ -1,15 +1,15 @@
-"""DuckDB adapter for :class:`CatalogBackend`.
+"""DuckDB backend of the catalog.
 
-Wraps a single :class:`duckdb.DuckDBPyConnection` so the catalog facade
-keeps DuckDB-specific perf paths (``fetchdf``, ``register`` for in-memory
-DataFrames) while exposing the backend-neutral surface of
-:class:`~hydromodpy.results.catalog.ports.CatalogBackend`. ``INSERT`` and
-``UPSERT`` are composed with ANSI syntax so the same call sites stay
-portable across other adapters that implement the same protocol.
+Wraps a single :class:`duckdb.DuckDBPyConnection` so the catalog reader
+keeps DuckDB-specific paths (``fetchdf``, ``ATTACH``) while the facade reads
+the index through the small surface of one round-trip per method (``query``,
+``execute``, ``fetch_one``, ``fetch_all``, ``insert``, ``upsert``,
+``transaction``, ``close``). ``INSERT`` and ``UPSERT`` are composed with ANSI
+syntax. Every method maps to a single round-trip with the driver and never
+silently swallows exceptions.
 
-The adapter owns no schema state: ``ensure_schema`` delegates to the
-catalog migration runner shipped in
-:mod:`hydromodpy.results.catalog.migrations`.
+The adapter owns no schema: the index DDL lives in
+:mod:`hydromodpy.results.catalog.index_schema` and is applied by the indexer.
 """
 
 from __future__ import annotations
@@ -17,16 +17,12 @@ from __future__ import annotations
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import duckdb
 import pandas as pd
 
-from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, connect_with_retry
-from hydromodpy.results.catalog.migrations import ensure_schema as _ensure_catalog_schema
-
-if TYPE_CHECKING:
-    pass
+from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, attach_read_only, connect_with_retry
 
 
 def _split_params(
@@ -48,7 +44,7 @@ def _identifier(name: str) -> str:
 
 
 class DuckDBBackend:
-    """Concrete :class:`CatalogBackend` backed by a DuckDB file connection.
+    """The catalog storage backend, backed by a DuckDB file connection.
 
     Two construction paths are supported. ``DuckDBBackend(path)`` opens a
     new connection on disk and owns it; ``DuckDBBackend.from_connection(c)``
@@ -101,10 +97,6 @@ class DuckDBBackend:
     def path(self) -> Path:
         """Path to the catalog file backing this adapter."""
         return self._path
-
-    def ensure_schema(self) -> None:
-        """Apply pending migrations from the catalog ``versions/`` directory."""
-        _ensure_catalog_schema(self._connection)
 
     def query(
         self,
@@ -248,26 +240,12 @@ class DuckDBBackend:
     def attach_read_only(self, db_path: str | Path, alias: str) -> Iterator[None]:
         """ATTACH ``db_path`` in read-only mode under ``alias`` for the block.
 
-        DuckDB-specific helper used to federate the cache and catalog
-        databases for cross-DB joins (``Run.input_entries``,
-        ``DataEntry.used_by``). The alias is detached on exit, even on
-        failure, so the connection state stays clean. ATTACH is not part
-        of the ``CatalogBackend`` Protocol because the semantics differ
-        widely across SQL engines; future Postgres-flavoured adapters
-        will expose an equivalent via FDW or a dedicated helper.
+        DuckDB-specific helper used to federate two databases for a
+        cross-DB join. The alias is detached on exit, even on failure, so
+        the connection state stays clean.
         """
-        if not all(ch.isalnum() or ch == "_" for ch in alias):
-            raise ValueError(f"Invalid attach alias: {alias!r}")
-        path_str = str(Path(db_path))
-        path_literal = path_str.replace("'", "''")
-        self._connection.execute(f"ATTACH '{path_literal}' AS {alias} (READ_ONLY)")
-        try:
+        with attach_read_only(self._connection, db_path, alias):
             yield
-        finally:
-            try:
-                self._connection.execute(f"DETACH {alias}")
-            except Exception:
-                pass
 
     def close(self) -> None:
         """Close the owned DuckDB connection. No-op if not owned."""

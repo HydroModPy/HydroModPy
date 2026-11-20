@@ -1,192 +1,252 @@
-"""Export step - save run artifacts, finalize the store, clean scratch.
+"""Export step - clean the solver files and the scratch; the exports follow the seal.
 
-Exports published on demand land under ``share/``; the run directory itself
-holds what the run produced.
+The data exports and the metadata views of the ``[[export]]`` blocks are
+written right after the seal (:func:`step_after_seal`), from the sealed run,
+as ``hmp export <run>`` writes them. Each file carries the identity block of
+the run with its label of the day, the rules it follows and the date. An
+export that fails after the seal leaves the run sealed and ``completed``. The
+figures are still drawn, then the pipeline raises
+:class:`~hydromodpy.core.exceptions.ExportError` naming ``hmp export <run>``.
+
+Every export lands under ``runs/<run>/exports/``: the run directory holds
+everything the run produced. A copy out of the project is ``hmp publish``.
+
+The seal step writes ``simulation.parquet``, ``parameters.parquet``,
+``provenance.json``, ``inputs.json``, ``manifest.json`` last and then ``README.md``. The
+outcome and ``<run>/.hmp/`` belong to the attempt protocol, after the pipeline. A
+research run has no export and no view after the seal.
 """
 
 from __future__ import annotations
 
-import gc
-import shutil
-import time
+import os
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 
+from hydromodpy.core.console import progress
+from hydromodpy.core.console.progress import HINT, MILESTONE
 from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIRNAME
-from hydromodpy.workflow.internals.state import DerivedState, ExportedState, PipelineState
+from hydromodpy.core.runtime.stopwatch import measured
+from hydromodpy.core.state.portable import display_path
+from hydromodpy.results.outcome import read_outcome
+from hydromodpy.results.storage.contract import RUN_SOLVER_DIRNAME
+from hydromodpy.results.storage.kept import renders
+from hydromodpy.results.storage.scratch import clear_scratch, drop_empty_scratch
+from hydromodpy.results.storage.sealing import seal_completed
+from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Iterable, Sequence
 
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.exporters.export_spec import ExportRequest
+    from hydromodpy.results.storage.run_store import RunStore
 
 logger = get_logger(__name__)
-
-_SCRATCH_CLEANUP_RETRY_DELAYS = (0.1, 0.2, 0.4, 0.8, 1.6)
-
-
-# ---------------------------------------------------------------------------
-# Run artifact persistence
-# ---------------------------------------------------------------------------
-
-
-def step_save_run_artifacts(
-    ctx: WorkflowContext,
-    wall_seconds: float,
-) -> None:
-    """Save optional run artifacts."""
-    analysis_cfg = getattr(ctx.cfg, "analysis", None)
-    gallery_cfg = (
-        getattr(analysis_cfg, "capability_gallery", None) if analysis_cfg is not None else None
-    )
-    if gallery_cfg is not None and getattr(gallery_cfg, "enabled", False):
-        if ctx.setup.workspace is None:
-            raise ExportError("Workspace is required to save run artifacts.")
-        if ctx.store is None or ctx.sim_id is None:
-            raise ExportError("A registered run is required to publish the capability gallery.")
-        from hydromodpy.analysis.capability_gallery import (
-            publish_run_to_capability_gallery,
-        )
-        from hydromodpy.display.runs import render_figure
-        from hydromodpy.results.run import Run as _Run
-
-        plan = ctx.execution.simulation_plan
-        solvers_used = {r.solver for r in plan.runs} if plan is not None else set()
-
-        def _render(figure_name: str, run: object, target_path: Path) -> None:
-            render_figure(figure_name, cast("Run", run), save=target_path)
-
-        publish_run_to_capability_gallery(
-            run_id=str(ctx.setup.run_id),
-            run_dir=ctx.store.run_dir_for(ctx.sim_id),
-            config=gallery_cfg,
-            solvers=tuple(str(s) for s in solvers_used),
-            run=_Run(ctx.sim_id, ctx.store),
-            render_figure=_render,
-        )
-
-
-# ---------------------------------------------------------------------------
-# Intermediate cleanup
-# ---------------------------------------------------------------------------
-
-
-def step_drop_intermediate_budget(ctx: WorkflowContext) -> None:
-    """Drop the per-cell budget group when reconciliation forced it on.
-
-    Computing is not persisting. A user who writes
-    ``[simulation.results.budget] spatial_fields = true`` keeps the group.
-    A user who only asked for a figure gets what the figure needs, not the
-    raw per-cell budget consumed on the way: that one is written, read by
-    the derive phase and by the figures, then removed. It runs last in the
-    export step, after every consumer of the run and just before the store
-    is sealed.
-    """
-    from hydromodpy.workflow.steps.planning import BUDGET_SPATIAL_FLAG
-
-    if BUDGET_SPATIAL_FLAG not in tuple(getattr(ctx, "forced_results_flags", ())):
-        return
-    store = ctx.store
-    sim_id = ctx.sim_id
-    if store is None or sim_id is None:
-        return
-    sz = store.open_zarr(sim_id)
-    try:
-        freed = sz.drop_group("budget")
-    finally:
-        sz.close()
-    if freed:
-        logger.info(
-            "Dropped the intermediate per-cell budget from the store (%.2f MB freed). "
-            "Set [simulation.results.budget] spatial_fields = true to keep it.",
-            freed / 1e6,
-        )
-
 
 # ---------------------------------------------------------------------------
 # Store finalization
 # ---------------------------------------------------------------------------
 
 
-def step_seal_store(
-    ctx: WorkflowContext,
-    *,
-    wall_seconds: float = 0.0,
-    status: str = "completed",
-) -> None:
-    """Finalize the simulation in the store, leaving the store open.
+@contextmanager
+def sealed_run_store(ctx: WorkflowContext) -> Iterator[RunStore]:
+    """Open the store of the sealed run of ``ctx``, as ``hmp export <run>`` opens it.
 
-    Sealing is what writes ``manifest.json`` and ``provenance.json`` into the
-    run directory. Whatever reads the *complete* run - the portable package
-    first of all - must therefore run after this call and before
-    :func:`step_close_store`.
+    The store is opened on the run directory alone, without the persistence
+    of the pipeline: what is read after the seal is what the seal certifies.
     """
-    if ctx.store is None:
-        return
-    ctx.store.finalize(
-        ctx.sim_id,
-        status=status,
-        duration_s=wall_seconds,
+    from hydromodpy.results.storage.run_store import RunStore
+
+    workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
+    store = RunStore.open(Path(ctx.run_dir), workspace=getattr(workspace, "project_root", None))
+    try:
+        yield store
+    finally:
+        store.close()
+
+
+def sealed_run_name(run_dir: Path) -> str | None:
+    """Return the name the seal gives the run; None when the directory has no seal."""
+    from hydromodpy.results.record.label import read_sealed_manifest
+    from hydromodpy.results.record.manifest import is_sealed
+
+    try:
+        manifest = read_sealed_manifest(run_dir)
+    except (OSError, ValueError):
+        return run_dir.name if is_sealed(run_dir) else None
+    return manifest.run.name if manifest is not None else None
+
+
+def step_after_seal(ctx: WorkflowContext) -> list[Path]:
+    """Write the data exports, then the metadata views, then schedule the recap.
+
+    Called right after the seal of the run. The data requests of the
+    ``[[export]]`` blocks read the sealed run, as ``hmp export <run>`` does,
+    and each file carries the identity block of the run labelled today. A run
+    at the ``research`` level writes no data export. A view (STAC, RO-Crate,
+    PROV) renders ``manifest.json`` and reads the directory alone. The recap
+    is read from the seal and printed once the enclosing phase has printed
+    its checkmark, as the last lines of the run. Returns the files written.
+    The data exports and the views are one ``export`` line each of
+    ``profile.json``.
+
+    Raises
+    ------
+    ExportError
+        When a request fails. The run stays sealed and ``completed``; the
+        message names ``hmp export <run>``, which writes the exports again.
+        Every request had its turn first, the views included. ``SealStep``
+        holds the error until the figures are drawn.
+    """
+    from hydromodpy.results.exporters.registry import run_formats
+    from hydromodpy.results.exporters.request import export_data_requests, export_views
+    from hydromodpy.workflow.runner import record_measure
+
+    run_dir = Path(ctx.run_dir)
+    requests = list(ctx.cfg.export)
+    views = run_formats()
+    data_requests = [request for request in requests if request.output_format not in views]
+    written: list[Path] = []
+    failures: list[Exception] = []
+    if (
+        data_requests
+        and ctx.sim_id is not None
+        and renders(getattr(ctx, "level", None) or "result")
+    ):
+        # Its own console line: written after the seal line, a slow export was read as
+        # a slow seal.
+        with progress.phase("exports"), measured("export", "data") as measure:
+            try:
+                with sealed_run_store(ctx) as store:
+                    held = held_requests(ctx, store, data_requests)
+                    written.extend(export_data_requests(store, ctx.sim_id, held))
+            except Exception as exc:  # noqa: BLE001 - the views still have their turn
+                failures.append(exc)
+        record_measure(run_dir, measure, attempt=ctx.attempt)
+    with measured("export", "views") as measure:
+        try:
+            written.extend(export_views(run_dir, requests))
+        except Exception as exc:  # noqa: BLE001 - raised below with the data failure
+            failures.append(exc)
+    record_measure(run_dir, measure, attempt=ctx.attempt)
+    _announce_exports(written)
+    if failures:
+        name = sealed_run_name(run_dir) or run_dir.name
+        reasons = "; ".join(str(exc) for exc in failures)
+        raise ExportError(
+            f"run {name} is sealed; write the exports again with hmp export {name}: {reasons}"
+        ) from failures[0]
+    progress.at_end(partial(_log_run_epilogue, _run_epilogue_lines(ctx, run_dir=run_dir)))
+    return written
+
+
+def held_requests(
+    ctx: WorkflowContext, store: Any, requests: Sequence[ExportRequest]
+) -> list[ExportRequest]:
+    """Keep the names of each request the sealed run holds, and warn of the others.
+
+    A name the run holds none of, a concentration without a transport or the
+    measurement of a station the run has no record for, failed the whole step and
+    left the figures undrawn. It is skipped with a warning instead, and a request
+    left with no name is not written. ``hmp check`` names the ones it can tell before
+    the solve. ``all`` asks for what the run holds, so it is kept whole.
+    """
+    from hydromodpy.results.exporters.vocabulary import list_exportable
+    from hydromodpy.results.run.view import Run
+
+    held = list_exportable(Run(ctx.sim_id, store))
+    kept: list[ExportRequest] = []
+    for index, request in enumerate(ctx.cfg.export):
+        if request not in requests:
+            continue
+        missing = [name for name in request.names if name not in held]
+        if missing:
+            logger.warning(
+                "export[%d] skips %s: this run holds none of it. 'hmp export %s --list' "
+                "prints what it holds.",
+                index,
+                ", ".join(map(repr, missing)),
+                sealed_run_name(Path(ctx.run_dir)) or Path(ctx.run_dir).name,
+            )
+        names = [name for name in request.names if name in held]
+        if request.exports_all or names == request.names:
+            kept.append(request)
+        elif names:
+            kept.append(request.model_copy(update={"variable": names}))
+    return kept
+
+
+@dataclass(frozen=True)
+class _Epilogue:
+    """The last lines of a run, read from its seal, printed once its figures are drawn."""
+
+    name: str
+    sim_id: str
+    started_at: datetime | None
+    metric: str
+
+    def lines(self, now: datetime) -> tuple[str, str]:
+        """The recap and the next commands. The time runs to *now*, the figures included.
+
+        The seal keeps ``duration_s`` up to the seal, the figure ``hmp show`` reads. A
+        promoted run that took its solve from the trial sealed in 2 s and drew its figures
+        for 25 s more, so the recap said 2 s under a promotion of 27 s.
+        """
+        elapsed = (now - self.started_at).total_seconds() if self.started_at else None
+        duration = f" {elapsed:.0f}s" if elapsed is not None and elapsed >= 0 else ""
+        name = self.name
+        return (
+            f"Run completed: {name} [{self.sim_id[:8]}]{duration}{self.metric}",
+            f"next: hmp show {name} | hmp publish {name} --to <folder> | hmp export {name} --list",
+        )
+
+
+def _run_epilogue_lines(ctx: WorkflowContext, *, run_dir: Path) -> _Epilogue:
+    """Best-effort self-teaching epilogue: identity card + next commands.
+
+    Read from ``manifest.json``, never from the index. The epilogue says nothing of
+    the duration when the seal has no start.
+    """
+    from hydromodpy.results.record.label import read_sealed_manifest
+
+    try:
+        manifest = read_sealed_manifest(run_dir)
+    except (OSError, ValueError):
+        manifest = None
+    score = manifest.score if manifest is not None else None
+    return _Epilogue(
+        name=manifest.run.name if manifest is not None else run_dir.name,
+        sim_id=str(ctx.sim_id),
+        started_at=manifest.run.started_at if manifest is not None else None,
+        metric=f" nse={score.value:.2f}" if score is not None and score.value is not None else "",
     )
-    _log_run_epilogue(ctx, wall_seconds=wall_seconds, status=status)
 
 
-def step_close_store(ctx: WorkflowContext) -> None:
-    """Close the store and detach it from the context."""
-    if ctx.store is None:
-        return
-    try:
-        ctx.store.close()
-    finally:
-        ctx.store = None
+def _announce_exports(written: Sequence[Path]) -> None:
+    """Say on the console how many files the exports of a run wrote, and where.
 
-
-def step_finalize_store(
-    ctx: WorkflowContext,
-    *,
-    wall_seconds: float = 0.0,
-    status: str = "completed",
-) -> None:
-    """Seal the simulation in the store and close it.
-
-    After this step ``ctx.store`` is ``None``.
+    The exporters name every file they write, one INFO line each. This is the
+    one line the default verbosity keeps, naming the folder that holds them all.
     """
-    if ctx.store is None:
-        return
-
-    try:
-        step_seal_store(ctx, wall_seconds=wall_seconds, status=status)
-    finally:
-        step_close_store(ctx)
-
-
-def _log_run_epilogue(ctx: WorkflowContext, *, wall_seconds: float, status: str) -> None:
-    """Best-effort self-teaching epilogue: identity card + next commands."""
-    try:
-        store = ctx.store
-        sid = str(ctx.sim_id)
-        row = store.backend.fetch_one("SELECT name FROM simulations WHERE sim_id = ?", [sid])
-        name = (row[0] if row else None) or sid[:8]
-        nse = store.backend.fetch_one(
-            "SELECT value FROM metrics WHERE sim_id = ? "
-            "AND station_id = '__outlet__' AND metric_name = 'nse'",
-            [sid],
-        )
-        metric = f" nse={nse[0]:.2f}" if nse and nse[0] is not None else ""
-        duration = f" {wall_seconds:.0f}s" if wall_seconds else ""
-        logger.info("Run %s: %s [%s]%s%s", status, name, sid[:8], duration, metric)
+    if written:
+        folder = Path(os.path.commonpath([Path(path).parent for path in written]))
         logger.info(
-            "next: hmp catalog show %s | hmp catalog diff %s <other> | hmp catalog export %s",
-            name,
-            name,
-            name,
+            "Exported %d file(s) -> %s", len(written), display_path(folder), extra=MILESTONE
         )
-    except Exception:  # noqa: BLE001 - the epilogue must never disrupt a run
-        return
+
+
+def _log_run_epilogue(epilogue: _Epilogue) -> None:
+    recap, next_commands = epilogue.lines(datetime.now(UTC))
+    logger.info("%s", recap, extra=MILESTONE)
+    logger.info("%s", next_commands, extra=HINT)
 
 
 # ---------------------------------------------------------------------------
@@ -198,60 +258,35 @@ def step_cleanup_scratch(
     ctx: WorkflowContext,
     *,
     keep_solver_files: bool = False,
+    spare: Iterable[str | Path] = (),
 ) -> None:
-    """Remove the solver scratch folders unless keep_solver_files is True.
+    """Empty the scratch of the attempt; under keep_solver_files a persisted run keeps its solver files.
 
-    Only the run's own children of ``.hmp/scratch/`` go: the geographic
-    ``_preprocessing/`` tree living beside them belongs to the session, and
-    :func:`step_cleanup_preprocessing` is the one entitled to drop it.
+    The rule is :func:`hydromodpy.results.storage.scratch.clear_scratch`. Under
+    ``keep_solver_files`` a persisted run moves the children into
+    ``<run>/solver/`` instead of dropping them: the seal drops ``<run>/.hmp/``
+    and the solver files must outlive it. A run without a directory keeps them
+    in place. ``spare`` names folders someone else still owns.
     """
-    if keep_solver_files:
-        return
     workspace = ctx.setup.workspace
     if workspace is None:
         return
-    scratch = workspace.solver_scratch_folder
-    if not scratch.exists():
+    if keep_solver_files and not run_is_persisted(ctx):
         return
-    for target in sorted(scratch.iterdir()):
-        if target.name != PREPROCESSING_DIRNAME:
-            _remove_scratch_path(ctx, target)
-
-
-def _remove_scratch_path(ctx: WorkflowContext, target: Path) -> None:
-    """Delete one scratch entry, retrying while a handle still pins it."""
-    _release_cleanup_handles(ctx)
-    last_error: OSError | None = None
-    for delay in (0.0, *_SCRATCH_CLEANUP_RETRY_DELAYS):
-        if delay:
-            time.sleep(delay)
-            _release_cleanup_handles(ctx)
-        try:
-            if target.is_dir():
-                shutil.rmtree(target)
-            else:
-                target.unlink()
-            return
-        except FileNotFoundError:
-            return
-        except OSError as exc:
-            last_error = exc
-    raise ExportError(
-        f"Could not remove solver scratch directory: {target}: {last_error}"
-    ) from last_error
+    kept = Path(ctx.run_dir) / RUN_SOLVER_DIRNAME if keep_solver_files else None
+    clear_scratch(workspace.solver_scratch_folder, kept=kept, spare=spare)
 
 
 def step_cleanup_preprocessing(ctx: WorkflowContext, *, keep: bool = False) -> int:
     """Remove the geographic preprocessing tree and return the bytes freed.
 
-    ``.hmp/scratch/_preprocessing`` hangs off the *project root*, while the
-    solver scratch follows ``workspace.output_root`` when one is set: with a
-    redirected output root, :func:`step_cleanup_scratch` never reaches it. It
-    is dropped here unless ``[geographic] write_intermediates`` asked to keep
-    the rasters on disk, or ``keep`` says a multi-run session owns the tree
-    and drops it at the end of the session rather than at the end of a run.
+    :func:`step_cleanup_scratch` leaves ``.hmp/scratch/<run>/_preprocessing``
+    alone: the geographic tree belongs to the session. It is dropped here
+    unless ``[geographic] write_intermediates`` asked to keep the rasters on
+    disk, or ``keep`` says a multi-run session owns the tree and drops it at
+    the end of the session rather than at the end of a run.
     """
-    from hydromodpy.spatial.geographic.store_ingestion import cleanup_stable_folder
+    from hydromodpy.catchment.preprocess.preprocessing_cleanup import cleanup_stable_folder
 
     geographic = getattr(getattr(ctx, "setup", None), "geographic", None)
     if geographic is None:
@@ -262,42 +297,11 @@ def step_cleanup_preprocessing(ctx: WorkflowContext, *, keep: bool = False) -> i
 
 
 def step_drop_empty_scratch(ctx: WorkflowContext) -> None:
-    """Remove ``.hmp/scratch/`` once nothing is left under it."""
+    """Remove the run's scratch folder, then ``.hmp/scratch/``, once nothing is left under them."""
     workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
     if workspace is None:
         return
-    try:
-        workspace.solver_scratch_folder.rmdir()
-    except OSError:
-        # Still holding the preprocessing tree or a solver folder: not ours to force.
-        return
-
-
-def _release_cleanup_handles(ctx: WorkflowContext) -> None:
-    """Release best-effort runtime handles before deleting scratch files."""
-    store = getattr(ctx, "store", None)
-    close_zarr = getattr(store, "_close_open_zarr_handles", None)
-    if callable(close_zarr):
-        try:
-            close_zarr()
-        except Exception:
-            logger.debug("Could not close open Zarr handles before scratch cleanup", exc_info=True)
-
-    try:
-        from hydromodpy.spatial.geographic.geographic_io import (
-            backend_has_callables,
-            resolve_delineation_backend,
-        )
-
-        backend = resolve_delineation_backend()
-        if backend_has_callables(backend, "raster", "clear_raster_cache"):
-            backend.raster.clear_raster_cache()
-    except Exception:
-        logger.debug(
-            "Could not clear delineation raster cache before scratch cleanup", exc_info=True
-        )
-
-    gc.collect()
+    drop_empty_scratch(Path(workspace.solver_scratch_folder))
 
 
 # ---------------------------------------------------------------------------
@@ -306,89 +310,63 @@ def _release_cleanup_handles(ctx: WorkflowContext) -> None:
 
 
 class ExportStep:
-    """Save artefacts, finalize and close the catalog.
+    """Drop the solver files and clean the scratch, before the seal.
 
-    Composed of four concerns: gallery publication
-    (:func:`step_save_run_artifacts`), automatic format export
-    (``auto_export_results``), sealing and closing the store
-    (:func:`step_seal_store`, :func:`step_close_store`) and scratch cleanup
-    (:func:`step_cleanup_scratch`, :func:`step_cleanup_preprocessing`). Each
-    remains addressable from notebooks via its function-based helper.
+    The solver outputs the retention does not keep are dropped, then the
+    scratch (:func:`step_cleanup_scratch`, :func:`step_cleanup_preprocessing`).
+    Each remains addressable from notebooks via its function-based helper.
+    The seal comes next (``SealStep``), then the data exports and the
+    metadata views (:func:`step_after_seal`), then the figures
+    (``DisplayStep``): what renders the run is written from the seal and
+    carries its label. The fields stay in ``fields.zarr`` after the cleanup,
+    so an export after the seal reads the same values.
 
-    The portable ``.hmp`` package is written between the seal and the close,
-    never before: an archive built on an unsealed run carries neither the
-    manifest nor the provenance.
+    Everything the store does happens inside one scope this step opens and
+    closes; the scratch is cleaned after it, when no handle is left to pin a
+    file.
     """
 
     name = "export"
-    tin: ClassVar[type] = DerivedState
-    tout: ClassVar[type] = ExportedState
+    reads: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "export_paths",
+        "keep_preprocessing",
+        "kept_scratch",
+    )
+    writes: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "export_paths",
+    )
     config_sections: ClassVar[tuple[str, ...]] = ()
 
     def depends_on(self) -> tuple[str, ...]:
-        return ("display",)
+        return ("derive",)
 
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
         if ctx is None:
             raise ConfigError("ExportStep requires 'ctx' in state.data")
 
-        wall_seconds = float(state.get("wall_seconds", 0.0) or 0.0)
+        results_cfg = ctx.cfg.simulation.results
+        plan = ctx.execution.simulation_plan if run_is_persisted(ctx) else None
+        if plan is not None and ctx.sim_id is not None:
+            from hydromodpy.solver.base.plan import RunContext
+            from hydromodpy.workflow.steps.extract import retention_of
+            from hydromodpy.workflow.steps.run_outputs import cleanup_solver_outputs
 
-        results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
-        if ctx.store is not None:
-            step_save_run_artifacts(ctx, wall_seconds)
-            plan = ctx.execution.simulation_plan
-            packaged = plan is not None and not ctx.execution.lightweight and ctx.sim_id is not None
-            export_package: Callable[[], None] | None = None
-            if packaged:
-                from hydromodpy.simulation.extraction.post_run import (
-                    auto_export_package,
-                    auto_export_results,
-                    cleanup_solver_outputs,
-                )
-                from hydromodpy.simulation.planning.plan import RunContext
-
-                export_cfg = ctx.cfg.export
-                save_catalog = bool(results_cfg.persistence.save_catalog)
-                auto_export_results(
-                    sim_id=ctx.sim_id,
-                    store=ctx.store,
-                    export_config=export_cfg,
-                    save_catalog=save_catalog,
-                    run_id=ctx.setup.run_id,
-                )
+            retention = retention_of(ctx, plan)
+            with run_store(ctx) as store:
                 for run in plan.runs:
                     if not run.is_solver_backed:
                         continue
                     cleanup_solver_outputs(
-                        ctx=RunContext(plan=plan, run=run, state=ctx),
-                        results_config=results_cfg,
-                        keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
+                        ctx=RunContext.of(ctx, plan=plan, run=run, store=store),
+                        retention=retention,
                     )
-                export_package = partial(
-                    auto_export_package,
-                    sim_id=ctx.sim_id,
-                    store=ctx.store,
-                    export_config=export_cfg,
-                    save_catalog=save_catalog,
-                    run_id=ctx.setup.run_id,
-                )
-            step_drop_intermediate_budget(ctx)
-            if export_package is None:
-                step_finalize_store(ctx, wall_seconds=wall_seconds)
-            else:
-                # Seal first, package second: the archive must carry the
-                # manifest and the provenance the seal writes. The store stays
-                # open for the packer, which reads the index and the live Zarr.
-                try:
-                    step_seal_store(ctx, wall_seconds=wall_seconds)
-                    export_package()
-                finally:
-                    step_close_store(ctx)
         step_cleanup_scratch(
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
+            spare=tuple(state.get("kept_scratch", ()) or ()),
         )
         step_cleanup_preprocessing(ctx, keep=bool(state.get("keep_preprocessing")))
         step_drop_empty_scratch(ctx)
@@ -432,28 +410,154 @@ class ExportStep:
     ) -> PipelineState:
         """Restore the post-export state without re-finalising the store.
 
-        Lists the run directory currently on disk and exposes it on the new
-        state so callers can inspect it.
+        Exposes the run directory on the new state so callers can inspect it.
         """
-        from hydromodpy.core.state.paths import runs_dir_for
-
         ctx = prior_state.get("ctx")
         if ctx is None:
             raise ConfigError("ExportStep.rebuild_state requires 'ctx' in state.data")
         existing: list[Path] = []
-        ws = getattr(getattr(ctx, "setup", None), "workspace", None)
-        project_root: Path | None = getattr(ws, "project_root", None)
-        store = getattr(ctx, "store", None)
-        sim_id = getattr(ctx, "sim_id", None)
-        if project_root is not None and store is not None and sim_id:
-            run_dir = store.run_dir_for(sim_id)
-            if run_dir.is_dir():
-                existing.append(run_dir)
-        elif project_root is not None:
-            existing.extend(p for p in runs_dir_for(project_root).glob("*") if p.is_dir())
+        run_dir = getattr(ctx, "run_dir", None)
+        if run_dir is not None and Path(run_dir).is_dir():
+            existing.append(Path(run_dir))
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
             step_name=self.name,
             ctx=ctx,
             export_paths=existing,
         )
+
+
+class SealStep:
+    """Step 12 - write the seal of the run from its store; the exports follow it.
+
+    The seal is ``simulation.parquet``, ``parameters.parquet``, ``provenance.json``,
+    ``inputs.json`` and ``manifest.json`` last, then ``README.md``. The data
+    exports and the metadata views the ``[[export]]`` blocks ask for render the
+    sealed run, so they are written right after it (:func:`step_after_seal`),
+    and the figures after them (``DisplayStep``). The outcome is not touched
+    here: the attempt protocol around the pipeline flips ``outcome.json`` to
+    ``completed`` and removes ``<run>/.hmp/`` when it finds the seal, also
+    when an export or a figure raised after it. The seal names the attempt that
+    writes it, the one ``outcome.json`` names, also when ``prepare_solver`` ran in
+    an earlier attempt of the run.
+    """
+
+    name = "seal"
+    reads: ClassVar[tuple[str, ...]] = ("cfg", "ctx", "replay_of", "strict")
+    writes: ClassVar[tuple[str, ...]] = ("ctx", "failed_after_seal")
+    config_sections: ClassVar[tuple[str, ...]] = ()
+
+    def depends_on(self) -> tuple[str, ...]:
+        return ("export",)
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace,
+        run_id: str,
+    ) -> PipelineState:
+        """Advance past a seal that is already on disk."""
+        ctx: WorkflowContext | None = prior_state.get("ctx")
+        if ctx is None:
+            raise ConfigError("SealStep.rebuild_state requires 'ctx' in state.data")
+        return prior_state.advance(
+            step_index=prior_state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+        )
+
+    def run(self, state: PipelineState) -> PipelineState:
+        ctx: WorkflowContext | None = state.get("ctx")
+        if ctx is None:
+            raise ConfigError("SealStep requires 'ctx' in state.data")
+        failed = None
+        if ctx.sim_id is None or not run_is_persisted(ctx):
+            logger.debug("SealStep: this run keeps no store to seal, skipping")
+        else:
+            replay_of = state.get("replay_of")
+            with run_store(ctx) as store:
+                outcome = read_outcome(ctx.run_dir)
+                assert outcome is not None
+                store.facts.attempt = outcome.attempt
+                store.facts.attempt_id = outcome.attempt_id
+                if replay_of is None:
+                    record = seal_completed(store)
+                else:
+                    record = _seal_replay(
+                        store,
+                        state.get("cfg"),
+                        replay_of,
+                        strict=bool(state.get("strict")),
+                    )
+            logger.info("Run %s sealed: %s", record.run.name, ctx.run_dir)
+            try:
+                step_after_seal(ctx)
+            except ExportError as exc:
+                # The figures read the sealed run, not the exports: they are drawn
+                # first, and the pipeline raises this error once they are.
+                failed = exc
+        return state.advance(
+            step_index=state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+            failed_after_seal=failed,
+        )
+
+
+def _source_kind(replay_of: Path) -> str:
+    """Return the lineage kind of a replayed source, a run and a copy alike.
+
+    ``replay`` covers both, and ``replay.source`` says which one it was. The word
+    ``published`` stays for the copy a publication writes.
+    """
+    return "replay"
+
+
+def _seal_replay(store: RunStore, cfg: Any, replay_of: Path, *, strict: bool) -> Any:
+    """Seal a replay with what it found against the run or copy it played again.
+
+    The class is computed by the seal itself, after the field store is harmonised,
+    so the values compared are the ones the seal certifies; under ``strict`` a
+    deviation raises there and the attempt keeps its fields and tables with no
+    seal. The producer entries that differ and the drift of the configuration and
+    of the build enter the lineage, with the source id, its directory name and the
+    kind of the source. The level of the source, read from its directory, lets
+    a replay add keys a source below ``result`` never kept without classing
+    them as deviations. The seal itself is the ordinary one.
+    """
+    from hydromodpy.results.record.manifest import read_seal
+    from hydromodpy.results.retention import level_at
+    from hydromodpy.results.storage.sealing import build_provenance
+    from hydromodpy.workflow.replay_checks import (
+        producer_differences,
+        warn_config_drift,
+        warn_producer_differences,
+    )
+    from hydromodpy.workflow.steps.prepare_solver.resolved import BUILD_TABLE, build_drift
+
+    facts = store.facts
+    when = datetime.now(UTC)
+    producer = producer_differences(replay_of, build_provenance(facts, ended_at=when))
+    warn_producer_differences(replay_of, producer)
+    drift = warn_config_drift(cfg, replay_of) if cfg is not None else {}
+    for item in build_drift(replay_of, store.run_dir):
+        drift[f"{BUILD_TABLE}.{item.key}"] = item.record()
+    facts.lineage = facts.lineage.model_copy(
+        update={
+            "kind": _source_kind(replay_of),
+            "parent_sim_id": read_seal(replay_of).identity.sim_id,
+            "parent_hint": Path(replay_of).name,
+            "drift": drift,
+        }
+    )
+    return seal_completed(
+        store,
+        replay_of=replay_of,
+        strict=strict,
+        producer=producer,
+        source_level=level_at(replay_of),
+    )
+
+
+__all__ = ["ExportStep", "SealStep"]

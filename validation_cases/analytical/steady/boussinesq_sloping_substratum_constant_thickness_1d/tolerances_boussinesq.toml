@@ -1,0 +1,13 @@
+[head_profile]
+rmse = 9e-07
+max_abs_error = 1.3e-06
+row_spread = 1e-08
+
+[doc]
+reason = """
+Equal end thicknesses carry a uniform flow at constant thickness, which the
+solver reproduces exactly; what is left is the solver closure. Twice the
+measurement, PETSc and the local engine alike: RMSE 4.5e-07 m, max error 6.3e-07
+m. The strip is uniform across rows, so a row spread is solver noise: PETSc
+reads below 1e-14 m; the bound is 1e-8 m.
+"""

@@ -5,13 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.physics.flow import Flow
-from hydromodpy.simulation.planning.plan import (
-    ProcessRun,
-    RunContext,
-    SimulationPlan,
-)
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.model.flow import Flow
 from validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.runtime_boussinesq import (
     EAST_HEAD_M,
     NX,
@@ -24,7 +18,9 @@ from validation_cases.analytical.transient.runtime_boussinesq_1d import (
     aggregate_triangle_history_to_structured_fields,
 )
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    apply_analytical_boussinesq_runtime_defaults,
+    boussinesq_variant_flow_section,
+    boussinesq_variant_options,
+    solve_boussinesq_bundle,
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
@@ -42,74 +38,56 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> ValidationRunResult:
-    """Run the transient recharge-step hillslope case through PETSc TS VI."""
+    """Run the transient recharge-step hillslope case for one Boussinesq variant."""
     del timeout
 
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{CASE_ID}_boussinesq",
+        run_name=f"{CASE_ID}_{public_solver_label}",
     )
     bundle_dir = _write_hillslope_strip_bundle(out_path / "mesh_bundle")
     simulations_folder = out_path / "results_simulations"
     simulations_folder.mkdir(parents=True, exist_ok=True)
     period_lengths_seconds = tuple(86400.0 * DT_DAYS for _ in range(NPER))
 
-    state = SimpleNamespace(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(
-                _build_flow_config(
-                    apply_analytical_boussinesq_runtime_defaults(
-                        {
-                            "flow_regime": "transient",
-                            "ic": {"type": "custom", "value": EAST_HEAD_M},
-                            "active_sinks_sources": ["recharge"],
-                            "active_bc": ["east_side"],
-                            "sinks_sources": {
-                                "recharge": {
-                                    "values": mm_day_to_m_s(RECHARGE_MM_DAY),
-                                    "first_clim": "mean",
-                                    "units": "m/s",
-                                }
-                            },
-                            "bc": {
-                                "east_side": {"value": EAST_HEAD_M},
-                            },
+    solved = solve_boussinesq_bundle(
+        flow=Flow(
+            _build_flow_config(
+                boussinesq_variant_flow_section(
+                    {
+                        "flow_regime": "transient",
+                        "ic": {"kind": "custom", "value": EAST_HEAD_M},
+                        "sinks_sources": {
+                            "recharge": {
+                                "values": mm_day_to_m_s(RECHARGE_MM_DAY),
+                                "first_clim": "mean",
+                                "units": "m/s",
+                            }
                         },
-                        flow_regime="transient",
-                    )
+                        "bc": {
+                            "east_side": {"value": EAST_HEAD_M},
+                        },
+                    },
+                    flow_regime="transient",
                 )
-            ),
-            domain=None,
-            time_grid=SimpleNamespace(
-                period_lengths_seconds=period_lengths_seconds,
-                window=None,
-            ),
-            workspace=SimpleNamespace(
-                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
-            ),
+            )
         ),
-    )
-    run = ProcessRun(
-        id="flow_validation::boussinesq",
-        process_id="flow_validation",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name="Boussinesq hillslope recharge-step interception validation",
-            description="Transient recharge-step hillslope with seepage onset",
-            runs=(run,),
+        bundle_dir=bundle_dir,
+        simulations_folder=simulations_folder,
+        time_grid=SimpleNamespace(
+            period_lengths_seconds=period_lengths_seconds,
+            window=None,
         ),
-        run=run,
-        state=state,
+        options=boussinesq_variant_options(
+            flow_regime="transient",
+            solver=public_solver_label,
+        ),
+        plan_name="Boussinesq hillslope recharge-step interception validation",
+        plan_description="Transient recharge-step hillslope with seepage onset",
     )
-
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    model = solved.solver_model
     field_series = aggregate_triangle_history_to_structured_fields(
         model,
         nx=NX,
@@ -127,7 +105,7 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
     )
     return ValidationRunResult(
         case_dir=Path(__file__).resolve().parent,
-        solver_name="boussinesq",
+        solver_name=public_solver_label,
         out_path=out_path,
         model_ws=model_ws,
         postprocess_dir=postprocess_dir,

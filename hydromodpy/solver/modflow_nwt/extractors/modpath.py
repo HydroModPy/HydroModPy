@@ -7,9 +7,24 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import SolverError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import SolverRun
+from hydromodpy.solver.modflow_common.time_units import (
+    TRACKING_TIME_UNIT,
+    factor_to_tracking_unit,
+    resolve_solver_time_unit,
+)
 
 logger = get_logger(__name__)
+
+# Axis names of the particle arrays, kept in sync with the store vocabulary of
+# ``results.field_registry`` (AXIS_PARTICLE, AXIS_TRACK_STEP, AXIS_ENDPOINT).
+# The layer matrix forbids ``solver`` importing ``results``, so the names are
+# repeated here and pinned by ``tests/unit/results/test_store_axes.py``.
+_TRACK_AXES = ("particle", "track_step")
+_ENDPOINT_AXES = ("endpoint",)
 
 
 class ModpathOutputAdapter:
@@ -17,41 +32,52 @@ class ModpathOutputAdapter:
 
     Stores pathline data as Zarr arrays under the ``particles/`` subgroup:
     x, y, z, time - each shaped ``(n_particles, max_steps)`` with NaN
-    padding for particles that terminate early.
+    padding for particles that terminate early. MODPATH counts x and y from
+    the lower left corner of the grid, so the corner is added back: the store
+    holds the coordinates of the mesh, as the MODFLOW 6 PRT extractor does.
     """
 
+    process_type = "transport"
     solver_name = "modpath"
-    category = "distributed"
 
-    def extract(
-        self,
-        sim_id: str,
-        solver_output_dir: Path,
-        store: Any,
-        *,
-        model_name: str | None = None,
-    ) -> None:
-        """Read MODPATH output files and write pathlines into the store."""
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Read the MODPATH output files of a solved run and write its pathlines into the store.
 
-        solver_output_dir = Path(solver_output_dir)
+        Particles keep no per-cell budget, so ``retention`` is not read.
+        """
+        del retention
+        sim_id = store.sim_id
+        solver_output_dir = Path(solver_run.output_dir)
+        # MODPATH reports tracking time in the flow model time unit. Without a
+        # model name the DIS file is not read, and the unit falls back to the
+        # launcher unit, which is the ITMUNI that NWT always writes.
+        to_tracking_unit = factor_to_tracking_unit(resolve_solver_time_unit(solver_output_dir, ""))
+        origin = _grid_origin(solver_run)
 
         pth_files = list(solver_output_dir.glob("*.mppth")) + list(
             solver_output_dir.glob("*pathline*")
         )
         if pth_files:
-            self._extract_pathlines(sim_id, store, pth_files[0])
+            self._extract_pathlines(
+                sim_id, store, pth_files[0], origin=origin, to_tracking_unit=to_tracking_unit
+            )
 
         ept_files = list(solver_output_dir.glob("*.mpend")) + list(
             solver_output_dir.glob("*endpoint*")
         )
         if ept_files:
-            self._extract_endpoints(sim_id, store, ept_files[0])
+            self._extract_endpoints(
+                sim_id, store, ept_files[0], origin=origin, to_tracking_unit=to_tracking_unit
+            )
 
     def _extract_pathlines(
         self,
         sim_id: str,
         store: Any,
         pth_path: Path,
+        *,
+        origin: tuple[float, float],
+        to_tracking_unit: float,
     ) -> None:
         """Read pathline file and write x/y/z/time arrays to Zarr."""
         from flopy.utils import PathlineFile
@@ -73,10 +99,10 @@ class ModpathOutputAdapter:
 
         for i, particle in enumerate(all_data):
             n = len(particle)
-            x[i, :n] = particle["x"]
-            y[i, :n] = particle["y"]
+            x[i, :n] = particle["x"] + origin[0]
+            y[i, :n] = particle["y"] + origin[1]
             z[i, :n] = particle["z"]
-            t[i, :n] = particle["time"]
+            t[i, :n] = np.asarray(particle["time"], dtype="float64") * to_tracking_unit
 
         sz = store.open_zarr(sim_id)
         try:
@@ -85,13 +111,14 @@ class ModpathOutputAdapter:
                 particles_grp.create_array(
                     name,
                     data=arr,
+                    dimension_names=_TRACK_AXES,
                     overwrite=True,
                 )
             particles_grp.attrs["source_solver"] = self.solver_name
-            # MODPATH reports tracking time in the flow model time unit, which
-            # the MODFLOW-NWT backend always builds in days. Recording it makes
-            # the store self-describing, like the MODFLOW 6 PRT extractor.
-            particles_grp.attrs["time_units"] = "days"
+            # Converted to days above, matching the MODFLOW 6 PRT extractor.
+            # Declared so readers never assume the SI seconds the simulation
+            # time axis uses.
+            particles_grp.attrs["time_units"] = TRACKING_TIME_UNIT
         finally:
             sz.close()
 
@@ -107,6 +134,9 @@ class ModpathOutputAdapter:
         sim_id: str,
         store: Any,
         ept_path: Path,
+        *,
+        origin: tuple[float, float],
+        to_tracking_unit: float,
     ) -> None:
         """Read endpoint file and write as a single-step pathline."""
         from flopy.utils import EndpointFile
@@ -121,36 +151,32 @@ class ModpathOutputAdapter:
         sz = store.open_zarr(sim_id)
         try:
             particles_grp = sz.root.require_group("particles")
-            particles_grp.create_array(
-                "endpoint_x",
-                data=all_data["x0"].astype("float64"),
-                overwrite=True,
-            )
-            particles_grp.create_array(
-                "endpoint_y",
-                data=all_data["y0"].astype("float64"),
-                overwrite=True,
-            )
-            particles_grp.create_array(
-                "endpoint_z",
-                data=all_data["z0"].astype("float64"),
-                overwrite=True,
-            )
-            particles_grp.create_array(
-                "endpoint_time",
-                data=all_data["time"].astype("float64"),
-                overwrite=True,
-            )
+            for name, values in (
+                ("endpoint_x", all_data["x0"].astype("float64") + origin[0]),
+                ("endpoint_y", all_data["y0"].astype("float64") + origin[1]),
+                ("endpoint_z", all_data["z0"].astype("float64")),
+                ("endpoint_time", all_data["time"].astype("float64") * to_tracking_unit),
+            ):
+                particles_grp.create_array(
+                    name,
+                    data=values,
+                    dimension_names=_ENDPOINT_AXES,
+                    overwrite=True,
+                )
         finally:
             sz.close()
 
         logger.info("Extracted %d endpoints for sim %s", len(all_data), sim_id)
 
-    def derive(
-        self,
-        sim_id: str,
-        store: Any,
-        config: dict | None = None,
-    ) -> None:
-        """No derived variables for particle tracking."""
-        pass
+
+def _grid_origin(solver_run: SolverRun) -> tuple[float, float]:
+    """Return the lower left corner of the flow grid, which MODPATH counts x and y from."""
+    flow = getattr(solver_run.solver_model, "model_modflow", None)
+    mesh = getattr(flow, "solver_mesh", None)
+    if mesh is None:
+        raise SolverError(
+            "The MODPATH run holds no flow grid, so its local coordinates cannot be placed "
+            "on the mesh. Extract the pathlines right after the solve, before the solver "
+            "model is released."
+        )
+    return float(mesh.xoffset), float(mesh.yoffset)

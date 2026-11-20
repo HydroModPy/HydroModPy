@@ -2,7 +2,7 @@
 
 The SFR path already verifies that water ROUTES correctly: no cycle, a
 downstream-increasing numbering, a signed connectivity. Nothing verified that a
-reach bed sits where the terrain is. A bed can land tens of metres under the
+reach bed sits where the terrain is. A bed can land tens of meters under the
 land surface, or perched above it, and every topological check still passes.
 
 That gap has a measured cost. MODFLOW 6 switches a reach between connected and
@@ -46,6 +46,33 @@ def _cell_top(top: np.ndarray, botm: np.ndarray, layer: int, cell: int) -> float
     return float(top[cell]) if layer <= 0 else float(botm[layer - 1, cell])
 
 
+def _downstream_order(reaches: Sequence[Any], *, location: str) -> list[int]:
+    """Reach ids with every reach after all its upstream reaches.
+
+    An explicit reaches table may number an outlet before its source, and both
+    passes of the profile read a neighbour that must already be final. Ties keep
+    the declared order. A cycle has no such order and is refused by name.
+    """
+    pending = {record.ifno: len(record.upstream) for record in reaches}
+    by_ifno = {record.ifno: record for record in reaches}
+    ready = [record.ifno for record in reaches if pending[record.ifno] == 0]
+    order: list[int] = []
+    while ready:
+        ifno = ready.pop(0)
+        order.append(ifno)
+        for down in by_ifno[ifno].downstream:
+            pending[down] -= 1
+            if pending[down] == 0:
+                ready.append(down)
+    if len(order) != len(pending):
+        stuck = sorted(set(pending) - set(order))
+        raise ValueError(
+            f"{location} reaches form a cycle through reach(es) {stuck[:10]} (0-based): "
+            "a stream cannot flow back into itself. Fix the upstream and downstream lists."
+        )
+    return order
+
+
 def solve_reach_bed_profile(
     reaches: Sequence[Any],
     *,
@@ -67,7 +94,7 @@ def solve_reach_bed_profile(
     ``max_bed_sag`` floor, so the bed may sink to the cell bottom instead.
     """
     by_ifno: Mapping[int, Any] = {record.ifno: record for record in reaches}
-    order = [record.ifno for record in reaches]
+    order = _downstream_order(reaches, location=location)
     target = {record.ifno: float(record.rtp) for record in reaches}
 
     def drop(up: int, down: int) -> float:
@@ -108,19 +135,16 @@ def solve_reach_bed_profile(
     # Pass 1, upstream. A floored downstream reach raises the floor of everything
     # above it, and only a pass in this direction can see that: a downstream pass
     # has already fixed the upstream value by the time the floor fires. Capped by
-    # the cell ceiling, because the cell is the hard constraint.
-    relaxed: list[tuple[int, float]] = []
+    # the cell ceiling, because the cell is the hard constraint. A capped step
+    # is not counted here: pass 2 meets it again at the downstream reach, which
+    # is the one left above the order.
     for ifno in reversed(order):
         for down in by_ifno[ifno].downstream:
-            required = lo[down] + drop(ifno, down)
-            if required > hi[ifno]:
-                relaxed.append((ifno, required - hi[ifno]))
-                required = hi[ifno]
-            lo[ifno] = max(lo[ifno], required)
+            lo[ifno] = max(lo[ifno], min(lo[down] + drop(ifno, down), hi[ifno]))
 
-    # Pass 2, downstream. The numbering is topological (asserted upstream of
-    # here), so every upstream neighbour is already final and the monotone
-    # constraint reads straight off it.
+    # Pass 2, downstream. ``order`` is topological (``_downstream_order``), so
+    # every upstream neighbor is already final and the monotone constraint
+    # reads straight off it.
     #
     # Where the cell box and the downhill order disagree, the BOX WINS. A bed
     # belongs where the terrain is: MODFLOW 6 only requires rtp - rbth to stay
@@ -129,6 +153,8 @@ def solve_reach_bed_profile(
     # the surface, and forcing it the other way perched 2355 of 3041 reaches.
     # A traced channel that climbs is a defect of the trace, and it is reported
     # as such rather than absorbed into a wrong geometry.
+    # Each reach is visited once, so ``relaxed`` counts reaches, not events.
+    relaxed: list[tuple[int, float]] = []
     solved: dict[int, float] = {}
     for ifno in order:
         upper = hi[ifno]
@@ -145,12 +171,22 @@ def solve_reach_bed_profile(
         logger.warning(
             "%s streambed profile: %d/%d reach(es) could not hold the downhill order "
             "inside their own cell and kept the cell instead; worst step up %.2f m at "
-            "reach %d. The traced channel climbs there, which is a defect of the trace.",
+            "reach %d, whose cell ceiling stands %.2f m above its traced bed. The traced "
+            "channel climbs there, or the cell lies above it: a defect of the trace or of "
+            "the mesh.",
             location,
             len(relaxed),
             len(order),
             worst_step,
             worst_ifno,
+            hi[worst_ifno] - target[worst_ifno],
+        )
+    else:
+        logger.info(
+            "%s streambed profile: 0/%d reach(es) relaxed, the downhill order holds "
+            "inside every cell.",
+            location,
+            len(order),
         )
 
     if top is not None and botm is not None:

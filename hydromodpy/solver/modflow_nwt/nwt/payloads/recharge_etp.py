@@ -7,16 +7,22 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.time import validate_recharge_coverage
-from hydromodpy.core.units import convert_payload_to_m_per_s
-from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.physics.forcing.validation import (
+from hydromodpy.core.time.window import validate_recharge_coverage
+from hydromodpy.core.units.quantities import convert_payload_to_m_per_s
+from hydromodpy.model.forcing.cells import discretize_fields_on_cells, discretize_points_on_cells
+from hydromodpy.model.forcing.steady_periods import (
+    apply_first_clim,
+    first_clim_sets_a_deficit,
+    one_period_rate,
+    split_net_recharge,
+    steady_flags,
+)
+from hydromodpy.model.forcing.validation import (
+    complete_period_table,
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
-from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import is_scalar_number
 
 if TYPE_CHECKING:
@@ -25,43 +31,43 @@ if TYPE_CHECKING:
     )
 
 
-def discretize_heterogeneous_source(
+def _heterogeneous_on_grid(
+    adapter: FlowToModflowAdapter,
     het_source: object,
     *,
-    solver_mesh: SolverMesh,
-    nper: int,
-    simulation_window: object,
-    method: str = "nearest",
-    source_unit: str = "m/s",
+    method: str,
+    source_unit: str,
 ) -> dict[int, np.ndarray]:
-    """Dispatch heterogeneous discretization for fields or located points."""
-    from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
-        discretize_fields_on_sgrid,
-        discretize_points_on_sgrid,
-    )
+    """Discretize a field or station source on the cells, then shape it as the DIS grid.
 
+    NWT writes ``(nrow, ncol)`` arrays; the discretization itself is the one
+    every solver takes, one value per cell.
+    """
+    solver_mesh = adapter.solver_mesh
+    centers = solver_mesh.cell_centers()
     if getattr(het_source, "has_fields", False):
-        return discretize_fields_on_sgrid(
+        flat = discretize_fields_on_cells(
             load_result=het_source,
-            sgrid=solver_mesh,
-            nper=nper,
-            simulation_window=simulation_window,
+            centers=centers,
+            nper=adapter.nper,
+            simulation_window=adapter.simulation_window,
             method=method,
+            mesh=solver_mesh.planar_mesh,
+            mesh_crs=solver_mesh.cell_mesh.crs_wkt,
         )
-
-    if getattr(het_source, "has_points", False):
-        return discretize_points_on_sgrid(
+    elif getattr(het_source, "has_points", False):
+        flat = discretize_points_on_cells(
             load_result=het_source,
-            sgrid=solver_mesh,
-            nper=nper,
-            simulation_window=simulation_window,
+            centers=centers,
+            nper=adapter.nper,
+            simulation_window=adapter.simulation_window,
             method=method,
             source_unit=source_unit,
+            mesh_crs=solver_mesh.cell_mesh.crs_wkt,
         )
-
-    nrow = solver_mesh.nrow
-    ncol = solver_mesh.ncol
-    return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
+    else:
+        flat = {kper: np.zeros(solver_mesh.n_cells, dtype=float) for kper in range(adapter.nper)}
+    return {kper: solver_mesh.reshape_to_grid(values) for kper, values in flat.items()}
 
 
 def copy_payload(payload: object) -> object:
@@ -87,27 +93,14 @@ def series_value(payload: object, kper: int):
     return payload[kper]
 
 
-def resolve_flow_regime(flow: object) -> str:
-    """Resolve and validate the flow regime string from the flow object."""
-    flow_cfg = getattr(flow, "config", None)
-    regime = None
-    if flow_cfg is not None:
-        regime = getattr(flow_cfg, "flow_regime", None)
-    if regime is None:
-        regime = getattr(flow, "flow_regime", None)
-    if regime is None:
-        raise ValueError("flow.flow_regime is required to build recharge payloads.")
-    return normalize_flow_regime(regime)
-
-
 def clip_etp_to_non_negative(payload: object) -> object:
     """Clip a homogeneous ETP payload to non-negative values."""
     if isinstance(payload, Mapping):
         return {k: max(0.0, float(v)) for k, v in payload.items()}
-    if hasattr(payload, "clip"):
-        return payload.clip(lower=0.0)
     if isinstance(payload, np.ndarray):
         return np.maximum(payload, 0.0)
+    if hasattr(payload, "clip"):
+        return payload.clip(lower=0.0)
     if isinstance(payload, list):
         return [max(0.0, float(v)) for v in payload]
     return max(0.0, float(payload))
@@ -145,31 +138,62 @@ def extract_negative_recharge_evt_payload(
     payload: object,
     nper: int,
     steady: object,
+    first_clim: object = "mean",
+    durations: object,
 ) -> tuple[object, dict[int, object] | None]:
     """Route negative recharge values to EVT and keep RCH non-negative.
 
-    Steady periods carry the time-mean deficit; transient periods keep their own
-    split (shared with MODFLOW 6 via ``route_negative_recharge_to_evt``).
+    ``payload`` holds the own rate of every period, before ``first_clim``. A
+    transient period keeps its own split; a steady period takes the
+    ``first_clim`` rate on each part (``split_net_recharge``, shared
+    with MODFLOW 6). Without a negative value or a negative ``first_clim`` on a
+    steady period, nothing is routed.
     """
-    if not payload_has_negative_values(payload):
+    if not payload_has_negative_values(payload) and not first_clim_sets_a_deficit(
+        first_clim, steady
+    ):
         return payload, None
 
     if isinstance(payload, Mapping):
         normalized = {int(k): np.asarray(v, dtype=float) for k, v in payload.items()}
-        return route_negative_recharge_to_evt(normalized, steady=steady)
+    else:
+        values = np.asarray(payload, dtype=float)
+        normalized = {
+            kper: (values if values.ndim == 0 else np.asarray(series_value(values, kper)))
+            for kper in range(int(nper))
+        }
+    clipped, deficit = split_net_recharge(
+        normalized, steady=steady, first_clim=first_clim, durations=durations
+    )
+    return _scalars_as_floats(clipped), _scalars_as_floats(deficit)
 
-    payload_for_rch = clip_negative_payload(payload)
-    negative = np.abs(np.minimum(np.asarray(payload, dtype=float), 0.0))
-    evt_spd: dict[int, object] = {}
-    for kper in range(int(nper)):
-        is_steady = bool(steady[kper]) if kper < len(steady) else False
-        if is_steady:
-            evt_spd[kper] = float(np.mean(negative)) if negative.ndim else float(negative)
-        elif negative.ndim == 0:
-            evt_spd[kper] = float(negative)
-        else:
-            evt_spd[kper] = series_value(negative, kper)
-    return payload_for_rch, evt_spd
+
+def _scalars_as_floats(by_period: Mapping[int, np.ndarray]) -> dict[int, object]:
+    """Return 0-d arrays as plain floats, the form the NWT packages take."""
+    return {
+        int(kper): (float(value) if np.ndim(value) == 0 else value)
+        for kper, value in by_period.items()
+    }
+
+
+def steady_period_flags(adapter: FlowToModflowAdapter) -> np.ndarray:
+    """Return which periods the NWT run solves steady.
+
+    The flags the DIS package receives when the solver passed them; otherwise
+    the same rule rebuilt from the regime and ``first_period_steady`` of the model.
+    """
+    steady = getattr(adapter, "steady", None)
+    if steady is not None:
+        return np.asarray(steady, dtype=bool).reshape(-1)
+    from hydromodpy.solver.modflow_grid.discretization_temporal import (
+        resolve_first_period_steady,
+    )
+
+    return steady_flags(
+        nper=int(adapter.nper),
+        flow_regime=adapter.model.time.regime,
+        first_period_steady=resolve_first_period_steady(model=adapter.model),
+    )
 
 
 def merge_evt_payloads(
@@ -191,85 +215,93 @@ def merge_evt_payloads(
     return merged
 
 
+def _clipped_at_zero(own_rates: Mapping[int, object]) -> dict[int, object]:
+    """Return each period's own rate as the recharge package would receive it."""
+    return _scalars_as_floats(
+        {kper: np.maximum(np.asarray(rate, dtype=float), 0.0) for kper, rate in own_rates.items()}
+    )
+
+
+def _own_rates_by_period(
+    payload: object,
+    *,
+    nper: int,
+    steady: object,
+    first_clim: object,
+    record_lengths: object = None,
+) -> dict[int, np.ndarray]:
+    """Return the own rate of every period of a recharge or ETP payload.
+
+    A list holds one rate or one per period. A run of one period may read a longer
+    record, as under the other solvers (``one_period_rate``). Any other length is
+    refused: cutting it would change the water the model receives.
+    ``record_lengths`` holds the length of each value of such a record, when known.
+    """
+    if isinstance(payload, Mapping):
+        table = complete_period_table(
+            payload, nper=int(nper), label="flow.sinks_sources.recharge.values"
+        )
+        return {kper: np.asarray(value, dtype=float) for kper, value in table.items()}
+    if is_scalar_number(payload):
+        return {kper: np.asarray(float(payload)) for kper in range(int(nper))}
+    if np.ndim(payload) == 1 and len(payload) != int(nper):
+        record = np.asarray(payload, dtype=float)
+        if record.size == 1:
+            return {kper: np.asarray(float(record[0])) for kper in range(int(nper))}
+        if int(nper) != 1:
+            raise ValueError(
+                f"flow.sinks_sources.recharge.values holds {record.size} rates and this run "
+                f"has {int(nper)} periods: give one rate, or one per period."
+            )
+        is_steady = bool(np.asarray(steady, dtype=bool).reshape(-1)[0])
+        rate = one_period_rate(
+            record, steady=is_steady, first_clim=first_clim, durations=record_lengths
+        )
+        return {0: np.asarray(rate)}
+    return {kper: np.asarray(series_value(payload, kper), dtype=float) for kper in range(int(nper))}
+
+
 def assemble_rch_data(
     *,
     payload: object,
     first_clim: object,
-    flow_regime: str,
+    steady: object,
     nper: int,
+    durations: object,
+    record_lengths: object = None,
     allow_negative: bool = False,
-) -> object:
-    """Convert a recharge payload into the period-indexed structure."""
+) -> dict[int, object]:
+    """Convert a recharge payload into the period-indexed structure.
+
+    Every steady period takes the rate ``first_clim`` states, a transient
+    period keeps its own (:mod:`hydromodpy.model.forcing.steady_periods`).
+    """
     if allow_negative:
         ensure_finite_numeric_payload(payload, label="flow.sinks_sources.recharge.values")
     else:
         ensure_non_negative_numeric_payload(payload, label="flow.sinks_sources.recharge.values")
-    if isinstance(payload, Mapping):
-        if flow_regime == "steady":
-            if len(payload) == 0:
-                raise ValueError(
-                    "flow.sinks_sources.recharge.values mapping cannot be empty in steady regime."
-                )
-            return sum(payload.values()) / len(payload)
-        return dict(payload)
-
-    rch_dict: dict[int, object] = {}
-    for kper in range(nper):
-        if is_scalar_number(payload):
-            rch_dict[kper] = float(payload)
-        elif kper == 0:
-            if first_clim == "mean":
-                rch_dict[kper] = np.mean(payload)
-            elif first_clim == "first":
-                rch_dict[kper] = series_value(payload, 0)
-            elif is_scalar_number(first_clim):
-                rch_dict[kper] = float(first_clim)
-            else:
-                raise ValueError(
-                    "flow.sinks_sources.recharge.first_clim must be "
-                    "'mean', 'first', or a numeric value."
-                )
-        else:
-            rch_dict[kper] = series_value(payload, kper)
-    return rch_dict
+    rows = _own_rates_by_period(
+        payload, nper=nper, steady=steady, first_clim=first_clim, record_lengths=record_lengths
+    )
+    return _scalars_as_floats(
+        apply_first_clim(rows, steady=steady, first_clim=first_clim, durations=durations)
+    )
 
 
 def apply_first_clim_2d(
     *,
     raw_arrays: dict[int, np.ndarray],
     first_clim: object,
-    flow_regime: str,
-    nper: int,
-    nrow: int,
-    ncol: int,
+    steady: object,
+    durations: object,
     allow_negative: bool = False,
 ) -> dict[int, np.ndarray]:
-    """Apply ``first_clim`` policy to period 0 of 2-D recharge arrays."""
+    """Give every steady period the ``first_clim`` array, keep the transient ones."""
     if allow_negative:
         ensure_finite_numeric_payload(raw_arrays, label="flow.sinks_sources.recharge.values")
     else:
         ensure_non_negative_numeric_payload(raw_arrays, label="flow.sinks_sources.recharge.values")
-    if flow_regime == "steady" or nper <= 1:
-        if raw_arrays:
-            all_vals = np.stack(list(raw_arrays.values()), axis=0)
-            mean_arr = np.mean(all_vals, axis=0)
-        else:
-            mean_arr = np.zeros((nrow, ncol), dtype=float)
-        return {0: mean_arr}
-
-    result = dict(raw_arrays)
-    if 0 not in result:
-        return result
-
-    if first_clim == "mean" and len(raw_arrays) > 0:
-        all_vals = np.stack(list(raw_arrays.values()), axis=0)
-        result[0] = np.mean(all_vals, axis=0)
-    elif first_clim == "first":
-        pass
-    elif is_scalar_number(first_clim):
-        result[0] = np.full((nrow, ncol), float(first_clim), dtype=float)
-
-    return result
+    return apply_first_clim(raw_arrays, steady=steady, first_clim=first_clim, durations=durations)
 
 
 def build_heterogeneous_recharge_payload(
@@ -280,33 +312,33 @@ def build_heterogeneous_recharge_payload(
     het_source = recharge_cfg.heterogeneous_source
     interp_method = getattr(recharge_cfg, "interpolation_method", "nearest")
     source_unit = "mm/day"
-    raw_arrays = discretize_heterogeneous_source(
-        het_source,
-        solver_mesh=adapter.solver_mesh,
-        nper=adapter.nper,
-        simulation_window=adapter.simulation_window,
-        method=interp_method,
-        source_unit=source_unit,
+    raw_arrays = _heterogeneous_on_grid(
+        adapter, het_source, method=interp_method, source_unit=source_unit
     )
 
+    adapter.recharge_own_rates = _clipped_at_zero(raw_arrays)
     negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
-    payload = apply_first_clim_2d(
-        raw_arrays=raw_arrays,
-        first_clim=getattr(recharge_cfg, "first_clim", "mean"),
-        flow_regime=resolve_flow_regime(adapter.flow),
-        nper=adapter.nper,
-        nrow=adapter.nrow,
-        ncol=adapter.ncol,
-        allow_negative=negative_to_evt,
-    )
+    first_clim = getattr(recharge_cfg, "first_clim", "mean")
+    steady = steady_period_flags(adapter)
     if negative_to_evt:
+        ensure_finite_numeric_payload(raw_arrays, label="flow.sinks_sources.recharge.values")
         payload, evt_payload = extract_negative_recharge_evt_payload(
-            payload=payload,
+            payload=raw_arrays,
             nper=adapter.nper,
-            steady=[resolve_flow_regime(adapter.flow) == "steady"] * int(adapter.nper),
+            steady=steady,
+            first_clim=first_clim,
+            durations=adapter.period_lengths,
         )
         adapter._negative_recharge_evt_spd = evt_payload
-    return payload
+        if evt_payload is not None:
+            return payload
+    return apply_first_clim_2d(
+        raw_arrays=raw_arrays,
+        first_clim=first_clim,
+        steady=steady,
+        durations=adapter.period_lengths,
+        allow_negative=False,
+    )
 
 
 def build_heterogeneous_etp_payload(
@@ -316,21 +348,14 @@ def build_heterogeneous_etp_payload(
     """Discretize gridded FieldRecords / points onto the MODFLOW grid."""
     het_source = etp_cfg.heterogeneous_source
     interp_method = getattr(etp_cfg, "interpolation_method", "nearest")
-    raw_arrays = discretize_heterogeneous_source(
-        het_source,
-        solver_mesh=adapter.solver_mesh,
-        nper=adapter.nper,
-        simulation_window=adapter.simulation_window,
-        method=interp_method,
-        source_unit="mm/day",
+    raw_arrays = _heterogeneous_on_grid(
+        adapter, het_source, method=interp_method, source_unit="mm/day"
     )
     rate_arrays = apply_first_clim_2d(
         raw_arrays=raw_arrays,
         first_clim=getattr(etp_cfg, "first_clim", "mean"),
-        flow_regime=resolve_flow_regime(adapter.flow),
-        nper=adapter.nper,
-        nrow=adapter.nrow,
-        ncol=adapter.ncol,
+        steady=steady_period_flags(adapter),
+        durations=adapter.period_lengths,
     )
     return {
         kper: np.maximum(np.asarray(arr, dtype=float), 0.0) for kper, arr in rate_arrays.items()
@@ -338,13 +363,11 @@ def build_heterogeneous_etp_payload(
 
 
 def build_recharge_payload(adapter: FlowToModflowAdapter) -> object | None:
-    """Build the RCH payload from ``flow.sinks_sources["recharge"]``."""
-    active = getattr(adapter.flow, "active_sinks_sources", [])
-    if "recharge" not in active:
+    """Build the RCH payload from ``Model.recharge``."""
+    if "recharge" not in adapter.model.active_sinks_sources:
         return None
 
-    sinks_sources = getattr(adapter.flow, "sinks_sources", {})
-    recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, Mapping) else None
+    recharge_cfg = adapter.model.recharge
     if recharge_cfg is None:
         return None
 
@@ -363,43 +386,64 @@ def build_recharge_payload(adapter: FlowToModflowAdapter) -> object | None:
         label="flow.sinks_sources.recharge.values",
     )
     negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
+    steady = steady_period_flags(adapter)
+    if negative_to_evt:
+        ensure_finite_numeric_payload(recharge_payload, label="flow.sinks_sources.recharge.values")
+        own_rates = _own_rates_by_period(
+            recharge_payload,
+            nper=adapter.nper,
+            steady=steady,
+            first_clim=recharge_cfg.first_clim,
+            record_lengths=adapter.record_lengths,
+        )
+        adapter.recharge_own_rates = _clipped_at_zero(own_rates)
+        rch_data, evt_payload = extract_negative_recharge_evt_payload(
+            payload=own_rates,
+            nper=adapter.nper,
+            steady=steady,
+            first_clim=recharge_cfg.first_clim,
+            durations=adapter.period_lengths,
+        )
+        adapter._negative_recharge_evt_spd = evt_payload
+        if evt_payload is not None:
+            return rch_data
     rch_data = assemble_rch_data(
         payload=recharge_payload,
         first_clim=recharge_cfg.first_clim,
-        flow_regime=resolve_flow_regime(adapter.flow),
+        steady=steady,
         nper=adapter.nper,
-        allow_negative=negative_to_evt,
+        durations=adapter.period_lengths,
+        record_lengths=adapter.record_lengths,
+        allow_negative=False,
     )
-    if negative_to_evt:
-        rch_data, evt_payload = extract_negative_recharge_evt_payload(
-            payload=rch_data,
+    adapter.recharge_own_rates = _clipped_at_zero(
+        _own_rates_by_period(
+            recharge_payload,
             nper=adapter.nper,
-            steady=[resolve_flow_regime(adapter.flow) == "steady"] * int(adapter.nper),
+            steady=steady,
+            first_clim=recharge_cfg.first_clim,
+            record_lengths=adapter.record_lengths,
         )
-        adapter._negative_recharge_evt_spd = evt_payload
+    )
     return rch_data
 
 
 def build_etp_payload(
     adapter: FlowToModflowAdapter,
 ) -> tuple[dict[int, object] | None, float, float]:
-    """Build the EVT payload from ``flow.sinks_sources["etp"]``."""
+    """Build the EVT payload from ``Model.etp``."""
     negative_evt_spd = getattr(adapter, "_negative_recharge_evt_spd", None)
-    active = getattr(adapter.flow, "active_sinks_sources", [])
-    if "etp" not in active:
+    if "etp" not in adapter.model.active_sinks_sources:
         return negative_evt_spd, 2.0, 1.0
 
-    sinks_sources = getattr(adapter.flow, "sinks_sources", {})
-    etp_cfg = sinks_sources.get("etp") if isinstance(sinks_sources, Mapping) else None
+    etp_cfg = adapter.model.etp
     if etp_cfg is None:
         return negative_evt_spd, 2.0, 1.0
 
     surface_offset_q = getattr(etp_cfg, "surface_offset", None)
     surface_offset = 2.0 if surface_offset_q is None else float(surface_offset_q.to("m").magnitude)
     extinction_depth_q = getattr(etp_cfg, "extinction_depth", None)
-    extinction_depth = (
-        1.0 if extinction_depth_q is None else float(extinction_depth_q.to("m").magnitude)
-    )
+    extinction_depth = 2.0 if extinction_depth_q is None else float(extinction_depth_q)
 
     het_source = getattr(etp_cfg, "heterogeneous_source", None)
     if het_source is not None and (
@@ -422,11 +466,11 @@ def build_etp_payload(
     evt_spd = assemble_rch_data(
         payload=etp_payload,
         first_clim=etp_cfg.first_clim,
-        flow_regime=resolve_flow_regime(adapter.flow),
+        steady=steady_period_flags(adapter),
         nper=adapter.nper,
+        durations=adapter.period_lengths,
+        record_lengths=adapter.record_lengths,
     )
-    if not isinstance(evt_spd, Mapping):
-        evt_spd = {0: float(evt_spd)}
     return (
         merge_evt_payloads(dict(evt_spd), negative_evt_spd, nper=adapter.nper),
         surface_offset,
@@ -444,10 +488,9 @@ __all__ = [
     "clip_etp_to_non_negative",
     "clip_negative_payload",
     "copy_payload",
-    "discretize_heterogeneous_source",
     "extract_negative_recharge_evt_payload",
     "merge_evt_payloads",
     "payload_has_negative_values",
-    "resolve_flow_regime",
     "series_value",
+    "steady_period_flags",
 ]

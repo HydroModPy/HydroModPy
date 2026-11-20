@@ -1,0 +1,394 @@
+"""``step_persist_forcings`` writes the forcings of a run (mm/day, m3/s) into its Zarr store and tables."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from types import SimpleNamespace
+
+import numpy as np
+import pandas as pd
+import pyarrow.parquet as pq
+import pytest
+import xarray as xr
+
+from hydromodpy.catchment.algorithms.derived_features import (
+    GeographicBoundaryFeatures,
+    GeographicDerivedFeatures,
+)
+from hydromodpy.catchment.algorithms.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+    HydrographicNetwork,
+    HydrographicNetworks,
+)
+from hydromodpy.catchment.preprocess.store_ingestion import persist_geographic_to_store
+from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.state.run_state import LoadedDataContext
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
+from hydromodpy.model.soil.kernel import SoilParameters, full_soil, run_soil_balance
+from hydromodpy.workflow.steps.prepare_solver.forcings import step_persist_forcings
+from tests._helpers.run_stores import open_run_store
+from tests.unit.workflow.steps._helpers import (
+    hydrography_load_result,
+    write_network_vector,
+    write_watershed,
+)
+
+
+@dataclass
+class _Loaded:
+    runoff: object | None = None
+    precipitation: object | None = None
+    recharge: object | None = None
+
+
+def _runoff_field_record(
+    values: np.ndarray,
+    times: pd.DatetimeIndex,
+    variable: str = "runoff",
+) -> FieldRecord:
+    ds = xr.Dataset(
+        {variable: (("time", "y", "x"), np.asarray(values, dtype="float64"))},
+        coords={"time": times, "y": [0.0, 1.0], "x": [0.0, 1.0]},
+    )
+    return FieldRecord(
+        variable=variable,
+        source="sim2",
+        unit="mm/day",
+        data=ds,
+        bbox=(0.0, 0.0, 1.0, 1.0),
+        crs="EPSG:2154",
+        date_start=times[0].to_pydatetime(),
+        date_end=times[-1].to_pydatetime(),
+        frequency="D",
+    )
+
+
+def _ctx(sid: str, loaded: _Loaded) -> SimpleNamespace:
+    return SimpleNamespace(sim_id=sid, loaded_data=loaded)
+
+
+def test_gridded_runoff_watershed_mean(tmp_path):
+    times = pd.date_range("2020-01-01", periods=3, freq="D")
+    frames = np.arange(12, dtype="float64").reshape(3, 2, 2)
+    loaded = _Loaded(runoff=LoadResult(fields=[_runoff_field_record(frames, times)]))
+
+    with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
+        sid = catalog.sim_id
+        step_persist_forcings(_ctx(sid, loaded), store=catalog)
+
+        sz = catalog.open_zarr(sid)
+        try:
+            station = sz.root["forcing"]["runoff"]["catchment"]
+            values = np.asarray(station["values"][:], dtype="float64")
+            # Spatial mean of each 2x2 frame.
+            np.testing.assert_allclose(values, [1.5, 5.5, 9.5])
+            stamps = np.asarray(station["timestamps"][:]).view("datetime64[ns]")
+            assert pd.DatetimeIndex(stamps).equals(times)
+            assert station.attrs["unit"] == "mm/day"
+        finally:
+            sz.close()
+
+
+def test_station_runoff_has_no_watershed_mean(tmp_path):
+    # Point records already persist per station; no _watershed duplicate.
+    times = pd.date_range("2020-01-01", periods=3, freq="D")
+    df = pd.DataFrame({"datetime": times, "value": [1.0, 2.0, 3.0]})
+    point = PointRecord(
+        station_id="sta1",
+        variable="runoff",
+        source="file",
+        unit="mm/day",
+        frequency="D",
+        data=df,
+        date_start=times[0].to_pydatetime(),
+        date_end=times[-1].to_pydatetime(),
+    )
+    loaded = _Loaded(runoff=LoadResult(points=[point]))
+
+    with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
+        sid = catalog.sim_id
+        step_persist_forcings(_ctx(sid, loaded), store=catalog)
+
+        sz = catalog.open_zarr(sid)
+        try:
+            runoff_grp = sz.root["forcing"]["runoff"]
+            assert "sta1" in runoff_grp
+            assert "catchment" not in runoff_grp
+        finally:
+            sz.close()
+
+
+def test_refused_reduction_stops_the_step(tmp_path):
+    # A runoff day without any valid pixel has no watershed mean: the step
+    # refuses it by name instead of persisting the run without it.
+    times = pd.date_range("2020-01-01", periods=2, freq="D")
+    frames = np.ones((2, 2, 2), dtype="float64")
+    frames[1] = np.nan
+    loaded = _Loaded(runoff=LoadResult(fields=[_runoff_field_record(frames, times)]))
+
+    with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
+        with pytest.raises(DataContractViolation, match="no valid pixel in time step 1"):
+            step_persist_forcings(_ctx(catalog.sim_id, loaded), store=catalog)
+
+
+@pytest.mark.parametrize(("factor", "means"), [(1.0, [1.5, 5.5, 9.5]), (2.0, [3.0, 11.0, 19.0])])
+def test_recharge_kept_with_its_factor(tmp_path, factor, means):
+    times = pd.date_range("2020-01-01", periods=3, freq="D")
+    frames = np.arange(12, dtype="float64").reshape(3, 2, 2)
+    record = _runoff_field_record(frames, times, variable="recharge")
+    loaded = _Loaded(recharge=LoadResult(fields=[record]))
+    declared = SimpleNamespace(recharge=SimpleNamespace(factor=factor))
+    cfg = SimpleNamespace(flow=SimpleNamespace(sinks_sources=declared))
+
+    with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
+        sid = catalog.sim_id
+        ctx = SimpleNamespace(sim_id=sid, loaded_data=loaded, cfg=cfg)
+        step_persist_forcings(ctx, store=catalog)
+
+        sz = catalog.open_zarr(sid)
+        try:
+            station = sz.root["forcing"]["recharge"]["catchment"]
+            np.testing.assert_allclose(station["values"][:], means)
+        finally:
+            sz.close()
+
+
+N_DAYS = 4
+N_COLUMNS = 2
+X = np.array([0.0, 100.0])  # m
+
+
+def _field_record(variable: str, values: np.ndarray, days: np.ndarray) -> LoadResult:
+    ds = xr.Dataset(
+        {variable: (("time", "y", "x"), values.reshape(N_DAYS, 1, N_COLUMNS))},
+        coords={"time": days, "y": [0.0], "x": X},
+    )
+    return LoadResult(
+        fields=[
+            FieldRecord(
+                variable=variable,
+                source="soil_reservoir",
+                unit="mm/day",
+                data=ds,
+                bbox=(0.0, 0.0, 100.0, 0.0),
+                crs="EPSG:2154",
+                date_start=pd.Timestamp(days[0]).to_pydatetime(),
+                date_end=pd.Timestamp(days[-1]).to_pydatetime(),
+                frequency="D",
+            )
+        ]
+    )
+
+
+def _make_soil() -> SimpleNamespace:
+    rng = np.random.default_rng(0)
+    precipitation = rng.uniform(0.0, 10.0, size=(N_DAYS, N_COLUMNS))
+    etp = np.full((N_DAYS, N_COLUMNS), 2.0)
+    params = SoilParameters(
+        ru_mm=np.array([120.0, 150.0]),
+        alpha=0.6,
+        kc=1.0,
+        impervious_fraction=0.0,
+        bypass_fraction=0.0,
+        transit_time_days=0.0,
+    )
+    fluxes = run_soil_balance(precipitation, etp, params, full_soil(params))
+    days = pd.date_range("2020-01-01", periods=N_DAYS, freq="D").values.astype("datetime64[ns]")
+    years = days.astype("datetime64[Y]").astype(int) + 1970
+
+    columns = SimpleNamespace(
+        cell_index=np.array([0, 1], dtype="int32"),
+        class_index=np.zeros(N_COLUMNS, dtype="int32"),
+        x=X,
+        y=np.zeros(N_COLUMNS),
+        cell_fraction=np.ones(N_COLUMNS),
+        basin_weight=np.full(N_COLUMNS, 1.0 / N_COLUMNS),
+    )
+    return SimpleNamespace(
+        recharge=_field_record("recharge", fluxes.recharge, days),
+        residual_etp=_field_record("etp", fluxes.residual_etp, days),
+        runoff=_field_record("runoff", fluxes.runoff, days),
+        days=days,
+        years=years,
+        precipitation=precipitation,
+        etp=etp,
+        fluxes=fluxes,
+        columns=columns,
+        config=SoilReservoirConfig(ru=120.0),
+        parameters=params,
+        spinup_cycles=0,
+        never_full_columns=0,
+        crs="EPSG:2154",
+    )
+
+
+def soil_ctx() -> SimpleNamespace:
+    return SimpleNamespace(
+        sim_id=None,
+        loaded_data=_Loaded(),
+        setup=SimpleNamespace(soil_forcings=_make_soil()),
+    )
+
+
+def test_soil_recharge_lands_like_sim2(tmp_path):
+    ctx = soil_ctx()
+
+    with open_run_store(tmp_path / "ws", n_cells=N_COLUMNS, n_timesteps=N_DAYS) as catalog:
+        sid = catalog.sim_id
+        ctx.sim_id = sid
+        step_persist_forcings(ctx, store=catalog)
+
+        sz = catalog.open_zarr(sid)
+        try:
+            forcing = sz.root["forcing"]
+            assert "recharge_recharge" in forcing
+            assert "catchment" in forcing["recharge"]
+            assert "catchment" in forcing["runoff"]
+            assert "soil" in forcing
+        finally:
+            sz.close()
+
+
+def test_soil_budget_rows(tmp_path):
+    ctx = soil_ctx()
+
+    with open_run_store(tmp_path / "ws", n_cells=N_COLUMNS, n_timesteps=N_DAYS) as catalog:
+        sid = catalog.sim_id
+        ctx.sim_id = sid
+        step_persist_forcings(ctx, store=catalog)
+
+        paths = list((tmp_path / "ws" / "runs").glob("*/tables.parquet/soil_budget.parquet"))
+        assert len(paths) == 1
+        table = pq.read_table(paths[0])
+        assert table.num_rows == 3  # 2 columns + 1 basin row, one calendar year
+        assert set(table.column("column_id").to_pylist()) == {"0.0", "1.0", "catchment"}
+
+
+def test_no_sim_id_writes_nothing():
+    # No store call is reachable: the step returns at once.
+    step_persist_forcings(soil_ctx(), store=None)
+
+
+class _FakeZarr:
+    def __init__(self) -> None:
+        self.fields: list[str] = []
+
+    def write_forcing_field(self, name, data, *, unit, source) -> None:
+        _ = data, unit, source
+        self.fields.append(str(name))
+
+    def close(self) -> None:
+        pass
+
+
+class _FakeStore:
+    def __init__(self) -> None:
+        self.zarr = _FakeZarr()
+        self.feature_names: list[str] = []
+        self.feature_crs: dict[str, str | None] = {}
+        self.metadata: dict[str, object] = {}
+
+    def open_zarr(self, sim_id: str):
+        _ = sim_id
+        return self.zarr
+
+    def write_geographic_feature(self, sim_id: str, feature_name: str, gdf) -> None:
+        _ = sim_id, gdf
+        self.feature_names.append(str(feature_name))
+        self.feature_crs[str(feature_name)] = None if gdf.crs is None else str(gdf.crs)
+
+    def write_geographic_metadata(self, sim_id: str, metadata: dict[str, object]) -> None:
+        _ = sim_id
+        self.metadata.update(metadata)
+
+
+def test_reference_network_feature(tmp_path: Path):
+    streams_path = write_network_vector(tmp_path / "streams.shp")
+    watershed_path = write_watershed(tmp_path / "watershed.shp")
+    reference = HydrographicNetwork(
+        role="reference",
+        source_kind="hydrography_loaded",
+        vector_path=str(streams_path),
+        watershed_shp=str(watershed_path),
+    )
+    features = GeographicDerivedFeatures(
+        surface_topo=object(),
+        boundaries=GeographicBoundaryFeatures(
+            watershed_shp=str(watershed_path),
+            watershed_box_shp=None,
+            box_buff_shp="box_buff.shp",
+        ),
+        hydrographic_networks=HydrographicNetworks(reference=reference),
+    )
+    store = _FakeStore()
+    ctx = SimpleNamespace(
+        sim_id="sim-1",
+        loaded_data=LoadedDataContext(
+            hydrography=hydrography_load_result(
+                vector_path=streams_path,
+                raster_path=tmp_path / "streams.tif",
+                array=np.asarray([[1.0, 0.0]], dtype=float),
+            )
+        ),
+        setup=SimpleNamespace(geographic_features=features),
+    )
+
+    step_persist_forcings(ctx, store=store)
+
+    assert "hydrography_streams" in store.zarr.fields
+    assert HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME in store.feature_names
+
+
+def test_generated_network_canonical_name(tmp_path: Path):
+    network_path = write_network_vector(tmp_path / "river_network.shp")
+    watershed_path = write_watershed(tmp_path / "watershed.shp")
+    generated = HydrographicNetwork(
+        role="generated",
+        source_kind="geographic_generated",
+        vector_path=str(network_path),
+        watershed_shp=str(watershed_path),
+    )
+    geographic = SimpleNamespace(
+        watershed_dem=None,
+        watershed_fill=None,
+        watershed_shp=None,
+        box_buff=None,
+        watershed_contour_shp=None,
+        get_geographic_derived_features=lambda: GeographicDerivedFeatures(
+            surface_topo=object(),
+            boundaries=GeographicBoundaryFeatures(
+                watershed_shp=str(watershed_path),
+                watershed_box_shp=None,
+                box_buff_shp="box_buff.shp",
+            ),
+            hydrographic_networks=HydrographicNetworks(generated=generated),
+        ),
+    )
+    store = _FakeStore()
+
+    persist_geographic_to_store(geographic, store, sim_id="sim-2")
+
+    assert HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME in store.feature_names
+    assert "river_network" not in store.feature_names
+
+
+class _ClosableZarr:
+    def __init__(self) -> None:
+        self.close_calls = 0
+
+    def close(self) -> None:
+        self.close_calls += 1
+
+
+def test_zarr_closed_without_forcings() -> None:
+    fake_zarr = _ClosableZarr()
+    ctx = SimpleNamespace(sim_id="sim-123", loaded_data=_Loaded())
+
+    step_persist_forcings(ctx, store=SimpleNamespace(open_zarr=lambda _sim_id: fake_zarr))
+
+    assert fake_zarr.close_calls == 1

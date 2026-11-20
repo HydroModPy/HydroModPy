@@ -1,0 +1,124 @@
+# Example 08: the residence times of a synthetic hillslope, set against an exponential law.
+#
+# A flat aquifer 1000 m long and 10 m thick, fed by a uniform recharge and drained by a stream
+# on its west edge. Steady state, one particle in each cell, tracked until it leaves. MODFLOW 6
+# solves the flow and its PRT tracks the particles. The Python script puts the travel times of
+# the particles next to the exponential law of a single well-mixed store.
+#
+#   hmp run project.toml
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "hillslope_example_08"
+description = "Synthetic 1D hillslope, steady state, particle tracking and residence times."
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow6"]
+
+[[simulation.process]]
+id = "particles"
+kind = "transport"
+solvers = ["modflow6_prt"]
+
+# No data file and no catchment: the domain is built, 1000 m by 20 m in 100 cells of 10 m, on
+# two rows. The ground is flat at 10 m.
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "hillslope_rtd"
+
+[geographic.synthetic.grid]
+length_x = "1000.0 m"
+length_y = "20.0 m"
+nx = 100
+ny = 2
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 10.0
+
+# The base of the aquifer is flat at 0 m, so the aquifer is 10 m thick. MODFLOW 6 refuses a
+# fixed head under the bottom of its cell, and the stream stands at 5 m. So the top layer takes
+# the upper half of the aquifer, which is the half the water table moves in, and five layers of
+# 1 m share the half below.
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = "0.0 m"
+
+[domain.layers]
+genmtd_lay = "list"
+lay_proportions = [0.5, 0.1, 0.1, 0.1, 0.1, 0.1]
+
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+
+# 15 m/day, which is 15000 times the recharge.
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 1.7361111e-4
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.1
+
+# The stream is a fixed head of 5 m on the west edge. The other edges are closed.
+[flow.bc.west_side]
+kind = "dirichlet"
+value = "5.0 m"
+
+# The water that reaches the ground drains there. The conductance follows K,
+# C = K * cell area / 1 m.
+[flow.bc.drainage]
+
+# 1 mm/day over the whole aquifer.
+[flow.sinks_sources.recharge]
+units = "mm/day"
+values = [1.0]
+
+# One particle in each cell of the box at the start, carried by the flow until it leaves the
+# aquifer at the stream. PRT tracks forward only, so the travel time of a particle is the time
+# its water needs to go from the cell where it entered to the stream. The porosity is 0.1.
+[transport.modflow6_prt]
+release_zone = "domain"
+porosity = 0.1
+release_times = [0.0]
+stop_time = "100 years"
+
+# The figures land in runs/hillslope_example_08/figures/. Each one that applies and fails
+# stops the run, so a broken figure cannot go unseen.
+[display]
+on_error = "raise"
+
+# The domain is 1000 m long and 20 m wide, so a map of it is a thin strip. The figures are
+# sections, and the section line runs west to east along the middle of the strip, from the
+# stream to the divide.
+
+# The water table from the stream to the divide.
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "section_west_east"
+line = [[0.0, 10.0], [1000.0, 10.0]]
+
+# The share of the particles still in the aquifer after a time t, against the exponential law
+# of a single well-mixed store.
+[[display.figure]]
+preset = "residence_time_distribution"
+
+# What lands in runs/hillslope_example_08/exports/, ready for QGIS or a spreadsheet.
+
+# The water budget: CSV.
+[[export]]
+variable = "budget"
+
+# The particle tracks, one line per particle with its travel time in years: GeoPackage.
+[[export]]
+variable = "pathlines"

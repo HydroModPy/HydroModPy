@@ -1,54 +1,33 @@
 """Objective Protocol - computes a cost from observed vs simulated data.
 
 The calibration engine only requires an object with ``evaluate(sim) -> float``
-or ``evaluate(sim) -> dict`` (multi-objective). ``ObservationSet`` and
-``SimulationOutput`` are the standard payloads but any callable-like object
-matching the Protocol is accepted.
+or ``evaluate(sim) -> dict`` (multi-objective). ``SimulationOutput`` is the
+standard payload but any callable-like object matching the Protocol is
+accepted. Every trial of a document is scored by :class:`ConfigBlockObjective`,
+one per declared or implicit block.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
 from hydromodpy.calibration.criteria.series import (
-    HIGHER_IS_BETTER,
-    LOG_METRICS,
-    clip_negatives_for_log_metric,
+    METRICS,
+    SAMPLED_BY_DATE,
 )
-from hydromodpy.core.metrics import (
-    kge,
-    log_nse,
-    mae,
-    nse,
-    nse_delta,
-    nse_seasonal,
-    rmse,
-)
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scoring.metric_table import METRIC_SPECS
 
-
-@dataclass(frozen=True, slots=True)
-class ObservationSet:
-    """Observed time series used to score one simulated variable.
-
-    ``stations`` defines the station order, ``times`` defines the common time
-    axis, and ``values`` maps each station id to its observed vector. Optional
-    weights can be used by objectives that combine several stations.
-    """
-
-    stations: tuple[str, ...]
-    times: np.ndarray
-    values: Mapping[str, np.ndarray]
-    variable: str
-    weights: Mapping[str, float] | None = None
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
 class SimulationOutput:
-    """Simulated values aligned with an ``ObservationSet``.
+    """Simulated values a trial produced, keyed by output name.
 
     The payload is intentionally small: a simulation id, station ids, a time
     axis, and one vector per station. Metadata can carry backend-specific
@@ -91,152 +70,8 @@ class Objective(Protocol):
 
 
 # ---------------------------------------------------------------------------
-# Builtin metrics and a lightweight ScalarObjective
+# Supports and return-type normalization
 # ---------------------------------------------------------------------------
-
-
-def _kge_score(sim: np.ndarray, obs: np.ndarray) -> float:
-    """Scalar KGE score; calibration needs a single number, not the decomposition."""
-    return float(kge(sim, obs)["kge"])
-
-
-# Window, in samples, over which the reservoir objective differences the level.
-# A day-to-day increment is wrecked by a two or three day phase shift even when the
-# filling and emptying are right; ten days keeps the flux signal while making such a
-# shift a perturbation rather than a sign flip.
-RESERVOIR_INCREMENT_STEP: int = 10
-
-
-# KGE is NOT offered on increments, on purpose. Its beta term is a ratio of means,
-# and the mean of an increment series is (last - first) / n, i.e. near zero by
-# construction, so the score swings wildly for one and the same run depending only
-# on where the series is cut. NSE has no such term and stays stable, so the
-# increment side of the objective uses it.
-
-
-def _reservoir_score(sim: np.ndarray, obs: np.ndarray) -> float:
-    """Half seasonal efficiency on the level, half efficiency on its increments.
-
-    Built for an impounded level, where the two usual metrics mislead in opposite
-    ways. ``nse`` on the level compares the model to a flat mean, a benchmark a
-    strongly seasonal signal beats on its own, so a run can score comfortably and
-    still be worse than the seasonal cycle. And a level is an integral, so
-    compensating flux errors cancel in it: a low-water bias and a high-water bias of
-    opposite signs hide behind a mean bias near zero while the increments stay
-    uncorrelated.
-
-    Pairing the two closes both holes: the seasonal term keeps the absolute level
-    honest and demands more than climatology, the increment term makes the water
-    balance count. Equal weights, no tuning knob, so the score stays readable.
-
-    The increments are taken over ``RESERVOIR_INCREMENT_STEP`` samples rather than
-    one, so a timing error of a few days is not punished as though the model had
-    filled when it should have emptied.
-    """
-    seasonal = nse_seasonal(sim, obs)
-    increments = nse_delta(sim, obs, step=RESERVOIR_INCREMENT_STEP)
-    if not np.isfinite(seasonal) or not np.isfinite(increments):
-        return float("nan")
-    return 0.5 * float(seasonal) + 0.5 * float(increments)
-
-
-def _distance_pair(simulated: np.ndarray) -> tuple[float, float]:
-    """Read the ``(D_so, D_os)`` pair a network output produces."""
-    values = np.asarray(simulated, dtype=float).ravel()
-    if values.size != 2:
-        raise ValueError(
-            "a distance metric scores the pair (D_so, D_os) a network output "
-            f"produces; got {values.size} value(s)."
-        )
-    return float(values[0]), float(values[1])
-
-
-def distance_gap(simulated: np.ndarray) -> float:
-    """``abs(D_so - D_os)``, Eq. 1: the cost the root search drives to zero.
-
-    It takes no observed vector, structurally: the criterion balances an excess
-    of simulated stream against a missing one, both simulated. That is why the
-    zero of this cost is an intersection and not a minimum of distance.
-    """
-    d_so, d_os = _distance_pair(simulated)
-    return abs(d_so - d_os)
-
-
-def distance_mean(simulated: np.ndarray) -> float:
-    """``(D_so + D_os) / 2``, Eq. 2. A diagnostic, and a cost only outside.
-
-    It is legitimate as a cost in the outer loop that picks between structures
-    already balanced at ``J = 0``; using it inside, in place of Eq. 1, is a
-    different estimator, and nothing puts its interior minimum at the crossing.
-    """
-    d_so, d_os = _distance_pair(simulated)
-    return 0.5 * (d_so + d_os)
-
-
-METRICS: dict[str, Callable[..., float]] = {
-    "nse": nse,
-    "rmse": rmse,
-    "mae": mae,
-    "kge": _kge_score,
-    "nse_delta": nse_delta,
-    "nse_seasonal": nse_seasonal,
-    "nse_log": log_nse,
-    "distance_gap": distance_gap,
-    "distance_mean": distance_mean,
-    "reservoir": _reservoir_score,
-}
-
-# Output supports whose values carry no time axis. A ``network`` output produces the
-# pair (D_so, D_os), two distances in metres, so nothing in it can be read as "the
-# first periods of the run". Compared as strings because this layer must not import
-# the config layer.
-TIMELESS_SUPPORTS: frozenset[str] = frozenset({"network"})
-
-
-class ScalarObjective:
-    """Single metric objective over one observation set.
-
-    The objective evaluates one metric such as NSE, KGE, RMSE, or MAE for each
-    available station, converts scores to minimization costs when needed, and
-    returns the weighted station average.
-    """
-
-    def __init__(
-        self,
-        observations: ObservationSet,
-        *,
-        metric: str = "nse",
-        station_weights: Mapping[str, float] | None = None,
-    ):
-        if metric not in METRICS:
-            raise ValueError(f"Unknown metric: {metric!r}. Choices: {sorted(METRICS)}")
-        self.name = metric
-        self._observations = observations
-        self._metric_fn = METRICS[metric]
-        self._higher_is_better = metric in HIGHER_IS_BETTER
-        self._weights = dict(station_weights) if station_weights else {}
-
-    def evaluate(self, sim: SimulationOutput) -> ObjectiveValue:
-        obs = self._observations
-        components: dict[str, float] = {}
-        weights: list[float] = []
-        costs: list[float] = []
-        for station in obs.stations:
-            o = obs.values[station]
-            s = sim.values.get(station)
-            if s is None:
-                continue
-            value = float(self._metric_fn(s, o))
-            cost = (1.0 - value) if self._higher_is_better else value
-            components[f"cost:{self.name}@{station}"] = cost
-            costs.append(cost)
-            weights.append(float(self._weights.get(station, 1.0)))
-        if not costs:
-            return ObjectiveValue(total=float("inf"), components={})
-        w = np.array(weights, dtype=float)
-        c = np.array(costs, dtype=float)
-        total = float(np.average(c, weights=w))
-        return ObjectiveValue(total=total, components=components)
 
 
 def evaluate_objective(obj: Objective, sim: SimulationOutput) -> ObjectiveValue:
@@ -263,20 +98,20 @@ def _transform_identity(cost: float) -> float:
 
 
 def _transform_log(cost: float, *, epsilon: float = 1.0e-6) -> float:
-    """Apply a monotone log transform to a minimization cost."""
+    """Apply a monotone log cost transform to a minimization cost."""
     value = float(cost) + float(epsilon)
     if value <= 0.0:
         raise ValueError(
-            f"log transform requires cost + epsilon > 0 (got cost={cost}, epsilon={epsilon})"
+            f"log cost_transform requires cost + epsilon > 0 (got cost={cost}, epsilon={epsilon})"
         )
     return float(np.log10(value))
 
 
 def _transform_inverse(cost: float, *, epsilon: float = 1.0e-6) -> float:
-    """Apply a monotone inverse transform to a minimization cost."""
+    """Apply a monotone inverse cost transform to a minimization cost."""
     value = float(cost) + float(epsilon)
     if value == 0.0:
-        raise ValueError("inverse transform requires cost + epsilon != 0")
+        raise ValueError("inverse cost_transform requires cost + epsilon != 0")
     return -1.0 / value
 
 
@@ -290,28 +125,28 @@ _TRANSFORMS: dict[str, Callable[[float], float]] = {
 def _resolve_transform(name: str) -> Callable[[float], float]:
     key = str(name).strip().lower() if name is not None else "identity"
     if key not in _TRANSFORMS:
-        raise ValueError(f"Unknown transform: {name!r}. Choices: {sorted(_TRANSFORMS)}")
+        raise ValueError(f"Unknown cost_transform: {name!r}. Choices: {sorted(_TRANSFORMS)}")
     return _TRANSFORMS[key]
 
 
 class CompositeObjective:
-    """Weighted composite of several :class:`ScalarObjective` blocks.
+    """Weighted composite of several objective blocks.
 
-    Each block is a ``(ScalarObjective, weight)`` tuple. ``evaluate()`` runs
+    Each block is an ``(Objective, weight)`` tuple. ``evaluate()`` runs
     every block on the same :class:`SimulationOutput`, optionally applies a
-    per-block ``transform`` to the block total cost, then returns a single
+    per-block ``cost_transform`` to the block total cost, then returns a single
     :class:`ObjectiveValue` whose ``.total`` is the weighted sum of the
     transformed block totals and ``.components`` merges every block's
-    components. Weights are normalised so they sum to 1.0.
+    components. Weights are normalized so they sum to 1.0.
 
     Parameters
     ----------
     blocks
-        Iterable of ``(ScalarObjective, weight)`` tuples. Weights must be
+        Iterable of ``(Objective, weight)`` tuples. Weights must be
         strictly positive and finite.
     name
         Optional label for the composite (default: ``"composite"``).
-    transform
+    cost_transform
         One of ``"identity"``, ``"log"``, ``"inverse"`` (case-insensitive).
         Applied to each block's cost before weighting. Default
         ``"identity"``.
@@ -319,8 +154,8 @@ class CompositeObjective:
     Notes
     -----
     This class implements the :class:`Objective` Protocol and can therefore
-    be plugged directly into the calibration engine wherever a
-    ``ScalarObjective`` would be accepted.
+    be plugged directly into the calibration engine wherever an objective is
+    accepted.
     """
 
     def __init__(
@@ -328,7 +163,7 @@ class CompositeObjective:
         blocks: Iterable[tuple[Objective, float]],
         *,
         name: str = "composite",
-        transform: str = "identity",
+        cost_transform: str = "identity",
     ) -> None:
         parsed: list[tuple[Objective, float]] = []
         for idx, item in enumerate(blocks):
@@ -336,8 +171,7 @@ class CompositeObjective:
                 obj, weight = item
             except (TypeError, ValueError) as exc:
                 raise TypeError(
-                    f"Each block must be a (ScalarObjective, weight) tuple; "
-                    f"got {item!r} at index {idx}"
+                    f"Each block must be an (Objective, weight) tuple; got {item!r} at index {idx}"
                 ) from exc
             if not hasattr(obj, "evaluate"):
                 raise TypeError(
@@ -351,17 +185,14 @@ class CompositeObjective:
             raise ValueError("CompositeObjective requires at least one block")
 
         raw = np.asarray([w for _, w in parsed], dtype=float)
-        total_w = float(raw.sum())
-        if total_w <= 0.0:
-            raise ValueError("CompositeObjective requires a strictly positive total weight")
-        normalized = raw / total_w
+        normalized = raw / float(raw.sum())
 
         self.name = str(name)
         self._blocks: tuple[tuple[Objective, float, float], ...] = tuple(
             (obj, float(raw_w), float(norm_w))
             for (obj, raw_w), norm_w in zip(parsed, normalized, strict=True)
         )
-        self._transform_name = str(transform).strip().lower() if transform else "identity"
+        self._transform_name = str(cost_transform).strip().lower() if cost_transform else "identity"
         self._transform_fn = _resolve_transform(self._transform_name)
 
     @property
@@ -370,12 +201,7 @@ class CompositeObjective:
         return tuple((obj, norm_w) for obj, _raw, norm_w in self._blocks)
 
     @property
-    def raw_weights(self) -> tuple[float, ...]:
-        """Return weights as supplied (before normalisation)."""
-        return tuple(raw_w for _obj, raw_w, _norm in self._blocks)
-
-    @property
-    def transform(self) -> str:
+    def cost_transform(self) -> str:
         return self._transform_name
 
     def evaluate(self, sim: SimulationOutput) -> ObjectiveValue:
@@ -404,15 +230,131 @@ class CompositeObjective:
         return ObjectiveValue(total=float(total), components=merged_components)
 
 
+def cost_block_fractions(
+    components: Mapping[str, float] | None,
+    blocks: Sequence[tuple[str, float]],
+) -> dict[str, float] | None:
+    """Return each block's fraction of the cost one trial's components actually summed.
+
+    ``blocks`` lists ``(name, weight)`` as declared; the weights are normalized
+    the same way :class:`CompositeObjective` normalizes them. The fraction of
+    block ``i`` is ``w_i * c_i / sum_j(w_j * c_j)``, where ``c_i`` is read from
+    ``components["<name>.total"]``: the per-block cost :class:`CompositeObjective`
+    itself weighted and summed, after the block's own cost transform and before its
+    weight. Reading it there rather than re-deriving a sign is why a signed
+    criterion such as ``distance_gap`` never turns the fraction negative: its
+    ``.total`` is already the absolute residual the criterion publishes as a
+    cost, not the raw signed value. A single declared block always takes the
+    whole cost, without needing a ``.total`` key at all (no composite wraps
+    it). Returns ``None`` when the fraction cannot be told apart: ``components``
+    is missing a block total, or the weighted costs sum to (numerically) zero.
+    """
+    if not blocks:
+        return None
+    if len(blocks) == 1:
+        return {blocks[0][0]: 1.0}
+    if not components:
+        return None
+    raw = np.asarray([weight for _, weight in blocks], dtype=float)
+    total_weight = float(raw.sum())
+    if total_weight <= 0.0:
+        return None
+    normalized = raw / total_weight
+    contributions: list[float] = []
+    for (name, _weight), norm_weight in zip(blocks, normalized, strict=True):
+        key = f"{name}.total"
+        if key not in components:
+            return None
+        contributions.append(float(norm_weight) * float(components[key]))
+    denominator = float(sum(contributions))
+    if not np.isfinite(denominator) or abs(denominator) < 1.0e-15:
+        return None
+    return {
+        name: contribution / denominator
+        for (name, _weight), contribution in zip(blocks, contributions, strict=True)
+    }
+
+
+def mean_cost_block_fractions(
+    blocks: Sequence[tuple[str, float]],
+    trial_components: Iterable[Mapping[str, float] | None],
+) -> tuple[dict[str, float], int] | None:
+    """Average each block's fraction of the cost over several trials.
+
+    Skips a trial whose fraction :func:`cost_block_fractions` cannot compute.
+    Returns ``None`` when ``blocks`` is empty or none of the trials could;
+    otherwise the averaged fractions and the count of trials that entered the
+    average, so a caller can say how many trials the mean actually covers.
+    """
+    if not blocks:
+        return None
+    sums: dict[str, float] = {name: 0.0 for name, _weight in blocks}
+    n = 0
+    for components in trial_components:
+        fraction = cost_block_fractions(components, blocks)
+        if fraction is None:
+            continue
+        for name in sums:
+            sums[name] += fraction[name]
+        n += 1
+    if n == 0:
+        return None
+    return {name: total / n for name, total in sums.items()}, n
+
+
+def scores_network_distances(needs: Any) -> bool:
+    """Whether a criterion's cost is a distance between two networks.
+
+    Its scale is not read off a record, which it has none of: it is the
+    validity length of the output, the length Eq. 4 qualifies a match with.
+    """
+    return not needs.needs_observations and "network" in tuple(needs.reads_supports)
+
+
+def non_finite_diagnosis(observed: np.ndarray, simulated: np.ndarray) -> str:
+    """Say which property of two paired series makes a metric undefined.
+
+    Every efficiency divides by the spread of the observations, so a constant
+    record is undefined however good the simulation is. A single non-finite
+    sample poisons the whole score the same way, and neither is visible from
+    the value alone.
+    """
+    obs = np.asarray(observed, dtype="float64")
+    sim = np.asarray(simulated, dtype="float64")
+    reasons: list[str] = []
+    if not np.all(np.isfinite(obs)):
+        reasons.append(f"{int(np.count_nonzero(~np.isfinite(obs)))} of {obs.size} observed")
+    if not np.all(np.isfinite(sim)):
+        reasons.append(f"{int(np.count_nonzero(~np.isfinite(sim)))} of {sim.size} simulated")
+    if reasons:
+        return "Non-finite samples reached the metric: " + ", ".join(reasons) + "."
+    finite_obs = obs[np.isfinite(obs)]
+    if finite_obs.size and float(np.var(finite_obs)) == 0.0:
+        return (
+            f"The {obs.size} observed samples are all {finite_obs[0]:.6g}: an efficiency "
+            "divides by their spread, so none is defined on a constant record."
+        )
+    if obs.size == 0:
+        return "No sample was scored."
+    return (
+        f"{obs.size} sample(s) scored, observed in [{np.min(obs):.6g}, {np.max(obs):.6g}], "
+        f"simulated in [{np.min(sim):.6g}, {np.max(sim):.6g}]."
+    )
+
+
 def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
     """Refuse ``normalize_cost`` where dividing by a reference scale says nothing.
 
     The verdict comes from the criterion itself: it declares whether its cost is
-    already a pure number, and whether it fits observations at all. Reading those
-    two answers rather than two lists held here is what stops the lists from
-    drifting away from the kernels they describe.
+    already a pure number, whether it fits observations at all, and which
+    supports it reads. Reading those answers rather than lists held here is
+    what stops the lists from drifting away from the kernels they describe.
+
+    A network distance is normalized by its output's validity length, so a gap
+    counted in validity lengths adds to an efficiency as a pure number. Any
+    other criterion with no observations has no scale to divide by.
     """
-    from hydromodpy.calibration.criteria import criterion_for
+    from hydromodpy.calibration.criteria.registry import criterion_for
 
     needs = criterion_for(metric).requirements()
     if needs.cost_is_dimensionless:
@@ -423,12 +365,12 @@ def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
             "this one's weight by a figure that belongs to its data. Set the share you "
             "want in 'weight' and leave normalize_cost off."
         )
-    if not needs.needs_observations:
+    if not needs.needs_observations and not scores_network_distances(needs):
         raise ValueError(
             f"Block {block!r}: normalize_cost = true has nothing to read a scale from "
-            f"for {metric!r}. That criterion balances two simulated quantities, so its "
-            "observed vector is a pair of zeros and the scale collapses to one. Set the "
-            "share you want in 'weight'."
+            f"for {metric!r}. That criterion balances two simulated quantities, so no "
+            "observed record exists to take a spread from. Set the share you want in "
+            "'weight'."
         )
 
 
@@ -438,10 +380,12 @@ class ConfigBlockObjective:
     Concatenates the observed vectors of the referenced outputs, receives
     the simulated vectors at evaluation time via ``sim.values``
     (``Mapping[output_name, Sequence[float]]``), computes the block metric
-    and applies the configured normalisation and transform.
+    and applies the configured normalization and cost transform.
 
-    ``timeless_outputs`` names the outputs whose values carry no time axis, on
-    which a burn-in in samples is refused rather than applied.
+    ``distance_scales`` gives, per network output, the validity length of each
+    distance it produces. A block that normalizes a network distance divides
+    each distance by its own length before the criterion reads them, so the
+    cost is counted in validity lengths.
     """
 
     def __init__(
@@ -452,11 +396,10 @@ class ConfigBlockObjective:
         uses_outputs: Iterable[str],
         observed_by_output: Mapping[str, Iterable[float]],
         normalize_cost: bool = False,
-        transform: str = "identity",
-        warmup: int = 0,
-        timeless_outputs: Iterable[str] = (),
+        cost_transform: str = "identity",
+        distance_scales: Mapping[str, Sequence[float]] | None = None,
     ) -> None:
-        from hydromodpy.calibration.criteria import criterion_for
+        from hydromodpy.calibration.criteria.registry import criterion_for
 
         metric_key = str(metric).strip().lower()
         if metric_key not in METRICS:
@@ -490,36 +433,91 @@ class ConfigBlockObjective:
         self._outputs = outputs
         self._observed = observed
         self._observed_parts = observed_parts
-        self._warmup = max(0, int(warmup))
-        # A burn-in counts samples along a time axis. A network output carries none:
-        # it produces the pair (D_so, D_os), two distances in metres. Truncating it
-        # empties the pair and the block returns inf, which a staged run only ever
-        # shows as a phase that did not converge. Refusing here, at build time and by
-        # name, is the one behaviour that cannot return a wrong number: skipping the
-        # truncation in silence would score a block the user believes is burnt in.
-        timeless = sorted(set(outputs) & {str(item) for item in timeless_outputs})
-        if self._warmup > 0 and timeless:
-            raise ValueError(
-                f"Block {self.name!r}: warmup={self._warmup} cannot be dropped from "
-                f"output(s) {timeless}, which carry no time axis. Declare warmup = 0 on "
-                "this block to keep the calibration-wide burn-in for the others."
-            )
         if normalize_cost:
             refuse_a_normalisation_that_means_nothing(self.name, metric_key)
         self._normalize_cost = bool(normalize_cost)
-        self._transform_name = str(transform).strip().lower() if transform else "identity"
+        self._scales_distances = self._normalize_cost and scores_network_distances(needs)
+        self._distance_scales: dict[str, np.ndarray] = {
+            str(output): np.asarray(list(scales), dtype=float).ravel()
+            for output, scales in (distance_scales or {}).items()
+        }
+        self._transform_name = str(cost_transform).strip().lower() if cost_transform else "identity"
         self._transform_fn = _resolve_transform(self._transform_name)
-        self._reference_scale = self._compute_reference_scale(observed)
+        self._warned_scale_fallback = False
+        self._said_undefined = False
 
-    @staticmethod
-    def _compute_reference_scale(observed: np.ndarray) -> float:
-        if observed.size == 0:
+    def _say_why_the_cost_is_undefined(self, observed: np.ndarray, simulated: np.ndarray) -> None:
+        """Log once per block what about its series left the metric undefined.
+
+        The optimizer sees an infinite cost and the trial fails on it, which
+        says nothing about why. A constant record, a non-finite sample and a
+        numerical blow-up call for three different answers.
+        """
+        if self._said_undefined:
+            return
+        self._said_undefined = True
+        logger.warning(
+            "Block %r: metric %r is undefined on this trial. %s",
+            self.name,
+            self._metric,
+            non_finite_diagnosis(observed, simulated),
+        )
+
+    def _distances_in_validity_lengths(
+        self, parts: Sequence[np.ndarray]
+    ) -> tuple[np.ndarray, float]:
+        """Divide each output's distances by its validity lengths.
+
+        Returns the divided vector and the mean length it was divided by, the
+        one number a report names as the scale. Refused by name when the trial
+        published no length for an output, or one that is not a positive
+        distance: a cost divided by an unknown is no share of anything.
+        """
+        divided: list[np.ndarray] = []
+        used: list[np.ndarray] = []
+        for output_name, part in zip(self._outputs, parts, strict=True):
+            scales = self._distance_scales.get(output_name)
+            if scales is None or scales.size != part.size:
+                raise ValueError(
+                    f"Block {self.name!r}: normalize_cost = true divides the distances of "
+                    f"output {output_name!r} by its validity length, and the trial published "
+                    f"{'none' if scales is None else f'{scales.size} for {part.size} values'}."
+                )
+            if not np.all(np.isfinite(scales)) or np.any(scales <= 0.0):
+                raise ValueError(
+                    f"Block {self.name!r}: output {output_name!r} published validity lengths "
+                    f"{scales.tolist()} m; a distance is divided by a positive length."
+                )
+            divided.append(part / scales)
+            used.append(scales)
+        return np.concatenate(divided), float(np.mean(np.concatenate(used)))
+
+    def _reference_scale_of(self, observed: np.ndarray, simulated: np.ndarray) -> float:
+        """Return the spread the cost is divided by, read on the scored sample.
+
+        The observed values the metric reads: past the burn-in, paired with a
+        finite simulated value. The standard deviation answers; a sample with
+        none falls back on its mean absolute value, then on 1.0, and the
+        fallback is logged once per block.
+        """
+        if observed.size == 0 or self._scores_a_criterion:
             return 1.0
-        std = float(np.nanstd(observed))
+        paired = np.isfinite(observed) & np.isfinite(simulated)
+        sample = observed[paired] if paired.any() else observed
+        std = float(np.nanstd(sample))
         if std > 0.0 and np.isfinite(std):
             return std
-        mean_abs = float(np.mean(np.abs(observed)))
-        return mean_abs if mean_abs > 0.0 else 1.0
+        mean_abs = float(np.mean(np.abs(sample)))
+        scale, used = (mean_abs, "mean absolute value") if mean_abs > 0.0 else (1.0, "1.0")
+        if self._normalize_cost and not self._warned_scale_fallback:
+            self._warned_scale_fallback = True
+            logger.warning(
+                "Block %r: the scored observations have no spread, so normalize_cost "
+                "divides by their %s instead of their standard deviation.",
+                self.name,
+                used,
+            )
+        return scale
 
     @property
     def metric(self) -> str:
@@ -529,7 +527,40 @@ class ConfigBlockObjective:
     def uses_outputs(self) -> tuple[str, ...]:
         return self._outputs
 
+    def _sample_days(self, sim: object) -> float | None:
+        """Sampling step of this block's outputs, in days, when the trial dated them.
+
+        Read from ``metadata["sample_days"]`` of a :class:`SimulationOutput`, one
+        step per output. The median of the block's outputs answers; ``None``
+        when no output of the block is dated.
+        """
+        metadata = getattr(sim, "metadata", None)
+        if not isinstance(metadata, Mapping):
+            return None
+        steps = metadata.get("sample_days")
+        if not isinstance(steps, Mapping):
+            return None
+        found = [float(steps[name]) for name in self._outputs if name in steps]
+        found = [step for step in found if np.isfinite(step) and step > 0.0]
+        return float(np.median(found)) if found else None
+
+    def _times_days(self, sim: object) -> list[np.ndarray] | None:
+        """Dates of each output of this block, in days, when the trial paired them.
+
+        Read from ``metadata["sample_times"]`` of a :class:`SimulationOutput`,
+        one array per output. ``None`` unless every output of the block has one.
+        """
+        metadata = getattr(sim, "metadata", None)
+        if not isinstance(metadata, Mapping):
+            return None
+        times = metadata.get("sample_times")
+        if not isinstance(times, Mapping) or any(name not in times for name in self._outputs):
+            return None
+        return [np.asarray(times[name], dtype=float).ravel() for name in self._outputs]
+
     def evaluate(self, sim: SimulationOutput | Mapping[str, Iterable[float]]) -> ObjectiveValue:
+        sample_days = self._sample_days(sim)
+        times_parts = self._times_days(sim)
         if hasattr(sim, "values") and not isinstance(sim, Mapping):
             sim_values = sim.values
         else:
@@ -543,16 +574,10 @@ class ConfigBlockObjective:
                     components={f"{self.name}.missing": 1.0},
                 )
             simulated_parts.append(np.asarray(list(part), dtype=float).ravel())
-        # Burn-in: drop the first _warmup periods of EACH output before concatenation, so the
-        # spin-up window (state still depending on the initial condition) does not enter the
-        # metric. Slicing per output keeps every series' own leading periods aligned. Outputs
-        # with no time axis never reach here with a burn-in: __init__ refuses that pairing.
-        if self._warmup > 0:
-            simulated = np.concatenate([part[self._warmup :] for part in simulated_parts])
-            observed = np.concatenate([part[self._warmup :] for part in self._observed_parts])
-        else:
-            simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
-            observed = self._observed
+        scored_parts = simulated_parts
+        observed_parts = list(self._observed_parts)
+        simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
+        observed = self._observed
         if simulated.size == 0:
             return ObjectiveValue(total=float("inf"), components={})
         if self._scores_a_criterion:
@@ -561,28 +586,61 @@ class ConfigBlockObjective:
         else:
             if observed.size == 0:
                 return ObjectiveValue(total=float("inf"), components={})
-            if simulated.size != observed.size:
-                raise ValueError(
-                    f"Block {self.name!r}: simulated length {simulated.size} does not "
-                    f"match observed length {observed.size}"
+            # Output by output, not on the concatenation. Two outputs each
+            # wrong - 20 simulated against 30 observed, then 40 against 30 -
+            # sum to 60 on both sides and pass a check made on the totals,
+            # while the metric scores the second output's first ten values
+            # against the first one's last ten.
+            #
+            # Placed here, after the two early returns above, which keep the
+            # trials they used to reject softly. A trial the optimizer steps
+            # over must not become an exception: its only production caller
+            # turns one into an aborted run.
+            for name, scored_part, observed_part in zip(
+                self._outputs, scored_parts, observed_parts, strict=True
+            ):
+                if scored_part.size != observed_part.size:
+                    raise ValueError(
+                        f"Block {self.name!r}: output {name!r}: simulated length "
+                        f"{scored_part.size} does not match observed length "
+                        f"{observed_part.size}"
+                    )
+            if self._metric in SAMPLED_BY_DATE:
+                times_days = None
+                if times_parts is not None and all(
+                    times.size == part.size
+                    for times, part in zip(times_parts, scored_parts, strict=True)
+                ):
+                    times_days = np.concatenate(times_parts) if times_parts else None
+                scored = self._criterion.score(
+                    simulated, observed, sample_days=sample_days, times_days=times_days
                 )
-            scored = self._criterion.score(simulated, observed)
+            else:
+                scored = self._criterion.score(simulated, observed)
         cost = scored.cost
         n_clipped = int(scored.diagnostics.get("n_clipped", 0))
         if not np.isfinite(cost):
+            self._say_why_the_cost_is_undefined(observed, simulated)
             return ObjectiveValue(
                 total=float("inf"),
                 components={f"{self.name}.raw_cost": float("inf")},
             )
-        normalized = cost / self._reference_scale if self._normalize_cost else cost
+        reference_scale = self._reference_scale_of(observed, simulated)
+        if self._scales_distances:
+            # Each distance by its own validity length, before the criterion
+            # adds them: two bounds of one output may carry two lengths.
+            divided, reference_scale = self._distances_in_validity_lengths(scored_parts)
+            normalized = float(self._criterion.score(divided).cost)
+        else:
+            normalized = cost / reference_scale if self._normalize_cost else cost
         transformed = float(self._transform_fn(normalized))
         components = {
             f"{self.name}.raw_cost": float(cost),
             f"{self.name}.normalized_cost": float(normalized),
-            f"{self.name}.reference_scale": float(self._reference_scale),
+            f"{self.name}.reference_scale": float(reference_scale),
             f"{self.name}.n_values": float(observed.size),
         }
-        if self._metric in LOG_METRICS:
+        if METRIC_SPECS[self._metric].clips_negatives:
             components[f"{self.name}.n_clipped"] = float(n_clipped)
         return ObjectiveValue(total=float(transformed), components=components)
 
@@ -591,13 +649,14 @@ def build_objective_from_config(
     cfg: Any,
     *,
     observed_by_output: Mapping[str, Iterable[float]] | None = None,
+    distance_scales: Mapping[str, Sequence[float]] | None = None,
 ) -> Objective:
     """Assemble an :class:`Objective` from a :class:`CalibrationConfig`.
 
     Each ``objective_block`` becomes one :class:`ConfigBlockObjective`
-    (metric + normalise + transform applied per block). When a single block
+    (metric + normalize + cost transform applied per block). When a single block
     is declared, the block is returned directly; otherwise the blocks are
-    wrapped in a :class:`CompositeObjective` with normalised weights.
+    wrapped in a :class:`CompositeObjective` with normalized weights.
 
     A block that inherits a burn-in while consuming an output with no time
     axis is refused here, by name, rather than scored on a truncated vector.
@@ -608,6 +667,11 @@ def build_objective_from_config(
     instead of being read off the declaration. What it names wins over
     ``observed_values``; every other output is read from its declaration as
     before.
+
+    ``distance_scales`` gives the validity lengths a trial published for its
+    network outputs, which a block with ``normalize_cost`` on a network
+    distance divides by. Like the aligned records, they are known only once the
+    trial has run, so the objective is then built per trial.
     """
     blocks = getattr(cfg, "objective_blocks", None) or []
     outputs = getattr(cfg, "outputs", None) or {}
@@ -617,29 +681,19 @@ def build_objective_from_config(
             "or populate cfg.outputs so the implicit block can be synthesised."
         )
     declared_observed: dict[str, tuple[float, ...]] = {}
-    timeless_outputs: set[str] = set()
     for output_name, decl in outputs.items():
         values = getattr(decl, "observed_values", None)
         if values is not None:
             declared_observed[str(output_name)] = tuple(float(v) for v in values)
-        if getattr(decl, "support", None) in TIMELESS_SUPPORTS:
-            timeless_outputs.add(str(output_name))
     for output_name, values in (observed_by_output or {}).items():
         declared_observed[str(output_name)] = tuple(float(v) for v in values)
-    # Burn-in periods excluded from every block's metric (spin-up window). A block
-    # overrides the calibration-wide default with its own ``warmup``; the test is on
-    # ``is None`` and not on truthiness, otherwise ``warmup = 0`` would fall back to
-    # the default and a block could never switch the burn-in off.
-    default_warmup = int(getattr(cfg, "warmup_periods", 0) or 0)
     block_objectives: list[Objective] = []
     for block in blocks:
         name = str(block.name)
         uses_outputs = tuple(block.uses_outputs)
         metric = str(getattr(block, "metric", "rmse"))
         normalize_cost = bool(getattr(block, "normalize_cost", False))
-        transform = str(getattr(block, "transform", "identity"))
-        block_warmup = getattr(block, "warmup", None)
-        warmup = default_warmup if block_warmup is None else int(block_warmup)
+        cost_transform = str(getattr(block, "cost_transform", "identity"))
         block_objectives.append(
             ConfigBlockObjective(
                 name=name,
@@ -647,9 +701,8 @@ def build_objective_from_config(
                 uses_outputs=uses_outputs,
                 observed_by_output=declared_observed,
                 normalize_cost=normalize_cost,
-                transform=transform,
-                warmup=warmup,
-                timeless_outputs=timeless_outputs,
+                cost_transform=cost_transform,
+                distance_scales=distance_scales,
             )
         )
     if len(block_objectives) == 1:
@@ -658,26 +711,20 @@ def build_objective_from_config(
     return CompositeObjective(
         list(zip(block_objectives, weights, strict=True)),
         name="config_composite",
-        transform="identity",
+        cost_transform="identity",
     )
 
 
 __all__ = [
     "Objective",
     "ObjectiveValue",
-    "ObservationSet",
     "SimulationOutput",
-    "ScalarObjective",
     "CompositeObjective",
     "ConfigBlockObjective",
     "build_objective_from_config",
-    "METRICS",
-    "HIGHER_IS_BETTER",
-    "LOG_METRICS",
-    "TIMELESS_SUPPORTS",
-    "distance_gap",
-    "distance_mean",
-    "clip_negatives_for_log_metric",
     "refuse_a_normalisation_that_means_nothing",
+    "non_finite_diagnosis",
     "evaluate_objective",
+    "cost_block_fractions",
+    "mean_cost_block_fractions",
 ]

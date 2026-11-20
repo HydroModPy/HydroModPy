@@ -1,62 +1,50 @@
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
     TABLES_DIRNAME,
 )
 from hydromodpy.results.storage.diagnostics import diagnose_result_storage, is_run_directory
+from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.run_stores import open_run_store
 
 
 def _by_name(diagnostics):
     return {diagnostic.name: diagnostic for diagnostic in diagnostics}
 
 
-def test_clean_project_storage_reports_ok(tmp_path):
-    project = tmp_path / "project"
-    sid = "00000000-0000-4000-8000-000000000010"
+def _seal(project: Path, name: str) -> tuple[str, Path]:
+    """Seal a one-cell run with a field store; return its id and directory."""
+    store = open_run_store(project, name, n_cells=1, n_layers=1)
+    sid, run_dir = store.sim_id, store.run_dir
+    seal_completed(store)
+    return sid, run_dir
 
-    with Catalog(project) as catalog:
-        reg = catalog.register_simulation(
-            sid,
-            project="p",
-            solver="modflow6",
-            name="baseline",
-            n_cells=1,
-            n_layers=1,
-        )
-        assert reg.zarr is not None
-        reg.zarr.close()
 
-    diagnostics = _by_name(diagnose_result_storage(project))
-
-    assert diagnostics["results:layout"].status == "OK"
-    assert "1 index row(s)" in diagnostics["results:layout"].detail
-    assert "1 run director" in diagnostics["results:layout"].detail
+def _with_tmp_parquet_and_orphan(project: Path) -> tuple[Path, Path]:
+    """Seal and index one run, then leave a partial Parquet file and an orphan run."""
+    _, run_dir = _seal(project, "with_tmp")
+    rebuild_index(project)
+    tables_dir = run_dir / TABLES_DIRNAME
+    tables_dir.mkdir(parents=True, exist_ok=True)
+    tmp_parquet = tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp-0a1b2c3d"
+    tmp_parquet.write_bytes(b"partial")
+    orphan_run = project / "runs" / "orphan_run"
+    (orphan_run / FIELDS_STORE_NAME).mkdir(parents=True)
+    return tmp_parquet, orphan_run
 
 
 def test_completed_row_missing_fields_store_is_reported(tmp_path):
     project = tmp_path / "project"
-    sid = "00000000-0000-4000-8000-000000000011"
+    sid, run_dir = _seal(project, "missing_fields")
+    rebuild_index(project)
 
-    with Catalog(project) as catalog:
-        reg = catalog.register_simulation(
-            sid,
-            project="p",
-            solver="modflow6",
-            name="missing-fields",
-            n_cells=1,
-            n_layers=1,
-        )
-        assert reg.zarr is not None
-        reg.zarr.close()
-        catalog.finalize(sid, status="completed")
-        fields_path = catalog.fields_path_for(sid)
-
-    shutil.rmtree(fields_path)
+    shutil.rmtree(run_dir / FIELDS_STORE_NAME)
     diagnostics = _by_name(diagnose_result_storage(project))
 
     assert diagnostics["results:missing_zarr"].status == "WARN"
@@ -66,26 +54,7 @@ def test_completed_row_missing_fields_store_is_reported(tmp_path):
 
 def test_orphan_run_directory_and_tmp_parquet_are_reported(tmp_path):
     project = tmp_path / "project"
-    sid = "00000000-0000-4000-8000-000000000012"
-
-    with Catalog(project) as catalog:
-        reg = catalog.register_simulation(
-            sid,
-            project="p",
-            solver="modflow6",
-            name="with-tmp",
-            n_cells=1,
-            n_layers=1,
-        )
-        assert reg.zarr is not None
-        reg.zarr.close()
-        tables_dir = catalog.tables_dir_for(sid)
-        tables_dir.mkdir(parents=True, exist_ok=True)
-        tmp_parquet = tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp-0a1b2c3d"
-        tmp_parquet.write_bytes(b"partial")
-
-        orphan_run = catalog.runs_dir / "orphan_run"
-        (orphan_run / FIELDS_STORE_NAME).mkdir(parents=True)
+    tmp_parquet, orphan_run = _with_tmp_parquet_and_orphan(project)
 
     diagnostics = _by_name(diagnose_result_storage(project))
 
@@ -113,56 +82,63 @@ def test_is_run_directory_recognises_fields_or_tables(tmp_path):
 
 
 def test_doctor_probe_returns_cli_check_shape(tmp_path):
-    from hydromodpy.cli.commands.doctor import _probe_result_storage
+    from hydromodpy.project.doctor import probe_result_storage
 
     project = tmp_path / "project"
-    with Catalog(project):
-        pass
+    rebuild_index(project)
 
-    checks = {check["name"]: check for check in _probe_result_storage(project)}
+    checks = {check["name"]: check for check in probe_result_storage(project)}
 
     assert checks["results:layout"]["status"] == "OK"
     assert checks["results:layout"]["hint"] is None
 
 
-def test_manage_backend_exposes_and_cleans_diagnostic_paths(tmp_path):
-    from hydromodpy.cli.commands.dev.manage import _WorkspaceManagerBackend
+def test_a_file_changed_since_the_seal_is_reported(tmp_path):
+    project = tmp_path / "project"
+    _, run_dir = _seal(project, "tampered")
+    rebuild_index(project)
+    assert "results:seal_digest" not in _by_name(diagnose_result_storage(project))
+
+    table = next((run_dir / TABLES_DIRNAME).glob(f"*{PARQUET_FILE_SUFFIX}"))
+    table.write_bytes(table.read_bytes() + b"x")
+    diagnostics = _by_name(diagnose_result_storage(project))
+
+    assert diagnostics["results:seal_digest"].status == "WARN"
+    assert table.name in diagnostics["results:seal_digest"].hint
+
+
+def test_an_index_of_another_schema_is_a_warning(tmp_path):
+    import duckdb
 
     project = tmp_path / "project"
-    with Catalog(project) as catalog:
-        sid = "00000000-0000-4000-8000-000000000013"
-        reg = catalog.register_simulation(
-            sid,
-            project="p",
-            solver="modflow6",
-            name="managed-cleanup",
-            n_cells=1,
-            n_layers=1,
-        )
-        assert reg.zarr is not None
-        reg.zarr.close()
-        tables_dir = catalog.tables_dir_for(sid)
-        tables_dir.mkdir(parents=True, exist_ok=True)
-        tmp_file = tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp-0a1b2c3d"
-        tmp_file.write_bytes(b"partial")
-        orphan = catalog.runs_dir / "orphan_run"
-        (orphan / FIELDS_STORE_NAME).mkdir(parents=True)
+    _seal(project, "old_index")
+    rebuild_index(project)
+    db = project / ".hmp" / "index.duckdb"
+    db.unlink()
+    conn = duckdb.connect(str(db))
+    conn.execute("CREATE TABLE simulations (sim_id VARCHAR)")
+    conn.execute("CREATE TABLE statuses (sim_id VARCHAR)")
+    conn.close()
 
-    backend = _WorkspaceManagerBackend(workspace_root=project)
-    diagnostics = backend.result_diagnostics()["rows"]
-    cleanup_paths = {path for row in diagnostics for path in row.get("paths", [])}
+    diagnostics = _by_name(diagnose_result_storage(project))
 
-    assert str(tmp_file) in cleanup_paths
-    assert str(orphan) in cleanup_paths
-    assert backend.summary()["diagnostic_warning_count"] >= 1
+    assert diagnostics["results:catalog_schema"].status == "WARN"
+    assert "hmp catalog reindex" in diagnostics["results:catalog_schema"].hint
 
-    result = backend.delete_orphans(None, [str(tmp_file), str(orphan)])
 
-    assert result["deleted"]
-    assert not tmp_file.exists()
-    assert not orphan.exists()
-    remaining = {
-        path for row in backend.result_diagnostics()["rows"] for path in row.get("paths", [])
-    }
-    assert str(tmp_file) not in remaining
-    assert str(orphan) not in remaining
+def test_a_seal_of_another_version_is_a_warning(tmp_path, monkeypatch):
+    from hydromodpy.core.exceptions import SchemaVersionMismatchError
+
+    project = tmp_path / "project"
+    _, run_dir = _seal(project, "old_seal")
+    rebuild_index(project)
+
+    def unreadable(directory):
+        raise SchemaVersionMismatchError("manifest from another version")
+
+    monkeypatch.setattr("hydromodpy.results.record.manifest.seal_problems", unreadable)
+    diagnostics = _by_name(diagnose_result_storage(project))
+
+    assert diagnostics["results:seal_version"].status == "WARN"
+    assert diagnostics["results:seal_version"].paths == (str(run_dir),)
+    assert "results:seal_digest" not in diagnostics

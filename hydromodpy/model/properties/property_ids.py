@@ -1,0 +1,129 @@
+"""The one table of the ids of ``[flow.param.<id>]``.
+
+Every reader of a hydraulic property goes through these ids: the solvers, the
+calibration, the units of a field. A vertical conductivity is ``Kv`` everywhere. An
+id that is not here is free: a plugin can read it, and no built-in solver does.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from hydromodpy.schema.changes import prerelease_refusal
+
+
+@dataclass(frozen=True)
+class FlowPropertyId:
+    """One hydraulic property: its id, its unit, the name it is written under.
+
+    ``transient_default`` is the homogeneous value a transient run takes when the file
+    declares no table for the property, in ``unit``. None means the file must declare it.
+    """
+
+    id: str
+    unit: str
+    output: str
+    label: str
+    conductivity: bool = False
+    transient_default: float | None = None
+
+
+FLOW_PROPERTY_IDS: tuple[FlowPropertyId, ...] = (
+    FlowPropertyId("K", "m/s", "hk", "Hydraulic conductivity", conductivity=True),
+    FlowPropertyId("Kv", "m/s", "kv", "Vertical hydraulic conductivity", conductivity=True),
+    FlowPropertyId("Sy", "-", "sy", "Specific yield", transient_default=0.05),
+    FlowPropertyId("Ss", "1/m", "ss", "Specific storage", transient_default=1e-5),
+    FlowPropertyId(
+        "K22",
+        "m/s",
+        "k22",
+        "Hydraulic conductivity along the second tensor axis",
+        conductivity=True,
+    ),
+    FlowPropertyId(
+        "angle1",
+        "deg",
+        "angle1",
+        "Turn of the first K axis from east towards north (degrees)",
+    ),
+    FlowPropertyId(
+        "angle2",
+        "deg",
+        "angle2",
+        "Rise of the first K axis above the horizontal (degrees)",
+    ),
+    FlowPropertyId(
+        "angle3",
+        "deg",
+        "angle3",
+        "Rotation of the K tensor about its first axis (degrees)",
+    ),
+)
+"""The properties a built-in solver reads, in the order they are mapped."""
+
+_RENAMED_IDS: dict[str, str] = {
+    "k": "K",
+    "kv": "Kv",
+    "K33": "Kv",
+    "k33": "Kv",
+    "SY": "Sy",
+    "sy": "Sy",
+    "S": "Sy",
+    "s": "Sy",
+    "SS": "Ss",
+    "ss": "Ss",
+    "k22": "K22",
+}
+"""Other spellings a pre-release of 2.0 read as one of the ids above. A file is refused."""
+
+_NEVER_READ_IDS: dict[str, str] = {"Kz": "Kv", "Kx": "K", "Ky": "K22"}
+"""Ids that no solver ever read, with the id that does the job. A file is refused.
+
+Rewriting one would start to read a number no run has used, so the person who wrote it
+decides.
+"""
+
+CONDUCTIVITY_IDS: tuple[str, ...] = tuple(p.id for p in FLOW_PROPERTY_IDS if p.conductivity)
+
+TRANSIENT_DEFAULTS: dict[str, float] = {
+    p.id: p.transient_default for p in FLOW_PROPERTY_IDS if p.transient_default is not None
+}
+"""The storage a transient run cannot go without, and the value it takes when none is declared.
+
+Sy = 0.05 is the specific yield most examples of this repository use, and Ss = 1e-5 1/m the
+specific storage they all use.
+"""
+
+
+def default_unit_of(param_id: str) -> str:
+    """Return the unit a number takes under *param_id*, ``-`` for a free id."""
+    for prop in FLOW_PROPERTY_IDS:
+        if prop.id == param_id:
+            return prop.unit
+    return "-"
+
+
+def refusal_of_a_retired_id(param_id: str) -> str | None:
+    """Return why ``flow.param.<param_id>`` is refused, or None for an id that is allowed."""
+    if param_id in _RENAMED_IDS:
+        return (
+            f"flow.param.{param_id} is now flow.param.{_RENAMED_IDS[param_id]}. "
+            + prerelease_refusal("This table", [param_id])
+        )
+    if param_id in _NEVER_READ_IDS:
+        return (
+            f"flow.param.{param_id} has never been read by a solver, so the runs of this file "
+            f"did not use it. Write flow.param.{_NEVER_READ_IDS[param_id]} to set it, or remove "
+            "the table."
+        )
+    return None
+
+
+__all__ = [
+    "CONDUCTIVITY_IDS",
+    "FLOW_PROPERTY_IDS",
+    "TRANSIENT_DEFAULTS",
+    "FlowPropertyId",
+    "default_unit_of",
+    "refusal_of_a_retired_id",
+]

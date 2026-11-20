@@ -1,18 +1,24 @@
-"""Declared observation points are run artefacts, so a rebuilt index keeps them."""
+"""Declared observation points are run artifacts, so a rebuilt index keeps them.
+
+The run has 2 cells of 1 m by 1 m, 2 layers of 5 m and 2 time steps. A point is sampled
+at its x, y (m) in the layer given or at the depth given (m).
+"""
 
 from __future__ import annotations
 
-import uuid
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-from hydromodpy.core.state.paths import catalog_path_for
-from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.catalog.reindex import rebuild_index
-from hydromodpy.results.run.observation_points import station_id_for
-from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
-from hydromodpy.simulation.planning.observation_config import ObservationConfig
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.run import observation_points
+from hydromodpy.results.run.observation_points import sample_observation_points
+from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.results.storage.sealing import seal_completed
+from hydromodpy.solver.base.observation_config import ObservationConfig
+from tests._helpers.run_stores import open_run_store
 
 VERTICES = np.array(
     [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [0.0, 1.0], [1.0, 1.0], [2.0, 1.0]],
@@ -36,24 +42,21 @@ DECLARATIONS = [
 ]
 
 
-def _seal_run(catalog: Catalog, name: str) -> str:
-    sid = str(uuid.uuid4())
-    registration = catalog.register_simulation(
-        sid,
-        project="demo",
-        solver="modflow6",
-        name=name,
-        flow_regime="transient",
+def _open_run(root: Path, name: str) -> RunStore:
+    """Open a transient two-layer run with its mesh, its clock and its head."""
+    store = open_run_store(
+        root,
+        name,
         n_cells=N_CELLS,
         n_layers=N_LAYERS,
         n_timesteps=N_STEPS,
-        bbox=[0.0, 0.0, 2.0, 1.0],
-        crs="EPSG:2154",
-        config={"flow": {"hk": 1e-5}},
+        flow_regime="transient",
+        bbox=(0.0, 0.0, 2.0, 1.0),
+        crs_epsg=2154,
+        crs_wkt="EPSG:2154",
     )
-    if registration.zarr is not None:
-        registration.zarr.close()
-    store_zarr = catalog.open_zarr(sid)
+    sid = store.sim_id
+    store_zarr = store.open_zarr(sid)
     try:
         store_zarr.write_mesh(
             VERTICES,
@@ -64,163 +67,98 @@ def _seal_run(catalog: Catalog, name: str) -> str:
         )
     finally:
         store_zarr.close()
-    catalog.write_time(
+    store.write_time(
         sid,
         np.array([1577836800, 1577923200], dtype="int64"),
         units="seconds since 1970-01-01T00:00:00Z",
     )
     for step in range(N_STEPS):
         head = np.array([[1.0 + step, 2.0 + step], [0.5 + step, 1.5 + step]], dtype="float64")
-        catalog.write_field(sid, "head", step, head, n_timesteps=N_STEPS if step == 0 else None)
-    return sid
+        store.write_field(sid, "head", step, head, n_timesteps=N_STEPS if step == 0 else None)
+    return store
 
 
 @pytest.fixture
 def project(tmp_path):
     """A project with one sealed run that declared two observation points."""
     root = tmp_path / "demo"
-    with Catalog(root) as catalog:
-        sid = _seal_run(catalog, "probe_run")
-        catalog.sample_observation_points(sid, DECLARATIONS)
-        catalog.finalize(sid, status="completed", duration_s=1.0)
+    store = _open_run(root, "probe_run")
+    sid = store.sim_id
+    sample_observation_points(store, sid, DECLARATIONS)
+    seal_completed(store)
+    rebuild_index(root)
     return root, sid
 
 
-def _points(root):
-    with Catalog(root, read_only=True) as catalog:
-        return catalog.backend.query(
-            "SELECT station_id, cell_id, layer FROM observation_points ORDER BY station_id"
-        )
-
-
 def _series(root):
-    with Catalog(root, read_only=True) as catalog:
+    with Catalog(root) as catalog:
         return catalog.backend.query(
             "SELECT station_id, variable, timestep, value FROM timeseries "
             "WHERE station_id LIKE 'obs:%' ORDER BY station_id, variable, timestep"
         )
 
 
-class TestSampling:
-    def test_every_declared_point_is_resolved(self, project):
-        root, _ = project
-        frame = _points(root)
-        assert frame["station_id"].tolist() == ["piezo_a", "piezo_b"]
-        assert frame["cell_id"].tolist() == [0, 1]
-
-    def test_the_depth_picked_the_layer(self, project):
-        root, _ = project
-        frame = _points(root)
-        assert frame.set_index("station_id").loc["piezo_b", "layer"] == 1
-
-    def test_each_variable_has_its_series(self, project):
-        root, _ = project
-        frame = _series(root)
-        assert set(zip(frame["station_id"], frame["variable"], strict=True)) == {
-            ("obs:piezo_a", "head"),
-            ("obs:piezo_b", "head"),
-            ("obs:piezo_b", "watertable_depth"),
-        }
-
-    def test_the_series_holds_the_cell_value(self, project):
-        root, _ = project
-        frame = _series(root)
-        head_a = frame[(frame["station_id"] == "obs:piezo_a") & (frame["variable"] == "head")]
-        assert head_a["value"].tolist() == [1.0, 2.0]
-
-    def test_the_station_id_is_prefixed(self, project):
-        assert station_id_for("piezo_a") == "obs:piezo_a"
-
-    def test_the_declaration_lands_in_the_run_directory(self, project):
-        root, sid = project
-        with Catalog(root, read_only=True) as catalog:
-            payload = (
-                catalog.run_dir_for(sid)
-                / TABLES_DIRNAME
-                / f"observation_points{PARQUET_FILE_SUFFIX}"
-            )
-        assert payload.is_file()
-
-    def test_the_run_exposes_its_points(self, project):
-        root, sid = project
-        with Catalog(root, read_only=True) as catalog:
-            frame = catalog[sid].probe.declared
-        assert frame["station_id"].tolist() == ["piezo_a", "piezo_b"]
-
-    def test_a_point_outside_the_mesh_is_skipped_not_fatal(self, tmp_path):
-        root = tmp_path / "outside"
-        with Catalog(root) as catalog:
-            sid = _seal_run(catalog, "probe_run")
-            written = catalog.sample_observation_points(
-                sid,
-                [
-                    {
-                        "id": "far",
-                        "x": 99.0,
-                        "y": 99.0,
-                        "layer": None,
-                        "depth": None,
-                        "variables": ["head"],
-                    }
-                ],
-            )
-        assert written == 0
-
-    def test_no_declaration_writes_nothing(self, tmp_path):
-        root = tmp_path / "empty"
-        with Catalog(root) as catalog:
-            sid = _seal_run(catalog, "probe_run")
-            assert catalog.sample_observation_points(sid, []) == 0
+def test_run_exposes_its_points(project):
+    root, sid = project
+    with Catalog(root) as catalog:
+        frame = catalog[sid].probe.declared
+    assert frame["station_id"].tolist() == ["piezo_a", "piezo_b"]
 
 
-class TestSurvivesReindex:
-    def test_the_points_come_back_after_the_index_is_deleted(self, project):
-        root, _ = project
-        before = _points(root)
-        catalog_path_for(root).unlink()
-
-        rebuild_index(root)
-
-        assert _points(root).equals(before)
-
-    def test_the_series_come_back_after_the_index_is_deleted(self, project):
-        root, _ = project
-        before = _series(root)
-        catalog_path_for(root).unlink()
-
-        rebuild_index(root)
-
-        assert _series(root).equals(before)
+def test_point_outside_the_mesh_is_skipped(tmp_path):
+    far = {"id": "far", "x": 99.0, "y": 99.0, "layer": None, "depth": None, "variables": ["head"]}
+    with _open_run(tmp_path / "outside", "probe_run") as store:
+        written = sample_observation_points(store, store.sim_id, [far])
+    assert written == 0
 
 
-class TestConfigSection:
-    def test_the_section_defaults_to_no_point(self):
-        assert ObservationConfig().points == []
+UNNAMED = [
+    pytest.param(True, {"obs:piezo_b"}, id="first point has no descriptor"),
+    pytest.param(False, {"obs:piezo_a", "obs:piezo_b"}, id="every point has one"),
+]
 
-    def test_a_point_inherits_the_section_variables(self):
-        cfg = ObservationConfig.model_validate(
-            {"variables": ["head", "seepage_mask"], "points": [{"id": "p", "x": 1.0, "y": 2.0}]}
-        )
-        assert cfg.declarations()[0]["variables"] == ["head", "seepage_mask"]
 
-    def test_a_point_may_name_its_own_variables(self):
-        cfg = ObservationConfig.model_validate(
-            {"points": [{"id": "p", "x": 1.0, "y": 2.0, "variables": ["watertable_depth"]}]}
-        )
-        assert cfg.declarations()[0]["variables"] == ["watertable_depth"]
+@pytest.mark.parametrize(("unnamed_first", "expected"), UNNAMED)
+def test_variable_without_descriptor_skips_its_point(
+    tmp_path, monkeypatch, unnamed_first, expected
+):
+    real = observation_points.read_point
 
-    def test_layer_and_depth_are_exclusive(self):
-        with pytest.raises(ValueError, match="keep one"):
-            ObservationConfig.model_validate(
-                {"points": [{"id": "p", "x": 1.0, "y": 2.0, "layer": 0, "depth": 3.0}]}
-            )
+    def read(run, variables, request):
+        frame = real(run, variables, request)
+        if unnamed_first and request.label == "piezo_a":
+            frame["variable"] = "a_name_no_descriptor_holds"
+        return frame
 
-    def test_duplicate_ids_are_refused(self):
-        with pytest.raises(ValueError, match="Duplicate"):
-            ObservationConfig.model_validate(
-                {"points": [{"id": "p", "x": 1.0, "y": 2.0}, {"id": "p", "x": 3.0, "y": 4.0}]}
-            )
+    monkeypatch.setattr(observation_points, "read_point", read)
+    root = tmp_path / "unnamed"
+    store = _open_run(root, "probe_run")
+    sample_observation_points(store, store.sim_id, DECLARATIONS)
+    seal_completed(store)
+    rebuild_index(root)
+    assert set(_series(root)["station_id"]) == expected
 
-    def test_an_unknown_key_is_refused(self):
-        with pytest.raises(ValueError):
-            ObservationConfig.model_validate({"pointz": []})
+
+def test_no_declaration_writes_nothing(tmp_path):
+    with _open_run(tmp_path / "empty", "probe_run") as store:
+        assert sample_observation_points(store, store.sim_id, []) == 0
+
+
+CONFIG_REFUSALS = [
+    pytest.param(
+        [{"id": "p", "x": 1.0, "y": 2.0, "layer": 0, "depth": 3.0}],
+        "keep one",
+        id="layer and depth",
+    ),
+    pytest.param(
+        [{"id": "p", "x": 1.0, "y": 2.0}, {"id": "p", "x": 3.0, "y": 4.0}],
+        "Duplicate",
+        id="duplicate ids",
+    ),
+]
+
+
+@pytest.mark.parametrize(("points", "match"), CONFIG_REFUSALS)
+def test_config_refusals(points, match):
+    with pytest.raises(ValueError, match=match):
+        ObservationConfig.model_validate({"points": points})

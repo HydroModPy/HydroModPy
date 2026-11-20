@@ -1,51 +1,85 @@
-"""MODFLOW 6 GWT transport solver class."""
+"""MODFLOW 6 GWT transport solver class.
+
+GWT works in the folder of the flow run, on the simulation FloPy built for it. The
+engine adds its model to that simulation, couples it to the GWF model, writes the whole
+simulation again and solves it. The flow is then solved twice in the same folder, and
+the two solves are equal to the bit. The IMS of the transport model is the one the flow
+solved with, read on the options of ``[solver.modflow6]``. A transport reads nothing of
+the setup and no store.
+"""
 
 from __future__ import annotations
 
 import os
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
+from pathlib import Path
+from typing import Any, ClassVar
 
 import flopy
 import numpy as np
+from pydantic import BaseModel
 
-from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
-from hydromodpy.solver.modflow6.build import mf6_safe_name, optional_ims_kwargs
-from hydromodpy.solver.modflow6.postprocess import run_transport_post_processing
-from hydromodpy.solver.modflow_common import (
-    ModflowPostprocessOptions,
-    build_concentration_runtime_overrides,
-)
+from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
+from hydromodpy.model.domain.cell_column import CellColumn
+from hydromodpy.model.model import Model
+from hydromodpy.model.transport.transport_config import ConcentrationTransportParametersConfig
+from hydromodpy.results.field_registry import FACE_FLOW
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
+from hydromodpy.solver.base.registry import extractors
+from hydromodpy.solver.modflow6.builders.solver_options import optional_ims_kwargs
+from hydromodpy.solver.modflow6.modflow6 import Modflow6
+from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
+from hydromodpy.solver.modflow6.support.names import mf6_safe_name
+from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
 from hydromodpy.solver.modflow_common.progress import (
     run_simulation_with_progress,
     write_listing_status,
 )
+from hydromodpy.solver.modflow_common.runtime_arrays import build_concentration_runtime_overrides
+
+# The suffix of the transport model name a MODFLOW 6 GWT run writes, constant
+# for this adapter: one concentration transport per run, so the index of the
+# old plan-known suffix stays 1 (V4).
+_MT_S1 = "_mt_s1"
 
 
 class Modflow6Transport:
-    """Transport solver based on MODFLOW 6 GWT and `transport.modflow6gwt.parameters`.
+    """The MODFLOW 6 GWT transport solver of the ``flow/modflow6`` run.
 
-    Recharge (RCHA) is the only solute-injecting boundary: its concentration is
-    carried as an auxiliary variable and wired into SSM. CHD and WEL inflows enter
-    at concentration 0. Adding a solute source on those boundaries would edit the
-    flow-side package construction; it is a deliberate future enhancement, not an
-    oversight.
+    The solver is constructed from the ``Model`` its flow hands it and from the
+    validated table of the transport, ``[transport.modflow6]``, read by
+    ``options_of(name)``. Recharge (RCHA) is the only solute-injecting boundary:
+    its concentration is carried as an auxiliary variable and wired into SSM.
+    CHD and WEL inflows enter at concentration 0. Adding a solute source on
+    those boundaries would edit the flow-side package construction; it is a
+    deliberate future enhancement, not an oversight.
     """
 
     def __init__(
         self,
-        domain: DomainLike,
-        transport: TransportLike,
-        model_modflow: FlowModelLike,
+        model: Model,
+        model_modflow: Modflow6,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
-        suffix_name: str = "_gwt",
-        bin_path: str | None = None,
-        **kwargs,
+        suffix_name: str = _MT_S1,
+        options: Mapping[str, Any] | None = None,
+        **kwargs: Any,
     ):
-        self.domain = domain
-        self.transport = transport
+        """The MODFLOW 6 GWT transport solver of the flow run ``model`` extends.
+
+        The solver is constructed from the ``Model`` of its flow, the one
+        ``upstream[0].model`` of :class:`hydromodpy.solver.modflow6.adapter.Modflow6FlowAdapter`
+        hands it, and from the validated table of the transport
+        (``options``, the ``model_dump()`` of the ``[transport.modflow6]``
+        block, validated by
+        :class:`~hydromodpy.model.transport.transport_config.ConcentrationTransportParametersConfig`).
+        """
+        self.model = model
+        self.domain = model.geometry.domain
         self.model_modflow = model_modflow
         self.model_folder = model_folder
         self.model_name = model_name
@@ -53,16 +87,11 @@ class Modflow6Transport:
         self.model_name_mt = model_name + suffix_name
         self.model_name_mt_mf6 = mf6_safe_name(self.model_name_mt)
         self.full_path = os.path.join(model_folder, model_name)
-        self.exe = getattr(model_modflow, "exe", "mf6")
 
-        conc_params = {}
-        comp = transport.modflow6gwt
-        if isinstance(getattr(comp, "parameters", None), Mapping):
-            conc_params = dict(comp.parameters)
+        conc_params = dict(options or {})
         conc_params.update(kwargs)
         conc_params.update(build_concentration_runtime_overrides(conc_params, model_modflow))
 
-        self.spc_name = conc_params.get("spc_name", "NO3")
         self.sconc_init = conc_params.get("sconc_init", 0.0)
         self.sconc_input = conc_params.get("sconc_input", 0.0)
         self.disp_long = float(conc_params.get("disp_long", 0.0))
@@ -73,7 +102,6 @@ class Modflow6Transport:
         self.rate_decay = conc_params.get("rate_decay", 0.0)
         self.porosity = conc_params.get("porosity", None)
         self.scheme = conc_params.get("scheme", "upstream")
-        self.plot_conc = bool(conc_params.get("plot_conc", True))
 
     def _resolve_mst_porosity(self):
         """Return effective porosity for MST: configured value, else specific yield.
@@ -86,7 +114,8 @@ class Modflow6Transport:
             return float(self.porosity)
         warnings.warn(
             "No transport porosity set; falling back to the flow specific yield, which "
-            "underestimates pore volume. Set transport.modflow6gwt.parameters.porosity.",
+            "underestimates pore volume. Set the porosity of the transport in the "
+            "[transport] table of the resolved configuration.",
             UserWarning,
             stacklevel=2,
         )
@@ -136,10 +165,6 @@ class Modflow6Transport:
         val = float(self.sconc_input)
         return {k: np.full(ncpl, val, dtype=float) for k in range(nper)}
 
-    def _build_crch_aux(self) -> dict[int, list[np.ndarray]]:
-        crch = self._build_crch()
-        return {k: [np.asarray(v, dtype=float)] for k, v in crch.items()}
-
     def pre_processing(self):
         sim = self.model_modflow.sim
         self.gwf = self.model_modflow.gwf
@@ -173,19 +198,8 @@ class Modflow6Transport:
                 key=0,
             )
 
-        disv_kwargs = self.model_modflow.solver_mesh.to_disv_kwargs()
-        # GWT must share the GWF active domain for a valid GWF6-GWT6 exchange.
-        # DISV vertices are absolute model coordinates, so the package origin
-        # must be 0 to match the GWF and PRT grids (no double offset).
-        self.gwtdis = flopy.mf6.ModflowGwtdisv(
-            self.gwt,
-            nlay=self.model_modflow.nlay,
-            **disv_kwargs,
-            idomain=self.model_modflow.solver_mesh.idomain(),
-            xorigin=0.0,
-            yorigin=0.0,
-            length_units="METERS",
-        )
+        # GWT must share the GWF grid for a valid GWF6-GWT6 exchange.
+        self.gwtdis = flopy.mf6.ModflowGwtdisv(self.gwt, **disv_grid_kwargs(self.model_modflow))
         self.gwtic = flopy.mf6.ModflowGwtic(self.gwt, strt=self.sconc_init)
         self.adv = flopy.mf6.ModflowGwtadv(self.gwt, scheme=self.scheme)
         # DSP only matters when dispersion or molecular diffusion is non-zero.
@@ -219,7 +233,9 @@ class Modflow6Transport:
 
         if not hasattr(self.model_modflow, "rch") or self.model_modflow.rch is None:
             raise RuntimeError("Modflow6Transport requires an existing GWF recharge package.")
-        self.model_modflow.rch.aux.set_data(self._build_crch_aux())
+        self.model_modflow.rch.aux.set_data(
+            {k: [np.asarray(v, dtype=float)] for k, v in self._build_crch().items()}
+        )
         self.ssm = flopy.mf6.ModflowGwtssm(self.gwt, sources=[("RCHA", "AUX", "CONCENTRATION")])
 
         self.gwfgwt = flopy.mf6.ModflowGwfgwt(
@@ -228,11 +244,14 @@ class Modflow6Transport:
             exgmnamea=self.gwf.name,
             exgmnameb=self.gwt.name,
         )
+        # One concentration slice per stress period, at its last step, as the
+        # flow saves its head: the store holds n_timesteps slices of each field.
+        # ALL wrote every sub-step, so slice k was no longer period k.
         self.oc = flopy.mf6.ModflowGwtoc(
             self.gwt,
             concentration_filerecord=f"{self.model_name_mt}.ucn",
             budget_filerecord=f"{self.model_name_mt}.cbc",
-            saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
+            saverecord=[("CONCENTRATION", "LAST"), ("BUDGET", "ALL")],
         )
 
     def processing(self, write_model: bool = True, run_model: bool = False, verbose: bool = True):
@@ -242,6 +261,7 @@ class Modflow6Transport:
                 self.model_modflow.sim.write_simulation(silent=False)
         success = False
         if run_model:
+            check_mf6_workspace_paths(self.model_modflow.sim)
             success, _ = run_simulation_with_progress(
                 self.model_modflow.sim,
                 int(self.model_modflow.nper),
@@ -249,45 +269,95 @@ class Modflow6Transport:
             )
         return success
 
-    def _resolve_postprocess_options(
-        self,
-        *,
-        export_all_tif: bool,
-        options: ModflowPostprocessOptions | None,
-    ) -> ModflowPostprocessOptions:
-        """Resolve transport post-processing options from explicit or inherited flow settings."""
-        if options is not None and not isinstance(options, ModflowPostprocessOptions):
-            raise TypeError("transport post_processing options must be ModflowPostprocessOptions")
 
-        resolved = options
-        if resolved is None:
-            inherited = getattr(self.model_modflow, "last_postprocess_options", None)
-            if isinstance(inherited, ModflowPostprocessOptions):
-                resolved = inherited
-        if resolved is None:
-            return ModflowPostprocessOptions(export_all_tif=bool(export_all_tif))
-        if bool(getattr(resolved, "export_all_tif", False)) == bool(export_all_tif):
-            return resolved
-        return replace(resolved, export_all_tif=bool(export_all_tif))
+class Modflow6GwtTransportAdapter:
+    """Port adapter of ``transport/modflow6``, beside its engine class.
 
-    def post_processing(
+    GWT extends the simulation of the flow run it follows, in the folder that
+    flow wrote in, under the name of its model plus the suffix ``_mt_s1``. The
+    parameters of the deck are the validated ``[transport.modflow6]`` table the
+    runner holds, and reach the engine as one mapping.
+    """
+
+    name: ClassVar[str] = "modflow6"
+    process_type: ClassVar[str] = "transport"
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset()
+    geometry: ClassVar[str] = "cells"
+    writes: ClassVar[tuple[str, ...]] = ("concentration/*", "mass_balance")
+    reads: ClassVar[tuple[str, ...]] = (FACE_FLOW,)
+    supports: ClassVar[frozenset[str]] = frozenset()
+    options: ClassVar[type[BaseModel] | None] = ConcentrationTransportParametersConfig
+    category: ClassVar[str] = "distributed"
+    native_step: ClassVar[str | None] = None
+    cell_column: ClassVar[Callable[..., CellColumn] | None] = None
+    mutable: ClassVar[frozenset[str]] = frozenset()
+    requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow6"),)
+
+    def validate(self, model: Any, options: BaseModel | None, slot: RunSlot) -> None:
+        """Nothing to refuse here: every table is validated while the file is read."""
+        return None
+
+    def build(
         self,
-        model_mt3dms: object,
-        concentration_seepage: bool = True,
-        mass_seepage: bool = True,
-        mass_accumulated: bool = False,
-        export_all_tif: bool = False,
-        options: ModflowPostprocessOptions | None = None,
-    ) -> None:
-        run_transport_post_processing(
-            self,
-            model_mt3dms,
-            concentration_seepage=concentration_seepage,
-            mass_seepage=mass_seepage,
-            mass_accumulated=mass_accumulated,
-            export_all_tif=export_all_tif,
-            options=options,
+        model: Any,
+        options: BaseModel | None = None,
+        slot: RunSlot | None = None,
+        upstream: tuple[SolverRun, ...] = (),
+    ) -> SolverRun:
+        """Build the GWT model of the one flow run ``upstream`` names, in memory."""
+        (followed,) = upstream
+        if followed.solver_model is None:
+            raise SolverInputError(
+                f"Transport '{self.name}' follows a flow run whose model is missing. "
+                "GWT extends the MODFLOW 6 objects of the flow, and none was built."
+            )
+        flow_model = followed.solver_model
+        model_folder = (
+            str(followed.slot.folder)
+            if followed.slot is not None
+            else (
+                str(followed.output_dir.parent)
+                if followed.output_dir is not None
+                else "HydroModPy_outputs"
+            )
+        )
+        solver_model = Modflow6Transport(
+            followed.model,
+            flow_model,
+            model_folder=model_folder,
+            model_name=str(flow_model.model_name),
+            suffix_name=_MT_S1,
+            options=None if options is None else options.model_dump(),
+        )
+        solver_model.pre_processing()
+        return SolverRun(slot=slot, model=model, options=options, solver_model=solver_model)
+
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        """Write the GWT input files unless they are written, solve, and return the run."""
+        solver_model = solver_run.solver_model
+        success = solver_model.processing(
+            write_model=not solver_run.written, run_model=True, verbose=True
+        )
+        if not success:
+            raise SolverDivergedError(
+                f"Transport solver '{self.name}' failed for run '{solver_run.slot.name}', "
+                f"see {getattr(solver_model, 'full_path', '<unknown>')} for diagnostics."
+            )
+        return replace(
+            solver_run,
+            output_dir=Path(solver_model.full_path),
+            written=True,
+            solved=True,
         )
 
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the concentration and the solute balance through the registered extractor."""
+        extractors.create(self.process_type, self.name).extract(solver_run, store, retention)
 
-__all__ = ["Modflow6Transport"]
+    def cleanup(self, solver_run: SolverRun) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        if solver_run.output_dir is not None:
+            cleanup_solver_files(solver_run.output_dir)
+
+
+__all__ = ["Modflow6GwtTransportAdapter", "Modflow6Transport"]

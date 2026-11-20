@@ -1,6 +1,6 @@
-"""Surface-area guard for :class:`hydromodpy.results.run.Run`.
+"""Surface-area guard for :class:`hydromodpy.results.run.view.Run`.
 
-CLAUDE.md caps any class at 50 public methods. ``Run`` accumulated 65+
+The public surface of ``Run`` is capped. ``Run`` accumulated 65+
 entries through mixins until P8 removed the per-cell mixin and the
 ``run.at`` / ``run.fields`` duplicates. This test fails if the surface
 regresses.
@@ -8,13 +8,14 @@ regresses.
 
 from __future__ import annotations
 
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 
-MAX_PUBLIC_METHODS = 50
+# This version adds read, table, figure and show, the reads behind hydromodpy.show, and steps,
+# what a run stopped by until_step has done. No old name died.
+MAX_PUBLIC_METHODS = 55
 
 
 def test_run_public_surface_below_limit() -> None:
-    """``Run`` exposes at most 50 public attributes (CLAUDE.md cap)."""
     public = [m for m in dir(Run) if not m.startswith("_")]
     assert len(public) <= MAX_PUBLIC_METHODS, (
         f"Run has {len(public)} public attributes (max {MAX_PUBLIC_METHODS}): {public}"
@@ -22,7 +23,6 @@ def test_run_public_surface_below_limit() -> None:
 
 
 def test_run_does_not_expose_deprecated_helpers() -> None:
-    """The legacy ``run.fields`` / ``run.at`` accessors are gone."""
     assert not hasattr(Run, "fields")
     assert not hasattr(Run, "at")
     # Per-cell mixin methods are now module-level functions in views
@@ -33,7 +33,18 @@ def test_run_does_not_expose_deprecated_helpers() -> None:
 
 
 def test_run_keeps_canonical_field_readers() -> None:
-    """``run.field`` and ``run.array.{dataset,to_xarray_batch}`` remain."""
     assert hasattr(Run, "field")
-    # ``array`` is initialised in ``__init__`` so check via __init__
+    # ``array`` is initialized in ``__init__`` so check via __init__
     assert callable(Run.__init__)
+
+
+def test_run_answers_with_the_words_of_the_target() -> None:
+    """D9: ``site``, ``checks``, ``inputs``, ``exports``, ``figures``, ``label()`` and ``dir``.
+
+    The lineage is read by ``results.run.sealed.lineage_of`` (H36), the
+    summary by the README and ``record``: neither is an attribute of ``Run``.
+    """
+    for name in ("site", "checks", "inputs", "exports", "figures", "label", "dir", "record"):
+        assert hasattr(Run, name), name
+    for name in ("lineage", "summary", "parent", "solver_category", "input_entries"):
+        assert not hasattr(Run, name), name

@@ -14,8 +14,8 @@
   - `mf6` for MODFLOW 6 / GWT
   - `nwt` for MODFLOW-NWT / MODPATH / MT3DMS
 - Solver intercomparison tests use the `intercomparison` marker. They compare
-  compact metrics produced by a `[workflow].mode = "comparison"` run, not figure files
-  or full solver workspaces.
+  the compact profiles two solvers give on one validation case, not figure
+  files or full solver workspaces.
 
 Current non-regression tests:
 
@@ -23,7 +23,8 @@ Current non-regression tests:
 - `fast/test_simulation_regression_fast_boussinesq_divide_regression.py`
 - `fast/test_simulation_regression_fast_mf6_regression.py`
 - `fast/test_simulation_regression_fast_nwt_regression.py`
-- `fast/intercomparison/test_solver_intercomparison_fast_regression.py`
+- `fast/intercomparison/test_mf6_support_intercomparison_fast_regression.py`
+- `fast/intercomparison/test_xt3d_irregular_tri_fast_regression.py`
 - `extensive/test_simulation_regression_extensive_mf6_regression.py`
 - `extensive/test_simulation_regression_extensive_nwt_regression.py`
 - `extensive/test_launcher_data_overview_regression.py`
@@ -87,7 +88,7 @@ Run only solver intercomparisons:
 
 ```powershell
 python -m pytest -m "regression and intercomparison" -q -n auto
-hmp test regression --fast --intercomparison -j 1
+python -m tools.dev test regression --fast --intercomparison -j 1
 ```
 
 Run one specific test:
@@ -97,47 +98,47 @@ python -m pytest tests/regression/fast/test_simulation_regression_fast_boussines
 python -m pytest tests/regression/fast/test_simulation_regression_fast_boussinesq_divide_regression.py -q -n 1
 python -m pytest tests/regression/fast/test_simulation_regression_fast_mf6_regression.py -q -n 1
 python -m pytest tests/regression/fast/test_simulation_regression_fast_nwt_regression.py -q -n 1
-python -m pytest tests/regression/fast/intercomparison/test_solver_intercomparison_fast_regression.py -q -n 1
+python -m pytest tests/regression/fast/intercomparison/test_mf6_support_intercomparison_fast_regression.py -q -n 1
 python -m pytest tests/regression/extensive/test_simulation_regression_extensive_mf6_regression.py -q -n 1
 python -m pytest tests/regression/extensive/test_simulation_regression_extensive_nwt_regression.py -q -n 1
 ```
 
-Run via the `hmp` CLI:
+Run through `tools.dev`:
 
 ```powershell
-hmp test regression
+python -m tools.dev test regression
 ```
 
 ```powershell
-hmp test regression --extensive
+python -m tools.dev test regression --extensive
 ```
 
 ```powershell
-hmp test regression --fast
+python -m tools.dev test regression --fast
 ```
 
 ```powershell
-hmp test regression --slow
+python -m tools.dev test regression --slow
 ```
 
 ```powershell
-hmp test regression --list
+python -m tools.dev test regression --list
 ```
 
 ```powershell
-hmp test regression simulation_regression_fast_mf6 --fast --mf6 -j 1
+python -m tools.dev test regression simulation_regression_fast_mf6 --fast --mf6 -j 1
 ```
 
 ```powershell
-hmp test regression simulation_regression_fast_nwt --fast --nwt -j 1
+python -m tools.dev test regression simulation_regression_fast_nwt --fast --nwt -j 1
 ```
 
 ```powershell
-hmp test regression simulation_regression_extensive_mf6 --extensive --mf6 -j 1
+python -m tools.dev test regression simulation_regression_extensive_mf6 --extensive --mf6 -j 1
 ```
 
 ```powershell
-hmp test regression simulation_regression_extensive_nwt --extensive --nwt -j 1
+python -m tools.dev test regression simulation_regression_extensive_nwt --extensive --nwt -j 1
 ```
 
 ## Parallel execution (`-n`)
@@ -183,6 +184,22 @@ python -m pytest -m "(regression and fast) or slow" -q
 
 ## Update golden references
 
+A golden moves only with a stated reason. `--update-goldens` records what the code
+does today, so it can record a bug as easily as a fix. Before you run it:
+
+- Know which number moves, and why the new one is right. An unexplained change is a
+  regression, and updating the golden hides it.
+- Update only the goldens of that change, with the one-file commands below. Use the
+  full update only after a change that touches every solver.
+- Read the diff of the golden file. Any line you cannot explain stops the update.
+
+A golden that moves because the old number was wrong takes two more things in the
+same commit, as `docs/source/contribute/architecture/how-to/cut-a-release.rst` says: a
+line under `Numbers` in `CHANGELOG.md` with the quantity and the size of the change, and
+a row in the register of changes, `hydromodpy/schema/changes.toml` (a `[[bug]]` for a fix, a
+`[[recipe]]` of effect `numbers` for a rule). The tolerances live in
+`tests/TOLERANCES.md`, and widening one to avoid a golden update is not allowed.
+
 Update all golden references:
 
 ```powershell
@@ -196,10 +213,39 @@ python -m pytest tests/regression/fast/test_simulation_regression_fast_boussines
 python -m pytest tests/regression/fast/test_simulation_regression_fast_boussinesq_divide_regression.py -q --update-goldens
 python -m pytest tests/regression/fast/test_simulation_regression_fast_mf6_regression.py -q --update-goldens
 python -m pytest tests/regression/fast/test_simulation_regression_fast_nwt_regression.py -q --update-goldens
-python -m pytest tests/regression/fast/intercomparison/test_solver_intercomparison_fast_regression.py -q --update-goldens
+python -m pytest tests/regression/fast/intercomparison/test_mf6_support_intercomparison_fast_regression.py -q --update-goldens
 python -m pytest tests/regression/extensive/test_simulation_regression_extensive_mf6_regression.py -q --update-goldens
 python -m pytest tests/regression/extensive/test_simulation_regression_extensive_nwt_regression.py -q --update-goldens
 ```
+
+## Frozen runs
+
+`frozen_runs/` keeps a run and a calibration session as 2.0.0 stored them. A golden
+compares what the code writes today with a reference, `frozen_runs/` reads old files
+with the code of today. It has its own `README.md`, and `--update-goldens` does not
+touch it.
+
+The replay follows one rule. A run sealed by a pre-release of 2.0 is read through the `[[migration]]` rows
+of the register, in silence, so its old table names load. A key that a later version added is
+no difference when the sealed `config.resolved.toml` does not write it and its value today is the
+default of the edition the run sealed. The replay lists it under `new_at_default` in
+`lineage.drift`. A key that a later version added at a value that is not that default is a
+difference, and a default that would change a number needs its `[[default]]` row first, so the
+frozen run still gives the same numbers. A key that only a pre-release of 2.0 wrote is refused,
+and the fixtures that hold one are kept to show that refusal. Never edit the folder to make a
+replay pass.
+
+`frozen_documents/` keeps documents written before the 2.0.0 tag. Each one is either read by a reader of
+today or refused by a sentence that names its current form, and the table `REFUSALS` of its test
+holds every refusal. This version no longer reads four of them. Its own `README.md` lists them.
+
+## Frozen replay run
+
+`frozen_replay/v2.0.0/` keeps one run of the transient island on 434 gmsh triangles, solved by
+MODFLOW 6 with XT3D off. `pytest tests/regression/frozen_replay -q` replays a copy with
+`hmp replay`, without gmsh, and asks for the class `bit`. The weekly job replays it on another
+processor. `python -m tools.freeze_replay_run` alone writes the folder, when the version moves,
+and nothing else edits it. Its own `README.md` gives the command.
 
 ## Notes
 
@@ -209,5 +255,4 @@ python -m pytest tests/regression/extensive/test_simulation_regression_extensive
   column statistics.
 - CI should execute regression tests without `--update-goldens`.
 - Intercomparison tests should keep goldens compact: store selected metrics
-  from `comparison_metrics.json`, while large figures remain documentation
-  artifacts generated by the gallery/nightly documentation workflow.
+  from `comparison_metrics.json`, never the figures.

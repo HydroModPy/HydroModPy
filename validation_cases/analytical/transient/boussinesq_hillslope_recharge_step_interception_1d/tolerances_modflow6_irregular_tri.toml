@@ -1,0 +1,30 @@
+[onset]
+time_error_days = 15.0
+
+[trajectory]
+rmse_m = 8.2
+max_abs_error_m = 15.0
+reversal_m = 1e-6
+
+[uniformity]
+row_spread = 1e-9
+
+[contact]
+max_positive_clearance_m = 1e-6
+
+[doc]
+reason = """
+MODFLOW 6 on 586 irregular triangles of about 6 m (DISV), 12 periods of 10 days,
+DRN at the land surface with b = 1 m. The surface is 5.0 m at the mean centroid
+of the two boundary triangles of the east face (x = 398.29 m), where the
+reference poses its outlet, and comes from a 2.5 m raster. Model and reference
+are averaged over the same 10 m bins, weighted by triangle area. The onset is
+one period late (50 d against 40 d): at x = 385 m and 40 d the reference sits
+0.2 mm inside the 7.5 cm contact threshold and the model 1.7 mm below it, so
+the column turns one step later. The front is one column behind at 40 d and
+ahead at 120 d: trajectory RMSE 4.1 m, max 10 m. The bounds sit half a step
+above the onset and max and twice the RMSE. The head stays below the surface
+for the 120 days (largest clearance -2.8e-3 m), so the DRN never acts.
+Reversal is a solver-closure bound. The row spread is zero by construction:
+the loader tiles one profile.
+"""

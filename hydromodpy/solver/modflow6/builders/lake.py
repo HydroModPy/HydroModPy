@@ -2,19 +2,26 @@
 
 The lake is a boundary package laid on the existing aquifer grid: lake cells are
 made inactive (``idomain = 0``) and LAK supplies storage and exchange through its
-own CONNECTIONDATA. We build that CONNECTIONDATA ourselves with
-``flopy.utils.GridIntersect`` because ``flopy.mf6.utils.get_lak_connections`` does
-not support embedded / horizontal lakes on DISV (it raises for unstructured grids
-and only handles the trivial surface-lake case).
+own CONNECTIONDATA. We build that CONNECTIONDATA ourselves from the cell mesh
+because ``flopy.mf6.utils.get_lak_connections`` does not support embedded /
+horizontal lakes on DISV (it raises for unstructured grids and only handles the
+trivial surface-lake case).
+
+The lake cells come from the cell mesh. On a mesh whose faces follow the whole
+lake shore (``exact_faces`` and a ``lakes`` face family that covers every shore
+line), a lake owns the regions the shore faces enclose, each cell whole. On any
+other mesh, including one that follows the shore only in part, it owns every cell
+its polygon overlaps by a positive area, credited with that overlap.
 
 Each lake cell gets:
 
 * one VERTICAL connection to the first active cell below the lake column (the
   leakage / infiltration path towards the aquifer, using K33), and
-* one HORIZONTAL connection across every shared edge to an active, non-lake
-  neighbour (bank seepage, using K11). ``connwidth`` is the shared-edge length,
-  ``connlen`` the perpendicular half-distance from the neighbour centroid to the
-  edge, and ``belev`` / ``telev`` the neighbour cell bottom / top clipped to the
+* one HORIZONTAL connection across every shared edge to each active cell of a
+  non-lake neighbor column that faces the lake water, whatever its layer
+  (bank seepage, using K11). ``connwidth`` is the shared-edge length,
+  ``connlen`` the perpendicular half-distance from the neighbor centroid to the
+  edge, and ``belev`` / ``telev`` the neighbor cell bottom / top clipped to the
   lake vertical extent.
 
 Functions are pure and keyword-only, mirroring ``builders/wells.py``. They raise
@@ -23,14 +30,17 @@ plain ``ValueError`` naming the offending TOML path, exactly as ``wells.py`` doe
 
 from __future__ import annotations
 
-import dataclasses
 from collections.abc import Collection, Mapping, Sequence
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
+import flopy
 import numpy as np
 
+from hydromodpy.core.fields.vertical_column import top_active_layer
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units.leakance import parse_to_per_s
+from hydromodpy.core.units.quantities import parse_to_per_s
+from hydromodpy.model.initial.state import PriorState, SolvedState
 from hydromodpy.solver.modflow6.builders._lake_connection import (
     _abacus_rows,
     _lak_output_stem,
@@ -38,57 +48,40 @@ from hydromodpy.solver.modflow6.builders._lake_connection import (
 )
 from hydromodpy.solver.modflow6.builders._lake_definitions import (
     _active_lake_definitions,
-    _lake_attr,
     _scalar,
 )
 from hydromodpy.solver.modflow6.builders._lake_geometry import (
-    _abacus_stage_sarea,
-    _abacus_volume,
-    _cell_behind_wall,
-    _cell_edges,
-    _drop_cutoff_wall_downstream_cells,
-    _drop_interior_rings,
-    _edge_length,
-    _edge_neighbours,
-    _fill_lake_enclosed_cells,
+    _cell_faces,
     _first_active_layer_below,
     _point_to_segment_distance,
-    _resolve_shared_lake_cells,
-    _wall_endpoints,
+    cutoff_wall_faces,
 )
 from hydromodpy.solver.modflow6.builders._lake_outlets import (
-    _downstream_spillway_ref,
     _emit_forcing_rows,
     _emit_outlet_rate_rows,
     _emit_steady_stage_hold_rows,
     _forcing_si_per_period,
-    _lake_id_for_index,
-    _outlet_couttype,
-    _outlet_geometry,
-    _resolve_lakeout,
-    _resolve_receiver_lake,
 )
-from hydromodpy.solver.modflow6.builders.initial_conditions import (
-    read_restart_lake_stages,
-    resolve_restart_from,
+from hydromodpy.solver.modflow6.builders.lake_cells import resolve_lake_cells_for_active_lakes
+from hydromodpy.solver.modflow6.builders.lake_obs import build_lake_obs_spec, cutoff_wall_flow_faces
+from hydromodpy.solver.modflow6.builders.lake_outflow import (
+    build_lake_mover_records,
+    build_lake_outlets,
 )
 from hydromodpy.solver.modflow6.builders.mvr import (
-    MoverRecord,
     build_mvr_period_records,
     mover_package_count,
 )
-from hydromodpy.solver.modflow6.builders.period_forcing import (
-    package_unit_conversions,
-    resolve_forcing_mode,
-)
-from hydromodpy.solver.modflow6.builders.vertex_grid import build_vertex_grid_for_intersection
-from hydromodpy.solver.modflow6.support.time_series import Ts6Series
-
-if TYPE_CHECKING:
-    from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from hydromodpy.solver.modflow6.builders.period_forcing import resolve_forcing_mode
+from hydromodpy.solver.modflow6.builders.sfr import mover_rows_reach_lake
+from hydromodpy.solver.modflow6.builders.sidecar import write_sidecar
+from hydromodpy.solver.modflow6.support.time_series import Ts6Series, attach_time_series
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 logger = get_logger(__name__)
 
+LAK_STAGE_SUFFIX = ".lak.stage"
+"""The end of the binary file MODFLOW 6 writes the stage of each lake in, at every time step."""
 
 # CONNECTIONDATA claktype labels (FloPy passes these strings through to MF6).
 _VERTICAL = "VERTICAL"
@@ -100,344 +93,10 @@ _HORIZONTAL = "HORIZONTAL"
 # leakance is rejected.
 _MIN_BEDLEAK = 0.0
 
-# Report the min_thickness clamp only when it moved the carved bed by more than a
-# centimetre: below that the shift is re-proportioning round-off, not a geometry the
-# user needs to know about.
-_BED_CLAMP_REPORT_TOL = 0.01
-
-
-def resolve_lake_cells(
-    model,
-    *,
-    lake_id: str,
-    polygon: object,
-    vertex_grid: object,
-    with_areas: bool = False,
-) -> list[int] | tuple[list[int], dict[int, float]]:
-    """Intersect one lake polygon with the grid and return the flat cell2d ids.
-
-    Cells are returned sorted and de-duplicated. An empty result means the
-    polygon misses the grid, which is almost always a CRS or extent mistake, so
-    we fail naming the lake. With ``with_areas=True`` also return the per-cell
-    intersected area [L2] (the part of each cell actually inside the polygon),
-    which edge cells under-fill; this is the true lake area, free of the
-    full-cell footprint over-count.
-    """
-    from flopy.utils import GridIntersect
-
-    gi = GridIntersect(vertex_grid)
-    result = gi.intersect(polygon, geo_dataframe=False)
-    cell_ids = sorted({int(cid) for cid in np.asarray(result["cellids"]).ravel()})
-    if not cell_ids:
-        raise ValueError(
-            f"flow.sinks_sources.lakes.{lake_id} polygon does not intersect any grid "
-            "cell; check the lake geometry CRS and the model extent."
-        )
-    if not with_areas:
-        return cell_ids
-    intersected = _intersected_areas(vertex_grid, polygon, result, lake_id=lake_id)
-    return cell_ids, intersected
-
-
-# Relative gap above which the areas FloPy reports are rejected in favour of the
-# recomputed ones. The two agree bit for bit on a clean intersection, so anything
-# past rounding means the collapse described in _intersected_areas.
-_AREA_MISMATCH_TOL = 1e-6
-
-
-def _intersected_areas(vertex_grid, polygon, result, *, lake_id: str) -> dict[int, float]:
-    """Per-cell area inside ``polygon``, recomputed rather than read off FloPy.
-
-    FloPy 3.10 collapses the areas of every cell whose intersection is a
-    GeometryCollection -- which is what a cell edge running along the lake
-    shoreline produces. ``gridintersect.py`` calls ``np.apply_along_axis`` with
-    ``axis=0`` on a 1-D object array, so the parser runs ONCE over the whole array,
-    merges those intersections into a single multipolygon and broadcasts it back to
-    every slot: each of those cells is then credited the SUM of all of them. (FloPy
-    knows: the linestring twin of that call carries the comment "not working for
-    multiple geometry collections ... causes doubles in the result" and is commented
-    out; the polygon one was left live.)
-
-    The consequence is not cosmetic: every affected cell is credited the SUM of
-    them all, which inflates the lake footprint by whatever those cells represent.
-    The abacus reconciliation then divides the cumulative area by that footprint
-    ratio, so the ranking it builds is wrong and the carved bed over-stores. A mesh
-    whose edges follow the shoreline (a boundary-aligned refinement) produces more
-    of those degenerate intersections, not fewer.
-
-    Summing per cell (a cell can appear more than once) stays as before.
-    """
-    from shapely.geometry import Polygon as _Polygon
-
-    cellids = np.asarray(result["cellids"]).ravel()
-    reported: dict[int, float] = {}
-    for cid, area in zip(cellids, np.asarray(result["areas"]).ravel(), strict=True):
-        reported[int(cid)] = reported.get(int(cid), 0.0) + float(area)
-
-    verts = np.asarray(vertex_grid.verts)
-    exact: dict[int, float] = {}
-    for cid in reported:
-        row = vertex_grid.cell2d[cid]
-        ring = verts[[int(i) for i in row[4:] if int(i) >= 0]][:, :2]
-        exact[cid] = float(_Polygon(ring).intersection(polygon).area)
-
-    total_exact = sum(exact.values())
-    total_reported = sum(reported.values())
-    if total_exact > 0.0:
-        gap = abs(total_reported - total_exact) / total_exact
-        if gap > _AREA_MISMATCH_TOL:
-            logger.warning(
-                "lake '%s': FloPy reported a lake footprint of %.4g m2 where the cell "
-                "polygons give %.4g m2 (%+.2f %%), on %d cell(s). This is the FloPy "
-                "GeometryCollection area collapse; the recomputed areas are used.",
-                lake_id,
-                total_reported,
-                total_exact,
-                100.0 * (total_reported - total_exact) / total_exact,
-                sum(1 for cid in exact if abs(exact[cid] - reported[cid]) > 1e-6),
-            )
-    return exact
-
-
-def apply_lake_idomain_mask(
-    solver_mesh: SolverMesh,
-    *,
-    lake_cell_ids_by_lake: Mapping[str, Sequence[int]],
-    occupied_layers: int = 1,
-    occupied_layers_by_lake: Mapping[str, int] | None = None,
-    occupied_layers_by_cell: Mapping[str, Mapping[int, int]] | None = None,
-) -> SolverMesh:
-    """Return a new ``SolverMesh`` with each lake's top layers made inactive.
-
-    A lake occupies the top layers of each of its columns. The per-cell count is
-    resolved in order: ``occupied_layers_by_cell[lake_id][cell]`` (a carved bed
-    that cuts a varying number of layers, deep centre vs shallow rim), else
-    ``occupied_layers_by_lake[lake_id]``, else the scalar ``occupied_layers``. The
-    layers below stay active so the LAK VERTICAL connection has a first active
-    cell to leak into; the count must leave at least one active layer per column.
-
-    The frozen ``SolverMesh`` is left untouched; we ``dataclasses.replace`` a
-    fresh inactive mask. Applying this *before* the DISV / idomain / dem_mask
-    derivations keeps RCH, EVT and DRN consistent with the lake footprint.
-    """
-    n_cells = int(solver_mesh.n_cells)
-    nlay = int(solver_mesh.nlay)
-    mask = np.asarray(solver_mesh.inactive_mask, dtype=bool).copy()
-    for lake_id, cell_ids in lake_cell_ids_by_lake.items():
-        per_cell = (occupied_layers_by_cell or {}).get(lake_id)
-        lake_layers = int(
-            occupied_layers
-            if occupied_layers_by_lake is None
-            else occupied_layers_by_lake.get(lake_id, occupied_layers)
-        )
-        for cid in cell_ids:
-            cell = int(cid)
-            if cell < 0 or cell >= n_cells:
-                raise ValueError(
-                    f"flow.sinks_sources.lakes.{lake_id} cell {cell} is outside the grid "
-                    f"({n_cells} cells)."
-                )
-            layers = int(per_cell.get(cell, lake_layers)) if per_cell is not None else lake_layers
-            if layers < 1:
-                raise ValueError(
-                    f"flow.sinks_sources.lakes.{lake_id} occupied_layers must be >= 1."
-                )
-            if layers >= nlay:
-                raise ValueError(
-                    f"flow.sinks_sources.lakes.{lake_id} occupied_layers ({layers}) must leave at "
-                    f"least one active layer below the lake (nlay={nlay}); the VERTICAL "
-                    "connection needs an aquifer cell to leak into."
-                )
-            mask[:layers, cell] = True
-    return dataclasses.replace(solver_mesh, inactive_mask=mask)
-
-
-def carve_lake_bed(
-    model,
-    solver_mesh: SolverMesh,
-    *,
-    lake_cell_ids_by_lake: Mapping[str, Sequence[int]],
-    occupied_layers_by_lake: Mapping[str, int] | None = None,
-) -> SolverMesh:
-    """Carve the real lake bed from bathymetry into ``top``/``botm`` per lake cell.
-
-    For every active lake whose config sets ``bed_reconstruction``, the
-    ``lake_bathymetry`` raster is resampled onto the lake cells (zonal mean) and,
-    by default, reconciled to the abacus by area-weighted quantile mapping. Each
-    lake column is then re-graded so the bottom of its deepest occupied layer sits
-    at the carved bed; the first active cell below therefore exchanges with the
-    lake at the real bed elevation, and the flow lines follow the real basin.
-
-    Lakes without ``bed_reconstruction`` are left untouched. The frozen
-    ``SolverMesh`` is replaced with a fresh ``botm`` (``top`` and the inactive
-    mask are unchanged). The per-lake reconstruction is stashed on
-    ``model._lake_bed_reconstruction`` for the abacus-comparison figure and the
-    exposed-band runoff coupling; its ``bed_by_cell`` holds the bed the grid
-    actually carries (after the ``min_thickness`` clamp), and
-    ``diagnostics["bed_clamp_shift_max"]`` reports how far that clamp moved the
-    bathymetric bed.
-    """
-    definitions = _active_lake_definitions(model)
-    targets = {
-        lake_id: definition
-        for lake_id, definition in definitions.items()
-        if definition.get("bed_reconstruction") is not None and lake_id in lake_cell_ids_by_lake
-    }
-    if not targets:
-        return solver_mesh
-
-    from hydromodpy.spatial.lake_bed import (
-        load_surface_from_raster,
-        reconstruct_lake_bed,
-        regrade_column_active_top,
-        regrade_column_to_bed,
-        simulate_abacus,
-    )
-
-    top = np.asarray(solver_mesh.top, dtype=float).reshape(-1).copy()
-    botm = np.asarray(solver_mesh.botm, dtype=float).copy()
-    areas = solver_mesh.cell_areas()
-    nlay = int(solver_mesh.nlay)
-    occupied = occupied_layers_by_lake or {}
-    reconstruction: dict[str, dict[str, Any]] = {}
-    marnage_cells: dict[str, list[int]] = {}
-    occupied_by_cell: dict[str, dict[int, int]] = {}
-
-    for lake_id, definition in targets.items():
-        cfg = definition["bed_reconstruction"]
-        reconcile = bool(getattr(cfg, "reconcile_to_abacus", True))
-        min_thickness = float(getattr(cfg, "min_thickness", 0.5))
-        min_pixels = int(getattr(cfg, "min_pixels", 1))
-        dynamic_area = bool(getattr(cfg, "dynamic_area", False))
-
-        raster = definition.get("bathymetry")
-        if not raster:
-            raise ValueError(
-                f"flow.sinks_sources.lakes.{lake_id} sets bed_reconstruction but no "
-                "lake_bathymetry raster was loaded; declare [data.lake_bathymetry]."
-            )
-        cell_ids = [int(c) for c in lake_cell_ids_by_lake[lake_id]]
-        occ = int(occupied.get(lake_id, 1))
-        # Use the per-cell intersected area (the part of each cell actually inside the
-        # lake polygon) so edge cells do not over-count: the footprint then matches the
-        # real lake area (area_scale -> ~1) and the abacus reconciliation is exact.
-        intersected = getattr(model, "_lake_cell_intersected_area", {}).get(lake_id, {})
-        area_by_cell = {cid: float(intersected.get(cid, areas[cid])) for cid in cell_ids}
-
-        stage_col, sarea_col = _abacus_stage_sarea(definition.get("abacus"))
-        # Full-pool stage: the ceiling the reconciled bed is expressed against.
-        full_pool = float(stage_col[-1]) if stage_col is not None and len(stage_col) else None
-        if reconcile and (stage_col is None or sarea_col is None):
-            raise ValueError(
-                f"flow.sinks_sources.lakes.{lake_id} bed_reconstruction.reconcile_to_abacus "
-                "is on but no abacus was loaded; declare [data.lake_abacus] or set "
-                "reconcile_to_abacus = false."
-            )
-
-        surface = load_surface_from_raster(raster)
-        bed_by_cell, diag = reconstruct_lake_bed(
-            planar_mesh=solver_mesh.planar_mesh,
-            surface=surface,
-            cell_ids=cell_ids,
-            area_by_cell=area_by_cell,
-            abacus_stage=stage_col if reconcile else [0.0, 1.0],
-            abacus_sarea=sarea_col if reconcile else [0.0, 1.0],
-            reconcile=reconcile,
-            min_pixels=min_pixels,
-        )
-        # The re-grade clamps the bed into the band its column can hold at
-        # min_thickness, so the elevation the grid ends up carrying is not always the
-        # one the bathymetry asked for. Record the CARVED bed (post-clamp), because
-        # every consumer of this record answers a question about the grid: the
-        # simulated abacus measures how faithfully the mesh reproduces the
-        # stage-volume curve, and the exposed-band runoff must exit at the same
-        # elevation MF6 wets and dries.
-        clamp_shift = 0.0
-        if dynamic_area:
-            # Active-littoral (marnage): the cell stays active, its TOP becomes the
-            # bathymetric bed, and MF6 gates RCH/ET vs lake exchange per cell.
-            for cid in cell_ids:
-                new_top, new_botm = regrade_column_active_top(
-                    orig_top=top[cid],
-                    botm_col=botm[:, cid],
-                    bed=bed_by_cell[cid],
-                    min_thickness=min_thickness,
-                    stage_max=full_pool,
-                )
-                top[cid] = new_top
-                botm[:, cid] = new_botm
-                clamp_shift = max(clamp_shift, abs(new_top - bed_by_cell[cid]))
-                bed_by_cell[cid] = float(new_top)
-            marnage_cells[lake_id] = cell_ids
-        else:
-            # Fixed-area reservoir: the inactive cap of each column follows the real
-            # basin depth. The per-cell occupied-layer count is the number of grid
-            # layers above the carved bed (deep centre cells cut more layers than
-            # shallow rim cells), clamped to keep one active aquifer cell below.
-            per_cell_occ: dict[int, int] = {}
-            for cid in cell_ids:
-                occ_c = int(np.count_nonzero(botm[:, cid] > bed_by_cell[cid]))
-                occ_c = max(1, min(occ_c, nlay - 1))
-                per_cell_occ[cid] = occ_c
-                botm[:, cid] = regrade_column_to_bed(
-                    top=top[cid],
-                    botm_col=botm[:, cid],
-                    bed=bed_by_cell[cid],
-                    occupied_layers=occ_c,
-                    min_thickness=min_thickness,
-                    stage_max=full_pool,
-                )
-                # regrade_column_to_bed pins the bottom of the deepest occupied layer
-                # on the (clamped) bed, so that bottom IS the carved elevation.
-                carved = float(botm[occ_c - 1, cid])
-                clamp_shift = max(clamp_shift, abs(carved - bed_by_cell[cid]))
-                bed_by_cell[cid] = carved
-            occupied_by_cell[lake_id] = per_cell_occ
-        if clamp_shift > _BED_CLAMP_REPORT_TOL:
-            logger.warning(
-                "[LAK] lake '%s': the min_thickness clamp moved the carved bed by up to "
-                "%.3f m from the bathymetry (min_thickness=%.2f m). The grid, the simulated "
-                "abacus and the exposed band all use the carved bed; deepen the column or "
-                "lower min_thickness to follow the bathymetry more closely.",
-                lake_id,
-                clamp_shift,
-                min_thickness,
-            )
-        diag = {**diag, "bed_clamp_shift_max": float(clamp_shift)}
-        record = {
-            "bed_by_cell": bed_by_cell,
-            "area_by_cell": area_by_cell,
-            "occupied_layers": occ,
-            "diagnostics": diag,
-            "abacus_stage": stage_col,
-            "abacus_sarea": sarea_col,
-            "abacus_volume": _abacus_volume(definition.get("abacus")),
-        }
-        if stage_col is not None:
-            # Pre-compute the simulated abacus in the solver layer so the display
-            # figure (which cannot import spatial) only receives plain arrays.
-            sim = simulate_abacus(
-                bed_by_cell=bed_by_cell, area_by_cell=area_by_cell, stages=stage_col
-            )
-            record["sim_volume"] = [float(v) for v in sim["volume"]]
-            record["sim_sarea"] = [float(v) for v in sim["sarea"]]
-        reconstruction[lake_id] = record
-        logger.info(
-            "[LAK] carved bed for lake '%s': %d cells, bed in [%.2f, %.2f], area scale %.3f",
-            lake_id,
-            len(cell_ids),
-            diag.get("carved_bed_min", float("nan")),
-            diag.get("carved_bed_max", float("nan")),
-            diag.get("area_scale", float("nan")),
-        )
-
-    model._lake_bed_reconstruction = reconstruction
-    if occupied_by_cell:
-        model._lake_occupied_layers_by_cell = occupied_by_cell
-    if marnage_cells:
-        model._marnage_lake_ids = set(marnage_cells)
-        model._marnage_lake_cells = marnage_cells
-    return dataclasses.replace(solver_mesh, top=top, botm=botm)
+# Thinnest band of lake water a bank connection must face. Elevations hold to the
+# millimeter, so a thinner overlap of the lake band and a neighbor cell is
+# round-off between two columns, not a bank.
+_MIN_BANK_THICKNESS_M = 1.0e-3
 
 
 def build_lake_connectiondata(
@@ -450,7 +109,7 @@ def build_lake_connectiondata(
     occupied_layers: int = 1,
     occupied_layers_by_cell: Mapping[int, int] | None = None,
     dynamic_area: bool = False,
-    cutoff_wall_line: object | None = None,
+    sealed_faces: Collection[tuple[int, int]] | None = None,
     bank_seepage: bool = True,
 ) -> list[list[Any]]:
     """Build the CONNECTIONDATA rows for one lake on a DISV grid.
@@ -463,12 +122,21 @@ def build_lake_connectiondata(
     (matching ``apply_lake_idomain_mask``). For each lake column we emit:
 
     * one VERTICAL connection to the first active cell below the occupied layers
-      (the leakage path towards the aquifer), and
-    * one HORIZONTAL connection per occupied layer across every shared edge with
-      an active, non-lake neighbour at that layer (bank seepage).
+      (the leakage path towards the aquifer), pass-through cells skipped, and
+    * one HORIZONTAL connection across every shared edge to each active cell of
+      a non-lake neighbor column that faces the lake water (bank seepage).
+
+    The lake water of a column spans its occupied cap ``[bed, top]``. A bank
+    connection is clipped to the part of that band the neighbor cell holds,
+    whatever the layer index of that cell: on a sloping or pinched stack the
+    neighbor layers do not line up with the lake ones, and a pass-through
+    neighbor has handed its thickness to the active cell below it. A column
+    whose cap is pinched out has no band, so it exchanges through its bed only.
 
     ``solver_mesh`` must already carry the lake idomain mask so that
-    ``idomain == 1`` identifies active non-lake neighbours.
+    ``idomain > 0`` identifies active non-lake neighbours. ``sealed_faces``
+    holds the ``(cell_a, cell_b)`` pairs, ``cell_a < cell_b``, a cutoff wall
+    bars: no HORIZONTAL connection crosses them.
     """
     if float(bedleak) < _MIN_BEDLEAK:
         raise ValueError(f"flow.sinks_sources.lakes bedleak must be >= 0, got {bedleak}.")
@@ -477,13 +145,13 @@ def build_lake_connectiondata(
     if not lake_set:
         raise ValueError("build_lake_connectiondata requires at least one lake cell.")
 
-    idomain = solver_mesh.idomain()  # (nlay, n_cells)
+    idomain = solver_mesh.idomain  # (nlay, n_cells)
     top = np.asarray(solver_mesh.top, dtype=float)
     botm = np.asarray(solver_mesh.botm, dtype=float)  # (nlay, n_cells)
     nlay = int(solver_mesh.nlay)
     vertices = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)
-    conn = solver_mesh.planar_mesh.flat_connectivity
-    centroids = solver_mesh.cell_centroids()
+    centroids = solver_mesh.cell_centers()
+    top_active = top_active_layer(idomain)
 
     def _occ(cid: int) -> int:
         """Per-cell occupied-layer count (carved-bed depth), else the lake scalar."""
@@ -493,70 +161,67 @@ def build_lake_connectiondata(
 
     lake_cells = sorted(lake_set)
 
-    # Dam seal: cut every HORIZONTAL bank connection to a cell BEHIND the cutoff
-    # wall (across the dam from the lake body), so the lake never seeps sideways
-    # past the dam. This is a LAK concern, independent of the HFB: the HFB is an
-    # optional GWF-GWF barrier that does not throttle LAK-GWF flow, so the seal
-    # lives here and uses only the wall trace. Vertical (bed) connections are kept.
-    _wall = None
-    if cutoff_wall_line is not None and not getattr(cutoff_wall_line, "is_empty", True):
-        _wx = float(np.mean([centroids[c, 0] for c in lake_cells]))
-        _wy = float(np.mean([centroids[c, 1] for c in lake_cells]))
-        _wall = (_wall_endpoints(cutoff_wall_line), (_wx, _wy))
+    # Dam seal: cut every HORIZONTAL bank connection across a face the cutoff
+    # wall bars, so the lake never seeps sideways past the dam. This is a LAK
+    # concern, independent of the HFB: the HFB is a GWF-GWF barrier that does not
+    # throttle LAK-GWF flow, so the seal lives here, on the same faces as the HFB.
+    # Vertical (bed) connections are kept.
+    sealed_pairs = set(sealed_faces or ())
 
-    def _neighbour_behind_wall(neighbour: int) -> bool:
-        if _wall is None:
-            return False
-        (p0, p1), (bx, by) = _wall
-        return _cell_behind_wall(
-            float(centroids[neighbour, 0]), float(centroids[neighbour, 1]), bx, by, p0, p1
-        )
+    def _neighbour_behind_wall(cid: int, neighbour: int) -> bool:
+        return (min(cid, neighbour), max(cid, neighbour)) in sealed_pairs
 
-    # Each cell's undirected edges, used to find shared edges with neighbours.
-    cell_edges: dict[int, list[tuple[int, int]]] = {
-        cid: _cell_edges(conn[cid]) for cid in range(int(solver_mesh.n_cells))
-    }
+    sealed = [0]
 
-    def _horizontal_rows(cid: int, lake_top: float, lake_bottom: float, occ_c: int, iconn: int):
-        """HORIZONTAL bank connections of one lake column, sealed at the dam."""
+    def _horizontal_rows(cid: int, lake_top: float, lake_bottom: float, iconn: int):
+        """HORIZONTAL bank connections of one lake column, sealed at the dam.
+
+        Fixed area: the bank spans the occupied cap ``[lake_bottom, lake_top]``.
+        Marnage (decision D8): the lake column stays active below its carved bed,
+        so the bank spans ``[carved bed, neighbor top]`` and never sits below the
+        bed. Every active neighbor cell that crosses that band by more than
+        ``_MIN_BANK_THICKNESS_M`` gets one row.
+        """
         out: list[list[Any]] = []
-        for lay in range(occ_c):
-            for edge in cell_edges[cid]:
-                width = _edge_length(vertices, edge)
+        faces = _cell_faces(solver_mesh.cell_mesh, cid)
+        for lay in range(nlay):
+            for neighbour, node_a, node_b, width in faces:
                 if width <= 0.0:
                     continue  # degenerate (zero-length) edge: skip
-                for neighbour in _edge_neighbours(edge, cell_edges, cid):
-                    if neighbour in lake_set:
-                        continue  # never connect a lake to another lake cell
-                    if int(idomain[lay, neighbour]) != 1:
-                        continue  # neighbour inactive at this layer
-                    if _neighbour_behind_wall(neighbour):
-                        continue  # seal: no bank seepage across the dam
-                    connlen = _point_to_segment_distance(
-                        centroids[neighbour], vertices[edge[0]], vertices[edge[1]]
-                    )
-                    if connlen <= 0.0:
-                        continue
+                if neighbour in lake_set:
+                    continue  # never connect a lake to another lake cell
+                if int(idomain[lay, neighbour]) <= 0:
+                    continue  # neighbor inactive at this layer
+                cell_top = float(top[neighbour]) if lay == 0 else float(botm[lay - 1, neighbour])
+                if dynamic_area:
+                    belev = max(float(botm[lay, neighbour]), lake_top)
+                    telev = min(cell_top, float(top[neighbour]))
+                else:
                     belev = max(float(botm[lay, neighbour]), lake_bottom)
-                    cell_top = (
-                        float(top[neighbour]) if lay == 0 else float(botm[lay - 1, neighbour])
-                    )
                     telev = min(cell_top, lake_top)
-                    if telev <= belev:
-                        continue  # neighbour cell sits outside the lake vertical extent
-                    out.append(
-                        [
-                            int(lake_index),
-                            len(out) + iconn,
-                            (int(lay), int(neighbour)),
-                            _HORIZONTAL,
-                            float(bedleak),
-                            float(belev),
-                            float(telev),
-                            float(connlen),
-                            float(width),
-                        ]
-                    )
+                if telev - belev <= _MIN_BANK_THICKNESS_M:
+                    continue  # neighbor cell sits outside the lake vertical extent
+                if _neighbour_behind_wall(cid, neighbour):
+                    sealed[0] += 1
+                    continue  # seal: no bank seepage across the dam
+                connlen = _point_to_segment_distance(
+                    centroids[neighbour], vertices[node_a], vertices[node_b]
+                )
+                if connlen <= 0.0:
+                    continue
+                out.append(
+                    [
+                        int(lake_index),
+                        len(out) + iconn,
+                        (int(lay), int(neighbour)),
+                        _HORIZONTAL,
+                        float(bedleak),
+                        float(belev),
+                        float(telev),
+                        float(connlen),
+                        float(width),
+                    ]
+                )
         return out
 
     rows: list[list[Any]] = []
@@ -569,13 +234,20 @@ def build_lake_connectiondata(
         lake_bottom = float(botm[occ_c - 1, cid])
         if dynamic_area:
             # Active-littoral (marnage): the lakebed cell stays ACTIVE with the
-            # bathymetric bed as its top; one VERTICAL connection on the cell itself
-            # (bed seepage; MF6 wets it when stage > bed and toggles RCH/ET per cell).
+            # bathymetric bed as its top; one VERTICAL connection on the top active
+            # cell of the column (bed seepage; MF6 wets it when stage > bed and
+            # toggles RCH/ET per cell). A pinched top layer is skipped.
+            if int(top_active[cid]) < 0:
+                raise ValueError(
+                    f"Lake {int(lake_index)} (marnage): column {int(cid)} has no active "
+                    "layer, so its bed connection has no cell. Keep the lake polygon "
+                    "inside the active domain."
+                )
             rows.append(
                 [
                     int(lake_index),
                     iconn,
-                    (0, int(cid)),
+                    (int(top_active[cid]), int(cid)),
                     _VERTICAL,
                     float(bedleak),
                     0.0,
@@ -608,9 +280,24 @@ def build_lake_connectiondata(
         # HORIZONTAL (bank) seepage: for a fixed-area lake always; for a marnage
         # lake only when bank_seepage is on (add the bank path to the bed one).
         if (not dynamic_area) or bank_seepage:
-            hrows = _horizontal_rows(cid, lake_top, lake_bottom, occ_c, iconn)
+            hrows = _horizontal_rows(cid, lake_top, lake_bottom, iconn)
             rows.extend(hrows)
             iconn += len(hrows)
+
+    if sealed[0]:
+        logger.warning(
+            "Lake %d: cutoff_wall seals %d bank connection(s) behind the dam. "
+            "The seal is a perfect wall, independent of the HFB hydchr.",
+            int(lake_index),
+            int(sealed[0]),
+        )
+    if model is not None:
+        try:
+            counts = dict(getattr(model, "_lake_sealed_bank_connections", {}) or {})
+            counts[int(lake_index)] = int(sealed[0])
+            model._lake_sealed_bank_connections = counts
+        except AttributeError:
+            pass
 
     if not rows:
         raise ValueError(
@@ -618,6 +305,23 @@ def build_lake_connectiondata(
             "lake cell. Check the lake footprint and the active domain."
         )
     return rows
+
+
+def cutoff_wall_pairs(
+    definition: Mapping[str, Any], lake_cell_ids: Sequence[int], solver_mesh: SolverMesh
+) -> set[tuple[int, int]]:
+    """The ``(cell_a, cell_b)`` pairs a lake's cutoff wall bars, none without a wall.
+
+    The faces are those of the HFB (:func:`cutoff_wall_faces`), so the LAK seal
+    and the HFB close the same faces.
+    """
+    line = definition.get("cutoff_wall_line")
+    if line is None or getattr(line, "is_empty", True):
+        return set()
+    faces = cutoff_wall_faces(
+        solver_mesh.cell_mesh, line, np.asarray(lake_cell_ids, dtype=np.int64)
+    )
+    return {(face.cell_a, face.cell_b) for face in faces}
 
 
 def build_lake_table(
@@ -677,11 +381,90 @@ def build_lake_table(
     return table
 
 
-# Small depression depth that smooths the dry/wet behaviour and helps Newton
+# Small depression depth that smooths the dry/wet behavior and helps Newton
 # convergence. It is intentionally tiny relative to lake stages.
 _DEFAULT_SURFDEP = 0.1
 # Fallback leakance (1/T) used until a calibratable per-lake value is declared.
 _DEFAULT_BEDLEAK = 1.0
+
+
+_TABLE_FLOOR_TOL_M = 1e-3
+"""Gap (m) between the table bottom and min(belev) that triggers a warning."""
+
+
+def _lake_connection_floor(rows: Sequence[Sequence[Any]], solver_mesh: SolverMesh) -> float:
+    """Return the lowest connection bottom MF6 derives for one lake.
+
+    MF6 bounds the lake stage at this floor. A VERTICAL connection bottoms at
+    the top of its cell. A HORIZONTAL one bottoms at ``belev``, or at the cell
+    bottom when ``belev == telev``.
+    """
+    top = np.asarray(solver_mesh.top, dtype=float)
+    botm = np.asarray(solver_mesh.botm, dtype=float)
+    floors: list[float] = []
+    for row in rows:
+        lay, cid = int(row[2][0]), int(row[2][1])
+        cell_top = float(top[cid]) if lay == 0 else float(botm[lay - 1, cid])
+        if row[3] == _VERTICAL:
+            floors.append(cell_top)
+        elif float(row[5]) == float(row[6]):
+            floors.append(float(botm[lay, cid]))
+        else:
+            floors.append(float(row[5]))
+    return float(min(floors))
+
+
+def _warn_table_off_connection_floor(
+    lake_id: str, table: Sequence[Sequence[float]], floor: float
+) -> None:
+    """Warn when the abacus bottom does not match the MF6 stage floor.
+
+    Below the floor the table holds dead storage MF6 never drains. Above it
+    MF6 extrapolates the table under its first row.
+    """
+    bottom = float(table[0][0])
+    if abs(bottom - floor) <= _TABLE_FLOOR_TOL_M:
+        return
+    side = "below" if bottom < floor else "above"
+    logger.warning(
+        "Lake '%s': table bottom %.3f m is %s min(belev) %.3f m of its connections "
+        "(gap %.3f m). MF6 bounds the stage at min(belev).",
+        lake_id,
+        bottom,
+        side,
+        floor,
+        abs(bottom - floor),
+    )
+
+
+def _chd_cellids(model) -> set[tuple[int, int]]:
+    """Return the ``(lay, cell2d)`` cells held by the model CHD package, if any."""
+    chd = getattr(model, "chd", None)
+    if chd is None:
+        return set()
+    data = chd.stress_period_data.get_data() or {}
+    cells: set[tuple[int, int]] = set()
+    for records in data.values():
+        if records is None:
+            continue
+        for rec in records:
+            cellid = rec["cellid"] if getattr(rec, "dtype", None) is not None else rec[0]
+            cells.add((int(cellid[0]), int(cellid[-1])))
+    return cells
+
+
+def _refuse_chd_connections(model, *, lake_id: str, rows: Sequence[Sequence[Any]]) -> None:
+    """Refuse a lake connected to a CHD cell: MF6 fails on the LAK residual."""
+    chd_cells = _chd_cellids(model)
+    if not chd_cells:
+        return
+    hit = sorted({(int(r[2][0]), int(r[2][1])) for r in rows} & chd_cells)
+    if hit:
+        raise ValueError(
+            f"flow.sinks_sources.lakes.{lake_id} connects to {len(hit)} CHD cell(s) "
+            f"(first (layer, cell): {hit[0]}). A lake must not touch a constant-head "
+            "cell; move the CHD boundary or the lake polygon."
+        )
 
 
 def build_lak_package_args(
@@ -719,11 +502,12 @@ def build_lak_package_args(
     laktab_specs: list[dict[str, Any]] = []
     lake_conn_info: list[dict[str, Any]] = []
 
-    # Hotstart: a prior run's Zarr (via [flow] restart_from) seeds each lake's
-    # initial stage from its last value, overriding stageinit. Absent lake / older
-    # store -> empty map, so the stageinit fallback below still applies.
-    restart_source = resolve_restart_from(model)
-    restart_stages = read_restart_lake_stages(restart_source) if restart_source else {}
+    # Hotstart: the prior run ([flow] restart_from) or the spin-up cycle before
+    # this one seeds each lake's initial stage from its last value, overriding
+    # initial_stage. Absent lake / older store -> empty map, so the
+    # initial_stage fallback below still applies.
+    initial = model.inputs.initial
+    restart_stages = initial.lake_stages if isinstance(initial, PriorState | SolvedState) else {}
 
     for lake_index, (lake_id, definition) in enumerate(lakes.items()):
         cell_ids = list(lake_cell_ids_by_lake.get(lake_id, []))
@@ -762,9 +546,10 @@ def build_lak_package_args(
             occupied_layers=lake_layers,
             occupied_layers_by_cell=(occupied_layers_by_cell or {}).get(lake_id),
             dynamic_area=dynamic_area,
-            cutoff_wall_line=definition.get("cutoff_wall_line"),
+            sealed_faces=cutoff_wall_pairs(definition, cell_ids, solver_mesh),
             bank_seepage=bank_seepage,
         )
+        _refuse_chd_connections(model, lake_id=str(lake_id), rows=rows)
         connectiondata.extend(rows)
         # VERTICAL connections sit under the lake footprint: their per-lake iconn
         # tags the under-dam leakage the extractor sums separately.
@@ -775,16 +560,22 @@ def build_lak_package_args(
                 "lake_id": str(lake_id),
                 "n_conn": len(rows),
                 "vertical_iconns": vertical_iconns,
+                "wall_faces": cutoff_wall_flow_faces(definition, cell_ids, solver_mesh),
             }
         )
 
         abacus = definition.get("abacus")
         table = build_lake_table(model, lake_id=lake_id, abacus=abacus)
-        stageinit = definition.get("stageinit")
+        _warn_table_off_connection_floor(
+            str(lake_id), table, _lake_connection_floor(rows, solver_mesh)
+        )
+        initial_stage = definition.get("initial_stage")
         if lake_id in restart_stages:
-            strt = float(restart_stages[lake_id])
-        elif stageinit is not None:
-            strt = _scalar(stageinit)
+            # Written with all its digits: the text FloPy makes of a float keeps
+            # eight decimals, which moves a lake by 2e-9 m between two windows.
+            strt = repr(float(restart_stages[lake_id]))
+        elif initial_stage is not None:
+            strt = _scalar(initial_stage)
         else:
             strt = float(table[0][0])
 
@@ -805,7 +596,6 @@ def build_lak_package_args(
         (float(d["surfdep"]) for d in lakes.values() if d.get("surfdep") is not None),
         default=_DEFAULT_SURFDEP,
     )
-    time_conversion, length_conversion = package_unit_conversions(model)
     stem = _lak_output_stem(model)
     obs_continuous, lake_obs_meta = build_lake_obs_spec(
         stem=stem,
@@ -823,12 +613,12 @@ def build_lak_package_args(
         "laktab_specs": laktab_specs,
         "boundnames": True,
         "surfdep": surfdep,
-        "time_conversion": time_conversion,
-        "length_conversion": length_conversion,
+        "time_conversion": 1.0,
+        "length_conversion": 1.0,
         "print_stage": True,
         "print_flows": True,
         "save_flows": True,
-        "stage_filerecord": f"{stem}.lak.stage",
+        "stage_filerecord": f"{stem}{LAK_STAGE_SUFFIX}",
         "budget_filerecord": f"{stem}.lak.cbc",
         "budgetcsv_filerecord": f"{stem}.lak.budget.csv",
     }
@@ -862,68 +652,61 @@ def build_lak_package_args(
     return args
 
 
-def resolve_lake_cells_for_active_lakes(
-    model,
-    solver_mesh: SolverMesh,
-) -> dict[str, list[int]]:
-    """Resolve every active lake polygon to its flat cell2d ids.
+def read_final_lake_stages(stage_path: Path, lake_ids: Sequence[str]) -> dict[str, float] | None:
+    """Return the stage of each lake at the last time step, from a LAK stage file.
 
-    Returns ``{}`` when no lake / reservoir boundary is active, which keeps the
-    LAK wiring in ``build.py`` a no-op for models without a lake. The lake
-    polygons come from the loaded ``lake_geometry`` data family.
+    ``stage_path`` is the binary file ``stage_filerecord`` names, written in
+    double precision at every time step. ``lake_ids`` are the lakes in LAK
+    packagedata order, the order of the records. The stages come back with
+    every digit MODFLOW 6 computed, where the observation file keeps ten
+    significant digits. ``None`` when the file does not exist, which is a run
+    without a lake or a folder whose scratch is gone.
     """
-    lakes = _active_lake_definitions(model)
-    if not lakes:
-        return {}
+    if not Path(stage_path).is_file():
+        return None
+    import flopy.utils.binaryfile as bf
 
-    vertex_grid = build_vertex_grid_for_intersection(solver_mesh)
-    cells_by_lake: dict[str, list[int]] = {}
-    intersected_area_by_lake: dict[str, dict[int, float]] = {}
-    for lake_id, definition in lakes.items():
-        polygon = definition.get("polygon")
-        if polygon is None:
-            raise ValueError(
-                f"flow.sinks_sources.lakes.{lake_id} has no polygon geometry; load the "
-                "lake_geometry data family before pre-processing."
-            )
-        if definition.get("fill_enclosed_cells"):
-            polygon = _drop_interior_rings(polygon)
-        cells, intersected = resolve_lake_cells(
-            model, lake_id=lake_id, polygon=polygon, vertex_grid=vertex_grid, with_areas=True
+    stage_file = bf.HeadFile(str(stage_path), text="STAGE", precision="double")
+    try:
+        times = stage_file.get_times()
+        if not times:
+            return None
+        last = np.asarray(stage_file.get_data(totim=times[-1]), dtype=np.float64).reshape(-1)
+    finally:
+        stage_file.close()
+    if last.size != len(lake_ids):
+        raise ValueError(
+            f"{stage_path.name} holds {last.size} lake stage(s) and the model declares "
+            f"{len(lake_ids)} lake(s): {list(lake_ids)}."
         )
-        cells_by_lake[lake_id] = cells
-        intersected_area_by_lake[lake_id] = intersected
-    _resolve_shared_lake_cells(cells_by_lake, intersected_area_by_lake)
-    _fill_lake_enclosed_cells(cells_by_lake, intersected_area_by_lake, solver_mesh)
-    _drop_cutoff_wall_downstream_cells(model, cells_by_lake, intersected_area_by_lake, solver_mesh)
-    # The true per-cell lake area (edge cells under-filled), used by the carve so the
-    # area_scale and the abacus reconciliation see the real lake area, not the
-    # full-cell footprint over-count.
-    model._lake_cell_intersected_area = intersected_area_by_lake
-    return cells_by_lake
+    return {str(lake): float(stage) for lake, stage in zip(lake_ids, last, strict=True)}
 
 
-def lake_definitions_for_bedleak(model) -> dict[str, dict[str, Any]]:
-    """Return the active lake definitions in LAK packagedata (``ifno``) order.
+def lake_ids_in_package_order(model) -> list[str]:
+    """Return the ids of the active lakes of ``model`` in LAK packagedata order, ``[]`` without one."""
+    return list(_active_lake_definitions(model))
 
-    Public entry point for the calibration runtime-reuse path, which refreshes the
-    ``bedleak`` column in place. The dict ordering matches the order in which
-    lakes are written to the LAK package, so its index is the 0-based ``ifno``.
+
+def apply_lake_stages(lak: Any, stages: Mapping[str, float]) -> None:
+    """Set the starting stage of each lake in the built LAK package ``lak``, all digits kept.
+
+    ``stages`` maps a lake id to its stage in metres. A lake absent from it
+    keeps its stage. The package names its lakes by boundname, which the
+    builder sets to the lake id. Each stage is written as ``repr`` of the
+    float, as ``build_lak_package_args`` does for a restart. FloPy casts a
+    string to the type of the column the package holds, a float of eight
+    decimals, so the column is made of objects first, which it writes as they are.
     """
-    return _active_lake_definitions(model)
-
-
-def resolve_lake_occupied_layers(model) -> dict[str, int]:
-    """Return the per-lake occupied-layer count (>= 1) keyed by lake id.
-
-    Reads the ``occupied_layers`` config field surfaced onto each lake payload,
-    defaulting to 1 (surface lake). Used by ``build.py`` to thread the count into
-    the idomain mask so a deep reservoir is deactivated over all of its layers.
-    """
-    return {
-        lake_id: max(1, int(definition.get("occupied_layers") or 1))
-        for lake_id, definition in _active_lake_definitions(model).items()
-    }
+    current = lak.packagedata.get_data()
+    names = list(current.dtype.names)
+    kinds = [(name, "O" if name == "strt" else current.dtype[name]) for name in names]
+    rows = [list(row) for row in current]
+    strt, boundname = names.index("strt"), names.index("boundname")
+    for row in rows:
+        lake_id = str(row[boundname])
+        if lake_id in stages:
+            row[strt] = repr(float(stages[lake_id]))
+    lak.packagedata.set_data(np.rec.fromrecords([tuple(row) for row in rows], dtype=kinds))
 
 
 def build_exposed_band_runoff_specs(model) -> list:
@@ -978,281 +761,6 @@ def build_exposed_band_runoff_specs(model) -> list:
     return specs
 
 
-def build_lake_outlets(
-    model,
-    *,
-    lakes: Mapping[str, dict[str, Any]],
-) -> list[list[Any]]:
-    """Build the OUTLETS rows for every active lake.
-
-    Rows follow the FloPy LAK layout
-    ``[outletno, lakein, lakeout, couttype, invert, width, rough, slope]`` with
-    0-based ``outletno`` and ``lakein``. ``lakeout`` is ``-1`` for an external
-    boundary (config ``lakeout = 0``) or the 0-based index of the downstream lake
-    (config ``lakeout = N`` is the Nth lake, 1-based).
-
-    ``invert`` / ``width`` are required for WEIR and MANNING; ``rough`` / ``slope``
-    are required for MANNING and default to 0.0 otherwise; SPECIFIED outlets carry
-    no geometry (their rate is supplied through ``perioddata``).
-    """
-    lake_index_by_id = {lake_id: idx for idx, lake_id in enumerate(lakes)}
-    rows: list[list[Any]] = []
-    outletno = 0
-    for lake_index, (lake_id, definition) in enumerate(lakes.items()):
-        outlets = definition.get("outlets") or []
-        for outlet in outlets:
-            couttype = _outlet_couttype(lake_id, outlet)
-            lakeout = _resolve_lakeout(lake_id, outlet, lake_index_by_id)
-            invert, width, rough, slope = _outlet_geometry(lake_id, couttype, outlet)
-            rows.append(
-                [
-                    int(outletno),
-                    int(lake_index),
-                    int(lakeout),
-                    couttype,
-                    float(invert),
-                    float(width),
-                    float(rough),
-                    float(slope),
-                ]
-            )
-            outletno += 1
-    _warn_on_lake_outlet_cycle(rows, lake_ids=list(lakes))
-    return rows
-
-
-def _warn_on_lake_outlet_cycle(rows: Sequence[Sequence[Any]], *, lake_ids: Sequence[str]) -> None:
-    """Report a lake-to-lake outlet loop, which MF6 solves as a circulating flow.
-
-    Two lakes each spilling into the other is conservative (every transfer is
-    counted once out and once in, so the balance still closes) but it is not a
-    routing: MF6 sends water both ways every time step, and at a shared or nearly
-    shared invert the pair see-saws. The circulating volume can exceed the real
-    spillway discharge by orders of magnitude and then dominates both lakes'
-    published ``outlet`` series and their stages. Nothing else catches it: the model
-    converges and the mass balance stays clean.
-
-    This does not change the model. Almost always the loop means one of the two
-    outlets should route to the downstream reach or to the external boundary.
-    """
-    downstream: dict[int, set[int]] = {}
-    for row in rows:
-        lakein, lakeout = int(row[1]), int(row[2])
-        if lakeout >= 0:
-            downstream.setdefault(lakein, set()).add(lakeout)
-
-    def name(index: int) -> str:
-        return lake_ids[index] if 0 <= index < len(lake_ids) else f"lake{index}"
-
-    reported: set[tuple[int, ...]] = set()
-    for start in downstream:
-        stack = [(start, (start,))]
-        while stack:
-            node, path = stack.pop()
-            for nxt in downstream.get(node, ()):
-                if nxt == start:
-                    cycle = tuple(sorted(path))
-                    if cycle in reported:
-                        continue
-                    reported.add(cycle)
-                    inverts = [
-                        float(row[4])
-                        for row in rows
-                        if int(row[1]) in cycle and int(row[2]) in cycle
-                    ]
-                    logger.warning(
-                        "Lake outlet loop: %s route into each other, so MF6 circulates water "
-                        "around the loop every time step instead of routing it downstream "
-                        "(outlet inverts %s m). The balance still closes, but the lakes' "
-                        "outlet series and stages carry the circulation. Route one of these "
-                        "outlets to the downstream reach (mover.to_downstream_reach) or to the "
-                        "external boundary (lakeout = 0).",
-                        " and ".join(name(i) for i in path),
-                        ", ".join(f"{value:.2f}" for value in inverts),
-                    )
-                elif nxt not in path:
-                    stack.append((nxt, (*path, nxt)))
-
-
-# The single LAK package name used across the GWF model (see build.py: pname="LAK").
-_LAK_PACKAGE_NAME = "LAK"
-# The single SFR package name (LAK -> SFR spillway receiver); a string, never an
-# import edge to builders/sfr.py.
-_SFR_PACKAGE_NAME = "SFR"
-
-
-def build_lake_mover_records(
-    model,
-    *,
-    lakes: Mapping[str, dict[str, Any]],
-    downstream_reach_by_lake: Mapping[str, int] | None = None,
-) -> list[MoverRecord]:
-    """Compile the LAK outlet ``mover`` specs into general MVR transfers.
-
-    Each outlet carrying a ``mover`` spec becomes one :class:`MoverRecord` with
-    provider ``LAK`` outlet number (0-based, assigned in the same order as
-    :func:`build_lake_outlets`). The receiver is either a lake (``mover.lake``,
-    1-based, translated to its packagedata position) or an SFR reach
-    (``mover.reach``, 1-based, the spillway-release direction); the config
-    enforces exactly one of the two.
-
-    An outlet routed directly via ``lakeout`` (no ``mover``) is skipped while
-    still advancing the shared outlet number. The ``mvrtype`` is read and
-    uppercased here but validated downstream by
-    :func:`build_mvr_period_records`. An empty result means no controlled transfer
-    is requested.
-    """
-    lake_count = len(lakes)
-    records: list[MoverRecord] = []
-    outletno = 0
-    for lake_id, definition in lakes.items():
-        outlets = definition.get("outlets") or []
-        for outlet in outlets:
-            mover = _lake_attr(outlet, "mover")
-            if mover is None:
-                outletno += 1
-                continue
-            reach = _lake_attr(mover, "reach")
-            if _lake_attr(mover, "to_downstream_reach"):
-                receiver = _SFR_PACKAGE_NAME
-                if downstream_reach_by_lake is None or lake_id not in downstream_reach_by_lake:
-                    raise ValueError(
-                        f"flow.sinks_sources.lakes.{lake_id} outlet mover to_downstream_reach "
-                        "could not resolve a downstream SFR reach (no SFR channel below the dam?)."
-                    )
-                receiver_index = int(downstream_reach_by_lake[lake_id])
-            elif reach is not None:
-                receiver = _SFR_PACKAGE_NAME
-                receiver_index = int(_scalar(reach)) - 1
-                if receiver_index < 0:
-                    raise ValueError(
-                        f"flow.sinks_sources.lakes.{lake_id} outlet mover reach must be "
-                        f">= 1 (1-based downstream reach); got {reach}."
-                    )
-            else:
-                receiver = _LAK_PACKAGE_NAME
-                receiver_index = _resolve_receiver_lake(lake_id, mover, lake_count)
-            raw_mvrtype = _lake_attr(mover, "mvrtype")
-            mvrtype = str(raw_mvrtype).strip().upper() if raw_mvrtype is not None else "FACTOR"
-            raw_value = _lake_attr(mover, "value")
-            value = _scalar(raw_value) if raw_value is not None else 1.0
-            records.append(
-                MoverRecord(
-                    provider=_LAK_PACKAGE_NAME,
-                    provider_id=int(outletno),
-                    receiver=receiver,
-                    receiver_id=int(receiver_index),
-                    mvrtype=mvrtype,
-                    value=value,
-                )
-            )
-            outletno += 1
-    return records
-
-
-def resolve_spillway_seed_cells(
-    model,
-    *,
-    lake_cells_by_id: Mapping[str, Sequence[int]],
-    cell_adjacency: Sequence[set[int]],
-    cell_centroids: np.ndarray,
-    idomain: np.ndarray,
-    mesh_top: np.ndarray,
-    outlet_xy: tuple[float, float] | None,
-) -> dict[str, int]:
-    """Dam-toe cell for each lake whose spillway routes to the downstream reach.
-
-    The seed is the cell at the foot of the dam: the lowest active non-lake neighbour of
-    the lake's discharge point. The discharge point is the outlet mover's explicit
-    ``discharge_xy`` when given, else the lake shoreline cell nearest the domain outlet.
-    Feeding it to the SFR rectification extends the channel up to the dam, so the spillway
-    feeds an SFR reach at the dam foot rather than a gap of hillslope DRN cells. Returns
-    ``{lake_id: toe_cell}`` for the lakes that request it.
-    """
-    seeds: dict[str, int] = {}
-    centroids = np.asarray(cell_centroids, dtype=float)
-    top = np.asarray(mesh_top, dtype=float).reshape(-1)
-    active0 = np.asarray(idomain[0] > 0)
-    all_lake_cells = {int(c) for cells in lake_cells_by_id.values() for c in cells}
-    for lake_id, definition in _active_lake_definitions(model).items():
-        ref = _downstream_spillway_ref(definition, outlet_xy)
-        if ref is None:
-            continue
-        ox, oy = ref
-        cells = [int(c) for c in lake_cells_by_id.get(lake_id, [])]
-        shore = [
-            c
-            for c in cells
-            if any(nb not in all_lake_cells and active0[nb] for nb in cell_adjacency[c])
-        ]
-        if not shore:
-            continue
-        dam = min(shore, key=lambda c: float(np.hypot(centroids[c][0] - ox, centroids[c][1] - oy)))
-        toe = [nb for nb in cell_adjacency[dam] if nb not in all_lake_cells and active0[nb]]
-        if toe:
-            seeds[lake_id] = int(min(toe, key=lambda c: float(top[c])))
-    return seeds
-
-
-def resolve_downstream_spillway_reaches(
-    seed_cell_by_lake: Mapping[str, int],
-    *,
-    reach_cell_to_ifno: Mapping[int, int],
-    cell_centroids: np.ndarray,
-    own_lake_terminal_ifnos: Mapping[str, Collection[int]] | None = None,
-) -> dict[str, int]:
-    """Map each spillway dam-toe seed to the 0-based SFR reach that receives its overflow.
-
-    After the rectification seeds the dam toe (:func:`resolve_spillway_seed_cells`), that
-    cell is itself a reach, so the receiver is exact. If it is not (rectification off, or
-    the extension did not reach it), fall back to the nearest reach to the toe. Returns
-    ``{lake_id: reach_ifno}``.
-
-    ``own_lake_terminal_ifnos`` names, per lake, the reaches that already hand their
-    flow BACK to that same lake (its shoreline feeders). Sending a spillway to one of
-    them would close a ``LAK -> SFR -> LAK`` loop: the lake would feed its own inflow,
-    and nothing downstream checks it because the two mover rows are merged
-    independently. Those reaches are therefore excluded from the nearest-reach
-    fallback, and an exact hit on one of them raises. Feeding a reach that terminates
-    in a DIFFERENT lake stays allowed: that is a legitimate cascade (a forebay
-    spilling into the main reservoir).
-    """
-    resolved: dict[str, int] = {}
-    if not reach_cell_to_ifno:
-        return resolved
-    centroids = np.asarray(cell_centroids, dtype=float)
-    forbidden_by_lake = own_lake_terminal_ifnos or {}
-    for lake_id, seed in seed_cell_by_lake.items():
-        forbidden = {int(ifno) for ifno in forbidden_by_lake.get(lake_id, ())}
-        if seed in reach_cell_to_ifno:
-            ifno = int(reach_cell_to_ifno[seed])
-            if ifno in forbidden:
-                raise ValueError(
-                    f"flow.sinks_sources.lakes.{lake_id} outlet mover to_downstream_reach "
-                    f"resolved to reach {ifno}, which already feeds this same lake: the "
-                    "overflow would circulate back into the reservoir. The dam toe is not "
-                    "below this lake (a mid-basin lake), so declare the receiving reach "
-                    "with an explicit spillway discharge point instead."
-                )
-            resolved[lake_id] = ifno
-            continue
-        candidates = [cell for cell, ifno in reach_cell_to_ifno.items() if ifno not in forbidden]
-        if not candidates:
-            raise ValueError(
-                f"flow.sinks_sources.lakes.{lake_id} outlet mover to_downstream_reach found "
-                "no downstream SFR reach: every reach of the network feeds this lake, so "
-                "any receiver would circulate the overflow back into it. Add a reach below "
-                "the dam, or route the outlet elsewhere."
-            )
-        sx, sy = float(centroids[seed][0]), float(centroids[seed][1])
-        target = min(
-            candidates,
-            key=lambda c: float(np.hypot(centroids[c][0] - sx, centroids[c][1] - sy)),
-        )
-        resolved[lake_id] = int(reach_cell_to_ifno[target])
-    return resolved
-
-
 # Per-lake forcing keywords and their MF6 unit convention. Rates are L/T
 # (rainfall, evaporation); the rest are volumetric L^3/T.
 _RATE_FORCINGS = ("rainfall", "evaporation")
@@ -1288,7 +796,11 @@ def build_lake_period_data(
     ts_series: list[Ts6Series] = []
     for lake_index, (lake_id, definition) in enumerate(lakes.items()):
         _emit_steady_stage_hold_rows(
-            model, lake_index=lake_index, definition=definition, period_rows=period_rows
+            model,
+            lake_index=lake_index,
+            lake_id=lake_id,
+            definition=definition,
+            period_rows=period_rows,
         )
         for keyword in _RATE_FORCINGS:
             _emit_forcing_rows(
@@ -1330,118 +842,6 @@ def build_lake_period_data(
     return period_rows, ts_series
 
 
-# --------------------------------------------------------------------------- #
-# LAK observations (OBS6) for the per-lake output series.
-# --------------------------------------------------------------------------- #
-
-# Per-lake scalar observation types keyed by the 0-based lake number (MF6 ifno),
-# mapped to the HMP-side series name the extractor stores. MF6 LAK obs cannot be
-# requested by boundname through flopy (its writer increments integer ids and
-# chokes on strings), so every observation uses the integer lake / connection
-# number and the lake-aquifer exchange is reconstructed from the per-connection
-# terms. ext-outflow / to-mvr / outlet are NOT here: MF6 keys them by outlet
-# number, so they are requested in the per-outlet loop instead.
-_LAKE_SCALAR_OBSTYPES: tuple[tuple[str, str], ...] = (
-    ("stage", "stage"),
-    ("volume", "volume"),
-    ("surface-area", "surface_area"),
-    ("ext-inflow", "inflow"),
-    ("rainfall", "rainfall"),
-    ("evaporation", "evaporation"),
-    ("runoff", "runoff"),
-    ("withdrawal", "withdrawal"),
-    ("storage", "storage"),
-)
-
-
-def build_lake_obs_spec(
-    *,
-    stem: str,
-    lake_conn_info: Sequence[Mapping[str, Any]],
-    outlets: Sequence[Sequence[Any]],
-    has_mover: bool = False,
-) -> tuple[dict[str, list[tuple[Any, ...]]], dict[str, Any]]:
-    """Return ``(obs_continuous, lake_obs_meta)`` for the LAK package.
-
-    ``obs_continuous`` is the flopy ``continuous`` mapping ``{csv_file: [(name,
-    type, id[, id2]), ...]}`` with 0-based integer ids (flopy increments them to
-    MF6's 1-based convention). ``lake_obs_meta`` is the JSON-serialisable sidecar
-    mapping each observation name to its lake / quantity / connection so the
-    extractor can re-key the obs CSV by ``(lake_id, totim)`` and isolate the
-    under-dam (VERTICAL) leakage.
-
-    When ``has_mover`` is set the LAK package routes water through MVR, so a
-    ``from-mvr`` obs is added per lake (water received from the mover, MF6 id =
-    lake number) and a ``to-mvr`` obs per outlet (water sent to the mover, id =
-    outlet number). These obs are only valid once the package advertises MOVER.
-
-    Returns empty structures when no lake is present.
-    """
-    if not lake_conn_info:
-        return {}, {"obs_csv": "", "budgetcsv": None, "budget_bin": None, "entries": []}
-
-    obs_csv = f"{stem}.lak.obs.csv"
-    obslist: list[tuple[Any, ...]] = []
-    entries: list[dict[str, Any]] = []
-
-    for info in lake_conn_info:
-        lake_index = int(info["lake_index"])
-        lake_id = str(info["lake_id"])
-        tag = _safe_lake_tag(lake_id)
-        for obstype, quantity in _LAKE_SCALAR_OBSTYPES:
-            obsname = f"{tag}_{quantity}"
-            obslist.append((obsname, obstype, (lake_index,)))
-            entries.append({"obsname": obsname, "lake_id": lake_id, "quantity": quantity})
-        if has_mover:
-            # from-mvr is a per-lake obs (id = lake number): water this lake
-            # receives from the MVR package.
-            obsname = f"{tag}_from_mvr"
-            obslist.append((obsname, "from-mvr", (lake_index,)))
-            entries.append({"obsname": obsname, "lake_id": lake_id, "quantity": "from_mvr"})
-        vertical = {int(i) for i in info.get("vertical_iconns", [])}
-        for iconn in range(int(info["n_conn"])):
-            obsname = f"{tag}_lak_{iconn}"
-            obslist.append((obsname, "lak", (lake_index,), (iconn,)))
-            entries.append(
-                {
-                    "obsname": obsname,
-                    "lake_id": lake_id,
-                    "quantity": "lak_connection",
-                    "iconn": iconn,
-                    "under_dam": iconn in vertical,
-                }
-            )
-
-    for outletno, outlet in enumerate(outlets):
-        lake_index = int(outlet[1])
-        lake_id = _lake_id_for_index(lake_conn_info, lake_index)
-        tag = _safe_lake_tag(lake_id)
-        obsname = f"{tag}_outlet_{outletno}"
-        obslist.append((obsname, "outlet", (outletno,)))
-        entries.append({"obsname": obsname, "lake_id": lake_id, "quantity": "outlet"})
-        # ext-outflow is keyed by outlet number, so it belongs here, not in the
-        # per-lake loop (requesting it by lake number errors once the lake index
-        # exceeds the outlet count).
-        ext_name = f"{tag}_ext_outflow_{outletno}"
-        obslist.append((ext_name, "ext-outflow", (outletno,)))
-        entries.append({"obsname": ext_name, "lake_id": lake_id, "quantity": "ext_outflow"})
-        if has_mover:
-            # to-mvr is a per-outlet obs (id = outlet number): water this outlet
-            # sends to the MVR package (0 for an outlet not routed through MVR).
-            mvr_name = f"{tag}_to_mvr_{outletno}"
-            obslist.append((mvr_name, "to-mvr", (outletno,)))
-            entries.append({"obsname": mvr_name, "lake_id": lake_id, "quantity": "to_mvr"})
-
-    obs_continuous = {obs_csv: obslist}
-    lake_obs_meta = {
-        "obs_csv": obs_csv,
-        "budgetcsv": f"{stem}.lak.budget.csv",
-        "budget_bin": f"{stem}.lak.cbc",
-        "entries": entries,
-    }
-    return obs_continuous, lake_obs_meta
-
-
 def convert_bedleak_to_per_s(value: object, *, lake_id: str, unit: str | None = None) -> float:
     """Convert one ``bedleak`` declaration (1/T) to ``1/s`` for MF6.
 
@@ -1457,19 +857,111 @@ def convert_bedleak_to_per_s(value: object, *, lake_id: str, unit: str | None = 
 
 
 __all__ = [
-    "apply_lake_idomain_mask",
+    "LAK_STAGE_SUFFIX",
+    "apply_lake_stages",
     "build_lak_package_args",
     "build_lake_connectiondata",
-    "build_lake_mover_records",
-    "build_lake_obs_spec",
-    "build_lake_outlets",
     "build_lake_period_data",
     "build_lake_table",
     "convert_bedleak_to_per_s",
-    "lake_definitions_for_bedleak",
-    "resolve_downstream_spillway_reaches",
-    "resolve_lake_cells",
-    "resolve_spillway_seed_cells",
-    "resolve_lake_cells_for_active_lakes",
-    "resolve_lake_occupied_layers",
+    "lake_ids_in_package_order",
+    "read_final_lake_stages",
 ]
+
+
+def _write_lake_abacus_meta(model) -> None:
+    """Write the reference and simulated abacus of each reconstructed lake bed."""
+    reconstruction = getattr(model, "_lake_bed_reconstruction", None)
+    entries = [
+        {
+            "lake_id": str(lid),
+            "stage": rec["abacus_stage"],
+            "real_volume": rec.get("abacus_volume"),
+            "real_sarea": rec["abacus_sarea"],
+            "sim_volume": rec["sim_volume"],
+            "sim_sarea": rec["sim_sarea"],
+        }
+        for lid, rec in (reconstruction or {}).items()
+        if rec.get("abacus_stage") is not None
+        and rec.get("sim_volume") is not None
+        and rec.get("abacus_volume") is not None
+    ]
+    if entries:
+        write_sidecar(model, ".lake_abacus.json", {"entries": entries})
+
+
+def build_lakes(
+    model,
+    solver_mesh: SolverMesh,
+    lake_cell_ids_by_lake,
+    sfr_mover_records,
+    drainage_mover_rows,
+    downstream_reach_by_lake,
+):
+    """LAK, its tables, observations and sidecars; returns the mover rows so far."""
+    # LAK (lake / reservoir) package. Built after model.wel and before model.oc.
+    # Lake cells were already made inactive above, so the CONNECTIONDATA targets
+    # active aquifer neighbors only. Controlled transfers (LAK -> LAK, SFR -> LAK,
+    # LAK -> SFR, DRN -> SFR) ride MVR, which is GWF-scoped and MUST be built last.
+    all_mover_rows: list[list[object]] = list(drainage_mover_rows)
+    n_lakes_built = 0
+    lake_connections: list[list[object]] = []
+    if lake_cell_ids_by_lake:
+        lak_args = build_lak_package_args(
+            model,
+            solver_mesh=solver_mesh,
+            lake_cell_ids_by_lake=lake_cell_ids_by_lake,
+            occupied_layers_by_cell=getattr(model, "_lake_occupied_layers_by_cell", None),
+            # A lake is fed by a mover from SFR, or from DRN when the descent of a
+            # drain cell meets the lake before any reach. LAK must announce MOVER
+            # for either, or MODFLOW 6 stops at the first DRN-to-LAK record.
+            external_mover_to_lake=any(record.receiver == "LAK" for record in sfr_mover_records)
+            or mover_rows_reach_lake(drainage_mover_rows),
+            downstream_reach_by_lake=downstream_reach_by_lake,
+        )
+        if lak_args is not None:
+            laktab_specs = lak_args.pop("laktab_specs")
+            mover_records = lak_args.pop("mover_records", None)
+            lak_args.pop("mover_maxpackages", 0)
+            obs_continuous = lak_args.pop("obs_continuous", None)
+            lake_obs_meta = lak_args.pop("lake_obs_meta", None)
+            ts_specs = lak_args.pop("ts_specs", None)
+            n_lakes_built = int(lak_args["nlakes"])
+            lake_connections = lak_args["connectiondata"]
+            lak = flopy.mf6.ModflowGwflak(model.gwf, pname="LAK", **lak_args)
+            # Non-constant forcings routed to an external TS6 file: attach right
+            # after construction so the series names are registered before write.
+            if ts_specs:
+                attach_time_series(lak, ts_specs, filename=f"{model.model_output_name}.lak.ts")
+            for spec in laktab_specs:
+                flopy.mf6.ModflowUtllaktab(
+                    model.gwf,
+                    nrow=len(spec["table"]),
+                    ncol=3,
+                    table=spec["table"],
+                    filename=spec["filename"],
+                    parent_file=lak,
+                )
+            # OBS6 for the per-lake output series, plus a JSON sidecar the
+            # extractor reads to re-key the obs CSV by (lake_id, totim).
+            if obs_continuous:
+                lak.obs.initialize(
+                    filename=f"{model.model_output_name}.lak.obs",
+                    digits=10,
+                    print_input=False,
+                    continuous=obs_continuous,
+                )
+            if lake_obs_meta is not None:
+                write_sidecar(model, ".lak.meta.json", lake_obs_meta)
+            # Persist the bed-reconstruction abacus comparison for the QC figure.
+            _write_lake_abacus_meta(model)
+            model.lak = lak
+            if mover_records:
+                all_mover_rows.extend(mover_records)
+            # Active-littoral lakes with exposed_band_runoff need the in-process BMI
+            # runner: build the per-lake coupling specs now (lake order == LAK ifno).
+            # Their presence flips the runner to 'api' and attaches the callback.
+            band_specs = build_exposed_band_runoff_specs(model)
+            if band_specs:
+                model._exposed_band_runoff_specs = band_specs
+    return all_mover_rows, n_lakes_built, lake_connections

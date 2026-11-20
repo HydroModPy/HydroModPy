@@ -17,8 +17,13 @@ exactly; ``read_applied_exchange`` reads it. Sign convention: positive = the lak
 gains water from the aquifer, as in ``GWF_IN - GWF_OUT``.
 
 A build-time JSON sidecar (``LakeObsSpec``) maps each observation name to its
-lake, quantity and connection, and flags the under-dam (VERTICAL) connections so
-their exchange can be summed into a localised under-dam leakage series.
+lake, quantity and connection, and flags the VERTICAL connections of the lake
+bed so their exchange can be summed into ``lake_bed_vertical_exchange``. That
+series is the bed of the whole lake, not a flow under the dam.
+
+The flow through a lake cutoff wall is ``cutoff_wall_flow``: ``FLOW-JA-FACE``
+of the GWF budget summed over the faces of the wall, which the sidecar lists
+lake side first, per layer (see :func:`read_cutoff_wall_flow`).
 """
 
 from __future__ import annotations
@@ -32,19 +37,26 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.exceptions import ObservableNotAvailableError
+from hydromodpy.core.exceptions import DataContractViolation, ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
+from hydromodpy.solver.modflow6.extractors.face_flow import grid_connections
 from hydromodpy.solver.modflow6.extractors.obs_common import (
+    obs_rows_on_stamps,
     ordered_unique,
     read_obs_csv,
     timeseries_record,
     verify_obs_time_alignment,
 )
+from hydromodpy.solver.modflow_common.period_steps import (
+    group_ends_by_stamp,
+    weighted_period_scalar,
+)
 
 logger = get_logger(__name__)
 
 __all__ = [
+    "CUTOFF_WALL_FLOW",
     "AppliedExchange",
     "LakeAbacusEntry",
     "LakeAbacusSpec",
@@ -55,6 +67,7 @@ __all__ = [
     "final_lake_stages",
     "lake_station_id",
     "read_applied_exchange",
+    "read_cutoff_wall_flow",
     "read_lake_abacus",
     "read_lake_meta",
 ]
@@ -69,15 +82,16 @@ _STATE_QUANTITIES = frozenset({"stage", "volume", "surface_area"})
 _RATE_QUANTITIES = frozenset(
     {
         "gwf_exchange",
-        "seepage_under_dam",
+        "lake_bed_vertical_exchange",
         "rainfall",
         "evaporation",
         "runoff",
         "inflow",
         "withdrawal",
         "ext_outflow",
-        "storage",
+        "lake_storage",
         "outlet",
+        "outlet_inflow",
         "to_mvr",
         "from_mvr",
         "lak_connection",
@@ -86,7 +100,7 @@ _RATE_QUANTITIES = frozenset(
 
 # Outflow quantities negated to the positive-outflow convention shared with the
 # SFR extractor (MF6 reports lake outflow negative).
-_NEGATED_LAKE_QUANTITIES = frozenset({"ext_outflow", "to_mvr"})
+_NEGATED_LAKE_QUANTITIES = frozenset({"ext_outflow", "outlet", "to_mvr"})
 
 # MF6 writes its "no data" sentinel (3e30) for an observation that does not apply to a
 # given outlet -- e.g. ext-outflow on an outlet that is a mover or routes to another lake
@@ -94,12 +108,31 @@ _NEGATED_LAKE_QUANTITIES = frozenset({"ext_outflow", "to_mvr"})
 # does not poison the summed budget term.
 _DNODATA_THRESHOLD = 1e29
 
+# The flow across a lake cutoff wall, from the lake side to the downstream side.
+CUTOFF_WALL_FLOW = "cutoff_wall_flow"
+
 # Output unit per stored quantity (SI; rates land in m3/s after scaling).
 _UNIT_BY_QUANTITY: dict[str, str] = {
     "stage": "m",
     "volume": "m3",
     "surface_area": "m2",
 }
+
+
+def _lake_rows_on_stamps(
+    spec: LakeObsSpec,
+    rows: list[list[float]],
+    times: Sequence[float],
+    col_index: Mapping[str, int],
+) -> list[list[float]]:
+    """One obs row per stamp: rates averaged over the period, states at its end."""
+    rate_positions = [
+        pos
+        for entry in spec.entries
+        if entry.quantity in _RATE_QUANTITIES
+        and (pos := col_index.get(entry.obsname.upper())) is not None
+    ]
+    return obs_rows_on_stamps(rows, times, col_index, mean_positions=rate_positions)
 
 
 def lake_station_id(lake_id: str) -> str:
@@ -114,8 +147,8 @@ class LakeObsEntry:
     ``obsname`` is the column header in the LAK obs CSV (MF6 upper-cases it).
     ``quantity`` is the HMP-side series name (e.g. ``stage``, ``gwf_exchange``).
     ``iconn`` is the 0-based per-lake connection index for per-connection ``lak``
-    observations, else ``None``. ``under_dam`` flags a VERTICAL under-footprint
-    connection so the extractor can sum it into the under-dam leakage series.
+    observations, else ``None``. ``under_dam`` flags a VERTICAL connection of the
+    lake bed so the extractor can sum it into ``lake_bed_vertical_exchange``.
     """
 
     obsname: str
@@ -134,12 +167,18 @@ class LakeObsSpec:
     the LAK package binary budget, whose ``GWF`` record carries the lake-aquifer
     flux MF6 actually applied, connection by connection; ``budgetcsv`` names the
     package-level budget CSV, used to cross-check that total.
+
+    ``cutoff_walls`` lists, per lake with a cutoff wall, the ``(lake side,
+    downstream side)`` cell2d pairs of the wall faces; ``gwf_budget_bin`` names
+    the GWF budget whose ``FLOW-JA-FACE`` carries the flow across them.
     """
 
     obs_csv: str
     entries: list[LakeObsEntry] = field(default_factory=list)
     budgetcsv: str | None = None
     budget_bin: str | None = None
+    cutoff_walls: dict[str, list[tuple[int, int]]] = field(default_factory=dict)
+    gwf_budget_bin: str | None = None
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> LakeObsSpec:
@@ -156,11 +195,18 @@ class LakeObsSpec:
         ]
         raw_budget = payload.get("budgetcsv")
         raw_bin = payload.get("budget_bin")
+        raw_gwf = payload.get("gwf_budget_bin")
+        walls = {
+            str(lake_id): [(int(a), int(b)) for a, b in faces]
+            for lake_id, faces in (payload.get("cutoff_walls") or {}).items()
+        }
         return cls(
             obs_csv=str(payload["obs_csv"]),
             entries=entries,
             budgetcsv=None if raw_budget is None else str(raw_budget),
             budget_bin=None if raw_bin is None else str(raw_bin),
+            cutoff_walls=walls,
+            gwf_budget_bin=None if raw_gwf is None else str(raw_gwf),
         )
 
 
@@ -233,6 +279,7 @@ def extract_lake_series(
     model_name: str,
     *,
     lake_id: str,
+    times: Sequence[float],
     quantity: str = "stage",
     time_index: pd.DatetimeIndex | None = None,
 ) -> pd.Series:
@@ -242,9 +289,11 @@ def extract_lake_series(
     ``(lake_id, quantity)`` and pulls that column out of ``{model_name}.lak.obs.csv``.
     ``quantity`` defaults to ``"stage"`` (water level, m); ``volume`` (m3) and
     ``surface_area`` (m2) are also accepted. States are returned in native units,
-    never time-scaled. The series carries ``time_index`` when its length matches
-    the obs rows, else a positional index. Used by the calibration extraction
-    path, where Parquet/Zarr writes are skipped.
+    never time-scaled, one per stress period at its end: the obs CSV holds a row
+    per time step, put on ``times``, the ``totim`` of the saved heads, one per
+    stress period at its end. The series carries
+    ``time_index`` when its length matches, else a positional index. Used by the
+    calibration extraction path, where Parquet/Zarr writes are skipped.
     """
     if quantity not in _STATE_QUANTITIES:
         raise NotImplementedError(
@@ -275,6 +324,7 @@ def extract_lake_series(
     obs_path = output_dir / spec.obs_csv
     header, rows = read_obs_csv(obs_path)
     col_index = {name: pos for pos, name in enumerate(header)}
+    rows = _lake_rows_on_stamps(spec, rows, times, col_index)
     pos = col_index.get(entry.obsname.upper())
     if pos is None:
         raise ObservableNotAvailableError(f"Column {entry.obsname!r} missing from {obs_path.name}.")
@@ -295,15 +345,35 @@ def build_lake_records(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Parse the LAK obs CSV into ``(timeseries_records, budget_records)``.
 
-    ``times`` are the solver output ``totim`` values (TDIS time unit); the obs CSV
-    must align with them by row order. RATE quantities are divided by
+    ``times`` are the solver output ``totim`` values (TDIS time unit), one per
+    stress period at its end. The obs CSV and the LAK binary budget hold one
+    entry per time step: each stamp takes the mean of the rates over the steps
+    it closes, weighted by their length, and the states at its end. RATE
+    quantities are divided by
     ``seconds_per_time_unit`` to reach m3/s; stage / volume / surface-area stay in
     their native units. The lake-aquifer exchange (``gwf_exchange``) and the
-    under-dam leakage (``seepage_under_dam``) come from the applied flux in the LAK
+    vertical lake-bed balance (``lake_bed_vertical_exchange``) come from the applied flux in the LAK
     binary budget (see :func:`read_applied_exchange`), not from the obs CSV, and
     read negative when the lake loses water to the aquifer. A budget row mirrors
     the exchange total per lake so the water-balance tables carry the flux.
+
+    A lake with a cutoff wall also gets ``cutoff_wall_flow`` (m3/s, positive from
+    the lake side to the downstream side), on ``lake:<id>:layer<k>`` per layer
+    (1-based) and on ``lake:<id>`` for their sum (:func:`read_cutoff_wall_flow`).
+
+    A sidecar quantity that is neither a state nor a rate is refused, so a
+    ``storage`` entry written before the lake series was renamed is never
+    stored unscaled under the name of the budget field of the aquifer.
     """
+    unknown = sorted(
+        {entry.quantity for entry in spec.entries} - _STATE_QUANTITIES - _RATE_QUANTITIES
+    )
+    if unknown:
+        raise DataContractViolation(
+            f"The LAK output sidecar names the quantities {unknown}, which no lake series "
+            "holds. A lake writes its storage term as 'lake_storage'. Build the MODFLOW 6 "
+            "files of the run again."
+        )
     if not obs_path.is_file():
         logger.debug("LAK obs CSV %s is missing; no per-lake series extracted", obs_path)
         return [], []
@@ -312,6 +382,7 @@ def build_lake_records(
     if not rows:
         return [], []
     col_index = {name: pos for pos, name in enumerate(header)}
+    rows = _lake_rows_on_stamps(spec, rows, times, col_index)
 
     n_steps = min(len(rows), len(times))
     spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
@@ -320,7 +391,7 @@ def build_lake_records(
     # lake_id -> ordered set of stored quantities (excluding the per-connection
     # detail, which is aggregated rather than stored on its own).
     lake_ids = ordered_unique(entry.lake_id for entry in spec.entries)
-    exchange_by_lake = read_applied_exchange(spec, obs_path, n_steps=n_steps)
+    exchange_by_lake = read_applied_exchange(spec, obs_path, times=list(times[:n_steps]))
 
     timeseries: list[dict[str, Any]] = []
     budgets: list[dict[str, Any]] = []
@@ -366,7 +437,7 @@ def build_lake_records(
                         timestep=t,
                         time=calendar,
                         value=value,
-                        unit=_UNIT_BY_QUANTITY.get(quantity, "m3/s"),
+                        unit=_UNIT_BY_QUANTITY.get(quantity, "m3 s-1"),
                     )
                 )
 
@@ -383,18 +454,18 @@ def build_lake_records(
                         timestep=t,
                         time=calendar,
                         value=exchange_m3_s,
-                        unit="m3/s",
+                        unit="m3 s-1",
                     )
                 )
                 if applied.under_dam is not None:
                     timeseries.append(
                         timeseries_record(
                             station=station,
-                            quantity="seepage_under_dam",
+                            quantity="lake_bed_vertical_exchange",
                             timestep=t,
                             time=calendar,
                             value=applied.under_dam[t] / spt,
-                            unit="m3/s",
+                            unit="m3 s-1",
                         )
                     )
                 budgets.append(
@@ -404,15 +475,46 @@ def build_lake_records(
                         "component": "lak_gwf",
                         "flux_in": max(exchange_m3_s, 0.0),
                         "flux_out": abs(min(exchange_m3_s, 0.0)),
-                        "unit": "m3/s",
+                        "unit": "m3 s-1",
                     }
                 )
+
+    wall_flow = read_cutoff_wall_flow(spec, obs_path.parent, times=list(times[:n_steps]))
+    for lake_id, layers in wall_flow.items():
+        station = lake_station_id(lake_id)
+        for t in range(n_steps):
+            calendar = calendar_times[t] if calendar_times is not None else None
+            total = 0.0
+            for layer, values in sorted(layers.items()):
+                if t >= len(values):
+                    continue
+                total += values[t] / spt
+                timeseries.append(
+                    timeseries_record(
+                        station=f"{station}:layer{layer}",
+                        quantity=CUTOFF_WALL_FLOW,
+                        timestep=t,
+                        time=calendar,
+                        value=values[t] / spt,
+                        unit="m3 s-1",
+                    )
+                )
+            timeseries.append(
+                timeseries_record(
+                    station=station,
+                    quantity=CUTOFF_WALL_FLOW,
+                    timestep=t,
+                    time=calendar,
+                    value=total,
+                    unit="m3 s-1",
+                )
+            )
 
     return timeseries, budgets
 
 
 def final_lake_stages(timeseries: Sequence[Mapping[str, Any]]) -> dict[str, float]:
-    """Return each lake's last-step stage ``{lake_id: stage}`` (metres).
+    """Return each lake's last-step stage ``{lake_id: stage}`` (meters).
 
     Scans the records built by :func:`build_lake_records`, keeps the ``stage``
     value at the largest timestep per ``lake:<id>`` station, and strips the
@@ -435,10 +537,13 @@ def final_lake_stages(timeseries: Sequence[Mapping[str, Any]]) -> dict[str, floa
 
 @dataclass(frozen=True)
 class AppliedExchange:
-    """Lake-aquifer flux MF6 applied, per output step, in the TDIS time unit.
+    """Lake-aquifer flux MF6 applied, per stress period, in the TDIS time unit.
 
-    ``total`` is the whole lake, ``under_dam`` the VERTICAL subset (``None`` when
-    the lake has no vertical connection). Positive = the lake gains water from the
+    Each value is the mean over the time steps of the period, weighted by
+    their length.
+
+    ``total`` is the whole lake, ``under_dam`` the VERTICAL subset, the lake bed
+    (``None`` when the lake has no vertical connection). Positive = the lake gains water from the
     aquifer, which is the sign of the package budget's ``GWF_IN - GWF_OUT``.
     """
 
@@ -447,7 +552,7 @@ class AppliedExchange:
 
 
 def read_applied_exchange(
-    spec: LakeObsSpec, obs_path: Path, *, n_steps: int
+    spec: LakeObsSpec, obs_path: Path, *, times: Sequence[float]
 ) -> dict[str, AppliedExchange]:
     """Read the applied lake-aquifer flux from the LAK binary budget.
 
@@ -462,13 +567,16 @@ def read_applied_exchange(
 
     The record lists one entry per connection in CONNECTIONDATA order, with the
     lake number in ``node``, so the per-lake and per-connection sums need no
-    further mapping. Returns ``{}`` when the budget is absent or unusable, and the
-    caller then publishes no exchange series rather than a wrong one.
+    further mapping. The file holds one record per time step; ``times`` are the
+    stamps, one per stress period at its end, and each takes the mean of the
+    steps it closes, weighted by their length. Returns ``{}`` when the budget is
+    absent or unusable, and the caller then publishes no exchange series rather
+    than a wrong one.
     """
     if not spec.budget_bin:
         logger.warning(
             "The LAK obs sidecar does not name the package binary budget, so the "
-            "lake-aquifer exchange series (gwf_exchange, seepage_under_dam, lak_gwf) is "
+            "lake-aquifer exchange series (gwf_exchange, lake_bed_vertical_exchange, lak_gwf) is "
             "not extracted. It cannot be rebuilt from the obs CSV: the per-connection lak "
             "obs is not the applied flux. Re-run the model to get the exchange back."
         )
@@ -477,7 +585,7 @@ def read_applied_exchange(
     if not budget_path.is_file():
         logger.warning(
             "LAK binary budget %s is missing; the lake-aquifer exchange series "
-            "(gwf_exchange, seepage_under_dam, lak_gwf) is not extracted. It cannot be "
+            "(gwf_exchange, lake_bed_vertical_exchange, lak_gwf) is not extracted. It cannot be "
             "rebuilt from the obs CSV: the per-connection lak obs is not the applied flux.",
             budget_path.name,
         )
@@ -500,20 +608,33 @@ def read_applied_exchange(
             steps = [i for i, record in enumerate(budget.records) if record.text == "GWF"]
             if not steps:
                 raise ValueError("the budget carries no GWF record")
-            for position in steps[:n_steps]:
-                record = budget.read_record(position)
-                flux = np.asarray(record["q"], dtype=float)
-                lake_number = np.asarray(record["node"], dtype=int)
-                for index, lake_id in enumerate(lake_ids, start=1):
-                    own = flux[lake_number == index]
-                    mask = masks[lake_id]
-                    if mask.size != own.size:
-                        raise ValueError(
-                            f"lake {lake_id}: the budget holds {own.size} connections where "
-                            f"the obs sidecar declares {mask.size}"
-                        )
-                    totals[lake_id].append(float(own.sum()))
-                    vertical[lake_id].append(float(own[mask].sum()))
+            groups = group_ends_by_stamp([budget.records[i].totim for i in steps], times)
+            for group in groups:
+                if not group.positions:
+                    break
+                step_totals: dict[str, list[float]] = {lake: [] for lake in lake_ids}
+                step_vertical: dict[str, list[float]] = {lake: [] for lake in lake_ids}
+                for step in group.positions:
+                    record = budget.read_record(steps[step])
+                    flux = np.asarray(record["q"], dtype=float)
+                    lake_number = np.asarray(record["node"], dtype=int)
+                    for index, lake_id in enumerate(lake_ids, start=1):
+                        own = flux[lake_number == index]
+                        mask = masks[lake_id]
+                        if mask.size != own.size:
+                            raise ValueError(
+                                f"lake {lake_id}: the budget holds {own.size} connections "
+                                f"where the obs sidecar declares {mask.size}"
+                            )
+                        step_totals[lake_id].append(float(own.sum()))
+                        step_vertical[lake_id].append(float(own[mask].sum()))
+                for lake_id in lake_ids:
+                    totals[lake_id].append(
+                        weighted_period_scalar(step_totals[lake_id], group.weights)
+                    )
+                    vertical[lake_id].append(
+                        weighted_period_scalar(step_vertical[lake_id], group.weights)
+                    )
     except (OSError, ValueError, KeyError, IndexError) as exc:
         logger.warning(
             "Could not read the applied lake-aquifer flux from %s (%s); the exchange "
@@ -530,3 +651,92 @@ def read_applied_exchange(
         )
         for lake_id in lake_ids
     }
+
+
+def _face_position(ia: np.ndarray, ja: np.ndarray, node: int, other: int) -> int | None:
+    """Position of the ``node -> other`` connection in ``FLOW-JA-FACE``, or None."""
+    if node + 1 >= ia.size:
+        return None
+    start, end = int(ia[node]), int(ia[node + 1])
+    hits = np.flatnonzero(ja[start:end] == other)
+    return int(start + hits[0]) if hits.size else None
+
+
+def read_cutoff_wall_flow(
+    spec: LakeObsSpec, solver_dir: Path, *, times: Sequence[float]
+) -> dict[str, dict[int, list[float]]]:
+    """Read the flow across each lake cutoff wall, per layer, from the GWF budget.
+
+    The wall faces come from the sidecar, ``(lake side, downstream side)`` cell2d
+    pairs: the faces the HFB bars. In each layer the flow of a face is
+    ``FLOW-JA-FACE`` of the downstream cell from the lake-side cell (MF6 counts
+    the flow into a cell positive), so a positive sum leaves the lake side. Every
+    layer is read, barred or not: the flow under the wall is part of the answer.
+    A face with an inactive cell in a layer carries no connection there and is
+    skipped. Rates are in the TDIS unit per stamp, the mean of the steps it
+    closes weighted by their length. Returns ``{lake_id: {layer (1-based):
+    values}}``, ``{}`` when the model has no wall or the files are missing.
+    """
+    walls = {lake: faces for lake, faces in spec.cutoff_walls.items() if faces}
+    if not walls:
+        return {}
+    budget_path = solver_dir / (spec.gwf_budget_bin or "")
+    grid = grid_connections(solver_dir)
+    if not spec.gwf_budget_bin or not budget_path.is_file() or grid is None:
+        logger.warning(
+            "The GWF budget or the binary grid of %s is missing; the cutoff wall flow "
+            "(cutoff_wall_flow) is not extracted.",
+            solver_dir,
+        )
+        return {}
+    ia, ja, ncpl = grid
+    nlay = (ia.size - 1) // ncpl
+    # positions[lake][layer] = FLOW-JA-FACE positions of the downstream cell from the lake side.
+    positions: dict[str, dict[int, list[int]]] = {}
+    for lake_id, faces in walls.items():
+        per_layer: dict[int, list[int]] = {}
+        for layer in range(nlay):
+            hits = [
+                pos
+                for up, down in faces
+                if (pos := _face_position(ia, ja, layer * ncpl + down, layer * ncpl + up))
+                is not None
+            ]
+            if hits:
+                per_layer[layer + 1] = hits
+        positions[lake_id] = per_layer
+    wanted = sorted({p for layers in positions.values() for hits in layers.values() for p in hits})
+    if not wanted:
+        return {}
+    first = wanted[0]
+    span = wanted[-1] - first + 1
+    out: dict[str, dict[int, list[float]]] = {
+        lake: {layer: [] for layer in layers} for lake, layers in positions.items()
+    }
+    try:
+        with Mf6CellBudgetReader(budget_path) as budget, open(budget_path, "rb") as raw:
+            steps = [r for r in budget.records if r.text == "FLOW-JA-FACE"]
+            if not steps:
+                raise ValueError("the budget carries no FLOW-JA-FACE record")
+            groups = group_ends_by_stamp([r.totim for r in steps], times)
+            for group in groups:
+                if not group.positions:
+                    break
+                per_step: dict[tuple[str, int], list[float]] = {}
+                for step in group.positions:
+                    raw.seek(steps[step].data_pos + 8 * first)
+                    flowja = np.fromfile(raw, dtype="<f8", count=span)
+                    for lake_id, layers in positions.items():
+                        for layer, hits in layers.items():
+                            value = float(flowja[np.asarray(hits) - first].sum())
+                            per_step.setdefault((lake_id, layer), []).append(value)
+                for (lake_id, layer), values in per_step.items():
+                    out[lake_id][layer].append(weighted_period_scalar(values, group.weights))
+    except (OSError, ValueError, IndexError) as exc:
+        logger.warning(
+            "Could not read the cutoff wall flow from %s (%s); the series is not extracted.",
+            budget_path.name,
+            exc,
+        )
+        return {}
+    return out

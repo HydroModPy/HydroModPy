@@ -1,0 +1,21 @@
+{
+  "schema": "hydromodpy.outcome.v1",
+  "case_id": "calage",
+  "site": null,
+  "project": "example",
+  "attempt": 1,
+  "attempt_id": "fb8bfbfbc5684128bf35350ec5e65bb2",
+  "sim_id": "eab9575d-5f50-476e-953a-26a85ad30cfe",
+  "status": "completed",
+  "exit_code": 0,
+  "signal": null,
+  "written_by": "worker",
+  "started_at": "2026-11-13T20:46:42.796861Z",
+  "ended_at": "2026-11-13T20:46:45.088656Z",
+  "host": "frozen",
+  "pid": 3603608,
+  "scheduler_job_id": null,
+  "step": null,
+  "error": null,
+  "log_tail": []
+}

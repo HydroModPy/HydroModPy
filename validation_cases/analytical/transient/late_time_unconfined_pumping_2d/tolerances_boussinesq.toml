@@ -1,8 +1,22 @@
 [space_time]
-rmse = 0.10
-max_abs_error = 0.12
-azimuthal_spread = 0.15
+rmse = 0.0057
+max_abs_error = 0.017
+azimuthal_spread = 0.0026
 
 [final_time]
-rmse = 0.10
-max_abs_error = 0.12
+rmse = 0.0086
+max_abs_error = 0.017
+
+[doc]
+reason = """
+Twice the error measured with PETSc TS VI (4 steps a period) on the 10082
+triangles of 71 x 71 squares (397 m2, the cell area of the MODFLOW grid):
+space-time RMSE 0.0028 m, max error 0.0082 m, final RMSE 0.0043 m, azimuthal
+spread 0.0013 m. The default engine, one step a period, reads 0.0043 m, as
+MODFLOW does: the space-time gap is the time step. The reference is read at
+the centroid of the triangle each monitor point reads, with the well at the
+centroid of the triangle that holds it, 6.6 m off the well point. Until
+2026-10-10 the mesh had 31 x 31 squares of 64.5 m (space-time RMSE 0.014 m)
+and the reference was centered on the well point, which gave an azimuthal
+spread of 0.136 m: the offset of the well cell, not an asymmetry of the flow.
+"""

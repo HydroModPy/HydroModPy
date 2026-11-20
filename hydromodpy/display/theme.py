@@ -1,194 +1,313 @@
-"""Display theme presets.
-
-A :class:`Theme` bundles a few matplotlib ``rcParams`` knobs (palette,
-fonts, grid, background) so the whole figure corpus looks consistent.
-The registry exposes three presets: ``default``, ``print`` and ``dark``.
-Call :func:`apply_theme` at the start of a display session; figures do
-not have to opt-in individually.
-
-The :func:`plot_params` helper is a legacy hook used by the MODFLOW-NWT
-and Boussinesq notebooks to apply the historical "classic" matplotlib
-rcParams in one call.
-"""
+"""Publication theme: tokens, colour roles, ramps and the unit text helper."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+import re
+from dataclasses import dataclass, field, replace
+from pathlib import Path
 
-if TYPE_CHECKING:
-    from matplotlib.font_manager import FontProperties
+import numpy as np
+from matplotlib import colormaps, font_manager
+from matplotlib.colors import Colormap, LinearSegmentedColormap
+
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+FONTS_DIR = Path(__file__).parent / "fonts"
+FONT_FAMILY = "TeX Gyre Heros"
+FONT_FALLBACK = "DejaVu Sans"
+FONT_FILES = ("texgyreheros-regular.ttf", "texgyreheros-bold.ttf")
 
 
-@dataclass(frozen=True, slots=True)
+def register_fonts(folder: Path = FONTS_DIR) -> str:
+    """Add the TeX Gyre Heros files of ``folder`` to matplotlib and return the family to use.
+
+    The font manager only learns the files, once each. No default of matplotlib changes.
+    When a file is missing the answer is the fallback family, with one warning.
+    """
+    paths = [Path(folder) / name for name in FONT_FILES]
+    if not all(path.is_file() for path in paths):
+        logger.warning(
+            "Font files of %s not found in %s, using %s.", FONT_FAMILY, folder, FONT_FALLBACK
+        )
+        return FONT_FALLBACK
+    known = {Path(entry.fname) for entry in font_manager.fontManager.ttflist}
+    for path in paths:
+        if path not in known:
+            font_manager.fontManager.addfont(str(path))
+    return FONT_FAMILY
+
+
+_FAMILY = register_fonts()
+
+CLASS_TINTS = (0.0, 0.45, 0.7)
+"""Shares of white mixed into the palette, one per pass over it, for more classes than colours."""
+
+# Colours by meaning. A figure names a role and never writes a colour literal.
+# The first 26 come from the publication atlas. The others were added by its domains.
+ROLES: dict[str, str] = {
+    "observed": "#222222",
+    "simulated": "#004488",
+    "simulated_alt": "#BB5566",
+    "reference_network": "#004488",
+    "network_on_relief": "#99DDFF",
+    "generated_network": "#DDAA33",
+    "valid": "#004488",
+    "extra": "#DDAA33",
+    "missing": "#BB5566",
+    "outline": "#222222",
+    "outlet": "#BB5566",
+    "station": "#222222",
+    "no_data": "#E6E6E6",
+    "seepage": "#33BBEE",
+    "lake": "#4477AA",
+    "river": "#0077BB",
+    "drain": "#009988",
+    "barrier": "#CC3311",
+    "well": "#EE7733",
+    "window": "#DDAA33",
+    "best": "#BB5566",
+    "trial": "#9AA5AD",
+    "recharge": "#228833",
+    "evapotranspiration": "#CCBB44",
+    "storage": "#AA3377",
+    "inflow": "#004488",
+    "outflow": "#BB5566",
+    # boundaries
+    "constant_head": "#66CCEE",
+    # calibration
+    "band": "#BBCCEE",
+    "phase": "#AA3377",
+    "bounds": "#555555",
+    "sim2": "#EE6677",
+    "soil": "#997700",
+    # context
+    "piezometer": "#CC3311",
+    "france": "#DDDDDD",
+    "region_box": "#555555",
+    "weather_cell": "#999933",
+    "forcing": "#44BB99",
+    # fields
+    "contour": "#222222",
+    # geology
+    "unsaturated": "#D9B88F",
+    "saturated": "#9CCBEE",
+    "water_table": "#0B5394",
+    "ground": "#6B4423",
+    "layer_interface": "#555555",
+    # network
+    "intermittent_reach": "#EE8866",
+    "matched_reference": "#009988",
+    # sfr
+    "bed": "#997700",
+    "aquifer_head": "#332288",
+    "gain": "#0077BB",
+    "loss": "#CC3311",
+    "dry": "#FFAABB",
+    # transport
+    "reference_law": "#222222",
+    "pathline": "#222222",
+    "turnover": "#AA4499",
+    "initial_concentration": "#DDCC77",
+    "input_concentration": "#882255",
+}
+
+# Series that carry no meaning of their own take these roles in order, so no hex is written twice.
+CATEGORICAL_ROLES = (
+    "lake",
+    "simulated_alt",
+    "recharge",
+    "evapotranspiration",
+    "seepage",
+    "storage",
+    "trial",
+    "well",
+    "drain",
+    "barrier",
+)
+
+RAMPS = {"sequential": "viridis", "diverging": "RdBu_r", "cyclic": "twilight", "share": "share"}
+
+BUILT_RAMPS: dict[str, tuple[str, float, float]] = {
+    "hypsometric": ("terrain", 0.22, 1.0),
+    "water_level": ("GnBu_r", 0.0, 0.85),
+    "share": ("YlGnBu", 0.2, 1.0),
+    "water_depth": ("jet", 0.0, 1.0),
+    "water_age": ("plasma_r", 0.12, 1.0),
+}
+"""Ramps cut from a matplotlib ramp: the base ramp, then the first and last share kept.
+
+``hypsometric`` is ``terrain`` without its sea blues, ``water_level`` is ``GnBu_r`` without
+its white end, ``share`` is ``YlGnBu`` without its palest yellow, and ``water_depth`` is
+the whole ``jet``, blue for a shallow water table and red for a deep one.
+``water_age`` is ``plasma_r`` without its pale yellow, which is lost on a white ground.
+"""
+WASHED: dict[str, float] = {"water_depth": 0.5}
+"""Share of white mixed into a built ramp, which reads as the ramp half transparent on white.
+
+The filled seepage cells and the thin dark pathlines stay readable over a pale ``jet``.
+"""
+
+
+def colormap(name: str) -> Colormap:
+    """Return the colormap ``name``, a ramp of ``BUILT_RAMPS`` or a ramp of matplotlib."""
+    if name not in BUILT_RAMPS:
+        return colormaps[name]
+    base, low, high = BUILT_RAMPS[name]
+    colors = colormaps[base](np.linspace(low, high, 256))
+    colors[:, :3] += (1.0 - colors[:, :3]) * WASHED.get(name, 0.0)
+    return LinearSegmentedColormap.from_list(name, colors)
+
+
+# Only the quantities whose usage wants its own ramp. Others use the scale ramp.
+QUANTITY_RAMPS: dict[str, str] = {
+    "head": "water_level",
+    "elevation": "hypsometric",
+    "depth": "water_depth",
+    "duration": "water_age",
+    "thickness": "cividis",
+    "conductivity": "cividis",
+    "specific_storage": "cividis",
+    "concentration": "magma_r",
+    "cell_flow": "RdBu_r",
+    "flux_per_area": "RdBu_r",
+    "flow": "RdBu_r",
+}
+
+
+@dataclass(frozen=True)
 class Theme:
-    name: str
-    palette: list[str]
-    grid_alpha: float
-    font_family: str
-    font_size_base: int
-    title_weight: str
-    background: str
-    foreground: str
+    """Every number and colour a figure takes from the look, at final printed size."""
 
+    name: str = "default"
+    family: str = _FAMILY
+    fallback: str = FONT_FALLBACK
+    size: float = 8.0
+    title_size: float = 9.0
+    small: float = 7.0
+    ink: str = "black"
+    muted: str = "#555555"
+    face: str = "white"
+    line_width: float = 0.6
+    data_line_width: float = 1.2
+    tick_size: float = 3.5
+    minor_tick_size: float = 1.8
+    minor_tick_width: float = 0.45
+    tick_pad: float = 2.0
+    title_pad: float = 4.0
+    grid_alpha: float = 0.1
+    grid_width: float = 0.5
+    dpi: int = 300
+    roles: dict[str, str] = field(default_factory=lambda: dict(ROLES))
+    ramps: dict[str, str] = field(default_factory=lambda: dict(RAMPS))
+    quantity_ramps: dict[str, str] = field(default_factory=lambda: dict(QUANTITY_RAMPS))
+    math_family: str = "stixsans"
+
+    @property
+    def categorical(self) -> tuple[str, ...]:
+        """The categorical palette of this theme, as hex codes."""
+        return tuple(self.roles[name] for name in CATEGORICAL_ROLES)
+
+    def class_color(self, index: int) -> str:
+        """Return the colour of class ``index``: the palette, then lighter variants of it.
+
+        Each pass over the palette mixes its colours with white by the next share of
+        ``CLASS_TINTS``. Past the last pass the colours start again.
+        """
+        palette = self.categorical
+        tint = CLASS_TINTS[(index // len(palette)) % len(CLASS_TINTS)]
+        base = _rgb(palette[index % len(palette)])
+        return _hex(tuple(c + (1 - c) * tint for c in base))  # type: ignore[arg-type]
+
+    def class_colors(self, count: int) -> list[str]:
+        """Return ``count`` colours, all distinct up to ``len(categorical) * len(CLASS_TINTS)``."""
+        return [self.class_color(i) for i in range(count)]
+
+    def sharing_note(self, count: int) -> str:
+        """Return the sentence a legend adds when ``count`` classes outrun the distinct colours."""
+        shared = count - len(self.categorical) * len(CLASS_TINTS)
+        return f"{shared} classes share a colour with another" if shared > 0 else ""
+
+
+def _rgb(color: str) -> tuple[float, float, float]:
+    return tuple(int(color[i : i + 2], 16) / 255 for i in (1, 3, 5))  # type: ignore[return-value]
+
+
+def _hex(rgb: tuple[float, float, float]) -> str:
+    return "#" + "".join(f"{round(min(max(c, 0.0), 1.0) * 255):02X}" for c in rgb)
+
+
+def _lighten(color: str, amount: float) -> str:
+    return _hex(tuple(c + (1 - c) * amount for c in _rgb(color)))  # type: ignore[arg-type]
+
+
+def _grey(color: str) -> str:
+    r, g, b = _rgb(color)
+    level = min(max(0.2126 * r + 0.7152 * g + 0.0722 * b, 0.1), 0.75)
+    return _hex((level, level, level))
+
+
+def _dark_role(color: str) -> str:
+    r, g, b = _rgb(color)
+    if 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.4:
+        return _lighten(color, 0.55)
+    return color
+
+
+_DEFAULT = Theme()
 
 THEMES: dict[str, Theme] = {
-    "default": Theme(
-        name="default",
-        palette=[
-            "#1f77b4",
-            "#ff7f0e",
-            "#2ca02c",
-            "#d62728",
-            "#9467bd",
-            "#8c564b",
-            "#e377c2",
-            "#7f7f7f",
-            "#bcbd22",
-            "#17becf",
-        ],
-        grid_alpha=0.3,
-        font_family="sans-serif",
-        font_size_base=10,
-        title_weight="bold",
-        background="white",
-        foreground="black",
-    ),
-    "print": Theme(
+    "default": _DEFAULT,
+    "print": replace(
+        _DEFAULT,
         name="print",
-        palette=[
-            "#000000",
-            "#555555",
-            "#888888",
-            "#333333",
-            "#aaaaaa",
-            "#222222",
-            "#666666",
-            "#444444",
-        ],
-        grid_alpha=0.5,
-        font_family="serif",
-        font_size_base=9,
-        title_weight="normal",
-        background="white",
-        foreground="black",
+        muted="#444444",
+        roles={key: _grey(value) for key, value in ROLES.items()},
+        ramps={"sequential": "Greys", "diverging": "PuOr", "cyclic": "twilight", "share": "Greys"},
+        quantity_ramps={k: "PuOr" if v == "RdBu_r" else "Greys" for k, v in QUANTITY_RAMPS.items()},
     ),
-    "dark": Theme(
+    "dark": replace(
+        _DEFAULT,
         name="dark",
-        palette=[
-            "#8ab4f8",
-            "#f28b82",
-            "#81c995",
-            "#fdd663",
-            "#c58af9",
-            "#ff8bcb",
-            "#78d9ec",
-            "#fcad70",
-        ],
-        grid_alpha=0.3,
-        font_family="sans-serif",
-        font_size_base=10,
-        title_weight="bold",
-        background="#1e1e1e",
-        foreground="#eeeeee",
+        ink="#e3eaee",
+        muted="#9aabb4",
+        face="#182227",
+        roles={key: _dark_role(value) for key, value in ROLES.items()},
     ),
 }
 
 
 def get_theme(name: str) -> Theme:
+    """Return the theme called ``name`` or refuse with the known names."""
     try:
         return THEMES[name]
-    except KeyError as exc:
-        available = ", ".join(sorted(THEMES))
-        raise KeyError(f"unknown theme '{name}' (available: {available})") from exc
+    except KeyError:
+        known = ", ".join(sorted(THEMES))
+        raise ValueError(f"Unknown theme {name!r}. Known themes: {known}.") from None
 
 
-def apply_theme(name: str) -> Theme:
-    """Configure ``matplotlib.rcParams`` from the named preset.
+_UNIT_TOKEN = re.compile(r"^([^\d\s^+-]+?)(?:\^?\{?([+-]?\d+)\}?)?$")
 
-    Safe to call repeatedly. Returns the resolved :class:`Theme` so callers
-    can pick up the palette to feed into figure-level color cycles.
+
+def _unit_token(token: str, sign: int) -> str:
+    match = _UNIT_TOKEN.match(token)
+    if match is None:
+        return token
+    base = match.group(1).replace("%", r"\%")
+    power = int(match.group(2) or 1) * sign
+    return base if power == 1 else f"{base}^{{{power}}}"
+
+
+def unit_text(unit: str) -> str:
+    """Turn ``"m3 s-1"`` or ``"mm/day"`` into mathtext with real exponents in the text font.
+
+    Every group after a ``/`` is in the denominator, so ``"m3/s/km2"`` reads m^3 s^-1 km^-2.
     """
-    import matplotlib as mpl
-    from cycler import cycler
-
-    theme = get_theme(name)
-    mpl.rcParams.update(
-        {
-            "axes.prop_cycle": cycler(color=theme.palette),
-            "axes.grid": True,
-            "grid.alpha": theme.grid_alpha,
-            "font.family": theme.font_family,
-            "font.size": theme.font_size_base,
-            "axes.titleweight": theme.title_weight,
-            "figure.facecolor": theme.background,
-            "axes.facecolor": theme.background,
-            "axes.edgecolor": theme.foreground,
-            "axes.labelcolor": theme.foreground,
-            "text.color": theme.foreground,
-            "xtick.color": theme.foreground,
-            "ytick.color": theme.foreground,
-        }
-    )
-    return theme
-
-
-def plot_params(small: int, interm: int, medium: int, large: int) -> FontProperties:
-    """Apply the classic matplotlib rcParams style and return a FontProperties."""
-    import matplotlib as mpl
-    import matplotlib.pyplot as plt
-    from matplotlib.font_manager import FontProperties
-
-    mpl.style.use("classic")
-    mpl.rcParams["figure.facecolor"] = "white"
-    mpl.rcParams["grid.color"] = "darkgrey"
-    mpl.rcParams["grid.linestyle"] = "-"
-    mpl.rcParams["grid.alpha"] = 0.8
-    mpl.rcParams["axes.axisbelow"] = True
-    mpl.rcParams["axes.linewidth"] = 1.5
-    mpl.rcParams["figure.dpi"] = 300
-    mpl.rcParams["savefig.dpi"] = 300
-    mpl.rcParams["patch.force_edgecolor"] = True
-    mpl.rcParams["image.interpolation"] = "nearest"
-    mpl.rcParams["image.resample"] = True
-    mpl.rcParams["axes.autolimit_mode"] = "data"
-    mpl.rcParams["axes.xmargin"] = 0.05
-    mpl.rcParams["axes.ymargin"] = 0.05
-    mpl.rcParams["xtick.direction"] = "in"
-    mpl.rcParams["ytick.direction"] = "in"
-    mpl.rcParams["xtick.major.size"] = 5
-    mpl.rcParams["xtick.minor.size"] = 3
-    mpl.rcParams["xtick.major.width"] = 1.5
-    mpl.rcParams["xtick.minor.width"] = 1
-    mpl.rcParams["ytick.major.size"] = 5
-    mpl.rcParams["ytick.minor.size"] = 1.5
-    mpl.rcParams["ytick.major.width"] = 1.5
-    mpl.rcParams["ytick.minor.width"] = 1
-    mpl.rcParams["xtick.top"] = True
-    mpl.rcParams["ytick.right"] = True
-    mpl.rcParams["legend.numpoints"] = 1
-    mpl.rcParams["legend.scatterpoints"] = 1
-    mpl.rcParams["legend.edgecolor"] = "grey"
-    mpl.rcParams["date.autoformatter.year"] = "%Y"
-    mpl.rcParams["date.autoformatter.month"] = "%Y-%m"
-    mpl.rcParams["date.autoformatter.day"] = "%Y-%m-%d"
-    mpl.rcParams["date.autoformatter.hour"] = "%H:%M"
-    mpl.rcParams["date.autoformatter.minute"] = "%H:%M:%S"
-    mpl.rcParams["date.autoformatter.second"] = "%H:%M:%S"
-    mpl.rcParams.update({"mathtext.default": "regular"})
-
-    plt.rc("font", size=small)
-    plt.rc("figure", titlesize=large)
-    plt.rc("legend", fontsize=small)
-    plt.rc("axes", titlesize=medium, labelpad=10)
-    plt.rc("axes", labelsize=medium, labelpad=12)
-    plt.rc("xtick", labelsize=interm)
-    plt.rc("ytick", labelsize=interm)
-    plt.rc("font", family="sans serif")
-
-    fontprop = FontProperties()
-    fontprop.set_family("sans serif")
-    return fontprop
-
-
-__all__ = ["Theme", "THEMES", "get_theme", "apply_theme", "plot_params"]
+    text = unit.strip()
+    if text in ("", "1", "-"):
+        return ""
+    parts: list[str] = []
+    for index, group in enumerate(text.split("/")):
+        parts += [_unit_token(token, 1 if index == 0 else -1) for token in group.split()]
+    return r"$\mathregular{" + r"\,".join(parts) + "}$"

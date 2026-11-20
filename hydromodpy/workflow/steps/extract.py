@@ -1,26 +1,55 @@
-"""Extract step - solver result extraction, observation ingestion, modpath helpers."""
+"""Extract step - solver result extraction, observation ingestion, modpath helpers.
+
+``retention_of`` says what the level of the run keeps. The functions shared with the
+steps after it are in ``run_outputs.py``.
+"""
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-import numpy as np
-import rasterio
-
 from hydromodpy.core.exceptions import ConfigError, ExtractError
-from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import catalog_path_for
-from hydromodpy.core.workspace.resolve import locate_workspace_root
-from hydromodpy.results.catalog import Catalog
-from hydromodpy.workflow.internals.state import ExtractedState, PipelineState, SolverRanState
+from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.results.storage.kept import Retention
+    from hydromodpy.solver.base.plan import SimulationPlan
 
 logger = get_logger(__name__)
+
+
+def retention_of(ctx: WorkflowContext, plan: SimulationPlan) -> Retention:
+    """Return what the run keeps of its solver outputs, from its ``[simulation.results]``.
+
+    The level is ``ctx.level``, set by the prepare-solver step; a context that
+    never planned a run reads as a run at the ``result`` level. The per-cell
+    budget the plan keeps is ``ctx.budget_terms``, set by the prepare-solver
+    step or read back from the store on a resume. A run that reaches here
+    without it has it computed from the plan, as the planning does.
+    """
+    from hydromodpy.results.storage.kept import Retention
+    from hydromodpy.workflow.steps.planning import step_configure_results
+
+    level = getattr(ctx, "level", None) or "result"
+    results_cfg = ctx.cfg.simulation.results
+    if ctx.budget_terms is None:
+        ctx.budget_terms = step_configure_results(
+            results_cfg,
+            plan,
+            ctx.cfg.display,
+            level=level,
+            display_active=True,
+            export_requests=ctx.cfg.export,
+            calibration=ctx.cfg.calibration,
+            observation=ctx.cfg.observation,
+            lightweight=ctx.execution.lightweight,
+        )
+    return Retention.of(level, results_cfg, ctx.budget_terms)
 
 
 # ---------------------------------------------------------------------------
@@ -28,19 +57,18 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def step_ingest_observations(ctx: WorkflowContext, sim_id: str) -> None:
+def step_ingest_observations(ctx: WorkflowContext, sim_id: str, *, store: RunStore) -> None:
     """Ingest observation timeseries associated with this simulation.
 
     Observation ingestion is part of the scientific record. Failures abort
-    the run instead of leaving the catalog half populated.
+    the run instead of leaving its store half populated.
     """
-    from hydromodpy.simulation.extraction.derivation.observation_ingest import (
-        ingest_observations,
-    )
+    from hydromodpy.data.ingest.observations import ingest_observations
 
     try:
-        ingest_observations(sim_id, ctx.store, ctx.loaded_data)
+        ingest_observations(sim_id, store, ctx.loaded_data)
     except Exception as exc:
+        # Whatever the ingestion raised, the run stops and names the simulation.
         logger.exception("Failed to ingest observations for sim %s", sim_id)
         raise ExtractError(f"Failed to ingest observations for sim {sim_id}") from exc
 
@@ -48,48 +76,6 @@ def step_ingest_observations(ctx: WorkflowContext, sim_id: str) -> None:
 # ---------------------------------------------------------------------------
 # Modpath ingestion helper
 # ---------------------------------------------------------------------------
-
-
-def restore_seepage_raster_from_store(
-    project_root: str | Path,
-    base_raster_path: str | Path,
-    seepage_tif_path: str | Path,
-) -> bool:
-    """Rebuild the seepage GeoTIFF from the Catalog.
-
-    Returns ``True`` when the raster has been written, ``False`` otherwise.
-    """
-    base_raster = Path(base_raster_path)
-    if not base_raster.is_file():
-        return False
-
-    project_root = Path(project_root)
-    catalog_root = project_root if (catalog_path_for(project_root)).exists() else None
-    workspace_root = catalog_root or locate_workspace_root(project_root) or project_root
-
-    seepage_tif = Path(seepage_tif_path)
-    try:
-        catalog = Catalog(workspace_root)
-        try:
-            sims = catalog.list_simulations()
-            if sims.empty:
-                return False
-            sim_id = str(sims.iloc[-1]["sim_id"])
-            arr = catalog.query_field(sim_id, "seepage_mask", 0)
-        finally:
-            catalog.close()
-
-        seepage_flat = np.asarray(arr, dtype=float).ravel()
-        with rasterio.open(base_raster) as src:
-            seepage_array = seepage_flat.reshape(src.height, src.width)
-
-        os.makedirs(seepage_tif.parent, exist_ok=True)
-        export_tif(str(base_raster), seepage_array, str(seepage_tif), -9999.0)
-    except Exception as exc:
-        logger.debug("Failed to rebuild seepage from Catalog: %s", exc)
-        return False
-
-    return seepage_tif.is_file()
 
 
 # ---------------------------------------------------------------------------
@@ -101,18 +87,21 @@ class ExtractStep:
     """Extract solver outputs and ingest observations into the result store."""
 
     name = "extract"
-    tin: ClassVar[type] = SolverRanState
-    tout: ClassVar[type] = ExtractedState
+    reads: ClassVar[tuple[str, ...]] = ("ctx",)
+    writes: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "extraction_summary",
+    )
     config_sections: ClassVar[tuple[str, ...]] = ()
 
     def depends_on(self) -> tuple[str, ...]:
         return ("run_solver",)
 
     def run(self, state: PipelineState) -> PipelineState:
-        ctx = state.get("ctx")
+        ctx: WorkflowContext | None = state.get("ctx")
         if ctx is None:
             raise ConfigError("ExtractStep requires 'ctx' in state.data")
-        if ctx.execution.lightweight or ctx.store is None or ctx.sim_id is None:
+        if ctx.sim_id is None or not run_is_persisted(ctx):
             return state.advance(
                 step_index=state.step_index + 1,
                 step_name=self.name,
@@ -120,42 +109,30 @@ class ExtractStep:
                 extraction_summary={"runs": 0},
             )
 
-        from hydromodpy.simulation.extraction.post_run import extract_run_outputs
-        from hydromodpy.simulation.planning.plan import RunContext
-        from hydromodpy.workflow.steps.planning import step_configure_results
+        from hydromodpy.solver.base.plan import RunContext
+        from hydromodpy.workflow.steps.run_outputs import extract_run_outputs
 
         plan = ctx.execution.simulation_plan
         if plan is None:
             raise ConfigError("ExtractStep requires execution.simulation_plan to be set")
 
-        results_cfg = getattr(ctx, "effective_results_config", None)
-        if results_cfg is None:
-            reconciled = step_configure_results(
-                ctx.cfg.simulation.results,
-                plan,
-                ctx.cfg.display,
-                display_active=not bool(state.get("skip_display")),
-            )
-            results_cfg = reconciled.config
-            ctx.forced_results_flags = reconciled.forced_flags
-        ctx.effective_results_config = results_cfg
-
+        retention = retention_of(ctx, plan)
         extracted = 0
-        for run in plan.runs:
-            if not run.is_solver_backed:
-                continue
-            extract_run_outputs(
-                ctx=RunContext(plan=plan, run=run, state=ctx),
-                sim_id=ctx.sim_id,
-                results_config=results_cfg,
-                store=ctx.store,
-            )
-            extracted += 1
-        # Observation series (hydrometry, piezometry, ...) are part of the
-        # scientific record but are independent of solver extraction, so they
-        # are ingested here once the store is populated for this sim. Runs
-        # without observation data write nothing and do not raise.
-        step_ingest_observations(ctx, ctx.sim_id)
+        with run_store(ctx) as store:
+            for run in plan.runs:
+                if not run.is_solver_backed:
+                    continue
+                extract_run_outputs(
+                    ctx=RunContext.of(ctx, plan=plan, run=run, store=store),
+                    store=store,
+                    retention=retention,
+                )
+                extracted += 1
+            # Observation series (hydrometry, piezometry, ...) are part of the
+            # scientific record but are independent of solver extraction, so they
+            # are ingested here once the store is populated for this sim. Runs
+            # without observation data write nothing and do not raise.
+            step_ingest_observations(ctx, ctx.sim_id, store=store)
         return state.advance(
             step_index=state.step_index + 1,
             step_name=self.name,
@@ -165,15 +142,16 @@ class ExtractStep:
 
     def artifacts(self, state: PipelineState) -> tuple[str, ...]:
         """Return workspace-relative paths populated by extraction."""
-        from hydromodpy.workflow.steps.prepare_solver import _store_sim_artifacts
+        from hydromodpy.workflow.steps.prepare_solver.facts import store_sim_artifacts
 
         ctx = state.get("ctx")
-        if ctx is None:
+        if ctx is None or not run_is_persisted(ctx):
             return ()
         sim_id = getattr(ctx, "sim_id", None)
-        if not sim_id:
+        if not sim_id or getattr(ctx, "run_dir", None) is None:
             return ()
-        return _store_sim_artifacts(ctx, sim_id)
+        with run_store(ctx) as store:
+            return store_sim_artifacts(ctx, sim_id, store=store)
 
     def rebuild_state(
         self,
@@ -184,7 +162,7 @@ class ExtractStep:
     ) -> PipelineState:
         """Restore the post-extraction state without re-running extraction.
 
-        The extraction artefacts already live in the Zarr / Parquet store
+        The extraction artifacts already live in the Zarr / Parquet store
         opened by :class:`PrepareSolverStep`. The summary is rebuilt as a
         marker so downstream steps know the rows are durable.
         """

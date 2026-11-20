@@ -2,7 +2,7 @@
 #
 # This keeps the same `process_simulation` launcher as the regular structured
 # MF6 example. The only difference is the mesh source: geometry comes from
-# `[mesh_input]` instead of `[modflow6.sgrid.planar]`.
+# `[mesh.triangle] path` instead of `[mesh.regular]`.
 
 base_config = "config_fast_common.toml"
 
@@ -10,27 +10,29 @@ base_config = "config_fast_common.toml"
 [workflow]
 mode = "simulation"
 
-[workspace]
-project_root = "./results_reused_real_meshes/example12_fast_mf6"
+[mesh]
+engine = "voronoi"
 
-[mesh_input]
-mesh_path = "mesh/mesh_catchment.msh"
-bundle_dir = "mesh/mesh_catchment_bundle"
+[mesh.triangle]
+path = "mesh/mesh_catchment.msh"
+
+[mesh.voronoi]
+seeds = "triangulation"
 
 [simulation]
 name = "example12_fast_mf6_precomputed_mesh"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [[simulation.process]]
 id = "transport_main"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6"]
 
-[transport.modflow6gwt.parameters]
+[transport.modflow6]
 sconc_init = 0.1
 sconc_input = 0.05
 # MF6 GWT clock is SECONDS: diffu_coeff in m2/s, rate_decay in 1/s (506-day half-life).
@@ -38,7 +40,7 @@ diffu_coeff = 1e-10
 react_order = 1
 rate_decay = 1.585489599e-08
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 2
 lay_decay = 1.2

@@ -10,44 +10,59 @@ Usage::
 
     from hydromodpy.core.toml_io.generator import generate_toml
 
-    print(generate_toml(modules=["geographic"], profile="user"))
+    print(
+        generate_toml(modules=["geographic"], profile="user", root=HydroModPyConfig)
+    )
 
     from hydromodpy.core.toml_io.generator import generate_toml_from_instances
 
     generate_toml_from_instances(
         {"hydrometry": cfg_h, "piezometry": cfg_p},
         output_path="config.toml",
+        root=HydroModPyConfig,
     )
+
+The caller passes the root class and, when it wants the dynamic example blocks, a
+``flow_examples`` function that the layer owning the section provides. The shapes of the
+models are read through ``model_types.py``, one table is written by ``section.py``, and
+``render.py`` formats keys, values and comments.
 """
 
 from __future__ import annotations
 
 import os
-import types as _stdlib_types
-import typing
+from collections.abc import Callable
 from collections.abc import Mapping as _abc_Mapping
-from enum import Enum
 from pathlib import Path
-from typing import Any, get_args, get_origin
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config_kit.introspect import (
     extract_profile,
-    iter_fields_by_profile,
     resolve_profile,
 )
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.registry import root_scalar_fields, root_sections
-from hydromodpy.core.toml_io.dynamic_examples_protocol import (
-    get_dynamic_flow_examples_provider,
+from hydromodpy.core.config_kit.registry import (
+    repeated_root_sections,
+    root_scalar_fields,
+    root_sections,
 )
+from hydromodpy.core.config_kit.root import RootConfig
+from hydromodpy.core.toml_io.model_types import restore_variant_tags
+from hydromodpy.core.toml_io.render import (
+    UNDEFINED,
+    default_value,
+    fmt,
+    placeholder,
+    render_field_comment,
+)
+from hydromodpy.core.toml_io.section import repeated_root_section, section
 
 
-def available_modules() -> list[str]:
+def available_modules(root: type[BaseModel] | RootConfig) -> list[str]:
     """Return the list of registered config module names."""
-    return list(root_sections().keys())
+    return list(root_sections(root).keys())
 
 
 def generate_toml(
@@ -55,6 +70,9 @@ def generate_toml(
     modules: list[str] | None = None,
     profile: str = "expert",
     overrides: dict[str, dict] | None = None,
+    *,
+    root: type[BaseModel] | RootConfig,
+    flow_examples: Callable[[int, Callable[..., list[str]]], list[str]] | None = None,
 ) -> str:
     """Generate a commented TOML template filtered by modules and profile.
 
@@ -72,7 +90,13 @@ def generate_toml(
         Concrete values to write instead of model defaults.
         Fields present in overrides with a non-None value are written
         uncommented; fields set to None follow the default commented-out
-        behaviour for optional fields.
+        behavior for optional fields.
+    root : model class or RootConfig
+        The root configuration the template enumerates the sections of.
+    flow_examples : callable or None
+        ``(threshold, section_renderer) -> lines`` that renders the example
+        blocks of the dynamic ``[flow.*]`` tables. Without it, the template
+        has no such block.
 
     Returns
     -------
@@ -81,14 +105,10 @@ def generate_toml(
     """
     threshold = resolve_profile(profile)
 
-    registry = root_sections()
+    registry = root_sections(root)
 
     if modules is None:
-        # Default auto-selection: drop opt-in workflow-only sections that are
-        # Optional at the aggregator level and would require more targeted
-        # inputs to validate out-of-the-box (mesh-only and calibration).
-        _OPT_IN = {"mesh_catchment", "calibration"}
-        selected = {k: v for k, v in registry.items() if k not in _OPT_IN}
+        selected = dict(registry)
     else:
         unknown = set(modules) - set(registry)
         if unknown:
@@ -98,7 +118,7 @@ def generate_toml(
             )
         selected = {k: registry[k] for k in modules}
 
-    scalar_fields = root_scalar_fields()
+    scalar_fields = root_scalar_fields(root)
     selected_root_names = [
         name
         for name, field_info in scalar_fields.items()
@@ -108,11 +128,19 @@ def generate_toml(
     lines = _header(profile, [*selected_root_names, *list(selected.keys())])
     lines.extend(_root_scalars(scalar_fields, threshold))
 
+    repeated = repeated_root_sections(root)
     for section_name, model_cls in selected.items():
         section_values = (overrides or {}).get(section_name)
-        lines.extend(_section(section_name, model_cls, threshold, values=section_values))
-        if section_name == "flow":
-            lines.extend(_flow_dynamic_examples(threshold))
+        if section_name in repeated:
+            lines.extend(
+                repeated_root_section(
+                    section_name, model_cls, threshold, values=section_values, root=root
+                )
+            )
+            continue
+        lines.extend(section(section_name, model_cls, threshold, values=section_values))
+        if section_name == "flow" and flow_examples is not None:
+            lines.extend(flow_examples(threshold, section))
 
     content = "\n".join(lines) + "\n"
     if output_path:
@@ -121,26 +149,29 @@ def generate_toml(
 
 
 def generate_toml_from_instances(
-    instances: dict[str, BaseModel],
+    instances: _abc_Mapping[str, BaseModel | list[BaseModel]],
     output_path: str | Path | None = None,
     profile: str = "user",
     *,
     exclude_defaults: bool = False,
     exclude_none: bool = False,
     comment: str | None = None,
+    root: type[BaseModel] | RootConfig,
 ) -> str:
     """Generate a fully-filled TOML from instantiated Pydantic models.
 
     Works with **any** Pydantic model -- not limited to registered modules.
     Supports ``list[BaseModel]`` fields (rendered as ``[[section.sources]]``).
+    A list of models is a repeated root section: one ``[[name]]`` block per
+    entry, as ``[[export]]`` is written.
 
     When *output_path* is given, ``Path`` values are automatically
     relativised to the output directory.
 
     Parameters
     ----------
-    instances : dict of {section_name: model_instance}
-        E.g. ``{"hydrometry": cfg_h, "piezometry": cfg_p}``.
+    instances : dict of {section_name: model_instance or list of them}
+        E.g. ``{"hydrometry": cfg_h, "export": cfg.export}``.
     output_path : str, Path, or None
         If provided, write the result to this file.
     profile : str
@@ -151,6 +182,9 @@ def generate_toml_from_instances(
         Omit fields whose value is ``None``.
     comment : str or None
         Optional header comment (may be multi-line).
+    root : model class or RootConfig
+        The root configuration a repeated section reads its field description
+        from.
 
     Returns
     -------
@@ -174,25 +208,29 @@ def generate_toml_from_instances(
     threshold = resolve_profile(profile)
     toml_dir = Path(output_path).resolve().parent if output_path else None
 
-    lines: list[str] = []
-    if comment:
-        lines.append("# " + "=" * 70)
-        for cline in comment.split("\n"):
-            lines.append(f"# {cline}")
-        lines.append("# " + "=" * 70)
-        lines.append("# Generated from Pydantic config export.")
-        lines.append("")
-    else:
-        lines.extend(_header(profile, list(instances.keys())))
-
+    lines = _instances_banner(profile, instances, comment)
     for section_name, model in instances.items():
-        values = model.model_dump(
-            exclude_defaults=exclude_defaults,
-            exclude_none=exclude_none,
+        if isinstance(model, list):
+            if model:
+                entries = [
+                    _dump_instance(entry, exclude_defaults, exclude_none, toml_dir)
+                    for entry in model
+                ]
+                lines.extend(
+                    repeated_root_section(
+                        section_name,
+                        type(model[0]),
+                        threshold,
+                        entries,
+                        from_instance=True,
+                        root=root,
+                    )
+                )
+            continue
+        values = _dump_instance(model, exclude_defaults, exclude_none, toml_dir)
+        lines.extend(
+            section(section_name, type(model), threshold, values=values, from_instance=True)
         )
-        if toml_dir:
-            _relativize_paths_in_dict(values, toml_dir)
-        lines.extend(_section(section_name, type(model), threshold, values=values))
 
     content = "\n".join(lines) + "\n"
     if output_path:
@@ -205,382 +243,34 @@ def generate_toml_from_instances(
 # =====================================================================
 
 
-def _fmt(val: Any) -> str:
-    """Format a Python value as a TOML literal."""
-    if val is None:
-        return ""
-    if isinstance(val, bool):
-        return "true" if val else "false"
-    if isinstance(val, Enum):
-        return _fmt(val.value)
-    if isinstance(val, Path):
-        return f'"{val}"'
-    if hasattr(val, "magnitude") and hasattr(val, "units"):
-        return f'"{val.magnitude} {val.units:~}"'
-    if isinstance(val, str):
-        return f'"{val}"'
-    if hasattr(val, "isoformat"):
-        return f'"{val.isoformat()}"'
-    if isinstance(val, (list, tuple)):
-        inner = ", ".join(_fmt(item) for item in val)
-        return f"[{inner}]"
-    return str(val)
-
-
-def _render_mapping_value(
-    section_name: str,
-    values: dict[str, Any],
-    *,
-    _commented: bool = False,
+def _instances_banner(
+    profile: str, instances: _abc_Mapping[str, object], comment: str | None
 ) -> list[str]:
-    """Render a free-form TOML mapping as nested tables."""
-    lines: list[str] = []
-    scalar_items: list[tuple[str, Any]] = []
-    nested_items: list[tuple[str, dict[str, Any]]] = []
-    array_items: list[tuple[str, list[dict[str, Any]]]] = []
-
-    for raw_key, raw_value in values.items():
-        key = str(raw_key)
-        if isinstance(raw_value, BaseModel):
-            nested_items.append((key, raw_value.model_dump(exclude_none=True)))
-        elif isinstance(raw_value, dict):
-            nested_items.append((key, raw_value))
-        elif (
-            isinstance(raw_value, list)
-            and raw_value
-            and all(isinstance(item, dict) for item in raw_value)
-        ):
-            array_items.append((key, raw_value))
-        else:
-            scalar_items.append((key, raw_value))
-
-    def _line(text: str) -> str:
-        return f"# {text}" if _commented else text
-
-    if scalar_items:
-        lines.append("")
-        lines.append(_line(f"[{section_name}]"))
-        for key, value in scalar_items:
-            if value is None:
-                # A None scalar has no TOML literal; comment it out rather
-                # than emit ``key =`` (which is invalid TOML). Reload restores
-                # None as the optional-field default.
-                lines.append(_line(f"# {key} ="))
-            else:
-                lines.append(_line(f"{key} = {_fmt(value)}"))
-
-    for key, nested in nested_items:
-        lines.extend(
-            _render_mapping_value(
-                f"{section_name}.{key}",
-                nested,
-                _commented=_commented,
-            )
-        )
-
-    for key, items in array_items:
-        sub_section = f"{section_name}.{key}"
-        for item in items:
-            lines.append("")
-            lines.append(_line(f"[[{sub_section}]]"))
-            for item_key, item_value in item.items():
-                if isinstance(item_value, dict):
-                    lines.extend(
-                        _render_mapping_value(
-                            f"{sub_section}.{item_key}",
-                            item_value,
-                            _commented=_commented,
-                        )
-                    )
-                elif item_value is None:
-                    lines.append(_line(f"# {item_key} ="))
-                else:
-                    lines.append(_line(f"{item_key} = {_fmt(item_value)}"))
-    return lines
+    """Return the top of a config written from instances: *comment*, or the header."""
+    if not comment:
+        return _header(profile, list(instances.keys()))
+    rule = "# " + "=" * 70
+    return [
+        rule,
+        *(f"# {cline}" for cline in comment.split("\n")),
+        rule,
+        "# Generated from Pydantic config export.",
+        "",
+    ]
 
 
-_FRIENDLY_TYPES = {
-    "str": "string",
-    "int": "int",
-    "float": "float",
-    "bool": "bool",
-    "Path": "path",
-}
-
-
-def _type_label(field_info: FieldInfo) -> str:
-    """Human-readable type string from annotation."""
-    annotation = field_info.annotation
-    origin = get_origin(annotation)
-
-    if origin is not None:
-        args = get_args(annotation)
-        if args:
-            non_none = [a for a in args if a is not type(None)]
-            has_none = type(None) in args
-            # Optional[X] -> "X (optional)" for common scalar/path types
-            if len(non_none) == 1 and has_none:
-                name = getattr(non_none[0], "__name__", str(non_none[0]))
-                friendly = _FRIENDLY_TYPES.get(name, name)
-                return f"{friendly} (optional)"
-            inner = ", ".join(
-                repr(a) if isinstance(a, str) else getattr(a, "__name__", str(a)) for a in args
-            )
-            origin_name = getattr(origin, "__name__", str(origin))
-            return f"{origin_name}[{inner}]"
-
-    if hasattr(annotation, "__name__"):
-        return _FRIENDLY_TYPES.get(annotation.__name__, annotation.__name__)
-
-    return str(annotation)
-
-
-def _constraints_from_field(field_info: FieldInfo) -> list[str]:
-    """Extract constraint strings from FieldInfo metadata."""
-    parts = []
-    for meta in field_info.metadata:
-        if isinstance(meta, Profile):
-            continue
-        # Pydantic annotated constraints (Gt, Ge, Lt, Le)
-        cls_name = type(meta).__name__
-        if cls_name == "Gt":
-            parts.append(f"> {meta.gt}")
-        elif cls_name == "Ge":
-            parts.append(f">= {meta.ge}")
-        elif cls_name == "Lt":
-            parts.append(f"< {meta.lt}")
-        elif cls_name == "Le":
-            parts.append(f"<= {meta.le}")
-    # Enum values from Literal
-    annotation = field_info.annotation
-    origin = get_origin(annotation)
-    if origin is not None:
-        args = get_args(annotation)
-        if all(isinstance(a, str) for a in args):
-            opts = ", ".join(f'"{a}"' for a in args)
-            parts.append(f"one of: {opts}")
-    # Enum values
-    if isinstance(annotation, type) and issubclass(annotation, Enum):
-        opts = ", ".join(f'"{e.value}"' for e in annotation)
-        parts.append(f"one of: {opts}")
-    return parts
-
-
-_UNDEFINED = object()  # sentinel distinct from None
-
-
-def _default_value(field_info: FieldInfo) -> Any:
-    """Return the field default, or _UNDEFINED if the field is truly required."""
-    from pydantic_core import PydanticUndefined
-
-    if field_info.default is PydanticUndefined:
-        return _UNDEFINED
-    return field_info.default  # may be None (optional with no value)
-
-
-def _toml_excluded(field_info: FieldInfo) -> bool:
-    extra = field_info.json_schema_extra
-    return bool(
-        getattr(field_info, "exclude", False)
-        or (isinstance(extra, dict) and extra.get("toml_exclude") is True)
-    )
-
-
-def _is_implicit_relative_path_default(value: Any, field_info: FieldInfo) -> bool:
-    default = _default_value(field_info)
-    if not isinstance(default, Path) or default.is_absolute():
-        return False
-    if isinstance(value, Path):
-        return value == default
-    if isinstance(value, str):
-        return Path(value) == default
-    return False
-
-
-def _is_union_origin(origin: Any) -> bool:
-    """Return True if *origin* represents a Union type."""
-    if origin is typing.Union:
-        return True
-    if hasattr(_stdlib_types, "UnionType") and origin is _stdlib_types.UnionType:
-        return True
-    return False
-
-
-def _is_mapping_field(field_info: FieldInfo) -> bool:
-    """True when the field annotation is a mapping (``dict``/``Mapping``).
-
-    A mapping field must never be emitted as an inline ``name = {}`` in a
-    template: an inline table cannot be extended by later
-    ``[section.name.<id>]`` sub-tables (e.g. the dynamic ``[flow.param.*]``
-    blocks), which produces invalid TOML.
-    """
-    annotation = field_info.annotation
-    candidates = (
-        list(get_args(annotation)) if _is_union_origin(get_origin(annotation)) else [annotation]
-    )
-    for cand in candidates:
-        origin = get_origin(cand)
-        if origin is dict:
-            return True
-        if isinstance(origin, type) and issubclass(origin, _abc_Mapping):
-            return True
-    return False
-
-
-def _placeholder(field_info: FieldInfo) -> str:
-    """Return a TOML-safe placeholder value for a field with no set default.
-
-    For Literal types the first allowed value is used; for scalars a
-    zero-equivalent is returned; everything else falls back to ``""``.
-
-    Numeric constraints (``gt``, ``ge``) are respected so that the
-    placeholder never violates the validation rule.
-    """
-    annotation = field_info.annotation
-    origin = get_origin(annotation)
-
-    # Unwrap Optional[X] / Union[X, None] to get the inner type
-    inner = annotation
-    if _is_union_origin(origin):
-        args = get_args(annotation)
-        non_none = [a for a in args if a is not type(None)]
-        if non_none:
-            inner = non_none[0]
-            inner_origin = get_origin(inner)
-            # Literal inside Optional
-            if inner_origin is not None:
-                inner_args = get_args(inner)
-                if inner_args and all(isinstance(a, (str, int, float)) for a in inner_args):
-                    return _fmt(inner_args[0])
-        else:
-            # Bare Literal at top level
-            if all(isinstance(a, (str, int, float)) for a in args):
-                return _fmt(args[0])
-    elif origin is not None:
-        # Non-union parameterised type (list, dict, etc.) -- check for Literal
-        args = get_args(annotation)
-        if args and all(isinstance(a, (str, int, float)) for a in args):
-            return _fmt(args[0])
-
-    # Bare Literal at top level (origin is typing.Literal)
-    top_args = get_args(annotation)
-    if top_args and all(isinstance(a, (str, int, float)) for a in top_args):
-        return _fmt(top_args[0])
-
-    # Container types (list, dict, including parameterised forms)
-    inner_origin = get_origin(inner)
-    inner_name = getattr(inner, "__name__", "")
-    if inner_origin is list or inner is list or inner_name == "list":
-        return "[]"
-    if inner_origin is dict or inner is dict or inner_name == "dict":
-        return "{}"
-
-    # Extract numeric lower-bound constraints from metadata
-    min_bound: float | None = None
-    min_exclusive = False
-    for meta in field_info.metadata:
-        cls_name = type(meta).__name__
-        if cls_name == "Gt":
-            min_bound = meta.gt
-            min_exclusive = True
-        elif cls_name == "Ge":
-            min_bound = meta.ge
-            min_exclusive = False
-
-    if inner_name == "str":
-        return '""'
-    if inner_name == "int":
-        if min_bound is not None and min_exclusive:
-            return str(int(min_bound) + 1)
-        if min_bound is not None:
-            return str(int(min_bound))
-        return "0"
-    if inner_name == "float":
-        if min_bound is not None and min_exclusive:
-            return str(float(min_bound) + 1.0)
-        if min_bound is not None:
-            return str(float(min_bound))
-        return "0.0"
-    if inner_name == "bool":
-        return "false"
-    return '""'
-
-
-def _unwrap_optional(annotation: Any) -> Any:
-    """Return the single non-None member of an optional annotation."""
-    if not _is_union_origin(get_origin(annotation)):
-        return annotation
-    members = [arg for arg in get_args(annotation) if arg is not type(None)]
-    return members[0] if len(members) == 1 else annotation
-
-
-def _model_members(annotation: Any) -> list[type[BaseModel]]:
-    """Return the BaseModel members of an annotation, union or not."""
-    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        return [annotation]
-    members = [a for a in get_args(annotation) if isinstance(a, type) and issubclass(a, BaseModel)]
-    if members:
-        return members
-    for arg in get_args(annotation):
-        members.extend(
-            sub for sub in get_args(arg) if isinstance(sub, type) and issubclass(sub, BaseModel)
-        )
-    return members
-
-
-def _resolve_mapping_basemodel_types(field_info: FieldInfo) -> list[type[BaseModel]]:
-    """Return the model variants a ``dict[str, Model]`` field holds.
-
-    Empty for a free-form mapping such as ``dict[str, Any]``, which has no
-    shape to show.
-    """
-    annotation = _unwrap_optional(field_info.annotation)
-    origin = get_origin(annotation)
-    if origin is not dict and not (isinstance(origin, type) and issubclass(origin, _abc_Mapping)):
-        return []
-    args = get_args(annotation)
-    return _model_members(args[1]) if len(args) == 2 else []
-
-
-def _resolve_list_basemodel_type(field_info: FieldInfo) -> type[BaseModel] | None:
-    """If field is ``list[SomeBaseModel]``, return the item class, else None.
-
-    Handles ``list[Annotated[Union[A, B], Field(discriminator=...)]]`` by
-    returning a representative concrete BaseModel from the union (preferring
-    the default_factory's runtime type when one item is set).
-    """
-    annotation = _unwrap_optional(field_info.annotation)
-    if get_origin(annotation) is not list:
-        return None
-    args = get_args(annotation)
-    if not args:
-        return None
-    item = args[0]
-    if isinstance(item, type) and issubclass(item, BaseModel):
-        return item
-
-    inner_args = get_args(item)
-    if not inner_args:
-        return None
-    candidates = [a for a in inner_args if isinstance(a, type) and issubclass(a, BaseModel)]
-    if not candidates:
-        for a in inner_args:
-            for sub in get_args(a):
-                if isinstance(sub, type) and issubclass(sub, BaseModel):
-                    candidates.append(sub)
-    if not candidates:
-        return None
-
-    if field_info.default_factory is not None:
-        try:
-            default_value = field_info.default_factory()
-        except Exception:
-            default_value = None
-        if isinstance(default_value, list) and default_value:
-            head = default_value[0]
-            if isinstance(head, BaseModel):
-                return type(head)
-    return candidates[0]
+def _dump_instance(
+    model: BaseModel,
+    exclude_defaults: bool,
+    exclude_none: bool,
+    toml_dir: Path | None,
+) -> dict:
+    """Dump *model* to a dict, tags restored, paths relative to *toml_dir* if given."""
+    values = model.model_dump(exclude_defaults=exclude_defaults, exclude_none=exclude_none)
+    restore_variant_tags(model, values)
+    if toml_dir:
+        _relativize_paths_in_dict(values, toml_dir)
+    return values
 
 
 def _relativize_paths_in_dict(d: dict, toml_dir: Path) -> None:
@@ -598,50 +288,6 @@ def _relativize_paths_in_dict(d: dict, toml_dir: Path) -> None:
                     _relativize_paths_in_dict(item, toml_dir)
 
 
-def _resolve_basemodel_type(field_info: FieldInfo) -> type[BaseModel] | None:
-    """Return the concrete BaseModel subclass if the field holds one, else None.
-
-    Container fields (``list[M]``, ``dict[str, M]``) are **not** considered
-    nested model fields -- only direct ``M`` or ``Optional[M]`` / ``Union[M, N]``.
-    """
-    annotation = field_info.annotation
-
-    # Direct BaseModel subclass
-    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        return annotation
-
-    origin = get_origin(annotation)
-    if origin is None:
-        return None
-
-    # Skip container types (list, dict, set, tuple, ...)
-    if isinstance(origin, type) and issubclass(origin, (list, dict, set, tuple, frozenset)):
-        return None
-
-    # Handle Union types (typing.Union, types.UnionType)
-    args = get_args(annotation)
-    if not args:
-        return None
-
-    non_none = [a for a in args if a is not type(None)]
-    base_models = [a for a in non_none if isinstance(a, type) and issubclass(a, BaseModel)]
-
-    if not base_models:
-        return None
-
-    # Prefer the default_factory's concrete type for discriminated unions
-    if field_info.default_factory is not None:
-        try:
-            instance = field_info.default_factory()
-            if isinstance(instance, BaseModel):
-                return type(instance)
-        except Exception:
-            pass
-    if isinstance(field_info.default, BaseModel):
-        return type(field_info.default)
-    return base_models[0]
-
-
 def _header(profile: str, modules: list[str]) -> list[str]:
     return [
         "# " + "=" * 70,
@@ -655,75 +301,13 @@ def _header(profile: str, modules: list[str]) -> list[str]:
 
 
 # --------------------------------------------------------------------------
-# Dynamic flow examples (parameters / BC / sinks-sources)
+# Header and root scalars
 # --------------------------------------------------------------------------
-
-_FLOW_PARAM_EXAMPLES = (
-    ("K", "homogeneous", "m/s"),
-    ("Sy", "homogeneous", "-"),
-    ("Ss", "homogeneous", "m-1"),
-)
-
-
-def _flow_dynamic_examples(threshold: int) -> list[str]:
-    """Emit commented template blocks for the dynamic [flow.param.<id>.*],
-    [flow.bc.<type>.<id>] and [flow.sinks_sources.recharge] payloads.
-
-    Delegates to the provider installed by :mod:`hydromodpy._bootstrap`,
-    so this module stays in the ``core`` leaf layer.
-    """
-    provider = get_dynamic_flow_examples_provider()
-    if provider is None:
-        return []
-    return provider.render(threshold, _section)
-
-
-def _render_field_comment(
-    lines: list[str],
-    field_info: FieldInfo,
-) -> None:
-    """Append description + meta comment lines for a single field."""
-    desc = field_info.description or ""
-    if desc:
-        _append_comment_text(lines, desc)
-
-    meta_parts = [f"Type: {_type_label(field_info)}"]
-    meta_parts.extend(_constraints_from_field(field_info))
-
-    default = _default_value(field_info)
-    if default is _UNDEFINED:
-        meta_parts.append("REQUIRED")
-    elif default is None:
-        meta_parts.append("Optional")
-    else:
-        meta_parts.append(f"Default: {_fmt(default)}")
-    examples = getattr(field_info, "examples", None) or []
-    if examples:
-        rendered = ", ".join(_fmt(item) for item in examples[:3])
-        meta_parts.append(f"Examples: {rendered}")
-
-    lines.append(f"# {' | '.join(meta_parts)}")
-
-
-def _append_comment_text(lines: list[str], text: str) -> None:
-    """Append text as TOML comment lines."""
-    for raw_line in text.splitlines():
-        raw_line = raw_line.strip()
-        if not raw_line:
-            lines.append("#")
-            continue
-        for desc_line in raw_line.split(". "):
-            desc_line = desc_line.strip()
-            if desc_line:
-                if not desc_line.endswith("."):
-                    desc_line += "."
-                lines.append(f"# {desc_line}")
 
 
 def _root_scalars(
     fields: dict[str, FieldInfo],
     threshold: int,
-    values: dict | None = None,
 ) -> list[str]:
     """Generate root-level scalar TOML fields such as ``workflow``."""
     selected = [
@@ -742,318 +326,12 @@ def _root_scalars(
         "",
     ]
     for name, field_info, level in selected:
-        _render_field_comment(lines, field_info)
-        default = _default_value(field_info)
-        if values is not None and name in values and values[name] is not None:
-            lines.append(f"{name} = {_fmt(values[name])}")
-        elif default is not _UNDEFINED and default is not None:
-            lines.append(f"{name} = {_fmt(default)}")
-        elif level == Profile.USER and default is _UNDEFINED:
-            lines.append(f"{name} = {_placeholder(field_info)}")
+        render_field_comment(lines, field_info)
+        default = default_value(field_info)
+        if default is not UNDEFINED and default is not None:
+            lines.append(f"{name} = {fmt(default)}")
+        elif level == Profile.USER and default is UNDEFINED:
+            lines.append(f"{name} = {placeholder(field_info)}")
         else:
-            lines.append(f"# {name} = {_placeholder(field_info)}")
-    return lines
-
-
-def _variant_tag(model_cls: type[BaseModel]) -> str | None:
-    """Return the ``key = "value"`` line a union member pins itself with."""
-    for name, info in model_cls.model_fields.items():
-        if get_origin(info.annotation) is not typing.Literal:
-            continue
-        args = get_args(info.annotation)
-        if len(args) == 1:
-            return f'{name} = "{args[0]}"'
-    return None
-
-
-def _mapping_entry_skeleton(
-    sub_section: str,
-    field_info: FieldInfo,
-    threshold: int,
-) -> list[str]:
-    """Render one commented example entry for a mapping of models.
-
-    A template carries no entry for a mapping the reader keys itself, so a bare
-    pointer line leaves the shape invisible. Show the table to write and the
-    fields of one variant instead. Variants share that one table and pick their
-    shape with a key inside it, so the others are listed, not repeated.
-    """
-    variants = _resolve_mapping_basemodel_types(field_info)
-    if not variants:
-        return []
-    lines = ["", f"# Example entry, one [{sub_section}] table per entry."]
-    tags = [tag for tag in (_variant_tag(variant) for variant in variants) if tag]
-    if len(tags) > 1:
-        lines.append(f"# Shown with {tags[0]}. Other variants: {', '.join(tags[1:])}.")
-    lines.append(f"# [{sub_section}]")
-    for name, info, _level in iter_fields_by_profile(variants[0], threshold):
-        if _toml_excluded(info):
-            continue
-        _render_field_comment(lines, info)
-        default = _default_value(info)
-        if default is not _UNDEFINED and default is not None:
-            lines.append(f"# {name} = {_fmt(default)}")
-        else:
-            lines.append(f"# {name} = {_placeholder(info)}")
-    lines.append("")
-    return lines
-
-
-def _section(
-    section_name: str,
-    model_cls: type[BaseModel],
-    threshold: int,
-    values: dict | None = None,
-    _depth: int = 0,
-    _commented: bool = False,
-) -> list[str]:
-    """Generate a [section] with filtered fields.
-
-    Parameters
-    ----------
-    values : dict or None
-        When provided, these values override defaults for the value line.
-        A ``None`` entry means the field is left commented out.
-    _depth : int
-        Recursion depth (0 = top-level section header with banner).
-    _commented : bool
-        When True, all output (headers and values) are prefixed with ``# ``.
-        Used for Optional sub-tables with no override values.
-    """
-    lines: list[str] = []
-
-    # ----- flatten single-field containers --------------------------------
-    # When a model has ``toml_flatten = True`` (ClassVar), skip one nesting
-    # level: output the inner model's fields directly at *section_name* so
-    # that e.g. ``FlowInitialConditions.h`` renders as ``[flow.ic]`` instead
-    # of ``[flow.ic.h]``.
-    if getattr(model_cls, "toml_flatten", False):
-        for _name, _finfo in model_cls.model_fields.items():
-            inner_cls = _resolve_basemodel_type(_finfo)
-            if inner_cls is not None:
-                inner_values = None
-                if values is not None and _name in values:
-                    raw = values[_name]
-                    inner_values = (
-                        raw
-                        if isinstance(raw, dict)
-                        else (raw.model_dump() if isinstance(raw, BaseModel) else None)
-                    )
-                return _section(
-                    section_name,
-                    inner_cls,
-                    threshold,
-                    values=inner_values,
-                    _depth=_depth,
-                    _commented=_commented,
-                )
-
-    # ----- classify fields ------------------------------------------------
-    scalar_fields: list[tuple[str, FieldInfo, Profile]] = []  # (name, info, level)
-    nested_fields: list[tuple[str, FieldInfo, Profile, type[BaseModel]]] = []
-    array_fields: list[tuple[str, FieldInfo, Profile, type[BaseModel]]] = []
-
-    for name, field_info, level in iter_fields_by_profile(model_cls, threshold):
-        # Skip fields explicitly excluded from serialisation (e.g. Transport)
-        if _toml_excluded(field_info):
-            continue
-
-        # list[BaseModel] -> array of tables [[section.name]]
-        list_cls = _resolve_list_basemodel_type(field_info)
-        if list_cls is not None:
-            array_fields.append((name, field_info, level, list_cls))
-            continue
-
-        nested_cls = _resolve_basemodel_type(field_info)
-        if nested_cls is not None:
-            nested_fields.append((name, field_info, level, nested_cls))
-        else:
-            scalar_fields.append((name, field_info, level))
-
-    # ----- section header -------------------------------------------------
-    if _depth == 0:
-        title = (model_cls.__doc__ or section_name).strip().split("\n")[0]
-        lines.append("")
-        lines.append("# " + "-" * 70)
-        lines.append(f"# {title}")
-        lines.append("# " + "-" * 70)
-
-    has_content = scalar_fields or nested_fields or array_fields
-
-    # Helper: optionally prefix a line with "# " when in commented mode
-    def _line(text: str) -> str:
-        return f"# {text}" if _commented else text
-
-    # Emit [section_name] when there are scalar fields (or nothing at all)
-    if scalar_fields:
-        lines.append("")
-        lines.append(_line(f"[{section_name}]"))
-        deferred_mappings: list[tuple[str, dict[str, Any]]] = []
-        deferred_skeletons: list[tuple[str, FieldInfo]] = []
-
-        for name, field_info, level in scalar_fields:
-            if (
-                values is not None
-                and name in values
-                and values[name] is not None
-                and _is_implicit_relative_path_default(values[name], field_info)
-            ):
-                continue
-            _render_field_comment(lines, field_info)
-
-            default = _default_value(field_info)
-
-            # Value line -- prefer override value when provided
-            if values is not None and name in values and values[name] is not None:
-                raw_value = values[name]
-                if isinstance(raw_value, BaseModel):
-                    raw_value = raw_value.model_dump(exclude_none=True)
-                if isinstance(raw_value, dict):
-                    deferred_mappings.append((name, raw_value))
-                else:
-                    lines.append(_line(f"{name} = {_fmt(raw_value)}"))
-            elif _is_mapping_field(field_info):
-                # Mapping field with no concrete value: render populated
-                # defaults as sub-tables, never as an inline ``name = {}``
-                # (an inline table cannot be extended by later
-                # ``[section.name.<id>]`` sub-tables -> invalid TOML).
-                if isinstance(default, dict) and default:
-                    deferred_mappings.append((name, default))
-                elif _resolve_mapping_basemodel_types(field_info):
-                    deferred_skeletons.append((name, field_info))
-                else:
-                    lines.append(f"# {name}: entries go under [{section_name}.{name}.<id>]")
-            elif default is not _UNDEFINED and default is not None:
-                lines.append(_line(f"{name} = {_fmt(default)}"))
-            elif level == Profile.USER and default is _UNDEFINED:
-                # User-level *required* field - emit an uncommented
-                # placeholder so the user knows to fill it in.
-                lines.append(_line(f"{name} = {_placeholder(field_info)}"))
-            else:
-                # Optional field with default=None, or non-user level field
-                # without a concrete default: emit commented-out placeholder.
-                lines.append(
-                    f"# {name} = {_placeholder(field_info)}" if default is None else f"# {name} ="
-                )
-
-            lines.append("")
-
-        for name, mapping_value in deferred_mappings:
-            lines.extend(
-                _render_mapping_value(
-                    f"{section_name}.{name}",
-                    mapping_value,
-                    _commented=_commented,
-                )
-            )
-
-        for name, skeleton_field in deferred_skeletons:
-            lines.extend(
-                _mapping_entry_skeleton(f"{section_name}.{name}.<id>", skeleton_field, threshold)
-            )
-
-    elif not has_content:
-        # No fields at all at this profile level
-        lines.append("")
-        lines.append(_line(f"[{section_name}]"))
-        lines.append("# (no parameters at this profile level)")
-        lines.append("")
-
-    # ----- nested sub-tables ----------------------------------------------
-    for name, field_info, _level, nested_cls in nested_fields:
-        sub_section = f"{section_name}.{name}"
-
-        # Resolve override values for the sub-section
-        sub_values = None
-        if values is not None and name in values:
-            raw = values[name]
-            if isinstance(raw, dict):
-                sub_values = raw
-            elif isinstance(raw, BaseModel):
-                sub_values = raw.model_dump()
-
-        default = _default_value(field_info)
-        has_factory = field_info.default_factory is not None
-        is_truly_optional = default is None and not has_factory
-
-        # Description comment before the sub-table
-        desc = field_info.description or ""
-        if desc:
-            lines.append("")
-            _append_comment_text(lines, desc)
-
-        if is_truly_optional and sub_values is None:
-            # Optional with no override: expand commented out
-            lines.extend(
-                _section(
-                    sub_section,
-                    nested_cls,
-                    threshold,
-                    values=None,
-                    _depth=_depth + 1,
-                    _commented=True,
-                )
-            )
-        else:
-            # Has a default_factory or concrete override: expand recursively
-            lines.extend(
-                _section(
-                    sub_section,
-                    nested_cls,
-                    threshold,
-                    values=sub_values,
-                    _depth=_depth + 1,
-                    _commented=_commented,
-                )
-            )
-
-    # ----- array-of-tables ([[section.name]]) --------------------------------
-    for name, field_info, _level, item_cls in array_fields:
-        sub_section = f"{section_name}.{name}"
-
-        # Description comment
-        desc = field_info.description or ""
-        if desc:
-            lines.append("")
-            _append_comment_text(lines, desc)
-
-        items: list[dict] | None = None
-        has_instance_value = values is not None and name in values
-        if values is not None and name in values:
-            raw = values[name]
-            if isinstance(raw, list):
-                items = raw
-
-        if items:
-            for item_dict in items:
-                lines.append(_line(f"[[{sub_section}]]"))
-                for key, val in item_dict.items():
-                    # Add field description from the item model class
-                    if key in item_cls.model_fields:
-                        _render_field_comment(lines, item_cls.model_fields[key])
-                    lines.append(_line(f"{key} = {_fmt(val)}"))
-                    lines.append("")
-        elif has_instance_value:
-            continue
-        else:
-            # Template mode: show an example entry with defaults. A table the
-            # model does not declare by itself stays commented out: writing it
-            # is what turns the feature on, so a template must not do it for
-            # the reader.
-            optional = _default_value(field_info) is None and field_info.default_factory is None
-            emit = (lambda text: f"# {text}") if optional else _line
-            if optional:
-                lines.append(f"# Example entry, one [[{sub_section}]] block per entry.")
-            lines.append(emit(f"[[{sub_section}]]"))
-            for fname, finfo, _flevel in iter_fields_by_profile(item_cls, threshold):
-                if _toml_excluded(finfo):
-                    continue
-                _render_field_comment(lines, finfo)
-                default = _default_value(finfo)
-                if default is not _UNDEFINED and default is not None:
-                    lines.append(emit(f"{fname} = {_fmt(default)}"))
-                else:
-                    lines.append(emit(f"{fname} = {_placeholder(finfo)}"))
-                lines.append("")
-
+            lines.append(f"# {name} = {placeholder(field_info)}")
     return lines

@@ -1,0 +1,49 @@
+# Nancon, K and Sy by the published two-stage method, named as a protocol.
+#   1. K alone, steady over 2000-2002, until the simulated seepage network
+#      matches the mapped one. Abherve et al. (2023), 10.5194/hess-27-3221-2023.
+#   2. Sy alone, monthly transient, K frozen, on the gauged discharge, 2000
+#      left out as spin-up. Abherve et al. (2025), 10.1029/2025WR040083.
+#
+#   hmp calibrate run_calibration.toml --list-phases   each stage, before any solve
+#   hmp calibrate run_calibration.toml --expand        the same stages, as TOML
+#   hmp check run_calibration.toml              every problem at once
+#   hmp run       run_calibration.toml                 both stages, in order
+
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_intermittence_mf6_calibrated"
+description = "Nancon, K from the mapped network then Sy from the gauge."
+
+[calibration]
+# The best trial of each stage is replayed as a full run, with its figures.
+
+# The search ranges, both in log space by default.
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+
+# The map stage one is scored on: the permanent reaches of BD TOPO, 181.7 km.
+# Stage two is scored on the gauge of [site].
+[calibration.outputs.seepage_network]
+support = "network"
+
+[calibration.outputs.seepage_network.map]
+complete = "../../../../examples/data/hydrography/nancon_stream_network.gpkg"
+[calibration.protocol]
+name = "matching_hydrographic_network"
+# Stage two: each trial is a 36-month run, about one minute.
+transient_max_trials = 30
+transient_precision = 0.05   # 5 % on Sy
+
+# The figures and the exports of project.toml, for the best run of each
+# stage, plus the gauged discharge against the simulated one, month by month.
+[display]
+figure__append = [
+    {variable = "discharge", type = "xy", observed = true, reference = ["one_to_one"]},
+]

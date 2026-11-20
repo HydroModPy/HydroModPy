@@ -1,145 +1,60 @@
-"""Simulation registration into the catalog.
+"""Names of the result directories of a project.
 
-``register_simulation`` is the entry point that allocates a new ``sim_id``
-row, applies on-collision rules (replace / fail / version), derives the run
-directory from the final run name, and creates the initial
-:class:`SimulationZarr` in it when mesh dimensions are known. The rest of the
-write surface (``write_parameters``, ``write_timeseries`` ...) lives in
-:mod:`hydromodpy.results.catalog.writes`.
+A run or a session is a directory, and its name is its address:
+``runs/<name>``, ``sessions/<name>``. This module gives names out and moves
+directories between them; it never reads the index.
 
-The Zarr store is created at its final path, never staged: readers open
-``runs/<name>/fields.zarr`` while the run is still solving.
+- :func:`reserve_version_dirname` creates the directory of the next version
+  of a name. The version is computed on disk, over the live directories, the
+  trash and the tombstones, so a deleted name is never given out again.
+- :func:`rename_case` moves a run, and the session of the same name, to a new
+  name that nothing holds or held.
+- :func:`import_publication` brings a run published by ``hmp publish`` into
+  the project under a reserved name, after checking every digest.
 
-Steady period convention
-------------------------
-A steady flow run may legitimately declare no ``[simulation.time]`` window:
-its solution is time-invariant, so there is nothing to span. Leaving the
-period empty would make it indistinguishable from a transient run whose
-bounds were lost, and would leave the manifest with an empty period block.
-Such a run is therefore registered with the degenerate period
-``period_start == period_end == started_at``: zero length says "no simulated
-duration", and the reference date is the only date the run can honestly
-claim, the instant it was computed. A steady run that *does* declare a
-window keeps the window it declared.
+The identity of a run, the request id and the solution key, lives in
+:mod:`hydromodpy.results.record.request_identity`.
+
+Grammar
+-------
+A name follows the rule of :func:`~hydromodpy.core.state.names.check_name`: lower
+case letters, digits, ``_`` and ``-``, forty characters at most. The version suffix ``.v<N>`` is read by :func:`split_stem_version`; the bare name
+is version 1 for good.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
-import re
+import contextlib
+import os
 import shutil
-from dataclasses import dataclass
+import tarfile
+import tempfile
+import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal
-from uuid import UUID
+from typing import Literal
 
-from hydromodpy.core.io.db_retry import with_lock_retry
+from hydromodpy.core.exceptions import ImportConflictError, WriteConflictError
+from hydromodpy.core.io.file_digest import sha256_of
+from hydromodpy.core.io.filesystem import check_project_root, rename_onto_empty_dir
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import RUNS_DIRNAME, to_workspace_relative
-from hydromodpy.results.catalog.audit import audited, emit_audit_event
-from hydromodpy.results.catalog.constants import (
-    solver_category as _resolve_solver_category,
-)
-from hydromodpy.results.catalog.constants import (
-    validate_solver_code as _validate_solver_code,
-)
-from hydromodpy.results.catalog.lifecycle import stamp_trash_marker
-from hydromodpy.results.catalog.ports import CatalogBackend
-from hydromodpy.results.catalog.storage_paths import run_dirname
-from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
-from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
+from hydromodpy.core.state.layout import internal_dir, runs_dir_for, sessions_dir_for
+from hydromodpy.core.state.names import check_name, split_stem_version, versioned_name
+from hydromodpy.core.state.portable import to_workspace_relative
+from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel, session_dir_rel
+from hydromodpy.results.publication import publication_path, read_publication
+from hydromodpy.results.storage.contract import ALLOWED_RUN_ENTRIES, RUN_MANIFEST_FILENAME
+from hydromodpy.results.trash import check_not_running, identity_of, list_trash, read_tombstones
 
 logger = get_logger(__name__)
 
-IfExistsMode = Literal["replace", "fail", "version"]
-
-STEADY_FLOW_REGIME = "steady"
-"""Flow regime whose runs may carry a degenerate period (see module docstring)."""
-
-_VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
-
-
-def split_stem_version(name: str) -> tuple[str, int | None]:
-    """Split ``cheze_baseline.v3`` into ``("cheze_baseline", 3)``.
-
-    A bare name returns ``(name, None)``.
-    """
-    match = _VERSION_SUFFIX_RE.search(name)
-    if match:
-        return name[: match.start()], int(match.group(1))
-    return name, None
-
-
-_MEMORABLE_ADJECTIVES = (
-    "brisk",
-    "calm",
-    "bright",
-    "swift",
-    "quiet",
-    "bold",
-    "keen",
-    "warm",
-    "clear",
-    "deep",
-    "fair",
-    "lush",
-    "mild",
-    "wise",
-    "amber",
-    "azure",
-)
-_MEMORABLE_NOUNS = (
-    "heron",
-    "otter",
-    "marten",
-    "willow",
-    "alder",
-    "brook",
-    "fern",
-    "moss",
-    "spring",
-    "delta",
-    "ridge",
-    "meadow",
-    "harrier",
-    "kestrel",
-    "ibis",
-    "tern",
-)
-
-
-def _memorable_name(sim_id: str) -> str:
-    """Return a deterministic ``adjective_noun`` slug seeded from ``sim_id``.
-
-    Guarantees a programmatic run without an explicit name is still pronounceable
-    and never addressable by hex alone.
-    """
-    digest = int(hashlib.sha256(str(sim_id).encode()).hexdigest(), 16)
-    adjective = _MEMORABLE_ADJECTIVES[digest % len(_MEMORABLE_ADJECTIVES)]
-    noun = _MEMORABLE_NOUNS[(digest // len(_MEMORABLE_ADJECTIVES)) % len(_MEMORABLE_NOUNS)]
-    return f"{adjective}_{noun}"
-
-
-def _short_id(sim_id: str | UUID) -> str:
-    return str(sim_id)[:8]
-
-
-def _coerce_timestamp(value: Any) -> Any:
-    """Return a value suitable for a ``TIMESTAMPTZ`` column."""
-    if value is None:
-        return None
-    if hasattr(value, "isoformat"):
-        return value
-    return str(value)
-
 
 def portable_config_source(project_root: Path, config_source: str | Path | None) -> str | None:
-    """Return ``config_source`` as stored in the index: portable when it can be.
+    """Return ``config_source`` as stored with a run: portable when it can be.
 
     A configuration that lives inside the project is recorded relative to the
     project root (``project.toml``, ``configs/winter.toml``), so a project that
-    is copied or moved still recognises its own runs. A configuration kept
+    is copied or moved still recognizes its own runs. A configuration kept
     outside the project has no project-relative form and is recorded as the
     absolute path it is; the leading separator tells the two apart.
     """
@@ -151,368 +66,399 @@ def portable_config_source(project_root: Path, config_source: str | Path | None)
         return str(config_source)
 
 
-def _resolve_registration_name(
-    backend: CatalogBackend,
-    project: str,
-    requested: str,
-    if_exists: IfExistsMode,
-) -> tuple[str, str, int, str | None]:
-    """Resolve the final ``(name, name_stem, version_int, replaced_sid)``.
+_RESERVE_ATTEMPTS = 1000
 
-    Versioning is keyed on ``name_stem`` (the requested name with any trailing
-    ``.vN`` stripped). A registered name belongs to its run for good: a sealed
-    run is never renamed, so the bare stem *is* version 1 forever and every
-    later run of that stem gets the next free ``stem.vN``.
 
-    - ``version`` (default): mint the next free version behind the live runs of
-      the stem.
-    - ``replace``: trash the colliding predecessor, which keeps its name and
-      version (its stored run stays addressable and restorable), then mint the
-      next free version for the incoming run.
-    - ``fail``: raise :class:`DuplicateSimulationNameError` when a live run
-      already holds the stem.
+class VersionPairingError(WriteConflictError, FileExistsError):
+    """The run directory a session is paired with is already taken."""
 
-    Trashed rows still count when minting a version, because a trashed run may
-    keep its name and ``UNIQUE (project, name)`` spans every row.
+
+class NameTakenError(WriteConflictError):
+    """A name is held by a live directory, a trashed one or a tombstone."""
+
+
+def reserve_version_dirname(
+    project_root: Path,
+    kind: Literal["run", "session"],
+    name: str,
+    *,
+    pair_with: Path | None = None,
+) -> Path:
+    """Create and return the directory of the next version of ``name``.
+
+    The version is computed on disk and ``os.mkdir`` only makes the claim
+    atomic. ``N`` is one more than the highest version of ``name`` found
+    among the live directories of ``runs/`` and ``sessions/``, the trashed
+    directories (by the relative directory they came from) and the
+    tombstones of ``trash/tombstones.txt``. A deleted name is therefore
+    never given out again. The bare name is version 1. Runs and sessions
+    draw on one version space, so a run and a session of one name never hold
+    the same ``N`` by accident.
+
+    When another process wins the ``mkdir``, the version is computed again,
+    so a version is never given twice. ``kind`` picks the tree the claim is
+    made in. ``name`` is a bare directory name: a name that already carries
+    ``_vN`` is refused.
+
+    A calibration session and its promoted run are paired: the session
+    reserves ``N`` first, and the run is reserved with ``pair_with`` naming
+    the session directory. The run then takes the very same directory name
+    under ``runs/``, whatever the version space says, and the claim fails
+    with :class:`VersionPairingError` when that directory already exists.
+
+    A project folder too long for Windows is refused with
+    :class:`~hydromodpy.core.exceptions.ConfigError` before any directory is made.
     """
-    stem, requested_version = split_stem_version(requested)
-    rows = backend.fetch_all(
-        "SELECT CAST(sim_id AS VARCHAR), name, version_int, "
-        "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
-        "FROM simulations WHERE project = ? AND name_stem = ?",
-        [project, stem],
+    check_project_root(project_root)
+    stem, version = split_stem_version(name)
+    if version is not None:
+        raise ValueError(f"reserve the bare name {stem!r}, not the version {name!r}")
+    check_name(name, what="run")
+    root = Path(project_root)
+    parent = runs_dir_for(root) if kind == "run" else sessions_dir_for(root)
+    parent.mkdir(parents=True, exist_ok=True)
+    if pair_with is not None:
+        paired_stem, _ = split_stem_version(pair_with.name)
+        if paired_stem != name:
+            raise ValueError(f"{pair_with.name!r} is not a version of {name!r}")
+        target = parent / pair_with.name
+        try:
+            os.mkdir(target)
+        except FileExistsError as exc:
+            raise VersionPairingError(
+                f"{target} already exists: the run paired with {pair_with} cannot take "
+                f"its version. Trash or rename the existing directory first."
+            ) from exc
+        return target
+    for _ in range(_RESERVE_ATTEMPTS):
+        target = parent / next_version_dirname(root, name)
+        try:
+            os.mkdir(target)
+        except FileExistsError:
+            continue
+        return target
+    raise RuntimeError(f"no version of {name!r} could be reserved under {parent}")
+
+
+def next_version_dirname(project_root: Path, name: str) -> str:
+    """Return the directory name the next version of ``name`` would take.
+
+    It is what :func:`reserve_version_dirname` would claim now, computed on
+    disk without creating anything: ``name`` when no version of it is held,
+    else ``<name>.v<N+1>`` over the live, trashed and tombstoned versions. A
+    dry run quotes it; another process may claim it before a real run does.
+    """
+    highest = max(_taken_versions(Path(project_root), name), default=0)
+    return versioned_name(name, highest + 1)
+
+
+def _holders(project_root: Path, name: str) -> list[tuple[str, int]]:
+    """``(holder, version)`` of each live, trashed or tombstoned directory of ``name``.
+
+    ``holder`` says where the version is held: its ``rel_dir`` for a live
+    directory, ``trash:<rel_dir>`` and ``tombstone:<rel_dir>`` otherwise.
+    """
+    held: list[tuple[str, str]] = []
+    for tree, rel in (
+        (runs_dir_for(project_root), run_dir_rel),
+        (sessions_dir_for(project_root), session_dir_rel),
+    ):
+        if tree.is_dir():
+            held.extend((rel(entry.name), entry.name) for entry in tree.iterdir() if entry.is_dir())
+    for label, rel_dirs in (
+        ("trash", [entry.rel_dir for entry in list_trash(project_root)]),
+        ("tombstone", [tombstone.rel_dir for tombstone in read_tombstones(project_root)]),
+    ):
+        for rel_dir in rel_dirs:
+            parsed = parse_rel_dir(rel_dir)
+            if parsed.kind in ("run", "session"):
+                held.append((f"{label}:{rel_dir}", parsed.name))
+    holders: list[tuple[str, int]] = []
+    for holder, candidate in sorted(held):
+        stem, version = split_stem_version(candidate)
+        if stem == name:
+            holders.append((holder, 1 if version is None else version))
+    return holders
+
+
+def _taken_versions(project_root: Path, name: str) -> list[int]:
+    """Versions of ``name`` held by a live, trashed or tombstoned directory."""
+    return [version for _, version in _holders(project_root, name)]
+
+
+def check_name_free(project_root: Path, name: str, *, excluding: str | None = None) -> None:
+    """Refuse ``name`` when any version of it is held; ``if_exists = "fail"`` calls it.
+
+    A version is held by a live directory of ``runs/`` or ``sessions/``, a
+    trashed one, or a tombstone. ``name`` is a bare name or a version; its
+    stem is checked. ``excluding`` names a run directory that does not count,
+    the one an attempt has just claimed for this very name. Raises
+    :class:`NameTakenError` listing the holders.
+    """
+    stem = split_stem_version(name)[0]
+    ignored = None if excluding is None else run_dir_rel(excluding)
+    holders = [
+        held for held in _holders(Path(project_root), stem) if ignored is None or held[0] != ignored
+    ]
+    if holders:
+        listed = ", ".join(holder for holder, _ in holders)
+        raise NameTakenError(
+            f"The name {stem!r} is taken ({listed}) and [simulation] if_exists = 'fail'. "
+            "Pick another name, or set if_exists = 'version' to write the next version."
+        )
+
+
+def live_version_dir(project_root: Path, name: str) -> Path:
+    """Return the live directory of ``runs/`` a versioned name names, or refuse it.
+
+    A ``_vN`` is given by the disk when a version is reserved, never written
+    by hand. A versioned name such as ``nancon_v2`` therefore reaches only a
+    live run directory: a resume or a retry works in it. A version the trash
+    or a tombstone holds, or one nobody holds, is refused with
+    :class:`NameTakenError`, and the refusal names the bare name to use.
+    """
+    stem, version = split_stem_version(name)
+    if version is None:
+        raise ValueError(f"{name!r} carries no version")
+    exact = runs_dir_for(Path(project_root)) / name
+    if exact.is_dir():
+        return exact
+    held = [holder for holder, number in _holders(Path(project_root), stem) if number == version]
+    where = f" ({', '.join(held)})" if held else ""
+    raise NameTakenError(
+        f"{name!r} names no live run directory{where}. A version is given by the disk, "
+        f"never written by hand: name the case {stem!r} and the run takes the next "
+        "free version."
     )
-    live = [r for r in rows if not r[3]]
-    taken = {r[1] for r in rows if r[1]}
-    if not live and requested not in taken:
-        return requested, stem, (requested_version or 1), None
-
-    if if_exists == "fail" and live:
-        raise DuplicateSimulationNameError(project, requested, str(live[0][0]))
-
-    replaced_sid: str | None = None
-    if if_exists == "replace" and live:
-        target = next((r for r in live if r[1] == requested), None)
-        if target is None:
-            target = max(live, key=lambda r: r[2] or 1)
-        backend.execute(
-            "UPDATE simulations SET original_name = COALESCE(original_name, name), "
-            "original_status_id = COALESCE(original_status_id, status_id), "
-            "trashed_at = current_timestamp, updated_at = current_timestamp, "
-            "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
-            "WHERE sim_id = ?",
-            [target[0]],
-        )
-        replaced_sid = str(target[0])
-
-    next_version = max((r[2] or 1) for r in rows) + 1
-    return f"{stem}.v{next_version}", stem, next_version, replaced_sid
 
 
-def _epsg_from_crs(crs: str) -> int | None:
-    """Best-effort extraction of an EPSG code from a CRS string."""
-    if not crs:
-        return None
-    upper = crs.upper().strip()
-    if upper.startswith("EPSG:"):
-        try:
-            return int(upper.split(":", 1)[1])
-        except ValueError:
-            return None
-    try:
-        from pyproj import CRS as _CRS
+def rename_case(
+    project_root: Path, rel_dir: str, new_name: str, *, dry_run: bool = False
+) -> tuple[str, ...]:
+    """Move a run, and the session of the same name, to ``new_name``.
 
-        return _CRS.from_user_input(crs).to_epsg()
-    except Exception:
-        return None
+    ``rel_dir`` is ``runs/<name>`` or ``sessions/<name>``; whichever of the
+    two directories exists moves, so a calibration keeps its session and its
+    promoted run side by side. Links between them are ids and stay valid;
+    the ``rel_dir`` a manifest recorded at the seal becomes a hint the
+    indexer reads past.
 
+    ``new_name`` is a directory name, with or without ``_vN``. Its version
+    must be free among the live directories, the trash and the tombstones:
+    a deleted name is never given out again, not even by a rename. The name
+    left behind is free again: a rename leaves no tombstone, so a later run
+    or rename may take it. A copy published under the old name still names
+    its run by ``sim_id``. A directory a live attempt writes into is never
+    moved.
 
-class DuplicateSimulationNameError(ValueError):
-    """Raised when if_exists='fail' and a (project, name) pair already exists."""
+    With *dry_run* every check runs and the new directories are returned, nothing moves.
 
-    def __init__(self, project: str, name: str, existing_sim_id: str) -> None:
-        self.project = project
-        self.name = name
-        self.existing_sim_id = existing_sim_id
-        super().__init__(
-            f"Simulation '{name}' already exists in project '{project}' "
-            f"(existing sim_id {_short_id(existing_sim_id)}). "
-            f"Use if_exists='replace' or 'version' to proceed."
-        )
-
-
-@dataclass(frozen=True)
-class RegistrationResult:
-    """Outcome of :meth:`Catalog.register_simulation`.
-
-    Attributes
-    ----------
-    sim_id
-        UUID of the newly registered simulation.
-    name
-        Final name assigned to the simulation (differs from the requested name
-        whenever the stem is already taken and a ``.vN`` is minted).
-    zarr
-        The freshly created :class:`SimulationZarr`, or ``None`` when mesh
-        dimensions are not yet known at registration time.
-    replaced_sim_id
-        UUID of the predecessor trashed by ``if_exists='replace'``. It keeps
-        its own name and version. ``None`` when no collision occurred.
+    Returns the new relative directories, run first. Raises
+    :class:`NameTakenError` for a taken name,
+    :class:`~hydromodpy.core.exceptions.ConfigError` for a name that breaks the rule of a
+    run name, ``ValueError`` for a kept trial.
     """
-
-    sim_id: str
-    name: str | None
-    zarr: SimulationZarr | None
-    replaced_sim_id: str | None
-
-
-class RegistrationMixin:
-    """``register_simulation`` for :class:`Catalog`."""
-
-    @audited("sim.register", payload_keys=("solver", "name"))
-    @with_lock_retry()
-    def register_simulation(
-        self,
-        sim_id: str | UUID,
-        project: str,
-        solver: str,
-        *,
-        name: str | None = None,
-        if_exists: IfExistsMode = "version",
-        solver_category: str | None = None,
-        flow_regime: str | None = None,
-        config: dict | None = None,
-        config_snapshot: dict | None = None,
-        n_cells: int | None = None,
-        n_layers: int | None = None,
-        n_timesteps: int | None = None,
-        cell_types: list[str] | None = None,
-        bbox: list[float] | tuple[float, float, float, float] | None = None,
-        crs: str | None = None,
-        crs_epsg: int | None = None,
-        period_start: Any = None,
-        period_end: Any = None,
-        time_unit: str | None = None,
-        parent_sim_id: str | UUID | None = None,
-        mesh_hash: str | None = None,
-        mesh_type: str | None = None,
-        mesh_topology: str | None = None,
-        geographic_fingerprint: str | None = None,
-        tags: list[str] | None = None,
-        notes: str | None = None,
-        config_source: str | Path | None = None,
-        description: str | None = None,
-        scientific_objective: str | None = None,
-        contact_email: str | None = None,
-        doi: str | None = None,
-        study_area_name: str | None = None,
-        outlet_x: float | None = None,
-        outlet_y: float | None = None,
-    ) -> RegistrationResult:
-        sid = str(sim_id)
-        replaced_sid: str | None = None
-        requested_name = name if name else _memorable_name(sid)
-        # Refuse an over-long name before any bookkeeping: the directory is
-        # named after the run, so a name the tree cannot carry is not a run.
-        run_dirname(requested_name)
-        final_name = requested_name
-        name_stem, _ = split_stem_version(requested_name)
-        version_int = 1
-        zarr_obj: SimulationZarr | None = None
-        zarr_final: Path | None = None
-        dirname: str | None = None
-
-        try:
-            # Transactional block driven by the backend port. The surrounding
-            # try/except still owns the filesystem rollback (zarr_tmp /
-            # zarr_final), so we open the port transaction inside the
-            # try block and let ``CatalogBackend.transaction()`` handle the
-            # rollback on exception before the outer cleanup runs.
-            with self._backend.transaction():
-                final_name, name_stem, version_int, replaced_sid = _resolve_registration_name(
-                    self._backend, project, requested_name, if_exists
-                )
-                if replaced_sid is not None:
-                    logger.info(
-                        "Replacing '%s' in project '%s' with '%s' (previous sim %s trashed)",
-                        requested_name,
-                        project,
-                        final_name,
-                        _short_id(replaced_sid),
-                    )
-                elif final_name != requested_name:
-                    logger.info(
-                        "Auto-versioned '%s' -> '%s' in project '%s'",
-                        requested_name,
-                        final_name,
-                        project,
-                    )
-
-                if solver_category is None:
-                    solver_category = _resolve_solver_category(solver)
-                solver_code_v2 = _validate_solver_code(solver)
-
-                config_json = json.dumps(config) if config else None
-                snapshot_source = config_snapshot if config_snapshot is not None else config
-                snapshot_json = json.dumps(snapshot_source) if snapshot_source is not None else None
-                config_hash = None
-                if config:
-                    config_hash = hashlib.sha256(
-                        json.dumps(config, sort_keys=True).encode()
-                    ).hexdigest()
-
-                bbox_xmin = bbox_ymin = bbox_xmax = bbox_ymax = None
-                if bbox is not None and len(bbox) == 4:
-                    bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax = (float(v) for v in bbox)
-
-                crs_wkt = crs
-                if crs_epsg is None and crs:
-                    crs_epsg = _epsg_from_crs(crs)
-
-                topology = mesh_topology
-                p_start = _coerce_timestamp(period_start)
-                p_end = _coerce_timestamp(period_end)
-
-                dirname = run_dirname(final_name)
-                zarr_path = f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}"
-                parent_sid = str(parent_sim_id) if parent_sim_id else None
-                config_source_str = portable_config_source(self._workspace, config_source)
-
-                if n_cells is not None and n_layers is not None:
-                    zarr_final = self._workspace / zarr_path
-                    if zarr_final.exists():
-                        raise FileExistsError(f"Zarr store already exists: {zarr_final}")
-                    _windows_long_path(zarr_final.parent).mkdir(parents=True, exist_ok=True)
-                    created = SimulationZarr.create(
-                        zarr_final,
-                        n_cells=n_cells,
-                        n_layers=n_layers,
-                        cell_types=cell_types,
-                        geographic_fingerprint=geographic_fingerprint,
-                    )
-                    created.close()
-
-                self._backend.execute(
-                    """INSERT INTO simulations
-                       (sim_id, name, name_stem, version_int, started_at, project,
-                        solver_id, status_id, flow_regime_id, mesh_topology_id,
-                        n_cells, n_layers, n_timesteps,
-                        bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
-                        crs_wkt, crs_epsg,
-                        period_start, period_end, time_unit,
-                        config_toml, config_snapshot, config_hash, config_source,
-                        zarr_path, storage_basename, parent_sim_id, mesh_hash,
-                        geographic_fingerprint, notes,
-                        description, scientific_objective, contact_email, doi,
-                        study_area_name, outlet_x, outlet_y)
-                       VALUES (?, ?, ?, ?, current_timestamp, ?,
-                               (SELECT id FROM solvers WHERE code = ?),
-                               (SELECT id FROM statuses WHERE code = ?),
-                               (SELECT id FROM flow_regimes WHERE code = ?),
-                               (SELECT id FROM mesh_topologies WHERE code = ?),
-                               ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                               ?, ?, ?, ?, ?, ?, ?,
-                               ?, ?, ?, ?,
-                               ?, ?,
-                               ?, ?, ?, ?,
-                               ?, ?, ?)""",
-                    [
-                        sid,
-                        final_name,
-                        name_stem,
-                        version_int,
-                        project,
-                        solver_code_v2,
-                        "running",
-                        flow_regime,
-                        topology,
-                        n_cells,
-                        n_layers,
-                        n_timesteps,
-                        bbox_xmin,
-                        bbox_ymin,
-                        bbox_xmax,
-                        bbox_ymax,
-                        crs_wkt,
-                        crs_epsg,
-                        p_start,
-                        p_end,
-                        time_unit,
-                        config_json,
-                        snapshot_json,
-                        config_hash,
-                        config_source_str,
-                        zarr_path,
-                        dirname,
-                        parent_sid,
-                        mesh_hash,
-                        geographic_fingerprint,
-                        notes,
-                        description,
-                        scientific_objective,
-                        contact_email,
-                        doi,
-                        study_area_name,
-                        outlet_x,
-                        outlet_y,
-                    ],
-                )
-                if p_start is None and p_end is None and flow_regime == STEADY_FLOW_REGIME:
-                    self._backend.execute(
-                        """UPDATE simulations
-                              SET period_start = started_at, period_end = started_at
-                            WHERE sim_id = ?""",
-                        [sid],
-                    )
-
-                if replaced_sid is not None:
-                    try:
-                        emit_audit_event(
-                            self._db,
-                            event_type="sim.trash",
-                            sim_id=replaced_sid,
-                            project=project,
-                            payload={"replaced_by": sid},
-                        )
-                    except Exception as exc:  # noqa: BLE001 - audit must not raise
-                        logger.warning("audit emission failed for sim.trash: %s", exc)
-
-                if tags:
-                    for tag in tags:
-                        self._backend.execute(
-                            "INSERT INTO tags (sim_id, tag) VALUES (?, ?)",
-                            [sid, str(tag)],
-                        )
-                        try:
-                            emit_audit_event(
-                                self._db,
-                                event_type="sim.tag_add",
-                                sim_id=sid,
-                                project=project,
-                                payload={"tag": str(tag)},
-                            )
-                        except Exception as exc:  # noqa: BLE001 - audit must not raise
-                            logger.warning("audit emission failed for sim.tag_add: %s", exc)
-        except BaseException:
-            # Widened to BaseException so a KeyboardInterrupt mid-registration
-            # still removes the promoted-but-uncommitted Zarr store instead of
-            # leaving it for the gc orphan sweep to delete.
-            self._paths.forget(sid)
-            if zarr_final is not None and zarr_final.exists():
-                shutil.rmtree(zarr_final)
-            raise
-
-        if replaced_sid is not None:
-            # ``replace`` trashed the predecessor: stamp its directory too, or a
-            # rebuilt index would bring it back live and duplicate the stem.
-            stamp_trash_marker(self._backend, self._paths, replaced_sid)
-        if dirname is not None:
-            self._paths.cache_dirname(sid, dirname)
-        if zarr_final is not None:
-            zarr_obj = self._track_zarr_handle(SimulationZarr(zarr_final))
-        return RegistrationResult(
-            sim_id=sid,
-            name=final_name,
-            zarr=zarr_obj,
-            replaced_sim_id=replaced_sid,
+    root = Path(project_root)
+    parsed = parse_rel_dir(rel_dir)
+    if parsed.kind == "trial":
+        raise ValueError(
+            f"{rel_dir} is a kept trial; rename its session {session_dir_rel(parsed.name)}"
         )
+    check_name(new_name, what="run")
+    if new_name == parsed.name:
+        raise ValueError(f"{rel_dir} is already named {new_name!r}")
+    sources = [
+        rel
+        for rel in (run_dir_rel(parsed.name), session_dir_rel(parsed.name))
+        if (root / rel).is_dir()
+    ]
+    if not sources:
+        raise FileNotFoundError(f"{rel_dir} is not a directory of the project {root}")
+    for rel in sources:
+        check_not_running(root / rel, rel)
+    stem, version = split_stem_version(new_name)
+    if (version or 1) in _taken_versions(root, stem):
+        raise NameTakenError(
+            f"{new_name!r} is taken: a directory of runs/, sessions/ or the trash holds it, "
+            "or a tombstone remembers it. A deleted name is never given out again."
+        )
+    if dry_run:
+        return tuple(
+            (run_dir_rel if rel == run_dir_rel(parsed.name) else session_dir_rel)(new_name)
+            for rel in sources
+        )
+    moved: list[tuple[Path, Path]] = []
+    try:
+        for rel in sources:
+            source = root / rel
+            target = source.parent / new_name
+            if target.exists():
+                raise NameTakenError(f"{target} appeared while renaming {rel_dir}")
+            os.rename(source, target)
+            moved.append((source, target))
+    except BaseException:
+        for source, target in reversed(moved):
+            os.rename(target, source)
+        raise
+    renamed = [run_dir_rel(new_name), session_dir_rel(new_name)]
+    return tuple(rel for rel in renamed if (root / rel).is_dir())
+
+
+_IMPORT_STAGING_PREFIX = "import-"
+
+
+def import_publication(
+    project_root: Path,
+    source: Path,
+    *,
+    name: str | None = None,
+    admit: Callable[[Path], None] | None = None,
+    dry_run: bool = False,
+) -> str:
+    """Bring a run published by ``hmp publish`` into the project; return its ``rel_dir``.
+
+    ``source`` is the published directory or its tar. Every file of the copy
+    must be listed in its ``PUBLICATION.json`` and match its digest before
+    anything enters ``runs/``. The run takes the next free version of
+    ``name``, which defaults to the name of the published run without its
+    ``_vN``: a published ``x_v2`` lands as ``x`` in a project without ``x``.
+    Entries a run directory does not carry (``PUBLICATION.json``, the crate)
+    stay out of it. The checked copy enters ``runs/`` by one rename, so a
+    reader never sees part of it.
+
+    *admit* is called with the checked copy before anything enters
+    ``runs/``: the catalog layer installs the inputs of the copy there, and a
+    refusal it raises leaves the project as it was.
+
+    With *dry_run* the copy is staged outside the project, every check and *admit* run,
+    and the ``rel_dir`` the run would take is returned. Nothing enters the project.
+
+    Raises :class:`~hydromodpy.core.exceptions.ImportConflictError` when a
+    run of the project already carries the published ``sim_id``, and
+    ``ValueError`` when the copy is not a sealed run or a digest differs.
+    """
+    root = Path(project_root)
+    origin = Path(source).expanduser()
+    if not origin.exists():
+        raise FileNotFoundError(f"No published run at {origin}")
+    if dry_run:
+        staging = Path(tempfile.mkdtemp(prefix=_IMPORT_STAGING_PREFIX))
+    else:
+        staging = internal_dir(root) / f"{_IMPORT_STAGING_PREFIX}{uuid.uuid4().hex}"
+        staging.mkdir(parents=True)
+    try:
+        copy = _stage_copy(origin, staging)
+        publication = read_publication(copy)
+        if publication.kind == "project" and not publication.members:
+            raise ValueError(
+                f"{origin} is a project package written by hmp publish --package; install it "
+                "with hmp project import."
+            )
+        if publication.kind != "run":
+            raise ValueError(
+                f"{origin} is a {publication.kind} copy; only a run is imported. "
+                "Import one of its members."
+            )
+        source_rel = parse_rel_dir(publication.source.rel_dir)
+        if source_rel.kind != "run":
+            raise ValueError(
+                f"{origin} publishes {publication.source.rel_dir}; only a run is imported"
+            )
+        _check_digests(copy, publication.files, origin)
+        if not (copy / RUN_MANIFEST_FILENAME).is_file():
+            raise ValueError(f"{origin} carries no {RUN_MANIFEST_FILENAME}: not a sealed run")
+        sim_id = publication.source.sim_id or identity_of(copy)
+        holder = run_dir_holding(root, sim_id)
+        if holder is not None:
+            raise ImportConflictError(
+                f"Run {sim_id} is already in this project, as {holder}. "
+                "Trash it first to import the copy again."
+            )
+        if admit is not None:
+            admit(copy)
+        if dry_run:
+            bare = name if name is not None else split_stem_version(source_rel.name)[0]
+            return run_dir_rel(next_version_dirname(root, bare))
+        for entry in sorted(copy.iterdir()):
+            if entry.name not in ALLOWED_RUN_ENTRIES:
+                logger.info("%s is not a run entry; left out of the import", entry.name)
+                _remove(entry)
+        bare = name if name is not None else split_stem_version(source_rel.name)[0]
+        target = reserve_version_dirname(root, "run", bare)
+        try:
+            # One rename onto the empty reserved directory: the run appears whole or not at all.
+            rename_onto_empty_dir(copy, target)
+        except FileExistsError:
+            # Another process took the reserved name: the folder is its own.
+            raise
+        except BaseException:
+            # The helper may already have removed the empty reserved folder.
+            with contextlib.suppress(FileNotFoundError):
+                target.rmdir()
+            raise
+        return run_dir_rel(target.name)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
+def _remove(entry: Path) -> None:
+    if entry.is_dir() and not entry.is_symlink():
+        shutil.rmtree(entry)
+    else:
+        entry.unlink()
+
+
+def _stage_copy(origin: Path, staging: Path) -> Path:
+    """Copy or extract ``origin`` under ``staging``; return the directory holding the publication."""
+    landing = staging / "copy"
+    if origin.is_dir():
+        shutil.copytree(origin, landing, symlinks=True)
+    else:
+        landing.mkdir()
+        with tarfile.open(origin) as archive:
+            archive.extractall(landing, filter="data")
+    if publication_path(landing).is_file():
+        return landing
+    children = [entry for entry in landing.iterdir() if entry.is_dir()]
+    if len(children) == 1 and publication_path(children[0]).is_file():
+        return children[0]
+    raise ValueError(f"{origin} holds no PUBLICATION.json: it was not written by hmp publish")
+
+
+def _check_digests(copy: Path, files: dict[str, str], origin: Path) -> None:
+    """Every file of the copy is listed in PUBLICATION.json and matches its digest."""
+    publication = publication_path(copy)
+    unlisted = sorted(
+        path.relative_to(copy).as_posix()
+        for path in copy.rglob("*")
+        if (path.is_file() or path.is_symlink())
+        and path != publication
+        and path.relative_to(copy).as_posix() not in files
+    )
+    if unlisted:
+        raise ValueError(
+            f"{origin}: {', '.join(unlisted[:5])} not listed in PUBLICATION.json; "
+            "a published copy carries nothing its digests do not cover"
+        )
+    for rel, digest in sorted(files.items()):
+        path = copy / rel
+        if not path.is_file():
+            raise ValueError(f"{origin}: {rel} is listed in PUBLICATION.json and missing")
+        if sha256_of(path) != digest:
+            raise ValueError(f"{origin}: {rel} does not match its digest in PUBLICATION.json")
+
+
+def run_dir_holding(project_root: Path, sim_id: str | None) -> str | None:
+    """Return the ``rel_dir`` of the run under ``runs/`` that carries ``sim_id``, if one does.
+
+    Read from each run's ``outcome.json`` or ``manifest.json``, without the index.
+    """
+    if not sim_id:
+        return None
+    runs = runs_dir_for(project_root)
+    if not runs.is_dir():
+        return None
+    for entry in sorted(runs.iterdir()):
+        if entry.is_dir() and identity_of(entry) == sim_id:
+            return run_dir_rel(entry.name)
+    return None

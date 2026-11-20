@@ -1,0 +1,114 @@
+[workflow]
+mode = "simulation"
+[workspace]
+project_root = "."
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+reuse_existing_outputs = false
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_armorican_massif.tif"
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+[domain]
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = 30.0
+[data]
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff", "etp"]
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_armorican_massif.tif"
+[[data.geology.sources]]
+source = "brgm_1m"
+[[data.hydrography.sources]]
+source = "bdtopage"
+rasterize_field = "FID"
+[data.hydrometry]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+extent = "watershed"
+station_ids = []
+[data.recharge]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["EX04"]
+[data.runoff]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["EX04"]
+[data.etp]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+[flow]
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge", "etp"]
+active_bc = ["drainage"]
+flow_regime = "transient"
+[flow.ic]
+type = "top"
+description = "Nappe initialisee a la surface topographique."
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+[flow.bc.drainage]
+kind = "cauchy"
+application_domain = "top"
+description = "Drainage de Cauchy sur la face superieure de l'aquifere."
+value = 0.0
+[flow.sinks_sources.recharge]
+values = 0.0
+[simulation]
+name = "nancon_base"
+description = "Bassin du Nancon - config de base partagee pour les runs."
+if_exists = "replace"
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+[display]
+enabled = true
+preset = "default"
+show = false
+save = true
+output_dir = "figures"
+figures = [
+    "watershed_id_card",
+    "piezometric_map",
+    "water_budget",
+    "hydrograph_sim_obs",
+    "recharge_map",
+    "seepage_map",
+]

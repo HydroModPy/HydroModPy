@@ -1,0 +1,24 @@
+[space_time]
+rmse = 2.8e-3
+max_abs_error = 0.0248
+row_spread = 1e-9
+
+[final_profile]
+rmse = 2e-4
+max_abs_error = 2.7e-4
+
+[doc]
+reason = """
+Twice the error measured on the 190-node Voronoi dual of the triangle strip:
+space-time RMSE 1.4e-3 m, max error 1.24e-2 m, final RMSE 9.89e-5 m, final
+max error 1.36e-4 m. The row spread is zero by construction: the loader
+collapses the dual to one profile, binned by node abscissa with polygon-area
+weights. Backward Euler is first order in time: on the Voronoi dual of the
+boundary step, 1, 4 and 8 sub-steps per period give a space-time RMSE of
+1.4e-3, 3.7e-4 and 1.8e-4 m. The side heads sit on the faces, where the cells
+are seeded.
+B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
+measure: space_time.max_abs_error 0.025 to 0.0248 (measure 0.0124). Kept at a
+numerical floor, where twice the measure guarantees nothing: final_profile.rmse
+2e-4 (measure 9.89e-5, default head closure of 1e-4 m).
+"""

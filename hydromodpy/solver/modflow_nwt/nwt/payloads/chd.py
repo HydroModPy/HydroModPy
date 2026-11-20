@@ -13,12 +13,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.units import convert_payload_to_m, normalize_length_unit
-from hydromodpy.physics.flow.boundary_condition_registry import (
-    active_side_dirichlet_boundary_ids,
-)
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.initial_conditions import build_head_initial_condition_array
+from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.core.units.quantities import coerce_length_series_to_m, forcing_units
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.model.initial.heads import build_head_initial_condition_array
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (
@@ -53,27 +51,6 @@ def normalize_boundary_series(
     if series.size != nper:
         raise ValueError(f"{label} length ({series.size}) must be 1 or match nper ({nper})")
     return series.astype(float)
-
-
-def coerce_length_series_to_m(
-    *,
-    values: object,
-    units: object,
-    label: str,
-) -> np.ndarray:
-    """Convert one length payload to metres."""
-    source_units = normalize_length_unit(str(units).strip() or "m")
-    return np.asarray(
-        convert_payload_to_m(values, unit=source_units, label=label),
-        dtype=float,
-    )
-
-
-def forcing_units(forcing: object, *, fallback: object) -> object:
-    """Return the units field from one forcing object/Mapping."""
-    if isinstance(forcing, Mapping):
-        return forcing.get("units", fallback)
-    return getattr(forcing, "units", fallback)
 
 
 def resolve_side_boundary_series(
@@ -127,27 +104,24 @@ def side_boundary_is_static(boundary: object) -> bool:
 def build_initial_heads_and_sides(
     adapter: FlowToModflowAdapter,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Build startup ``ibound`` and ``strt`` arrays from flow IC + side BCs."""
+    """Build startup ``ibound`` and ``strt`` arrays from the start state + side BCs.
+
+    A steady start begins at the top here, because the head of its auxiliary
+    solve replaces the array afterwards (``steady_initial_conditions``).
+    """
     ibound = np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float)
 
-    initial_conditions = getattr(adapter.flow, "initial_conditions", None)
-    initial_condition = (
-        None if initial_conditions is None else getattr(initial_conditions, "h", None)
-    )
-    if initial_condition is None:
-        raise ValueError("flow.initial_conditions.h is required for MODFLOW startup")
-
     strt = build_head_initial_condition_array(
-        initial_condition,
+        adapter.model.initial,
         top=adapter.dem,
         bottom=adapter.bottom_layer,
         target_shape=(int(adapter.nlay), int(adapter.nrow), int(adapter.ncol)),
         location_prefix="flow.ic",
     )
 
-    boundary_conditions = adapter._boundary_conditions
-    for bc_id in active_side_dirichlet_boundary_ids(adapter.flow):
-        boundary = boundary_conditions.get(bc_id)
+    boundaries = adapter.model.boundaries
+    for bc_id in boundaries.active_side_dirichlet_ids():
+        boundary = boundaries.get(bc_id)
         if boundary is None:
             continue
         side_head = float(resolve_side_boundary_series(adapter, boundary=boundary, bc_id=bc_id)[0])
@@ -190,9 +164,10 @@ def build_ocean_chd(
     Mutates ``ibound``, ``strt`` and ``drain_array`` in place when the ocean
     boundary is active.
     """
-    if not adapter._is_bc_active("ocean"):
+    boundaries = adapter.model.boundaries
+    if not boundaries.is_active("ocean"):
         return None
-    ocean_boundary = adapter._boundary_conditions.get("ocean")
+    ocean_boundary = boundaries.get("ocean")
     if ocean_boundary is None:
         return None
 
@@ -270,8 +245,9 @@ def build_side_chd(
     }
     has_entries = False
 
-    for bc_id in active_side_dirichlet_boundary_ids(adapter.flow):
-        boundary = adapter._boundary_conditions.get(bc_id)
+    boundaries = adapter.model.boundaries
+    for bc_id in boundaries.active_side_dirichlet_ids():
+        boundary = boundaries.get(bc_id)
         if boundary is None:
             continue
         if side_boundary_is_static(boundary):
@@ -324,6 +300,79 @@ def merge_chd_payloads(
     return merged
 
 
+_MAX_CELLS_NAMED = 5
+
+
+def refuse_constant_heads_below_bottom(
+    adapter: FlowToModflowAdapter,
+    *,
+    ibound: np.ndarray,
+    strt: np.ndarray,
+    chd_spd: Mapping[int, list[list[float]]] | None,
+) -> None:
+    """Refuse a constant head below the bottom of its cell.
+
+    MODFLOW-NWT does not stop on such a head. The cell keeps a head below its
+    bottom and holds no saturated thickness, so the boundary does not act in
+    that layer as written, and the budget of the run drifts. Two kinds of cell
+    are checked: the static ones (``ibound = -1``, head in ``strt``) and the
+    rows of the CHD package (start and end head of each period).
+
+    Raises
+    ------
+    SolverInputError
+        One line per boundary with the cells, their bottom and the head.
+    """
+    botm = np.asarray(adapter.solver_mesh.botm, dtype=float).reshape(
+        (int(adapter.nlay), int(adapter.nrow), int(adapter.ncol))
+    )
+    owner: dict[tuple[int, int, int], str] = {}
+    boundaries = adapter.model.boundaries
+    for bc_id in boundaries.active_side_dirichlet_ids():
+        if boundaries.get(bc_id) is None:
+            continue
+        for cell in iter_side_boundary_cells(adapter, bc_id):
+            owner[cell] = bc_id
+    # (owner, layer, row, col) -> (period, head, bottom) of the first period below.
+    below: dict[tuple[str, int, int, int], tuple[int, float, float]] = {}
+
+    def _check(lay: int, row: int, col: int, head: float, kper: int) -> None:
+        bottom = float(botm[lay, row, col])
+        label = owner.get((lay, row, col), "ocean")
+        key = (label, lay, row, col)
+        if head < bottom and key not in below:
+            below[key] = (kper, head, bottom)
+
+    for lay, row, col in zip(*np.nonzero(np.asarray(ibound) < 0), strict=True):
+        _check(int(lay), int(row), int(col), float(strt[lay, row, col]), 0)
+    for kper in sorted((chd_spd or {}).keys()):
+        for record in chd_spd[kper]:
+            lay, row, col = int(record[0]), int(record[1]), int(record[2])
+            _check(lay, row, col, min(float(record[3]), float(record[4])), int(kper))
+    if not below:
+        return
+
+    lines: list[str] = []
+    for label in sorted({key[0] for key in below}):
+        cells = sorted((key, value) for key, value in below.items() if key[0] == label)
+        named = ", ".join(
+            f"layer {lay} row {row} column {col} "
+            f"(head {head:.2f} m, bottom {bottom:.2f} m, period {kper + 1})"
+            for (_, lay, row, col), (kper, head, bottom) in cells[:_MAX_CELLS_NAMED]
+        )
+        more = len(cells) - _MAX_CELLS_NAMED
+        tail = f", and {more} more" if more > 0 else ""
+        lines.append(f"flow.bc.{label}: {len(cells)} cell(s): {named}{tail}.")
+    raise SolverInputError(
+        "A constant head is below the bottom of its cell. MODFLOW-NWT runs on, but "
+        "the cell holds no saturated thickness, so the boundary does not act there "
+        "as written. "
+        + " ".join(lines)
+        + " Raise the head above the bottom of the aquifer there, give the boundary "
+        "a deeper aquifer (domain.depth_model), or write enabled = false in its table."
+    )
+
+
 def validate_ibound_strt_contract(
     *,
     nlay: int,
@@ -362,12 +411,11 @@ __all__ = [
     "build_initial_heads_and_sides",
     "build_ocean_chd",
     "build_side_chd",
-    "coerce_length_series_to_m",
-    "forcing_units",
     "is_scalar_number",
     "iter_side_boundary_cells",
     "merge_chd_payloads",
     "normalize_boundary_series",
+    "refuse_constant_heads_below_bottom",
     "resolve_side_boundary_series",
     "side_boundary_is_static",
     "validate_ibound_strt_contract",

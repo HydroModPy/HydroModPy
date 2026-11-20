@@ -1,0 +1,15 @@
+schema = "hydromodpy.install.v1"
+hydromodpy_version = "2.0.0"
+
+[[file]]
+dest = "data/piezometry/piezometry_custom_W1_D.csv"
+size = 45
+sha256 = "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3"
+root = "project"
+provider = "custom"
+license = "LicenseRef-undetermined"
+sidecar_sha256 = "2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131"
+request = {station = "W1", period = ["2003-01-01T00:00:00", "2003-01-02T00:00:00"]}
+
+[[site]]
+site = "island"

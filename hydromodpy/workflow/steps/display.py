@@ -1,13 +1,20 @@
-"""Step 11 - auto-render the figures listed in ``[display].figures``.
+"""Step 13 - draw the ``[[display.figure]]`` tables of the config, after the seal.
 
-Runs after :class:`DeriveStep` and before :class:`ExportStep`. Figures are
-the last reader of the run: they draw from the still-open store, so they see
-the intermediate fields (the raw per-cell budget) that the export step drops
-right before sealing. Each figure declared in the TOML is written into
-``<project_root>/runs/<run>/<display.output_dir>/``.
+Runs last, after :class:`SealStep` and the exports that follow it. The
+figures render the sealed run: they open its store on the run directory, as
+``hmp show <run> --figure NAME`` does, for their own span. Each figure declared in the
+TOML is written into ``runs/<run>/figures/``, stamped with the identity of
+the run (its label of the day, the rules it follows and the date) and
+recorded in ``figures/index.json``. A session figure draws the calibration
+session that promoted the run.
 
-Skipped silently when ``display.enabled`` is false, when ``display.figures``
-is empty, or when the pipeline was set to headless via
+A figure that fails under ``on_error = "raise"`` leaves the run sealed and
+``completed``: the step raises :class:`~hydromodpy.core.exceptions.DisplayError`
+naming ``hmp show <run> --figure <figure>``, which draws it again.
+
+Skipped silently when ``display.enabled`` is false, when ``display.figure``
+is empty, when the run is a kept calibration trial (the ``research`` level,
+which draws nothing), or when the pipeline was set to headless via
 ``state.data["skip_display"]`` (honored by the CLI ``--no-display`` flag).
 
 Inputs
@@ -23,114 +30,153 @@ downstream tooling/tests.
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-from hydromodpy.core import progress
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.console import progress
+from hydromodpy.core.exceptions import ConfigError, DisplayError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.internals.state import DerivedState, PipelineState
+from hydromodpy.core.pipeline_steps import FIGURE_STEPS
+from hydromodpy.core.runtime.stopwatch import Measure
+from hydromodpy.display.request import AFTER
+from hydromodpy.results.storage.kept import renders
+from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.runner import record_measure
+from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
-    from hydromodpy.core.state.run_state import WorkflowContext
+    from collections.abc import Callable
+
     from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 
 
-def _render_figures_tracked(
+def _render_requests(
     run: Run,
     display_cfg: DisplayConfig,
     *,
     output_dir: Path,
-    figure_names: list[str],
+    on_measure: Callable[[Measure], None] | None = None,
+    run_name: str | None = None,
 ) -> list[Path]:
-    """Render figures one at a time so the progress bar advances per figure.
+    """Draw each ``[[display.figure]]`` of ``when = "end"``: one render and one write each.
 
-    Individual figures log nothing on success (a skip or a per-figure failure
-    warning aside); this emits a single summary line for the whole batch,
-    naming every requested figure that produced nothing.
+    A figure that does not apply to the run is skipped with a warning: the file asked for
+    it, and a figure that never appears with no word looked like a run that hung. Any
+    other failure follows ``on_error``, with the same sealed-run message.
     """
-    from hydromodpy.display.runs import (
-        FigureRenderReport,
-        log_render_summary,
-        render_figures_for_run,
-    )
+    if not display_cfg.figure:
+        return []
+    from hydromodpy.display.presets import PRESETS
+    from hydromodpy.display.request import file_stem
+    from hydromodpy.display.runs import display_theme, draw_requests
 
-    report = FigureRenderReport()
-    for figure_name in progress.track(figure_names, "Rendering figures"):
-        report = report.merged_with(
-            render_figures_for_run(
+    presets = {**PRESETS, **display_cfg.presets}
+    theme = display_theme(display_cfg)
+    written: list[Path] = []
+    for request in progress.track(display_cfg.figure, "Rendering figures"):
+        try:
+            report = draw_requests(
                 run,
-                display_cfg,
+                [request],
+                presets=presets,
+                theme=theme,
                 output_dir=output_dir,
-                figure_names=[figure_name],
+                on_error=display_cfg.on_error,
+                on_measure=on_measure,
             )
+        except Exception as exc:
+            if run_name is None:
+                raise
+            stem = file_stem(request)
+            raise DisplayError(
+                f"run {run_name} is sealed; draw the figure again with "
+                f"hmp show {run_name} --figure {stem}: {exc}"
+            ) from exc
+        written.extend(report.written)
+        for item in report.skipped:
+            if not item.actionable:  # a failure has its warning already
+                logger.warning("Figure %s not drawn: %s", item.name, item.reason)
+    return written
+
+
+def _display_config(state: PipelineState) -> DisplayConfig | None:
+    """Return the ``[display]`` section when this run draws figures, else None and say why."""
+    ctx = state.get("ctx")
+    if state.get("skip_display"):
+        logger.info("DisplayStep skipped (skip_display=True)")
+        return None
+    display_cfg = getattr(ctx.cfg, "display", None)
+    if display_cfg is None or getattr(ctx, "sim_id", None) is None or not run_is_persisted(ctx):
+        logger.debug("DisplayStep: no display config, no sim_id or no store, skipping")
+        return None
+    if not renders(getattr(ctx, "level", None) or "result"):
+        logger.info("DisplayStep skipped: a kept calibration trial draws nothing")
+        return None
+    if not display_cfg.enabled or not display_cfg.figure:
+        # At info, not debug: a run that draws nothing looks exactly like a
+        # run whose figure list silently emptied.
+        logger.info(
+            "No figure rendered: [display] enabled = %s, %d [[display.figure]] table(s).",
+            display_cfg.enabled,
+            len(display_cfg.figure),
         )
-    log_render_summary(report, destination=output_dir)
+        return None
+    return display_cfg
+
+
+def draw_after(state: PipelineState, step: str) -> list[Path]:
+    """Draw the figures of ``when = "after:<step>"`` from the run as written so far.
+
+    The run store is open from ``prepare_solver`` on, so a step before it, or one
+    out of ``FIGURE_STEPS``, returns at once without opening the store. The run is not sealed yet, so a figure never
+    fails it: ``on_error`` is always ``warn``, and ``hmp show`` draws the figure again.
+    """
+    ctx = state.get("ctx")
+    when = AFTER + step
+    asked = getattr(getattr(getattr(ctx, "cfg", None), "display", None), "figure", None) or ()
+    if step not in FIGURE_STEPS or not any(getattr(r, "when", None) == when for r in asked):
+        return []
+    display_cfg = _display_config(state)
+    if display_cfg is None:
+        return []
+    from hydromodpy.display.presets import PRESETS
+    from hydromodpy.display.runs import display_theme, draw_requests, figures_dir_of
+    from hydromodpy.results.run.view import Run
+
+    with run_store(ctx) as store:
+        report = draw_requests(
+            Run(ctx.sim_id, store),
+            display_cfg.figure,
+            presets={**PRESETS, **display_cfg.presets},
+            theme=display_theme(display_cfg),
+            output_dir=figures_dir_of(Path(ctx.run_dir)),
+            on_error="warn",
+            on_measure=partial(record_measure, ctx.run_dir, attempt=ctx.attempt),
+            when=when,
+        )
     return list(report.written)
 
 
-def step_render_figures(
-    ctx: WorkflowContext,
-    run: Run,
-    *,
-    sim_id: str,
-    run_name: str | None,
-    headless: bool = False,
-    no_display: bool = False,
-    figures: list[str] | None = None,
-) -> list[Path]:
-    """Render the figures declared in [display].figures.
-
-    Returns the list of files produced (possibly empty). Exits early if the
-    caller is headless, if display is disabled, or if no figures are declared.
-    Rendering errors are logged but do not propagate.
-    """
-    if headless or no_display:
-        return []
-    display_cfg = getattr(ctx.cfg, "display", None)
-    if display_cfg is None or not display_cfg.enabled:
-        return []
-    requested = figures or display_cfg.figures
-    if not requested:
-        return []
-
-    from hydromodpy.display.runs import resolve_run_output_dir
-
-    workspace = ctx.setup.workspace
-    if workspace is None:
-        raise ConfigError("Workspace is required to render display figures.")
-    project_root = workspace.project_root
-    out_dir = resolve_run_output_dir(
-        display_cfg,
-        project_root=project_root,
-        run_name=run_name,
-        sim_id=sim_id,
-    )
-    try:
-        return _render_figures_tracked(
-            run,
-            display_cfg,
-            output_dir=out_dir,
-            figure_names=list(requested),
-        )
-    except Exception:
-        logger.exception("Auto-render of figures failed for sim %s", sim_id)
-        return []
-
-
 class DisplayStep:
-    """Render the figures declared in ``[display].figures`` before export."""
+    """Draw the figures declared in ``[[display.figure]]`` from the sealed run."""
 
     name = "display"
-    tin: ClassVar[type] = DerivedState
-    tout: ClassVar[type] = DerivedState
+    reads: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "skip_display",
+    )
+    writes: ClassVar[tuple[str, ...]] = (
+        "ctx",
+        "rendered_figures",
+    )
     config_sections: ClassVar[tuple[str, ...]] = ("display",)
 
     def depends_on(self) -> tuple[str, ...]:
-        return ("derive",)
+        return ("seal",)
 
     def rebuild_state(
         self,
@@ -139,30 +185,18 @@ class DisplayStep:
         workspace: Path,
         run_id: str,
     ) -> PipelineState:
-        """List the previously rendered PNGs from the display output dir."""
+        """List the figures ``figures/index.json`` of the run records."""
+        from hydromodpy.display.runs import figures_dir_of
+        from hydromodpy.results.ledger import Ledger
+
         ctx = prior_state.get("ctx")
         if ctx is None:
             raise ConfigError("DisplayStep.rebuild_state requires 'ctx' in state.data")
         rendered: list[Path] = []
-        display_cfg = getattr(ctx.cfg, "display", None)
-        ws = getattr(getattr(ctx, "setup", None), "workspace", None)
-        project_root = getattr(ws, "project_root", None)
-        sim_id = getattr(ctx, "sim_id", None)
-        if display_cfg is not None and project_root is not None and sim_id is not None:
-            try:
-                from hydromodpy.display.runs import resolve_run_output_dir
-
-                run_name = getattr(getattr(ctx, "setup", None), "run_id", None)
-                out_dir = resolve_run_output_dir(
-                    display_cfg,
-                    project_root=project_root,
-                    run_name=run_name,
-                    sim_id=sim_id,
-                )
-                if Path(out_dir).is_dir():
-                    rendered = sorted(Path(out_dir).glob("*.png"))
-            except Exception:
-                rendered = []
+        run_dir = getattr(ctx, "run_dir", None)
+        if run_dir is not None:
+            figures_dir = figures_dir_of(Path(run_dir))
+            rendered = [figures_dir / entry.file for entry in Ledger.read(figures_dir).entries]
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
             step_name=self.name,
@@ -171,54 +205,32 @@ class DisplayStep:
         )
 
     def run(self, state: PipelineState) -> PipelineState:
-        from hydromodpy.display.runs import resolve_run_output_dir
+        from hydromodpy.display.runs import figures_dir_of
 
         ctx = state.get("ctx")
         if ctx is None:
             raise ConfigError("DisplayStep requires 'ctx' in state.data")
 
         rendered: list = []
+        display_cfg = _display_config(state)
+        if display_cfg is not None:
+            from hydromodpy.results.run.view import Run
+            from hydromodpy.workflow.steps.export import sealed_run_name, sealed_run_store
 
-        if state.get("skip_display"):
-            logger.info("DisplayStep skipped (skip_display=True)")
-        else:
-            display_cfg = getattr(ctx.cfg, "display", None)
-            sim_id = getattr(ctx, "sim_id", None)
-            store = getattr(ctx, "store", None)
-            if display_cfg is None or sim_id is None or store is None:
-                logger.debug("DisplayStep: no display config, sim_id or store, skipping")
-            elif not display_cfg.enabled or not display_cfg.figures:
-                # At info, not debug: a run that draws nothing looks exactly
-                # like a run whose figure list silently emptied, and the second
-                # one is a real accident. In TOML a table header swallows every
-                # key below it, so a `[display.overrides.<fig>]` written above
-                # `figures` takes the list with it and nothing warns.
-                logger.info(
-                    "No figure rendered: [display] enabled = %s, figures lists %d name(s).",
-                    display_cfg.enabled,
-                    len(display_cfg.figures),
-                )
-            else:
-                project_root = ctx.setup.workspace.project_root
-                sim = store[sim_id]
-                out_dir = resolve_run_output_dir(
-                    display_cfg,
-                    project_root=project_root,
-                    run_name=sim.name,
-                    sim_id=sim_id,
-                )
-                rendered = _render_figures_tracked(
+            run_dir = Path(ctx.run_dir)
+            with sealed_run_store(ctx) as store:
+                sim = Run(ctx.sim_id, store)
+                out_dir = figures_dir_of(run_dir)
+                on_measure = partial(record_measure, ctx.run_dir, attempt=ctx.attempt)
+                rendered = _render_requests(
                     sim,
                     display_cfg,
                     output_dir=out_dir,
-                    figure_names=list(display_cfg.figures),
+                    on_measure=on_measure,
+                    run_name=sealed_run_name(run_dir),
                 )
-                if rendered:
-                    logger.debug(
-                        "DisplayStep rendered %d figure(s) in %s",
-                        len(rendered),
-                        out_dir,
-                    )
+            if rendered:
+                logger.debug("DisplayStep rendered %d figure(s) in %s", len(rendered), out_dir)
 
         return state.advance(
             step_index=state.step_index + 1,

@@ -1,0 +1,233 @@
+/* Site chrome on top of pydata-sphinx-theme 0.23 (loaded by _ext/hmp_site.py). */
+
+/* Fonts. Inter and JetBrains Mono ship with the site (_static/fonts, SIL OFL 1.1,
+   latin subset, one variable file each). The theme itself loads no text font.
+   font-display: swap shows the text at once. The fallback faces below are the
+   system fonts stretched to the metrics of the web font, so the swap moves no
+   line: text keeps its width and height when the real font arrives. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/inter-latin-wght.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 100 500;
+  src: local("Arial"), local("Liberation Sans"), local("Helvetica"), local("Arimo");
+  size-adjust: 106.8%;
+  ascent-override: 90.7%;
+  descent-override: 22.6%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 600 900;
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"),
+    local("Helvetica Bold"), local("Arimo Bold");
+  size-adjust: 101.2%;
+  ascent-override: 95.7%;
+  descent-override: 23.8%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("../fonts/jetbrains-mono-latin-wght.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono Fallback";
+  src: local("Courier New"), local("Liberation Mono"), local("Cousine");
+  size-adjust: 100%;
+  ascent-override: 102%;
+  descent-override: 30%;
+  line-gap-override: 0%;
+}
+html {
+  --pst-font-family-base: "Inter", "Inter Fallback", var(--pst-font-family-base-system);
+  --pst-font-family-heading: "Inter", "Inter Fallback", var(--pst-font-family-base-system);
+  --pst-font-family-monospace: "JetBrains Mono", "JetBrains Mono Fallback",
+    var(--pst-font-family-monospace-system);
+}
+/* A != or -> in a code sample stays two characters. */
+code, pre, kbd, samp { font-variant-ligatures: none; }
+
+/* Before the theme script runs, data-theme is "auto" and the theme shows both
+   logos side by side: the header is two rows tall, then one. The system
+   preference picks the logo from the first paint. */
+@media (prefers-color-scheme: light) {
+  html[data-theme="auto"] .only-dark { display: none !important; }
+}
+@media (prefers-color-scheme: dark) {
+  html[data-theme="auto"] .only-light { display: none !important; }
+}
+
+/* The version button keeps its width while the version list loads: the label
+   "Choose version" is wider than the name that replaces it, and the header
+   wrapped to a second row until then. The theme sets data-active-version-name
+   when the list is in. */
+.bd-header .version-switcher__button { min-width: 4.1rem; }
+.bd-header .version-switcher__button:not([data-active-version-name]) {
+  width: 4.1rem;
+  font-size: 0;
+}
+.bd-header .version-switcher__button:not([data-active-version-name])::before {
+  content: "Version";
+  font-size: .875rem;
+  margin-right: .255em;
+}
+
+/* Header: one row at every width, and anchors land below it. From 1440 px the
+   links start at the content column, away from the logo, as on the site before
+   2.0. Below, the theme's logo column (a quarter of the width) leaves the seven
+   doors, the search, the theme, the version and the two icons no room: the logo
+   takes its own width and the links start 2rem after it, the search shows its
+   icon only, the gaps close, the logo gets smaller, and under 1100 px the labels
+   too. tools/docs/site_probe.py measures the height at 390, 768, 961, 1024,
+   1100, 1200, 1280 and 1440 px. */
+.bd-header .navbar-nav .nav-link { white-space: nowrap; }
+html { scroll-padding-top: calc(var(--pst-header-height) + 1rem); }
+@media (min-width: 960px) and (max-width: 1439.98px) {
+  .bd-header .navbar-header-items__start { flex: 0 0 auto; width: auto; margin-right: 2rem; }
+  .bd-header .navbar-header-items { flex: 1 1 auto; width: auto; }
+  .bd-header .navbar-header-items__end .search-button__default-text,
+  .bd-header .navbar-header-items__end .search-button__kbd-shortcut { display: none; }
+  .bd-header .navbar-header-items__center,
+  .bd-header .navbar-header-items__end { column-gap: .35rem; }
+  .bd-header .navbar-header-items { padding-left: .25rem; }
+  .bd-header ul.navbar-nav > li.nav-item > .nav-link { padding-inline: 4px; }
+}
+@media (min-width: 960px) and (max-width: 1279.98px) {
+  .bd-header .navbar-brand img.logo__image { height: 1.9rem; }
+  .bd-header .navbar-header-items__start { margin-right: 1.25rem; }
+  .bd-header ul.navbar-nav > li.nav-item > .nav-link { font-size: .9rem; }
+}
+@media (min-width: 960px) and (max-width: 1099.98px) {
+  /* Inter is wider than the system font: at 961 px the end group wrapped by 10 px. */
+  .bd-header ul.navbar-nav > li.nav-item > .nav-link { font-size: .82rem; padding-inline: 3px; }
+  .bd-header .navbar-header-items__start { margin-right: .75rem; }
+  .bd-header .navbar-header-items__center,
+  .bd-header .navbar-header-items__end { column-gap: .15rem; }
+  .bd-header .navbar-brand img.logo__image { height: 1.5rem; }
+}
+
+/* Text on the gray of a table bar or a code caption reaches 4.5:1 (WCAG AA).
+   The theme's teal reaches 4.38:1 there, so the light primary is a little darker. */
+html:root[data-theme="light"] { --pst-color-primary: #097083; }
+
+/* The logo box is sized before the image loads: no layout shift. It is as wide
+   as on the site before 2.0, whose image had margins around the same drawing. */
+.navbar-brand img.logo__image { height: 2.6rem; width: auto; aspect-ratio: 629 / 96; }
+@media (max-width: 960px) {
+  .navbar-brand img.logo__image { height: 1.6rem; }
+}
+
+/* The page and the reading column are as wide as on the site before 2.0: the
+   text uses the screen instead of a 60em column. */
+.bd-page-width { max-width: 100rem; }
+.bd-main .bd-content .bd-article-container { max-width: 80rem; }
+
+/* Long inline literals wrap instead of widening the page. */
+.bd-article :is(p, li, dd) code,
+.bd-article :is(p, li, dd) code .pre { white-space: normal; overflow-wrap: anywhere; }
+
+/* Code pills in table cells wrap instead of cutting the column. */
+.bd-article table:not(.api-t) td :is(code, .pre) { white-space: normal; overflow-wrap: anywhere; }
+
+/* Tables written by the extensions scroll inside the article on a phone. */
+@media (max-width: 760px) {
+  .bd-article table.hmp-cat,
+  .bd-article table.api-t,
+  .bd-article table.hmp-val-matrix,
+  .bd-article table.hmp-qt,
+  .bd-article table.indextable { display: block; overflow-x: auto; max-width: 100%; }
+}
+
+/* Admonitions do not lose a seventh of a phone screen to their indent. */
+@media (max-width: 600px) {
+  .bd-article .admonition { padding-left: .5rem; padding-right: .5rem; }
+  .bd-article .admonition > :not(.admonition-title) { margin-left: .2rem; margin-right: .2rem; }
+}
+
+/* Small labels never fall under 0.8 rem. */
+.tc, .hmp-b { font-size: max(.72em, .8rem); }
+
+/* Names in the sidebars: lighter than bold monospace. */
+.bd-sidebar-primary code, .bd-sidebar-secondary code { font-weight: 500; font-size: .88em; }
+
+/* Long dotted names of the page contents break after a dot (hmp-site.js). */
+.bd-sidebar-secondary .toc-entry :is(code, .pre) { white-space: normal; overflow-wrap: break-word; }
+
+/* One card look across the site, aligned with the text column. */
+.bd-article .sd-container-fluid { padding-left: 0; padding-right: 0; }
+.bd-article .sd-row { margin-left: 0; margin-right: 0; }
+.bd-article .sd-card { border: 1px solid var(--pst-color-border); border-radius: .45rem; box-shadow: none; }
+.bd-article .sd-card:hover { border-color: var(--pst-color-primary); }
+.bd-article .sd-card ul { list-style: none; padding-left: 0; }
+
+/* Images keep their ratio: hmp_site.py gives each one its intrinsic width and height. */
+.bd-article img { height: auto; }
+
+/* Figures are white images: dim them in dark mode. An image with a dark twin
+   (hmp_site.py adds class dark-light) is not dimmed: the twin is drawn dark. */
+html[data-theme="dark"] .bd-article figure img:not(.dark-light) { filter: brightness(.88); }
+
+/* One of the two images of a pair is shown, by theme. Without script the page
+   is light. */
+html[data-theme="dark"] .bd-article :is(img, a).hmp-light { display: none; }
+html:not([data-theme="dark"]) .bd-article :is(img, a).hmp-dark { display: none; }
+
+/* Glossary terms: a dotted underline says a definition is one hover or tap away. */
+.bd-article a.reference.internal[href*="#term-"] {
+  text-decoration: underline dotted;
+  text-underline-offset: .2em;
+}
+
+/* Zoomable figures say so. */
+.bd-article figure img.hmp-zoomable { cursor: zoom-in; }
+
+/* Without the theme's fontawesome.js the icons stay <i> elements drawn by the
+   web font; three theme rules select them as <svg>. */
+@media (max-width: 959.98px) {
+  .search-button-field > i { display: inline-block; }
+}
+ul.navbar-icon-links i.fa-brands,
+ul.navbar-icon-links i.fa-solid { font-size: var(--pst-font-size-icon); vertical-align: middle; }
+#pst-search-dialog[open] form.bd-search i { font-size: var(--pst-font-size-icon); }
+form.bd-search i.fa-solid.fa-magnifying-glass { position: static; }
+
+/* The box that opens a step (hmp-task): Task, Time, Needs, Gives. */
+.bd-article .hmp-task {
+  border: 1px solid var(--pst-color-border);
+  border-left: 4px solid var(--pst-color-primary);
+  border-radius: .4rem;
+  padding: .6rem 1rem;
+  margin: 1rem 0 1.5rem;
+  background: var(--pst-color-surface);
+}
+.bd-article .hmp-task dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 1rem;
+  row-gap: .3rem;
+  margin: 0;
+}
+.bd-article .hmp-task dt { font-weight: 600; margin: 0; }
+.bd-article .hmp-task dd { margin: 0; }
+.bd-article .hmp-task dd p { margin: 0; }
+@media (max-width: 600px) {
+  .bd-article .hmp-task dl { grid-template-columns: 1fr; row-gap: 0; }
+  .bd-article .hmp-task dd { margin-bottom: .4rem; }
+}
+
+/* Line numbers of a TOML block, the gap marks of the validation page: text colors
+   that reach 4.5:1 on their own background, in both themes. */
+.bd-article pre.hmp-toml .ln { opacity: 1; color: #6b7280; }
+.bd-article .hmp-vs-gap { color: #a33d00; }
+.bd-article .hmp-val-gapmark { color: #8a3600; }
+html[data-theme="dark"] .bd-article pre.hmp-toml .ln { color: #9aa3af; }
+html[data-theme="dark"] .bd-article .hmp-vs-gap { color: #ff9245; }
+html[data-theme="dark"] .bd-article .hmp-val-gapmark { color: #ffb070; }

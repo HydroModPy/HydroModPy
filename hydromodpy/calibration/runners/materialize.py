@@ -1,7 +1,7 @@
-"""Materialise a self-contained TOML overlay for one calibration candidate.
+"""Materialize a self-contained TOML overlay for one calibration candidate.
 
 The overlay inherits the target simulation config via ``base_config`` and
-rewrites each configured parameter at its target dotted path (honouring
+rewrites each configured parameter at its target dotted path (honoring
 ``mode="replace"`` or ``"scale"``). The resulting file can be loaded by
 :class:`hydromodpy.Project` and re-run independently of the calibration
 session, which makes it the natural hand-off for sharing the best
@@ -12,13 +12,16 @@ so the output remains valid TOML and round-trips through :mod:`tomllib`
 even in lightweight environments where external TOML writer packages are
 not installed. The ``base_config`` argument accepts either a path to a
 TOML file on disk or an in-memory
-:class:`~hydromodpy.config.HydroModPyConfig` instance; the latter is
+:class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig` instance; the latter is
 useful when the calibration loop is driven from Python code.
 """
 
 from __future__ import annotations
 
+import io
+import os
 import re
+import uuid
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from pathlib import Path
@@ -27,7 +30,8 @@ from typing import Any
 from pydantic import BaseModel
 
 from hydromodpy.calibration.optim.parameters import ParameterSpace
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.calibration.runners.trial import trial_pipeline
+from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.core.toml_io.writer import dump as dump_toml
 
 
@@ -37,10 +41,6 @@ def _sanitize_label(label: str) -> str:
     if not text:
         raise ValueError("candidate_label cannot be empty")
     return re.sub(r"[^a-z0-9_.-]+", "_", text)
-
-
-def _split_target_path(target: str) -> tuple[str, ...]:
-    return tuple(part for part in str(target).strip().split(".") if part)
 
 
 def _lookup_nested(payload: Mapping[str, Any], dotted: Sequence[str]) -> Any:
@@ -107,19 +107,34 @@ def _coerce_for_toml(value: Any) -> Any:
 
 
 def write_overlay_toml(path: Path, payload: Mapping[str, Any]) -> None:
-    """Render *payload* to TOML at *path*.
+    """Render *payload* to TOML at *path*, whole or not at all.
 
-    Public helper kept so callers that need to drop a calibration overlay
-    next to a TOML file (for example the Python-mode of
-    :meth:`Project.calibrate`) can rely on a stable serialisation entry
-    point rather than reaching into a private symbol.
+    The document is rendered in memory, written to a sibling temporary file,
+    flushed to the disk and renamed onto *path* in one step: a reader, or a
+    replay after a crash, sees the previous document or the new one, never a
+    truncated one. The frozen ``config.toml`` of a session and the document
+    of a Python-mode calibration are written here.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     coerced = _coerce_for_toml(payload)
     if not isinstance(coerced, dict):
         raise TypeError("write_overlay_toml expects a mapping payload")
-    with open(path, "wb") as fh:
-        dump_toml(coerced, fh)
+    # A file never holds project_root: the loader takes it from where the file sits.
+    workspace = coerced.get("workspace")
+    if isinstance(workspace, dict):
+        workspace.pop("project_root", None)
+    rendered = io.BytesIO()
+    dump_toml(coerced, rendered)
+    staged = path.with_name(f"{path.name}.tmp-{uuid.uuid4().hex}")
+    try:
+        with open(staged, "wb") as fh:
+            fh.write(rendered.getvalue())
+            fh.flush()
+            os.fsync(fh.fileno())
+        rename_over_open_file(staged, path)
+    except BaseException:
+        staged.unlink(missing_ok=True)
+        raise
 
 
 def _load_base_payload(
@@ -140,7 +155,7 @@ def _load_base_payload(
     base_path = Path(base_config).expanduser().resolve()
     if not base_path.is_file():
         raise FileNotFoundError(f"base_config not found: {base_path}")
-    return load_toml_with_base_config(base_path), base_path
+    return trial_pipeline().load_document(base_path), base_path
 
 
 def _apply_parameter_mode(
@@ -196,7 +211,7 @@ def materialize_candidate(
     ----------
     base_config
         Path to the target simulation TOML or an in-memory
-        :class:`~hydromodpy.config.HydroModPyConfig` instance. When a
+        :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig` instance. When a
         config object is passed, the overlay is built from
         ``model_dump`` and ``base_config`` in the overlay falls back to
         ``base_dir`` (when supplied) so the file remains rechargeable.
@@ -227,7 +242,7 @@ def materialize_candidate(
         Reference directory for relative path rewriting. When supplied,
         ``base_config`` and ``workspace.root`` paths inside the overlay
         are emitted relative to this directory; otherwise absolute paths
-        are written (the historical behaviour).
+        are written (the historical behavior).
 
     Returns
     -------
@@ -281,7 +296,7 @@ def materialize_candidate(
             continue
         if param.name not in params:
             raise ValueError(f"Parameter {param.name!r} missing from candidate params mapping")
-        dotted = _split_target_path(target)
+        dotted = tuple(part for part in str(target).strip().split(".") if part)
         overlay_dotted = _resolve_overlay_target_path(base_raw, dotted)
         base_value = _lookup_nested(base_raw, overlay_dotted)
         resolved = _apply_parameter_mode(

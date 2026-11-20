@@ -22,12 +22,13 @@ class VisibleWhen:
     ----------
     field : str
         Name of the sibling field to check.
-    values : str or tuple of str
-        Accepted value(s) that make this field visible.
+    values : str, bool, or a tuple of them
+        Accepted value(s) that make this field visible. A boolean names the
+        state of a sibling switch.
     """
 
     field: str
-    values: str | tuple[str, ...]
+    values: str | bool | tuple[str | bool, ...]
 
     def matches(self, current_value: object) -> bool:
         """Return True if *current_value* matches the visibility condition."""

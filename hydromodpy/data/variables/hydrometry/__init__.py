@@ -1,1 +1,1 @@
-"""Hydrometry data manager -- discharge and water level time series."""
+"""Hydrometry data variable -- discharge and water level time series."""

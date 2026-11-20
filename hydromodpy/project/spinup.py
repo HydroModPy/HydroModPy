@@ -1,13 +1,15 @@
-"""Cyclic spin-up driver: repeat a forcing window until the state stabilises.
+"""Cyclic spin-up driver: repeat a forcing window until the state stabilizes.
 
 Each cycle runs the representative window, then the next cycle restarts from the
-previous cycle's Zarr (``[flow] restart_from``). The loop stops when the aquifer
+previous cycle's run (``[flow] restart_from``). The state of a cycle is read from
+its ``final_state/``, in float64, so the comparison between two cycles and the start
+of the next one never see the rounding of a compact field store. The loop stops when the aquifer
 heads and the lake stage stop changing between cycles (L-inf below tolerance) or
 ``max_cycles`` is reached. The converged state is a reusable antecedent: point a
 production run (or every calibration trial) at ``result.restart_from``.
 
 The driver reuses one :class:`~hydromodpy.project.facade.Project`, so the mesh is
-built once and is identical across cycles by construction. The mesh cache matters
+built once and is identical across cycles by construction. The product store matters
 only for a *later, separate* run that restarts from the converged Zarr.
 """
 
@@ -15,17 +17,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
-from hydromodpy.simulation.spinup_config import SpinupConfig
-from hydromodpy.solver.modflow6.builders.initial_conditions import (
-    read_final_head,
-    read_restart_lake_stages,
-)
+from hydromodpy.model.initial_config import FlowInitialConditions, SpinupConfig
+from hydromodpy.results.storage.prior_state import read_final_head, read_restart_lake_stages
 
 if TYPE_CHECKING:
     from hydromodpy.project.facade import Project
@@ -38,11 +36,21 @@ class SpinupCycle:
     """One spin-up cycle's run and its change from the previous cycle."""
 
     index: int
+    """Position of the cycle in the loop, from 0."""
+
     sim_id: str
+    """Id of the run this cycle made."""
+
     zarr_path: str
-    d_head: float | None  # None on cycle 0 (no prior cycle to diff against)
+    """Path of the ``fields.zarr`` store of that run."""
+
+    d_head: float | None
+    """Largest absolute head change from the previous cycle over active cells, in m.
+    None on cycle 0, which has no previous cycle."""
+
     d_stage: float | None
-    """None on cycle 0, and also when the two cycles shared no lake to compare."""
+    """Largest absolute lake-stage change from the previous cycle, in m. None on
+    cycle 0, and also when the two cycles shared no lake to compare."""
 
 
 @dataclass(frozen=True)
@@ -54,13 +62,40 @@ class SpinupResult:
     """
 
     converged: bool
+    """True when a cycle changed the heads and the lake stages by less than the
+    tolerances. False when the loop ran out of cycles first."""
+
     cycles: list[SpinupCycle]
+    """Every cycle that ran, in order."""
+
     restart_from: str
-    production_sim_id: str | None = None  # set when --then-run chains a production run
+    """``fields.zarr`` path of the converged cycle, or of the last one."""
+
+    production_sim_id: str | None = None
+    """Id of the production run chained after the loop (``--then-run``), else None."""
 
     @property
     def n_cycles(self) -> int:
+        """Number of cycles that ran."""
         return len(self.cycles)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the outcome as JSON: the cycles, ``restart_from`` and the warning to give.
+
+        A cycle gives its ``index``, ``d_head`` and ``d_stage``. ``warning`` is
+        :meth:`antecedent_warning`, ``None`` for a loop that converged.
+        """
+        return {
+            "converged": self.converged,
+            "n_cycles": self.n_cycles,
+            "cycles": [
+                {"index": cycle.index, "d_head": cycle.d_head, "d_stage": cycle.d_stage}
+                for cycle in self.cycles
+            ],
+            "restart_from": self.restart_from,
+            "warning": self.antecedent_warning(),
+            "production_sim_id": self.production_sim_id,
+        }
 
     def antecedent_warning(self) -> str | None:
         """Return what to say before this state is used as an antecedent.
@@ -101,6 +136,8 @@ def lake_stage_delta(
 def cycle_delta(prev_zarr: str, curr_zarr: str) -> tuple[float, float | None]:
     """Return ``(d_head, d_stage)``, the L-inf change (m) between two cycles.
 
+    The cycles are read through ``read_final_head`` and ``read_restart_lake_stages``, which
+    take ``final_state/`` of the run when it has one.
     ``d_head`` is the largest absolute head change over active cells.
     ``d_stage`` is the largest absolute lake-stage change over the lakes present
     in both cycles, ``0.0`` on a model with no lake, and ``None`` when the two
@@ -123,6 +160,31 @@ def cycle_delta(prev_zarr: str, curr_zarr: str) -> tuple[float, float | None]:
     )
 
 
+def _compare_cycles(
+    index: int, prev_zarr: str, zarr_path: str, settings: SpinupConfig
+) -> tuple[float, float | None]:
+    """Return the head and lake-stage change from the previous cycle, and log them."""
+    d_head, d_stage = cycle_delta(prev_zarr, zarr_path)
+    logger.info(
+        "spin-up cycle %d: d_head=%.4g m, d_stage=%s (tol %.4g / %.4g)",
+        index,
+        d_head,
+        "not compared" if d_stage is None else f"{d_stage:.4g} m",
+        settings.tol_head,
+        settings.tol_stage,
+    )
+    if d_stage is None:
+        # The two cycles name different lakes, so the stage was never
+        # compared. Calling that convergence would be a claim about a
+        # measurement nobody made.
+        logger.warning(
+            "spin-up cycle %d: the two cycles share no lake, so the stage was "
+            "not compared and this cycle cannot converge on it.",
+            index,
+        )
+    return d_head, d_stage
+
+
 def run_spinup(
     project: Project,
     *,
@@ -137,7 +199,7 @@ def run_spinup(
     heads. ``spinup`` defaults to the project's ``[spinup]`` section, then to
     :class:`SpinupConfig` defaults.
     """
-    cfg = project.config
+    cfg = project._cfg
     settings = spinup or cfg.spinup or SpinupConfig()
 
     # run_spinup drives ONE Project through cycles by mutating its config in place
@@ -149,21 +211,21 @@ def run_spinup(
         cfg.flow.restart_from,
         cfg.flow.ic,
     )
+    persistence = getattr(getattr(cfg.simulation, "results", None), "persistence", None)
+    saved_precision = getattr(persistence, "field_precision", None)
     try:
+        # The stored heads of a cycle are what a user compares and what a later run
+        # may restart from: they are written exact, so the rounding of the compact
+        # precision (up to 2**-17 of the head) never enters them. The restart and
+        # the comparison between cycles read ``final_state/``, exact by itself.
+        if persistence is not None:
+            persistence.field_precision = "exact"
         # A dedicated, shorter representative window keeps each cycle cheap. Set it
         # before prepare() so the data step loads forcing for the cycle window.
         if settings.window_start is not None:
             cfg.simulation.time.start_datetime = settings.window_start
         if settings.window_end is not None:
             cfg.simulation.time.end_datetime = settings.window_end
-
-        if cfg.mesh_catchment is None or not cfg.mesh_catchment.cache:
-            logger.warning(
-                "spin-up reuses one Project, so its mesh is stable across cycles. But a "
-                "later production run that restarts from the converged Zarr needs the SAME "
-                "mesh: enable [mesh_catchment] cache = true for a gmsh grid, or the restart "
-                "shape check will reject it."
-            )
 
         project.prepare()  # build geographic / data / mesh once, reused every cycle
 
@@ -174,8 +236,8 @@ def run_spinup(
         for index in range(settings.max_cycles):
             if prev_zarr is not None:
                 cfg.flow.restart_from = prev_zarr
-                if cfg.flow.ic.h.type == "steady_state":
-                    cfg.flow.ic = FlowInitialConditions.model_validate({"type": "top"})
+                if cfg.flow.ic.h.kind == "steady_state":
+                    cfg.flow.ic = FlowInitialConditions.model_validate({"kind": "top"})
 
             run = project.simulate(name=f"{name_prefix}_{index}")
             if run is None:
@@ -185,24 +247,7 @@ def run_spinup(
             d_head: float | None = None
             d_stage: float | None = None
             if prev_zarr is not None:
-                d_head, d_stage = cycle_delta(prev_zarr, zarr_path)
-                logger.info(
-                    "spin-up cycle %d: d_head=%.4g m, d_stage=%s (tol %.4g / %.4g)",
-                    index,
-                    d_head,
-                    "not compared" if d_stage is None else f"{d_stage:.4g} m",
-                    settings.tol_head,
-                    settings.tol_stage,
-                )
-                if d_stage is None:
-                    # The two cycles name different lakes, so the stage was never
-                    # compared. Calling that convergence would be a claim about a
-                    # measurement nobody made.
-                    logger.warning(
-                        "spin-up cycle %d: the two cycles share no lake, so the stage was "
-                        "not compared and this cycle cannot converge on it.",
-                        index,
-                    )
+                d_head, d_stage = _compare_cycles(index, prev_zarr, zarr_path, settings)
                 converged = (
                     d_stage is not None
                     and d_head < settings.tol_head
@@ -230,6 +275,8 @@ def run_spinup(
             cfg.flow.restart_from,
             cfg.flow.ic,
         ) = _saved_config
+        if persistence is not None:
+            persistence.field_precision = saved_precision
 
 
 def _tag_spinup_cycles(project: Project, cycles: list[SpinupCycle], *, converged: bool) -> None:
@@ -250,5 +297,5 @@ def _tag_spinup_cycles(project: Project, cycles: list[SpinupCycle], *, converged
         tag = "spinup-converged" if promoted else "spinup-intermediate"
         try:
             add_tag(cycle.sim_id, tag)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001 - a tag is a convenience and never breaks the loop result
             logger.debug("could not tag spin-up run %s", cycle.sim_id, exc_info=True)

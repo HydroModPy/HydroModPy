@@ -21,7 +21,6 @@ from __future__ import annotations
 import hashlib
 import os
 import platform as _platform
-import socket
 import subprocess
 import sys
 from functools import cache
@@ -29,13 +28,15 @@ from pathlib import Path
 from typing import TypedDict
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.image import DIGEST_FORM, image_of
+from hydromodpy.core.state.host import host_name
 
 logger = get_logger(__name__)
 
 # The host environment is constant within a process, but calibration re-runs
 # ``capture_environment`` for every trial. The subprocess-backed probes below
 # (``mamba env export``, ``pip list``, ``git rev-parse``, ``--version``, binary
-# hashing) dominate a fast trial's build, so memoise them for the process. This
+# hashing) dominate a fast trial's build, so memoize them for the process. This
 # is pure provenance metadata: it never touches the model build, solve, or
 # objective, so caching it cannot change a result.
 
@@ -60,6 +61,7 @@ class EnvironmentSnapshot(TypedDict, total=False):
     conda_env_hash: str | None
     env_packages: list[str]
     rng_seed: int | None
+    image: dict[str, str]
 
 
 @cache
@@ -234,7 +236,7 @@ def solver_binary_identity(
     """Return ``(sha256, version_text)`` for a solver binary, or ``(None, None)``.
 
     Used to refine the recorded binary identity post-run with the exact binary
-    the solver executed (honouring a custom ``mf6_executable_name``).
+    the solver executed (honoring a custom ``mf6_executable_name``).
     """
     return _binary_sha256(solver_binary_path), _solver_version_text(solver_binary_path)
 
@@ -265,9 +267,9 @@ def capture_environment(
         "python_version": _python_version(),
         "hydromodpy_version": _hydromodpy_version(),
         "platform": _platform.platform(),
-        "hostname": socket.gethostname(),
+        "hostname": host_name(),
         "user_name": _user_name() or "",
-        # Copy the memoised mutable probes so a caller mutating the snapshot
+        # Copy the memoized mutable probes so a caller mutating the snapshot
         # cannot corrupt the process-level cache.
         "cpu_info": dict(_cpu_info()),
         "memory_gb": _memory_gb(),
@@ -280,5 +282,23 @@ def capture_environment(
         "solver_version_text": _solver_version_text(solver_binary_path),
         "conda_env_hash": _conda_env_hash(),
         "env_packages": list(_env_packages()),
+        "image": _image(),
     }
     return snapshot
+
+
+def _image() -> dict[str, str]:
+    """Return the image of the process without stopping the run on a bad digest.
+
+    The server refuses a malformed ``HMP_IMAGE_DIGEST`` when it starts. A run
+    started from the command line finds it only here, after the mesh and the
+    data, so it seals the value under ``digest_refused`` and says so.
+    """
+    image = image_of(refuse=False)
+    if "digest_refused" in image:
+        logger.warning(
+            "HMP_IMAGE_DIGEST is %r, expected %s: sealed under image.digest_refused.",
+            image["digest_refused"],
+            DIGEST_FORM,
+        )
+    return image

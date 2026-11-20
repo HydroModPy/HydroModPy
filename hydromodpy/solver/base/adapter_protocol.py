@@ -1,83 +1,267 @@
-"""Single ``SolverAdapter`` Protocol.
+"""The ``SolverAdapter`` Protocol, and the attributes a backend registers with.
 
-Every concrete backend (MODFLOW-NWT, MODFLOW 6, Boussinesq, third-party
-plugin) implements this same contract so the simulation runner stays
-solver-agnostic. Adapters conform *structurally*: there is no base class to
-inherit from, just four method signatures plus three ``ClassVar`` attributes
-that identify the supported pair and its dependencies.
+Every backend (MODFLOW-NWT, MODFLOW 6, Boussinesq, a third-party plugin) meets
+this one contract, so the simulation runner stays solver-agnostic. Adapters
+conform structurally: there is no base class to inherit from. A backend writes
+the thirteen attributes of the Protocol on its class and the five members the
+runner calls, ``validate``, ``build``, ``run``, ``cleanup`` and ``extract``.
+``solvers`` in ``solver/base/registry.py`` refuses a class that lacks one,
+naming it.
+
+Three members are optional and live outside the body of the Protocol, because
+the registry requires every member of the body. ``rerun`` is present if and
+only if ``mutable`` is not empty. ``observables`` and ``declared_observables``
+come together or not at all. The conformance suite of ``tests/ports/test_solver.py`` reads
+``RERUN_MEMBERS`` and ``OPTIONAL_MEMBERS`` to check both rules. A flow backend
+also answers :class:`CellLocator`. The extractor a backend registers apart
+answers :class:`OutputAdapter`.
+
+A flow adapter reads one object, the frozen ``Model`` of ``model/model.py``. Its members
+are ``geometry`` (the cell mesh, the domain, the raster facts, the catchment facts and
+the river network A read on the cells), ``properties`` (one ``FieldParam`` per parameter
+and the per-cell values of ``with_properties``), ``boundaries``, ``recharge``, ``etp``
+and ``wells`` in SI units, ``lakes``, ``sfr`` and ``flow_barriers`` in the units the
+user declared, ``initial`` (``HeadRule``, ``SteadyStart``, ``CyclicStart``,
+``PriorState`` or ``SolvedState``), ``time`` and ``options``. The step
+``prepare_solver`` builds it once and reads a prior run into a ``PriorState`` through
+``results/storage/prior_state.py``. The ``Model`` does not change during a solve: a
+change is a new object from ``with_properties``, ``with_initial``, ``steady_variant`` or
+``cycle_variant``. ``tests/unit/architecture/test_run_path.py`` holds these rules.
+
+``supports`` is a closed set so that a name written in a backend and a name asked by a
+model cannot drift. It is the union of the sources of ``SUPPORT_SOURCES`` in
+``model/supports.py``: the boundary kinds, the fields of ``ModelOptions``, the initial
+states, the sinks and sources, the soil reservoir, the K tensor and the layering. A
+default document already uses ``head_rule``, so a backend lists every trait it honours.
+
+A global backend meshes the catchment as one cell of the ``catchment`` engine and
+declares ``category`` ``lumped``. It may declare ``native_step``, a pandas frequency
+alias, and a native step finer than a transient period is refused when the file is read.
+``Model.native_recharge`` carries the series of a spatialized source at the step of the
+source. The options of a backend may carry ``wall_clock_limit_s``, which bounds one
+calibration trial, and ``runner``, which names the way the backend solves.
+
+``face_flow`` is the flux across each connection of two cells, in m3/s, positive from
+the smaller flat index to the larger, at every stored step. A flow that declares it
+writes it beside ``connection_cells`` when ``[simulation.results] keep_face_flows`` is
+true. A file whose flow does not write what a transport reads is refused when the file
+is read, in ``config/cross_checks.py``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, ClassVar, Protocol, runtime_checkable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
-import pandas as pd
+from pydantic import BaseModel
 
-from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
 
+if TYPE_CHECKING:
+    from hydromodpy.model.domain.cell_column import CellColumn
 
-@dataclass(frozen=True)
-class RunResult:
-    """Generic outcome dataclass for plugin authors that need richer payloads
-    than ``RunExecutionResult``.
+GEOMETRIES: tuple[str, ...] = ("cells", "raster")
+"""The members of ``Model.geometry`` a backend can build its grid on.
 
-    Not part of the canonical adapter signature: ``execute`` returns
-    ``RunExecutionResult``. Reserved for diagnostics layers and external
-    integrations that wrap the simulation runner.
-    """
+``cells`` is the planar cell mesh, ``raster`` the DEM grid. The word names where
+the grid comes from, not everything the backend reads: NWT builds on ``raster``
+and also reads ``cells``.
+"""
 
-    converged: bool
-    output_dir: Path | None = None
-    wall_time_s: float | None = None
-    iterations: int | None = None
-    residual: float | None = None
-    diagnostics: dict[str, Any] = field(default_factory=dict)
+CATEGORIES: tuple[str, ...] = ("distributed", "integrated", "lumped")
+"""How a backend resolves space: per cell, per cell with an integrated store, or one store."""
+
+NULLABLE_ATTRIBUTES: tuple[str, ...] = ("options", "native_step", "cell_column")
+"""The three attributes a backend may set to ``None``. Their presence is checked on the class."""
+
+RERUN_MEMBERS: tuple[str, ...] = ("rerun",)
+"""The members a backend carries if and only if its ``mutable`` is not empty.
+
+``rerun(previous, model, slot) -> SolverRun | None`` solves ``model`` again from
+the solved run ``previous`` when ``model`` differs from ``previous.model`` only by
+properties named in ``mutable``. It writes into ``slot`` and rewrites only the
+input files those properties touch. It consumes ``previous``: the solver model
+of ``previous`` then describes the new run, and only the returned ``SolverRun``
+serves as a parent afterwards. It returns ``None``, without touching anything,
+when the change needs a new build, and the runner builds. The runner calls it
+only when :func:`hydromodpy.solver.base.rerun.chooses_rerun` says so. This
+``rerun`` has nothing to do with ``hmp catalog rerun``, which replays a sealed
+run from its configuration.
+"""
+
+OPTIONAL_MEMBERS: tuple[str, ...] = ("observables", "declared_observables")
+"""The members a flow backend carries together or not at all, for calibration.
+
+``observables(solver_run, requests, *, time_index=None) -> dict[str, ObservableResult]``
+reads every requested observable of a solved run, keyed by request id. The whole
+batch arrives at once so a backend opens each binary file once, and a backend
+driven through an API knows before the solve which timesteps to keep. A trial
+reads straight from ``solver_run.output_dir``. A backend that cannot produce a
+requested observable raises
+:class:`~hydromodpy.core.exceptions.ObservableNotAvailableError` naming it: a
+caller never reads a signature to find out what a backend supports.
+
+``declared_observables(active) -> tuple[ObservableSupport, ...]`` says what a
+run of the backend can serve before any run, given ``active``, the lowercase
+ids of the active conditions of ``[flow]`` (``config.flow.active_bc``) as a
+``frozenset[str]``. The adapter never reads the configuration itself.
+"""
 
 
 @runtime_checkable
 class SolverAdapter(Protocol):
-    """One adapter binds one ``(process_type, solver_name)`` pair."""
+    """One adapter serves one ``(process_type, name)`` key.
+
+    An adapter receives the frozen ``Model`` of the run
+    (:class:`hydromodpy.model.model.Model`, the model of its flow for a
+    transport), its validated options (an instance of ``options``, or ``None``)
+    and the :class:`~hydromodpy.solver.base.plan.RunSlot` the runner filled. It
+    returns a :class:`~hydromodpy.solver.base.plan.SolverRun`. It never changes
+    the ``Model``: a solve leaves it as it found it, and an auxiliary solve runs
+    on a variant that is a new object. An adapter reads nothing of the setup,
+    the configuration or the store. ``build`` also receives the ``SolverRun``
+    objects the runs it depends on produced, ``upstream``: empty for a flow,
+    one run of the family its ``requires`` names for a transport, which reads
+    the ``Model`` and the folder of that flow and takes ``face_flow`` from it.
+
+    The runner calls ``validate``, then ``build``, then ``run`` unless
+    ``slot.stop_before_solve``. The extract step calls ``extract``, and the
+    export step calls ``cleanup`` when the run keeps no solver files.
+    """
+
+    name: ClassVar[str]
+    """The solver name a TOML writes in ``solver.backend``, for example ``modflow6``."""
 
     process_type: ClassVar[str]
-    solver_name: ClassVar[str]
+    """What the backend computes, ``flow`` or ``transport``. With ``name`` it makes the key."""
+
+    accepted_meshes: ClassVar[frozenset[str]]
+    """The mesh engine ids whose cells the backend reads.
+
+    ``ANY_PLANAR_ENGINE`` of ``mesh/port.py`` stands for every engine whose cells
+    are planar and that is not lumped; ``engine_accepted`` of ``mesh/registry.py``
+    is the rule. A transport declares none: it reads the mesh of the flow it follows.
+    """
+
+    geometry: ClassVar[str]
+    """The member of ``Model.geometry`` the backend builds its grid on, one of ``GEOMETRIES``.
+
+    A transport declares the value of the flow it follows.
+    """
+
+    writes: ClassVar[tuple[str, ...]]
+    """The fields, tables and series the extractor writes, by their stored names.
+
+    A field is its Zarr path (``head``, ``budget/drain``), a table its view name
+    (``budgets``). A ``*`` stands only for a part the user names, such as a
+    species, a lake or a station. The geometry the extractor adds to the mesh
+    group (``z_interfaces``, the descent arrays) belongs to the mesh layout and
+    is not listed.
+    """
+
+    reads: ClassVar[tuple[str, ...]]
+    """The products of an earlier run the backend reads: ``face_flow`` for a transport, none for a flow.
+
+    Every name is one :data:`hydromodpy.results.field_registry.FIELD_REGISTRY`
+    describes, and ``face_flow`` comes with ``connection_cells`` beside it in
+    the store. A transport reads the flow of the run that precedes it.
+    """
+
+    supports: ClassVar[frozenset[str]]
+    """The traits of the ``Model`` the backend honours, from the closed set of ``model/supports.py``.
+
+    A boundary kind, an option of ``ModelOptions`` or an initial state. A trait
+    left out is refused before the run rather than ignored by the solve.
+    """
+
+    options: ClassVar[type[BaseModel] | None]
+    """The Pydantic class of the backend's own table, or ``None`` when it reads none."""
+
+    category: ClassVar[str]
+    """How the backend resolves space, one of ``CATEGORIES``. The seal writes it to the manifest."""
+
+    native_step: ClassVar[str | None]
+    """The step the solver advances at, as a pandas frequency alias.
+
+    ``None`` means it advances at the step of ``Model.time``.
+    """
+
+    cell_column: ClassVar[Callable[..., CellColumn] | None]
+    """The rule that gives the top and the bottom of each cell, or ``None`` when the backend reads none.
+
+    A function of ``model/domain/cell_column.py``, called as ``cell_column(cell_mesh=...,
+    domain=..., top_sampling=..., channel_mask=...)`` by ``prepare_solver``. It puts the
+    result on ``Model.geometry.column``, which the backend reads instead of sampling the
+    DEM itself. Write it with ``staticmethod``, so an instance does not bind it.
+    """
+
+    mutable: ClassVar[frozenset[str]]
+    """The calibration parameters the backend can change between two solves of one model."""
+
     requires: ClassVar[tuple[tuple[str, str], ...]]
+    """The ``(process_type, name)`` keys an earlier run of the plan must have run."""
 
-    def validate(self, ctx: RunContext) -> None:
-        """Fail-fast precondition checks before ``execute``."""
+    def validate(self, model: Any, options: BaseModel | None, slot: RunSlot) -> None:
+        """Refuse a run this backend cannot solve, before anything is built."""
 
-    def execute(self, ctx: RunContext) -> RunExecutionResult:
-        """Run the concrete solver for ``ctx.run`` and return its outputs."""
-
-    def cleanup(self, ctx: RunContext) -> None:
-        """Release temporary scratch files after extraction completes."""
-
-    def extract_observables(
+    def build(
         self,
-        ctx: RunContext,
-        store: Any,
-        requests: Sequence[ObservableRequest],
-        *,
-        time_index: pd.DatetimeIndex | None = None,
-    ) -> dict[str, ObservableResult]:
-        """Read every requested observable from this run, keyed by request id.
+        model: Any,
+        options: BaseModel | None,
+        slot: RunSlot,
+        upstream: tuple[SolverRun, ...] = (),
+    ) -> SolverRun:
+        """Build the solver model of ``model`` in memory, under ``slot``.
 
-        The whole batch arrives at once so a backend opens each binary file
-        once instead of once per request, and a backend driven through an API
-        knows before the solve which timesteps it has to keep.
+        A flow follows no run, so ``upstream`` stays empty. A transport receives
+        exactly one run, of the family its ``requires`` names, and works in the
+        folder of that flow. Nothing is written and nothing is solved: the
+        result has ``written`` and ``solved`` false and carries the solver model.
+        """
 
-        Lightweight calibration trials read straight from the solver scratch
-        dir via ``ctx.state.execution.output_dirs_by_run_id``; ``store`` is the
-        cold-path :class:`Catalog` reserved for backends that already wrote
-        results to it.
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        """Write the input files unless ``solver_run.written``, solve, and return the solved run.
 
-        An adapter that cannot produce a requested observable raises
-        :class:`~hydromodpy.core.exceptions.ObservableNotAvailableError` naming
-        it. That refusal is the contract: a caller never reads a signature to
-        find out what a backend supports.
+        The result lists the input files written in ``input_files``, has
+        ``written`` and ``solved`` true, and names the folder the solver wrote in
+        as ``output_dir``. A solve that fails raises a
+        :class:`~hydromodpy.core.exceptions.SolverError` naming the run by
+        ``solver_run.slot.name``; the runner sets its ``run_id``.
+        """
+
+    def cleanup(self, solver_run: SolverRun) -> None:
+        """Remove the scratch files of a run once its results are stored."""
+
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the fields, tables and series of a solved run into its ``RunStore``.
+
+        ``retention`` says which per-cell budget terms the run keeps. Every
+        name written is one ``writes`` declares.
+        """
+
+
+@runtime_checkable
+class OutputAdapter(Protocol):
+    """The extractor of one backend, the port of the ``hydromodpy.solver.extractor`` group.
+
+    The ``extract`` member of an adapter delegates to the extractor registered
+    under the same key, ``<process_type>_<solver_name>``, which a plugin
+    publishes through that entry point group. ``extractors`` in
+    ``solver/base/registry.py`` refuses a class that lacks one of the members.
+    """
+
+    process_type: ClassVar[str]
+    """What the run computed, ``flow`` or ``transport``, as the ``process_type`` of the adapter."""
+
+    solver_name: ClassVar[str]
+    """The ``name`` of the adapter whose run this extractor reads."""
+
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the fields, tables and series of ``solver_run`` into the ``RunStore`` ``store``.
+
+        ``retention`` says which per-cell budget terms the run keeps. The run is
+        found by its ``output_dir``, never by its name.
         """
 
 
@@ -91,20 +275,72 @@ class CellLocator(Protocol):
     structural check for a method it has no business having.
 
     A gauge, a piezometer and a lake staff are given as coordinates, and only the
-    backend knows the grid it wrote: structured rows and columns, a Voronoi cell
-    list, or a flopy model grid. Answering here is what keeps a caller that must
+    backend knows the grid it wrote: the cells of a solver mesh, or a flopy model
+    grid. Answering here is what keeps a caller that must
     serve every solver from reading the internals of one.
     """
 
-    def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
-        """Return the cell selector nearest to ``(x, y)``, or ``None``.
+    def locate_cell(self, solver_run: SolverRun, x: float, y: float) -> tuple[int, int, int] | None:
+        """Return the selector of the cell that holds ``(x, y)``, or ``None``.
 
-        The selector is the same triple the observable extractors take:
-        ``(layer, row, col)`` on a structured grid and ``(0, 0, cell_id)`` on an
-        unstructured one. ``None`` means the run holds no grid to look on yet,
-        which a caller reports rather than replacing with a guess.
+        The selector is the same triple the observable extractors take. A MODFLOW 6
+        run answers ``(layer, 0, cell_id)`` on every mesh, the flat selector of a DISV
+        head array at the top active layer of the column; a point outside every
+        cell takes the nearest center. ``None``
+        means the run holds no solver model to look on, which a caller reports
+        rather than replacing with a guess.
+        """
+        ...
+
+    def top_active_layer(self, solver_run: SolverRun, row: int, col: int) -> int | None:
+        """Return the top active layer of the column at ``(row, col)``, or ``None``.
+
+        It is the layer a cell given without one is read at. A regular grid names
+        the column by its row and column, any other mesh by row 0 and the cell id
+        in ``col``. A column with no active cell answers 0. ``None`` means the run
+        holds no solver model to look on. A cell outside the grid raises ValueError.
         """
         ...
 
 
-__all__ = ["CellLocator", "RunResult", "SolverAdapter"]
+def solver_members() -> tuple[str, ...]:
+    """Return the members a backend class must carry, neither absent nor ``None``.
+
+    The attributes of :class:`SolverAdapter` except ``NULLABLE_ATTRIBUTES``, then
+    its five methods. The registry hook checks the two nullable ones. The
+    optional members of ``RERUN_MEMBERS`` and ``OPTIONAL_MEMBERS`` are not here.
+    """
+    attributes = tuple(
+        name for name in SolverAdapter.__annotations__ if name not in NULLABLE_ATTRIBUTES
+    )
+    methods = tuple(
+        name
+        for name, value in vars(SolverAdapter).items()
+        if callable(value) and not name.startswith("_")
+    )
+    return attributes + methods
+
+
+def extractor_members() -> tuple[str, ...]:
+    """Return the members an extractor class must carry, those of :class:`OutputAdapter`."""
+    attributes = tuple(OutputAdapter.__annotations__)
+    methods = tuple(
+        name
+        for name, value in vars(OutputAdapter).items()
+        if callable(value) and not name.startswith("_")
+    )
+    return attributes + methods
+
+
+__all__ = [
+    "CATEGORIES",
+    "GEOMETRIES",
+    "NULLABLE_ATTRIBUTES",
+    "OPTIONAL_MEMBERS",
+    "RERUN_MEMBERS",
+    "CellLocator",
+    "OutputAdapter",
+    "SolverAdapter",
+    "extractor_members",
+    "solver_members",
+]

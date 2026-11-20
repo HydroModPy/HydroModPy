@@ -1,0 +1,7 @@
+{
+  "attributes": {
+    "criterion_mean_recharge_m_s": 9.259259259259259e-09
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

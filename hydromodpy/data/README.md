@@ -1,74 +1,9 @@
-# Data Managers (Racine)
+# data
 
-Ce dossier contient:
-- les **sous-packages thematiques** (`geology/`, `hydrometry/`, etc.),
-- la **couche racine d'orchestration** (activation, validation, planification des types).
+Everything a run reads from outside is here: provider APIs, the files of the user, their cache and the typed records handed to the layers above. Each `[data.<name>]` section of a project TOML is one variable, and `VARIABLE_SPECS` in `loading/_dispatch.py` is the one list of them. A variable owns its cache and the unit of its records and leaves the provider to a class of the `DataSource` port (`source/`, with its own README), so adding a provider touches no variable. The data folder is the cache, each fetched file has a JSON sidecar beside it, and there is no database. The package is a layer because the loaders, the workflow and the calibration need data in one typed form, and none of them should know which provider or file it came from.
 
-L'objectif de la couche racine est de decider, de maniere deterministe, **quels types de donnees sont actifs** pour un run.
+A run loads data through `loading/` (`DataConfig`, `DataPlanner`, `DataLoader`), and a user loads it by hand with `DataStore`. A request from outside a project goes through `request/` and `hmp data get`. Every load ends in a `LoadResult` of point, field and table records. They carry the unit of the provider, and `core/units` converts to SI at the entry of the model.
 
----
+The package reads `core`, `schema`, `catchment`, `mesh` and `model`, and never `results`. It is read by `config`, `calibration`, `workflow`, `project`, `cli` and the root facade. The twelve subpackages are ordered in `tests/unit/architecture/data_layout.yaml`, and `test_package_layouts.py` checks every import.
 
-## Fichiers racine
-
-- `__init__.py`  
-  API publique du package racine (`DataManagersConfig`, `DataPlanner`, `DataLoadPlan`, `DataManagers`, `DataManagersRuntimeLoader`).
-
-- `data_managers_config.py`  
-  Schema Pydantic du bloc `[data]`:
-  - validation/normalisation de `data.types`,
-  - validation des sous-sections actives (`data.geology`, `data.hydrometry`, ...),
-  - resolution de chemins pour les sections typees (actuellement `geology`),
-  - politique d'inference via `data.inference_mode` (`warn` ou `strict`).
-
-- `planner.py`  
-  Moteur d'inference (`DataPlanner`) qui fusionne:
-  - types explicites (TOML),
-  - types deduits (regles runtime).
-
-- `plan.py`  
-  Contrat immuable `DataLoadPlan` (types explicites, types inferes, raisons d'inference).
-
-- `data_managers.py`  
-  Conteneur runtime leger `DataManagers` consomme par l'orchestration.
-
-- `runtime_loader.py`  
-  Chargement runtime des donnees activees, pilote par `DataLoadPlan`.
-  Ce module porte la logique de dispatch par type (`oceanic`, `hydrometry`,
-  `hydrography`, etc.) pour garder le launcher mince.
-  Il ne met pas a jour les structures metier (domain/process): ces binders
-  sont appeles ensuite par le launcher.
-
----
-
-## Flux de resolution
-
-1. Charger et valider `[data]` avec `DataManagersConfig`.
-2. Construire un `DataLoadPlan` via `DataPlanner`.
-3. Appliquer le plan sur la config (`with_resolved_types(...)`).
-4. Charger les donnees via `DataManagersRuntimeLoader`.
-5. Consommer les types actifs via `DataManagers.from_config(...)` ou `DataManagers.from_plan(...)`.
-
----
-
-## Regles d'inference actuelles
-
-- `domain.zone_ids` contient `geology` -> active `geology`
-- `flow.active_bc` contient `stream` -> active `hydrography`
-- `flow.active_bc` contient `ocean` -> active `oceanic`
-
-Chaque inference est tracee dans `DataLoadPlan.reasons_by_type`.
-
-En mode `data.inference_mode = "strict"`, une inference impose la presence
-explicite de `data.<type>` (sauf `geology`, qui peut etre auto-defaulte).
-
----
-
-## Convention d'extension
-
-Pour ajouter une nouvelle regle:
-1. Ajouter la logique dans `DataPlanner.build(...)`.
-2. Ajouter une raison explicite (`"inferred from ..."`).
-3. Ajouter un test unitaire dans `tests/unit/data_managers/test_data_managers_planner.py`.
-4. Mettre a jour ce README.
-
-Principe: garder des regles **pures, deterministes, testables** (pas d'effets de bord).
+The page of the package lists its modules with the first line of their docstring. It also gives the template of a variable, the rules between the subpackages, the cache, the site catalog and where to add what.

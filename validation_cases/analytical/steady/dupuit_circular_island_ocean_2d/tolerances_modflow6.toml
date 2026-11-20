@@ -1,6 +1,19 @@
 [radial_profile]
-rmse = 0.25
-max_abs_error = 0.40
-azimuthal_spread = 0.15
-ocean_head_max_error = 1e-8
-min_land_clearance = 0.60
+rmse = 0.10
+max_abs_error = 0.19
+azimuthal_spread = 0.23
+min_land_clearance = 0.39
+
+[doc]
+reason = """
+Twice the error measured on the 10 m grid: radial RMSE 0.0499 m, max error
+0.0921 m, spread 0.112 m, and half the measured freeboard of 0.787 m. MODFLOW 6
+reads a computational top that gives every cell of the layer the same
+thickness, so its Newton conductance is the one of MODFLOW-NWT, and the two sit
+at the same distance from the reference (NWT 0.0495 m). What is left is the
+error of the grid. On a 5 m grid the RMSE falls to 0.0349 m and the max error
+to 0.0606 m, for MF6 and NWT alike; the spread stays at 0.111 m and the
+freeboard drops to 0.69 m, the first land ring being closer to the coast. Until
+2026-10-12 the top was the DEM, the conductance followed the full thickness of
+the cells, and the RMSE was 0.221 m.
+"""

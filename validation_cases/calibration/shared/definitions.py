@@ -62,14 +62,14 @@ def build_payload(
     Emits the enriched schema consumed by
     :class:`hydromodpy.calibration.config.CalibrationConfig`:
 
-    - ``[calibration]`` carries top-level knobs (``method``, ``max_iter``,
+    - ``[calibration]`` carries top-level knobs (``method``, ``max_trials``,
       ``seed``, ``save_runs`` defaulting to ``"none"``).
     - ``[calibration.parameters.<name>]`` collects bounds, target,
-      transform, and mode.
+      search space, and mode.
     - ``[calibration.outputs.<name>]`` injects ``observed_values`` from the
       truth synthesis.
     - ``[calibration.objective_blocks]`` lists the weighted blocks.
-    - ``[calibration.optimizer_kwargs]`` forwards method kwargs.
+    - ``[calibration.method_options]`` forwards method kwargs.
 
     The returned dict is deep-mergeable with a base simulation TOML via
     ``base_config = ...`` so the caller can write it next to the
@@ -99,8 +99,10 @@ def build_payload(
             "target": str(target.target),
             "mode": str(target.mode),
         }
-        if target.transform is not None:
-            parameter_decl["transform"] = str(target.transform)
+        if target.search_space is not None:
+            parameter_decl["search_space"] = str(target.search_space)
+        if target.sampling is not None:
+            parameter_decl["sampling"] = str(target.sampling)
         parameters[str(name)] = parameter_decl
 
     outputs: dict[str, dict[str, Any]] = {}
@@ -139,31 +141,27 @@ def build_payload(
     method_kwargs = dict(method_profile.method_kwargs)
     # Hoist seed to the top-level [calibration].seed knob so build_optimizer
     # receives it once via its dedicated kwarg rather than twice (the CLI
-    # forwards both cfg.seed and **optimizer_kwargs which would clash).
+    # forwards both cfg.seed and **method_options which would clash).
     seed_value = method_kwargs.pop(method_profile.seed_kwarg_name, None)
     n_parameters = max(1, len(parameters))
-    max_iter = _resolve_max_iter_from_kwargs(
+    max_trials = _resolve_max_trials_from_kwargs(
         method_profile.name,
         method_kwargs,
         n_parameters=n_parameters,
     )
-    method_key = str(method_profile.name).strip().lower()
-    if method_key == "random_search":
-        method_kwargs.pop("max_iter", None)
-    if method_key == "optuna":
-        method_kwargs.pop("max_iter", None)
+    # The budget is a key of [calibration], never a method option.
+    method_kwargs.pop("max_trials", None)
 
     calibration_section: dict[str, Any] = {
         "method": str(method_profile.name),
-        "max_iter": int(max_iter),
+        "max_trials": int(max_trials),
         "save_runs": "none",
         "use_cache": False,
         "parameters": parameters,
         "outputs": outputs,
         "objective_blocks": objective_blocks,
-        "optimizer_kwargs": method_kwargs,
+        "method_options": method_kwargs,
         "persist_iteration_detail": "full",
-        "persist_model_distribution": bool(method_profile.persist_model_distribution),
     }
     if seed_value is not None:
         try:
@@ -178,31 +176,31 @@ def build_payload(
     }
 
 
-def _resolve_max_iter_from_kwargs(
+def _resolve_max_trials_from_kwargs(
     method: str,
     kwargs: Mapping[str, Any],
     *,
     n_parameters: int = 1,
 ) -> int:
-    """Estimate a reasonable ``max_iter`` upper bound from method kwargs."""
+    """Estimate a reasonable ``max_trials`` upper bound from method kwargs."""
     method_key = str(method).strip().lower()
     if method_key == "grid":
         points_per_dim = int(kwargs.get("points_per_dim", 5))
         return max(1, points_per_dim ** max(1, int(n_parameters)))
     if method_key == "random_search":
-        return max(1, int(kwargs.get("max_iter", 20)))
+        return max(1, int(kwargs.get("max_trials", 20)))
     if method_key == "cma_es":
-        return max(1, int(kwargs.get("max_evaluations", 30)))
+        return max(1, int(kwargs.get("max_trials", 30)))
     if method_key == "scipy_nelder_mead":
-        return max(1, int(kwargs.get("maxiter", 30)))
+        return max(1, int(kwargs.get("max_trials", 30)))
     if method_key == "gp_mapping":
         n_init = int(kwargs.get("n_init", 8))
         n_refine = int(kwargs.get("n_refine", 3))
         batch = int(kwargs.get("batch_size", 1))
         return max(1, n_init + n_refine * batch)
     if method_key == "da_mh_gp":
-        return max(1, int(kwargs.get("max_iter", 32)))
-    return max(1, int(kwargs.get("max_iter", kwargs.get("max_evaluations", 50))))
+        return max(1, int(kwargs.get("chain_length", 32)))
+    return max(1, int(kwargs.get("max_trials", 50)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,7 +209,9 @@ class TwinParameterTarget:
 
     target: str
     mode: str = "replace"
-    transform: str | None = None
+    search_space: str | None = None
+    sampling: str | None = None
+    """Unset, the target's own sampling applies: a conductivity is log-uniform."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,8 +259,8 @@ class TwinCalibrationCaseDefinition:
     reference_objective_sample_count: int | None = None
     reference_objective_sampling: str = "sobol"
     reference_objective_seed: int = 91
-    build_simulation_config: Callable[[Path, Path], None] | None = None
-    build_truth_simulation_config: Callable[[Path, Path], None] | None = None
+    build_simulation_config: Callable[[Path], None] | None = None
+    build_truth_simulation_config: Callable[[Path], None] | None = None
     parameter_targets: Mapping[str, TwinParameterTarget] | None = None
     output_specs: Mapping[str, TwinOutputSpec] | None = None
     objective_block_specs: tuple[TwinObjectiveBlockSpec, ...] | None = None

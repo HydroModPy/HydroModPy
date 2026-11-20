@@ -1,6 +1,6 @@
 """Integration smoke tests for the ``hmp`` CLI subcommand dispatch.
 
-Each new or reorganised CLI subcommand must at minimum surface in
+Each new or reorganized CLI subcommand must at minimum surface in
 ``hmp --help`` and expose a ``--help`` string without importing the heavy
 domain modules. The tests invoke ``hmp`` in-process to avoid spinning a
 subprocess per assertion.
@@ -61,18 +61,23 @@ def test_version_flag_prints_version(monkeypatch, capsys) -> None:
 
 @pytest.mark.parametrize("shell", ["bash", "zsh", "fish"])
 def test_completion_emits_script(monkeypatch, capsys, shell: str) -> None:
-    monkeypatch.setattr(sys, "argv", ["hmp", "dev", "completion", shell])
+    monkeypatch.setattr(sys, "argv", ["hmp", "completion", shell])
     main()
     out = capsys.readouterr().out
-    assert "hmp" in out
-    # Each completion script should mention at least one of our subcommands.
-    assert any(name in out for name in ("run", "workspace", "doctor"))
+    assert "hmp" in out and "hydromodpy" in out
+    # The script asks hmp for the commands, so it holds the variable argcomplete reads.
+    assert "_ARGCOMPLETE" in out
 
 
 def test_run_dry_run_lists_steps(monkeypatch, capsys, tmp_path) -> None:
     config = tmp_path / "cfg.toml"
     config.write_text(
-        '[workflow]\nmode = "simulation"\n[simulation]\nname = "dry"\n', encoding="utf-8"
+        '[workspace]\n[workflow]\nmode = "simulation"\n'
+        '[simulation]\nname = "dry"\n[simulation.time]\nstart_datetime = "2000-01-01"\n'
+        'end_datetime = "2000-12-31"\nstep_value = 1\nstep_unit = "day"\n'
+        '[geographic]\nsource_mode = "synthetic"\n'
+        '[flow.param.K.field]\nid = "K"\nkind = "homogeneous"\nunit = "m/s"\nvalue = 6.4e-5\n',
+        encoding="utf-8",
     )
     monkeypatch.setattr(sys, "argv", ["hmp", "run", "--dry-run", str(config)])
 
@@ -82,124 +87,51 @@ def test_run_dry_run_lists_steps(monkeypatch, capsys, tmp_path) -> None:
     assert "workflow: simulation" in out
 
 
-def test_dev_run_script_help(monkeypatch, capsys) -> None:
+def test_dev_run_script_is_refused_with_its_new_form(monkeypatch, capsys) -> None:
     code = _run_cli(monkeypatch, ["hmp", "dev", "run-script", "--help"])
-    assert code == 0
-    out = capsys.readouterr().out
-    assert "usage" in out.lower()
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "python -m tools.dev run-script SCRIPT" in err
 
 
-def test_config_check_reports_missing_file(monkeypatch, capsys, tmp_path) -> None:
+def test_check_reports_missing_file(monkeypatch, capsys, tmp_path) -> None:
     missing = tmp_path / "nope.toml"
-    code = _run_cli(monkeypatch, ["hmp", "config", "check", str(missing)])
+    code = _run_cli(monkeypatch, ["hmp", "check", str(missing)])
     assert code == 10
 
 
-def test_config_check_reports_invalid_toml(monkeypatch, capsys, tmp_path) -> None:
+def test_check_reports_invalid_toml(monkeypatch, capsys, tmp_path) -> None:
     """Invalid TOML syntax must exit with EXIT_CONFIG=14."""
     bad = tmp_path / "bad.toml"
     bad.write_text("[section\nmissing = close_bracket\n", encoding="utf-8")
-    code = _run_cli(monkeypatch, ["hmp", "config", "check", str(bad)])
+    code = _run_cli(monkeypatch, ["hmp", "check", str(bad)])
     assert code == 14
     err = capsys.readouterr().err
     assert "invalid toml" in err.lower() or "config" in err.lower()
 
 
-def test_config_check_accepts_site_selection_without_geographic(monkeypatch, capsys, tmp_path):
-    config = tmp_path / "site_selection.toml"
-    config.write_text(
-        "\n".join(
-            [
-                "[workflow]",
-                'mode = "site_selection"',
-                "",
-                "[site_selection]",
-                'selection_id = "check_demo"',
-                'output_root = "out"',
-                "",
-                "[site_selection.input]",
-                'mode = "plan_only"',
-                "",
-                "[site_selection.strategy]",
-                'principle = "criteria_crossing"',
-                'profile = "area_only"',
-                'primary_axes = ["area"]',
-                'observation_role = "report_only"',
-                'geology_role = "report_only"',
-                "",
-                "[site_selection.territory]",
-                'mode = "admin_regions"',
-                'country = "FR"',
-                'regions = ["Bretagne"]',
-                "",
-                "[site_selection.criteria.area]",
-                'mode = "hard_reject"',
-                "hard_min_area_km2 = 75.0",
-                "hard_max_area_km2 = 125.0",
-            ]
-        ),
-        encoding="utf-8",
-    )
+def test_check_json_names_the_code_of_a_toml_fault(monkeypatch, capsys, tmp_path) -> None:
+    """The machine output is ``{ok, diagnostics, workspace}``, each diagnostic with its code."""
+    import json
 
-    monkeypatch.setattr(sys, "argv", ["hmp", "config", "check", str(config)])
+    bad = tmp_path / "bad.toml"
+    bad.write_text("[section\nmissing = close_bracket\n", encoding="utf-8")
 
-    main()
-    out = capsys.readouterr().out
-    assert "OK:" in out
+    code = _run_cli(monkeypatch, ["hmp", "check", str(bad), "--format", "json"])
 
-
-def test_site_selection_plan_cli_can_write_report(monkeypatch, capsys, tmp_path):
-    config = tmp_path / "site_selection.toml"
-    config.write_text(
-        "\n".join(
-            [
-                "[site_selection]",
-                'selection_id = "cli_plan_report_demo"',
-                'output_root = "out"',
-                "",
-                "[site_selection.input]",
-                'mode = "plan_only"',
-                "",
-                "[site_selection.strategy]",
-                'principle = "criteria_crossing"',
-                'profile = "area_only"',
-                'primary_axes = ["area"]',
-                'observation_role = "report_only"',
-                'geology_role = "report_only"',
-                "",
-                "[site_selection.territory]",
-                'mode = "admin_regions"',
-                'country = "FR"',
-                'regions = ["Bretagne"]',
-                "",
-                "[site_selection.criteria.area]",
-                'mode = "hard_reject"',
-                "hard_min_area_km2 = 75.0",
-                "hard_max_area_km2 = 125.0",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    code = _run_cli(
-        monkeypatch,
-        ["hmp", "site-selection", "plan", str(config), "--write-report"],
-    )
-
-    assert code == 0
-    out = capsys.readouterr().out
-    assert "site_selection_report_html" in out
-    assert (tmp_path / "out" / "site_selection_plan.json").is_file()
-    assert (tmp_path / "out" / "review" / "index.html").is_file()
+    data = json.loads(capsys.readouterr().out)["data"]
+    assert code == 14
+    assert data["ok"] is False
+    assert [item["code"] for item in data["diagnostics"]] == ["bad_toml"]
 
 
 def test_config_template_writes_toml(monkeypatch, tmp_path) -> None:
-    """``hmp config template FILE`` creates a non-empty TOML file."""
+    """``hmp config template --to FILE`` creates a non-empty TOML file."""
     out = tmp_path / "cfg.toml"
     monkeypatch.setattr(
         sys,
         "argv",
-        ["hmp", "config", "template", str(out), "--profile", "user"],
+        ["hmp", "config", "template", "--to", str(out), "--profile", "user"],
     )
     main()
     assert out.is_file()
@@ -210,7 +142,7 @@ def test_config_template_writes_toml(monkeypatch, tmp_path) -> None:
 
 
 def test_new_project_scaffold_writes_valid_run_config(monkeypatch, tmp_path) -> None:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     (tmp_path / "data").mkdir()
     monkeypatch.setattr(

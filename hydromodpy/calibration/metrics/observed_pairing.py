@@ -10,20 +10,27 @@ observation.
 record, aligns it on the simulated timestamps, and hands both back as the plain
 vectors a block already knows how to score. Alignment is where the honesty is:
 what neither series covers is dropped from both, and a pair with nothing in
-common is refused by name rather than scored on an empty overlap.
+common is refused by name rather than scored on an empty overlap. A period the
+simulated side leaves NaN (a dry cell) is dropped too, and counted, because
+then the sample scored depends on the parameters of the trial.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from hydromodpy.calibration.config import CalibOutputDecl
+from hydromodpy.calibration.config_outputs import CalibOutputDecl
 from hydromodpy.calibration.metrics.series import load_observed
-from hydromodpy.results.derive.time_alignment import align_observed_simulated
+from hydromodpy.core.time.time_method import DEFAULT_TIME_METHOD
+from hydromodpy.results.derive.time_alignment import time_method_for
+from hydromodpy.results.score import pair
+
+if TYPE_CHECKING:
+    from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 
 OBSERVED_FAMILY_BY_VARIABLE: Mapping[str, str] = {
     "discharge": "discharge",
@@ -41,10 +48,15 @@ class PairedOutputs:
     observed: dict[str, list[float]]
     simulated: dict[str, list[float]]
     n_paired: dict[str, int]
-
-    def dates_scored(self) -> int:
-        """Return the smallest number of samples any output contributed."""
-        return min(self.n_paired.values(), default=0)
+    dates: dict[str, tuple[pd.Timestamp, pd.Timestamp]]
+    """First and last retained date per output, after the scoring window and
+    the overlap have both been applied."""
+    times: dict[str, pd.DatetimeIndex] = field(default_factory=dict)
+    """Every retained stamp per output, index for index with the vectors: a
+    gap the pairing left is a gap of these dates."""
+    n_simulated_nan: dict[str, int] = field(default_factory=dict)
+    """Periods of the window per output that the record covers and the
+    simulated value leaves NaN, dropped from the pairs."""
 
 
 def observing_outputs(outputs: Mapping[str, CalibOutputDecl]) -> dict[str, str]:
@@ -97,26 +109,65 @@ def observed_series_for_outputs(
     return series_by_output
 
 
+def output_time_methods(outputs: Mapping[str, CalibOutputDecl]) -> dict[str, str]:
+    """Return, per output name, the time method of the variable it extracts.
+
+    A discharge is averaged over each period, a head or a lake stage is read
+    at the stamp instant: :func:`time_method_for` says which.
+    """
+    return {
+        str(name): time_method_for(str(getattr(decl, "variable", "") or ""))
+        for name, decl in outputs.items()
+    }
+
+
 def pair_outputs_with_observations(
     *,
     observed: Mapping[str, pd.Series],
     simulated: Mapping[str, pd.Series],
-    scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+    window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
     min_samples: int = 1,
+    time_methods: Mapping[str, str] | None = None,
+    period_starts: Mapping[str, Any] | None = None,
+    series_sink: TrialSeriesSink | None = None,
+    stations: Mapping[str, str] | None = None,
 ) -> PairedOutputs:
     """Align each observed record on its simulated series and return both.
 
-    ``scoring_window`` bounds the dates kept. It is applicable here and nowhere
+    ``time_methods`` gives, per output name, how its simulated value relates to
+    its end stamps (:func:`output_time_methods`). An output it does not name is
+    ``"mean"``. ``period_starts`` gives, per output name, the start of the
+    first period its series stands for, so a single steady stamp is scored on
+    its own window ``[start, stamp)``. The scorer takes it from the run's time
+    grid; an output it does not name infers it from the spacing of its stamps.
+
+    ``window`` bounds the dates kept. It is applicable here and nowhere
     else in the block route: these series carry timestamps, which is exactly
-    what a window needs to cut on.
+    what a window needs to cut on. The pairing is the one of the run,
+    :func:`hydromodpy.results.score.pair`: a mean counts when its whole period
+    lies in the window, a state when its stamp does. The pairs stay indexed by
+    their end stamps.
 
     ``min_samples`` is the fewest pairs a member may be scored on. An overlap
     that collapses to three days still produces a number, and a weight of 65 per
-    cent resting on three days is not what the file says it is.
+    cent resting on three days is not what the file says it is. Every output
+    paired here honors it, whatever its support.
+
+    A period of the window the record covers and the simulated value leaves
+    NaN is dropped from both series and counted in
+    :attr:`PairedOutputs.n_simulated_nan`. A period the record leaves empty is
+    not counted.
+
+    ``series_sink``, when given, records each output's aligned, windowed pair
+    as it is built, keyed by the output name and, through ``stations``, by the
+    station it observes.
     """
     paired_observed: dict[str, list[float]] = {}
     paired_simulated: dict[str, list[float]] = {}
     counts: dict[str, int] = {}
+    dates: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = {}
+    times: dict[str, pd.DatetimeIndex] = {}
+    lost: dict[str, int] = {}
 
     for name, record in observed.items():
         series = simulated.get(name)
@@ -128,33 +179,53 @@ def pair_outputs_with_observations(
                 "carry timestamps to align on, and it carries none. The run's time grid "
                 "did not reach the extraction."
             )
-        frame = align_observed_simulated(record, series)
-        if scoring_window is not None:
-            start, end = scoring_window
-            if start is not None:
-                frame = frame.loc[frame.index >= pd.Timestamp(start)]
-            if end is not None:
-                frame = frame.loc[frame.index <= pd.Timestamp(end)]
+        method = (time_methods or {}).get(name, DEFAULT_TIME_METHOD)
+        period_start = (period_starts or {}).get(name)
+        paired = pair(series, record, method=method, window=window, period_start=period_start)
+        frame = paired.frame
+        lost[name] = paired.n_simulated_nan
+        nan_clause = (
+            f", after {lost[name]} period(s) were dropped because the simulated value is NaN"
+            if lost[name]
+            else ""
+        )
         if frame.empty:
-            window = ""
-            if scoring_window is not None and any(bound is not None for bound in scoring_window):
-                window = f" inside {scoring_window[0]} to {scoring_window[1]}"
+            inside = ""
+            if window is not None and any(bound is not None for bound in window):
+                inside = f" inside {window[0]} to {window[1]}"
             raise ValueError(
-                f"output {name!r} and the record it observes share no timestamp{window}: "
-                f"the record runs {_span(record)} and the run {_span(series)}."
+                f"output {name!r} and the record it observes share no timestamp{inside}"
+                f"{nan_clause}: the record runs {_span(record)} and the run {_span(series)}."
             )
         if len(frame) < int(min_samples):
             raise ValueError(
                 f"output {name!r} and the record it observes share {len(frame)} dated "
-                f"sample(s), fewer than the {int(min_samples)} "
+                f"sample(s){nan_clause}, fewer than the {int(min_samples)} "
                 "[calibration.aggregate].min_samples asks for. A cost on that few is "
                 "not the cost the weights describe."
             )
         paired_observed[name] = [float(value) for value in frame["obs"]]
         paired_simulated[name] = [float(value) for value in frame["sim"]]
         counts[name] = len(frame)
+        dates[name] = (frame.index.min(), frame.index.max())
+        times[name] = pd.DatetimeIndex(frame.index)
+        if series_sink is not None:
+            series_sink.record(
+                output=name,
+                station=(stations or {}).get(name),
+                times=frame.index,
+                simulated=frame["sim"].to_numpy(),
+                observed=frame["obs"].to_numpy(),
+            )
 
-    return PairedOutputs(observed=paired_observed, simulated=paired_simulated, n_paired=counts)
+    return PairedOutputs(
+        observed=paired_observed,
+        simulated=paired_simulated,
+        n_paired=counts,
+        dates=dates,
+        times=times,
+        n_simulated_nan=lost,
+    )
 
 
 def _span(series: pd.Series) -> str:
@@ -168,5 +239,6 @@ __all__ = [
     "PairedOutputs",
     "observed_series_for_outputs",
     "observing_outputs",
+    "output_time_methods",
     "pair_outputs_with_observations",
 ]

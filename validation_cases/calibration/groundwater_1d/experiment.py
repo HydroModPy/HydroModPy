@@ -15,7 +15,8 @@ Gaussian noise. Calibration recovers ``(T, S)`` from the noisy heads.
 
 The experiment uses only numpy, the forward model is ~30 lines; the
 point of the file is to exercise the new ``hydromodpy.calibration`` API
-(ParameterSpace, ScalarObjective, CalibrationEngine, build_optimizer).
+(ParameterSpace, a CompositeObjective of ConfigBlockObjective blocks,
+CalibrationEngine, build_optimizer).
 """
 
 from __future__ import annotations
@@ -25,18 +26,10 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from hydromodpy.calibration import (
-    CalibParameter,
-    CalibrationEngine,
-    EvaluationResult,
-    ObservationSet,
-    ParameterSpace,
-    ParamSuggestion,
-    ScalarObjective,
-    SimulationOutput,
-    build_optimizer,
-)
-from hydromodpy.calibration.optim.objective import evaluate_objective
+from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.objective import CompositeObjective, SimulationOutput
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+from validation_cases.calibration.shared.standalone import build_standalone_calibration
 
 # ---------------------------------------------------------------------------
 # Forward model
@@ -125,28 +118,23 @@ class Groundwater1DCase:
                     name="T",
                     lower=self.bounds["T"][0],
                     upper=self.bounds["T"][1],
-                    transform="log",
+                    search_space="log",
                 ),
                 CalibParameter(
                     name="S",
                     lower=self.bounds["S"][0],
                     upper=self.bounds["S"][1],
-                    transform="log",
+                    search_space="log",
                 ),
             ]
         )
 
-    def synthetic_observations(self) -> ObservationSet:
+    def synthetic_observations(self) -> dict[str, np.ndarray]:
         times, x, heads = solve_heads(**self.truth, **self.model_kwargs)
         j = int(np.argmin(np.abs(x - self.well_position)))
         rng = np.random.default_rng(self.noise_seed)
         noisy = heads[:, j] + rng.normal(0.0, self.noise_sigma, size=times.size)
-        return ObservationSet(
-            stations=("well_mid",),
-            times=times,
-            values={"well_mid": noisy},
-            variable="head",
-        )
+        return {"well_mid": noisy}
 
     def simulate(self, values: Mapping[str, float]) -> SimulationOutput:
         times, x, heads = solve_heads(
@@ -169,52 +157,23 @@ GROUNDWATER_1D_CASE = Groundwater1DCase(
 )
 
 
-# ---------------------------------------------------------------------------
-# Calibration driver
-# ---------------------------------------------------------------------------
-
-
 def build_calibration(
     case: Groundwater1DCase = GROUNDWATER_1D_CASE,
     *,
     optimizer_name: str = "scipy_nelder_mead",
-    max_iter: int = 60,
+    max_trials: int = 60,
     seed: int = 7,
     metric: str = "rmse",
-) -> tuple[CalibrationEngine, ScalarObjective]:
+) -> tuple[CalibrationEngine, CompositeObjective]:
     """Assemble a ready-to-run CalibrationEngine for this case."""
-    space = case.parameter_space()
-    observations = case.synthetic_observations()
-    objective = ScalarObjective(observations, metric=metric)
-
-    optimizer_kwargs: dict[str, object] = {"seed": seed}
-    if optimizer_name == "scipy_nelder_mead":
-        optimizer_kwargs["maxiter"] = max_iter
-    elif optimizer_name == "scipy_de":
-        optimizer_kwargs.update({"maxiter": 15, "popsize": 8, "tol": 1e-4})
-    elif optimizer_name == "grid":
-        optimizer_kwargs["points_per_dim"] = 9
-    optimizer = build_optimizer(optimizer_name, space, **optimizer_kwargs)
-
-    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        sim = case.simulate(sugg.values)
-        obj = evaluate_objective(objective, sim)
-        return EvaluationResult(
-            trial_id=sugg.trial_id,
-            sim_id=sim.sim_id,
-            objective_value=obj.total,
-            components=dict(obj.components),
-            status="completed",
-            metadata={"values": dict(sugg.values)},
-        )
-
-    engine = CalibrationEngine(
-        space=space,
-        optimizer=optimizer,
-        evaluator=evaluator,
-        max_iter=max_iter,
+    return build_standalone_calibration(
+        case,
+        optimizer_name=optimizer_name,
+        max_trials=max_trials,
+        seed=seed,
+        metric=metric,
+        popsize=8,
     )
-    return engine, objective
 
 
 __all__ = [

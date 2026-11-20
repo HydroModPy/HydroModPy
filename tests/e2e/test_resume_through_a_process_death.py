@@ -1,0 +1,504 @@
+"""The exit gate of F7: a resume across a real process death.
+
+Every other resume test in the suite raises an exception inside the pipeline.
+That leaves the process alive: handlers run, the catalog closes, DuckDB folds
+its journal into the database file. None of that happens when a machine loses
+power, the OOM killer fires, or a scheduler cancels a job - and those are the
+deaths a resume exists for.
+
+Here the child sends itself ``SIGKILL``, twice. Nothing is caught, nothing is
+flushed, and the next process starts from what the disk holds.
+
+What the runs prove, together:
+
+- the step journal of a killed run (``<run>/.hmp/checkpoints/steps.json``)
+  reads back in the next process, and names the step that was running when
+  the process died;
+- the resume re-reads the terrain from the product store and delineates the
+  catchment again, which is deterministic: the product ``meta.json`` is
+  unchanged, the tree rasters hold the same values and the shapefiles the same
+  geometries;
+- the mesh the resumed run generated survives the second death in the project
+  product store and is not regenerated - Gmsh is not reproducible run to run, so a resume that re-meshes
+  silently changes every number computed downstream;
+- the domain that comes out is the domain of an uninterrupted run, array for
+  array.
+
+The driver goes through ``Project.simulate``, which is what ``hmp run`` and
+``hmp run --resume`` call. The window stops at ``setup_process``: it is the
+first step that consumes the model phase, and it needs no solver binary.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+pytest.importorskip("whitebox_workflows")
+try:
+    import gmsh  # noqa: F401
+except (ImportError, OSError) as exc:
+    pytest.skip(f"could not import 'gmsh': {exc}", allow_module_level=True)
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEM = REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif"
+
+RUN_NAME = "killed_twice"
+REFERENCE_RUN = "uninterrupted"
+
+PROJECT_TOML = """
+[site]
+name = "naizin"
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "naizin_process_death"
+
+[[simulation.process]]
+id = "flow"
+kind = "flow"
+solvers = ["modflow6"]
+
+[workspace]
+
+[geographic]
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
+kind = "from_outlet_coord"
+x_outlet = 265611.933
+y_outlet = 6784182.776
+snap_dist = "50 m"
+buff_area = "20%"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+prune_short_streams = false
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = true
+
+[mesh]
+# A triangle mesh is drawn by Gmsh, which is not reproducible: it is the
+# engine whose mesh the product store must keep across a death.
+engine = "triangle"
+cell_size = 350.0
+
+[mesh.families]
+geology = "none"
+
+[domain]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "50.0 m"
+
+[data]
+types = ["recharge"]
+inference_mode = "warn"
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [3.0]
+
+[[data.dem.sources]]
+source = "file"
+path = "{dem}"
+
+[flow]
+flow_regime = "steady"
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+value = "1e-5 m/s"
+
+[flow.ic]
+kind = "custom"
+value = "5.0 m"
+
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
+
+[domain.layers]
+nlay = 1
+
+[display]
+enabled = false
+"""
+
+# Runs one window in a process of its own, optionally killing that process at
+# the entry of a named step, and digests the runtime it ends up holding.
+_DRIVER = """
+import hashlib
+import json
+import os
+import signal
+import sys
+from pathlib import Path
+
+config, run_name, mode, kill_at, digest_path = sys.argv[1:6]
+
+
+def _die(*_args, **_kwargs):
+    os.kill(os.getpid(), signal.SIGKILL)
+
+
+if kill_at == "build_mesh":
+    import hydromodpy.workflow.steps.mesh as mesh_module
+
+    mesh_module.step_mesh = _die
+elif kill_at == "setup_process":
+    from hydromodpy.workflow.steps.setup import SetupProcessStep
+
+    SetupProcessStep.run = _die
+
+import numpy as np
+
+from hydromodpy.project.facade import Project
+from hydromodpy.results.products.store import ProductStore, products_root
+
+
+def _terrain_files(setup, project_root):
+    key = setup.products.get("terrain_notched") or setup.products.get("terrain")
+    directory = ProductStore(products_root(project_root)).get(key) if key else None
+    if directory is None:
+        return []
+    return sorted(
+        (path.name, hashlib.sha256(path.read_bytes()).hexdigest())
+        for path in directory.iterdir()
+        if path.is_file()
+    )
+
+
+def _array_digest(values):
+    array = np.ascontiguousarray(values)
+    return {
+        "sha256": hashlib.sha256(array.tobytes()).hexdigest(),
+        "shape": list(array.shape),
+        "dtype": str(array.dtype),
+    }
+
+
+def _surface_digest(surface):
+    if surface is None:
+        return None
+    return _array_digest(np.asarray(surface.as_array(), dtype="float64"))
+
+
+def _zone_digest(zone):
+    for reader in ("encoded_codes", "as_array", "values"):
+        candidate = getattr(zone, reader, None)
+        if callable(candidate):
+            candidate = candidate()
+        if candidate is None:
+            continue
+        try:
+            return _array_digest(candidate)
+        except (TypeError, ValueError):
+            continue
+    raise AssertionError(f"no array to digest in zone {type(zone).__name__}")
+
+
+project = Project(config, no_display=True)
+try:
+    if mode == "fresh":
+        project.simulate(name=run_name, until_step="setup_process")
+    else:
+        project.simulate(resume=run_name, until_step="setup_process")
+    setup = project._ctx.setup
+    domain = setup.domain
+    payload = {
+        "domain": {
+            "surface_topo": _surface_digest(domain.surface_topo),
+            "substratum": _surface_digest(domain.substratum),
+            "georeferencing": hashlib.sha256(
+                json.dumps(domain.georeferencing, sort_keys=True, default=str).encode()
+            ).hexdigest(),
+            "z_interfaces": [float(value) for value in domain.z_interfaces],
+            "zones": {key: _zone_digest(value) for key, value in sorted(domain.zones.items())},
+        },
+        "terrain_product_files": _terrain_files(setup, project._cfg.workspace.project_root),
+        "mesh_loaded": setup.cell_mesh is not None,
+    }
+    Path(digest_path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+finally:
+    project.close()
+"""
+
+# Reads the workflow journal of a run in a process that shares nothing with the
+# one that wrote it. The journal lives in the run directory, never in the index.
+_JOURNAL_READER = """
+import json
+import sys
+from pathlib import Path
+
+from hydromodpy.workflow.record.journal import WorkflowJournal
+
+run_dir = Path(sys.argv[1]) / "runs" / sys.argv[2]
+rows = [
+    {
+        "order": row.step_order,
+        "name": row.step_name,
+        "status": row.status,
+        "started_at": str(getattr(row, "started_at", "")),
+        "artifact_uris": list(row.artifact_uris or ()),
+    }
+    for row in WorkflowJournal(run_dir).list_steps(sys.argv[2])
+]
+print(json.dumps(rows))
+"""
+
+
+def _project_at(root: Path) -> Path:
+    config = root / "project.toml"
+    config.write_text(
+        PROJECT_TOML.format(root=root.as_posix(), dem=DEM.as_posix()),
+        encoding="utf-8",
+    )
+    return config
+
+
+def _drive(
+    root: Path,
+    run_name: str,
+    mode: str,
+    *,
+    kill_at: str = "",
+    digest: Path | None = None,
+) -> int:
+    """Run one window in a child process and return its exit code."""
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            _DRIVER,
+            str(root / "project.toml"),
+            run_name,
+            mode,
+            kill_at,
+            "" if digest is None else str(digest),
+        ],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=900,
+        check=False,
+    )
+    if completed.returncode not in (0, -9):
+        pytest.fail(
+            f"the {mode} run exited {completed.returncode}\n"
+            f"stdout: {completed.stdout[-2000:]}\nstderr: {completed.stderr[-4000:]}"
+        )
+    return completed.returncode
+
+
+def _journal(root: Path, run_name: str) -> list[dict]:
+    completed = subprocess.run(
+        [sys.executable, "-c", _JOURNAL_READER, str(root), run_name],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+    if completed.returncode != 0:
+        pytest.fail(
+            f"the journal of a killed run could not be read\nstderr: {completed.stderr[-4000:]}"
+        )
+    return json.loads(completed.stdout.strip().splitlines()[-1])
+
+
+def _tree_digest(paths: list[Path]) -> dict[str, object]:
+    """Values of the rasters, geometries of the shapefiles, content of the rest.
+
+    No modification time: the resume redoes the delineation, so files are
+    rewritten. What survives is what the terrain is: the same raster values and
+    the same polygon geometries, byte for byte.
+    """
+    import geopandas as gpd
+    import numpy as np
+    import rasterio
+
+    digest: dict[str, object] = {}
+    for path in paths:
+        if not path.is_file():
+            continue
+        suffix = path.suffix.lower()
+        if suffix == ".tif":
+            with rasterio.open(str(path)) as src:
+                digest[str(path)] = [
+                    hashlib.sha256(np.ascontiguousarray(src.read(band)).tobytes()).hexdigest()
+                    for band in range(1, src.count + 1)
+                ]
+        elif suffix == ".shp":
+            digest[str(path)] = [geometry.wkb for geometry in gpd.read_file(str(path)).geometry]
+        elif suffix in (".shx", ".dbf", ".prj", ".cpg"):
+            continue
+        else:
+            digest[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return digest
+
+
+def _terrain_meta(root: Path) -> dict:
+    """The store ``meta.json`` of the terrain product, which a rebuild would rewrite."""
+    for meta_path in sorted((root / ".hmp" / "products").glob("??/*/meta.json")):
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        if meta.get("kind") == "terrain":
+            return meta
+    raise AssertionError("no terrain product in the store")
+
+
+def _mesh_marks(root: Path) -> dict[str, str]:
+    """Digest of every file of the stored mesh, by path under the project."""
+    return {
+        str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted((root / ".hmp" / "products").glob("??/*/*"))
+        if path.is_file()
+    }
+
+
+@pytest.fixture(scope="module")
+def uninterrupted(tmp_path_factory: pytest.TempPathFactory) -> dict:
+    """One complete run, nothing interrupted, as the reference to reproduce."""
+    if not DEM.is_file():
+        pytest.skip(f"missing DEM fixture {DEM}")
+    root = tmp_path_factory.mktemp("uninterrupted")
+    _project_at(root)
+    digest = root / "digest.json"
+
+    assert _drive(root, REFERENCE_RUN, "fresh", digest=digest) == 0
+
+    return json.loads(digest.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def killed_twice(tmp_path_factory: pytest.TempPathFactory) -> dict:
+    """Die inside ``build_mesh``, resume and die inside ``setup_process``, resume.
+
+    The second death lands after the meshing completed, which is the moment a
+    resume must not re-mesh. The third run is an ordinary resume with nothing
+    patched at all.
+    """
+    if not DEM.is_file():
+        pytest.skip(f"missing DEM fixture {DEM}")
+    root = tmp_path_factory.mktemp("killed_twice")
+    _project_at(root)
+
+    first_death = _drive(root, RUN_NAME, "fresh", kill_at="build_mesh")
+    journal_after_first = _journal(root, RUN_NAME)
+    declared = [
+        root / uri
+        for row in journal_after_first
+        if row["name"] == "build_geographic"
+        for uri in row["artifact_uris"]
+    ]
+    tree_after_first = _tree_digest(declared)
+    terrain_meta_after_first = _terrain_meta(root)
+
+    second_death = _drive(root, RUN_NAME, "resume", kill_at="setup_process")
+    journal_after_second = _journal(root, RUN_NAME)
+    tree_after_second = _tree_digest(declared)
+    mesh_after_second = _mesh_marks(root)
+
+    digest = root / "digest.json"
+    final = _drive(root, RUN_NAME, "resume", digest=digest)
+
+    return {
+        "root": root,
+        "exit_codes": (first_death, second_death, final),
+        "journal_after_first": journal_after_first,
+        "journal_after_second": journal_after_second,
+        "journal_after_final": _journal(root, RUN_NAME),
+        "tree_after_first": tree_after_first,
+        "tree_after_second": tree_after_second,
+        "terrain_meta_after_first": terrain_meta_after_first,
+        "terrain_meta_final": _terrain_meta(root),
+        "mesh_after_second": mesh_after_second,
+        "mesh_final": _mesh_marks(root),
+        "digest": json.loads(digest.read_text(encoding="utf-8")),
+    }
+
+
+def test_the_two_deaths_are_uncatchable_and_the_last_run_completes(killed_twice) -> None:
+    """``-9`` is SIGKILL: no handler ran, nothing was flushed on the way out."""
+    assert killed_twice["exit_codes"] == (-9, -9, 0)
+
+
+def test_the_journal_of_a_killed_run_is_readable_by_the_next_process(killed_twice) -> None:
+    """The journal names the step that was running when the process died.
+
+    ``failed`` is what an exception leaves. A killed process writes nothing on
+    its way out, so the row stays ``running`` - and that is the state a resume
+    has to be able to read.
+    """
+    rows = [
+        (row["order"], row["name"], row["status"]) for row in killed_twice["journal_after_first"]
+    ]
+
+    assert rows == [
+        (0, "validate", "completed"),
+        (1, "resolve", "completed"),
+        (2, "build_geographic", "completed"),
+        (3, "load_data", "completed"),
+        (4, "build_mesh", "running"),
+    ]
+
+
+def test_the_resume_reads_the_terrain_from_the_store(killed_twice) -> None:
+    """Same product meta, same raster values and geometries; the delineation ran again."""
+    before = killed_twice["tree_after_first"]
+    after = killed_twice["tree_after_second"]
+
+    assert before, "the crashed run declared no geographic artifact to compare"
+    assert after == before
+    assert killed_twice["terrain_meta_after_first"] == killed_twice["terrain_meta_final"], (
+        "the resume rewrote the terrain product instead of reading it"
+    )
+
+
+def test_the_mesh_survives_the_second_death_and_is_not_generated_again(killed_twice) -> None:
+    """Gmsh is not reproducible, so a regenerated mesh is a different model."""
+    assert killed_twice["mesh_after_second"], "the resumed run left no mesh behind"
+    assert killed_twice["mesh_final"] == killed_twice["mesh_after_second"]
+    assert killed_twice["digest"]["mesh_loaded"]
+
+
+def test_the_window_finishes_and_every_step_is_journalled(killed_twice) -> None:
+    """Six steps, all completed, after two processes died inside them."""
+    rows = [
+        (row["order"], row["name"], row["status"]) for row in killed_twice["journal_after_final"]
+    ]
+
+    assert rows == [
+        (0, "validate", "completed"),
+        (1, "resolve", "completed"),
+        (2, "build_geographic", "completed"),
+        (3, "load_data", "completed"),
+        (4, "build_mesh", "completed"),
+        (5, "setup_process", "completed"),
+    ]
+
+
+def test_the_domain_that_comes_back_is_the_domain_of_an_uninterrupted_run(
+    killed_twice, uninterrupted
+) -> None:
+    """Surface, substratum, zones, georeferencing and interfaces, all identical.
+
+    The domain is rebuilt from the DEM at every process start, so this says the
+    two deaths changed no number, not that anything was skipped. What was
+    skipped is asserted on the files themselves, above.
+    """
+    assert killed_twice["digest"]["domain"] == uninterrupted["domain"]

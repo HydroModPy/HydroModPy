@@ -1,49 +1,116 @@
-"""``hmp catalog import`` - restore a run from a portable ``.hmp`` archive."""
+"""``hmp catalog import`` - bring a run published by ``hmp publish`` into the project.
+
+A thin wrapper of :func:`hydromodpy.project.exchange.install.import_run`: the run lands
+under ``runs/`` and is indexed, and a copy carries its inputs unless it was published
+with ``--without inputs``, so it installs every file it read into the ``data/`` of the workspace, with its station rows,
+its data cache rows and its site. The command ends with the two commands that
+replay the run and compare the replay with it.
+"""
 
 from __future__ import annotations
 
 import argparse
-import sys
+import shlex
 from pathlib import Path
 
-from hydromodpy.cli._conventions import workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.cli.conventions import (
+    dry_run_parser,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of
 
 NAME: str = "import"
-HELP: str = "Import a .hmp archive into the workspace (checksums verified first)"
+HELP: str = "Import a run written by 'hmp publish' (directory or tar), with the data it read"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
-        epilog="Example:\n  hmp catalog import paper.hmp",
+        parents=[workspace_parser(), dry_run_parser(), format_parser(), verbosity_parser()],
+        epilog=(
+            "The run lands under runs/ with the next free version of its name,\n"
+            "read without its _vN: a published x_v2 becomes x in a project that has\n"
+            "no x. Pass --name to give it the name other documents cite.\n"
+            "\n"
+            "A copy carries its inputs unless it was published with --without inputs,\n"
+            "so it installs every file the run read\n"
+            "into data/ of the workspace: identical bytes already there cost nothing,\n"
+            "other bytes at the same path are refused by name, and nothing is written.\n"
+            "\n"
+            "Examples:\n"
+            "  hmp catalog import baseline.tar\n"
+            "  hmp catalog import ../published/baseline --name lab_copy"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("package", help="Path to the .hmp archive")
+    parser.add_argument("source", help="Directory or tar written by 'hmp publish'")
     parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite an existing run with the same identity",
+        "--name",
+        default=None,
+        help="Name of the imported run (default: the published name without its _vN)",
     )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import import_package_run
+    from hydromodpy.project.exchange.install import import_run
 
-    workspace_root = Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    try:
-        result = import_package_run(args.package, workspace=workspace_root, force=args.force)
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except Exception as exc:  # noqa: BLE001 - surface verification / collision errors
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+    root = project_root_of(args)
+    imported = import_run(root, Path(args.source), name=args.name, dry_run=args.dry_run)
+    if not args.dry_run:
+        # Like ``hmp run``: the import builds the index when the project has none yet.
+        from hydromodpy.results.catalog.indexer import index_new_runs
 
-    sids = result["sim_ids"]
-    ids = ", ".join(s[:8] for s in sids)
-    print(f"imported {len(sids)} run(s): {ids}")
+        index_new_runs(root)
+    report = imported.install
+    following = _next_commands(root, imported.rel_dir, workspace=args.workspace)
+
+    def table() -> None:
+        verb = "would import" if args.dry_run else "imported"
+        print(f"{verb} {args.source} as {imported.rel_dir}")
+        if report is None:
+            print("The copy carries no inputs: a rerun reads data/ of this workspace.")
+        else:
+            print(
+                f"data: {len(report.written)} file(s) written, {len(report.unchanged)} already "
+                f"there, {len(report.stations_written)} station row(s), "
+                f"{len(report.cache_registered)} data cache row(s), "
+                f"{len(report.sites_added)} site(s)"
+            )
+            for dest in report.written:
+                print(f"  + {dest}")
+        if not args.dry_run:
+            print("next:")
+            for line in following:
+                print(f"  {line}")
+
+    emit(
+        args,
+        "catalog import",
+        {
+            "applied": not args.dry_run,
+            "rel_dir": imported.rel_dir,
+            "name": Path(imported.rel_dir).name,
+            "written": [] if report is None else list(report.written),
+            "unchanged": [] if report is None else list(report.unchanged),
+            "next": following,
+        },
+        table=table,
+    )
+
+
+def _next_commands(root: Path, rel_dir: str, *, workspace: str | None) -> list[str]:
+    """Return the rerun of the imported run and the comparison of the two."""
+    from hydromodpy.core.state.names import split_stem_version
+    from hydromodpy.core.state.result_dirs import parse_rel_dir
+    from hydromodpy.results.catalog.registration import next_version_dirname
+
+    name = parse_rel_dir(rel_dir).name
+    replay = next_version_dirname(root, split_stem_version(name)[0])
+    where = f" -w {shlex.quote(str(root))}" if workspace else ""
+    return [f"hmp catalog rerun {name}{where}", f"hmp diff {name} {replay}{where}"]

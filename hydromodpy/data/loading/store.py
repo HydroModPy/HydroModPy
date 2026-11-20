@@ -1,17 +1,17 @@
 """DataStore: unified entry point for all data loading operations.
 
-The DataStore is the main interface for loading data. It manages the catalog
-(metadata registry backed by DuckDB) and delegates to variable-specific
-managers.
+The store holds the data cache of one data folder, a
+:class:`~hydromodpy.data.provenance.sidecars.CacheIndex` read from the sidecars
+next to the files, and hands it to each variable it loads.
 
-If *workspace_root* is provided (path to an ``hmp workspace init`` workspace), API
-results are persisted as CSV files in ``data/<variable>/`` and registered
-in ``data/cache.duckdb`` under the workspace root. Custom data stays at the
-path specified by the user in the TOML.
+With a workspace root (an ``hmp workspace init`` workspace) or a data root,
+what a variable fetches is written as files in ``data/<variable>/``, each with
+its sidecar. A file the user declares stays where the TOML names it and is no
+row of the cache. Without either, nothing is written: the index is empty, finds
+nothing and refuses a write.
 
-If *workspace_root* is None, data is loaded in memory only (no persistence).
-Runtime callers may pass an existing catalog and data root so the simulation
-loader and interactive facade share the same manager instantiation path.
+Two cases of a ``[sites]`` launch share one data folder. Each writes its files
+and sidecars in place, one station chronicle at a time under its file lock.
 """
 
 from __future__ import annotations
@@ -22,28 +22,12 @@ from typing import Any
 
 import pandas as pd
 
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.loading._dispatch import get_manager_class
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-
-
-def _find_workspace_root(start_path: Path) -> Path | None:
-    """Walk up from *start_path* looking for a workspace directory.
-
-    Recognises the canonical ``data/cache.duckdb`` layout.
-    """
-    current = start_path.resolve()
-    if current.is_file():
-        current = current.parent
-    for _ in range(10):
-        if (current / "data" / "cache.duckdb").exists() and (current / "data").is_dir():
-            return current
-        parent = current.parent
-        if parent == current:
-            break
-        current = parent
-    return None
+from hydromodpy.data.loading._dispatch import variable_class_for
+from hydromodpy.data.provenance.lockfile import LockedInputs
+from hydromodpy.data.provenance.sidecars import CacheIndex
 
 
 class DataStore:
@@ -53,9 +37,18 @@ class DataStore:
     ----------
     workspace_root : Path or str, optional
         Root of the HydroModPy workspace (created by ``hmp workspace init``).
-        If provided, ``data/cache.duckdb`` is opened at this location and API
-        results are saved as CSV in ``data/<variable>/``.
-        If *None*, the catalog is in-memory and nothing is persisted.
+        If provided, its ``data/`` folder holds the cache.
+    data_root : Path or str, optional
+        The data folder itself, which wins over *workspace_root*. Without
+        either, nothing is persisted.
+    index : CacheIndex, optional
+        An index already read, shared with another store of the same folder.
+        It carries its own *locked*.
+    locked : LockedInputs, optional
+        The lockfile of a frozen run, read once by the runner. The store gives
+        it to the index it builds, so every refusal of the frozen mode reads
+        this argument and no state of the process. ``None`` is a run that is
+        not frozen.
     project_extent : tuple, optional
         Bounding box (xmin, ymin, xmax, ymax) for spatial filtering.
     project_period : tuple[datetime, datetime], optional
@@ -67,9 +60,11 @@ class DataStore:
         *,
         workspace_root: str | Path | None = None,
         data_root: str | Path | None = None,
-        catalog: DataCatalogDuckDB | None = None,
+        index: CacheIndex | None = None,
+        locked: LockedInputs | None = None,
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
+        bounds: Bounds | None = None,
     ):
         if data_root is not None:
             self.data_root = Path(data_root).expanduser().resolve()
@@ -83,23 +78,23 @@ class DataStore:
             self.workspace_root = Path(workspace_root).expanduser().resolve()
             if not (self.workspace_root / "data").is_dir():
                 raise FileNotFoundError(
-                    f"Workspace invalide : dossier 'data/' introuvable dans "
-                    f"{self.workspace_root}. Lancez 'hmp workspace init' ou verifiez le chemin."
+                    f"Not a workspace: the folder 'data/' is not in {self.workspace_root}. "
+                    "Run 'hmp workspace init', or check the path."
                 )
             self.data_root = self.workspace_root / "data"
         else:
             self.workspace_root = None
             self.data_root = None
 
-        if catalog is not None:
-            self.catalog = catalog
-        elif self.data_root is not None:
-            self.catalog = DataCatalogDuckDB(self.data_root / "cache.duckdb")
-        else:
-            self.catalog = DataCatalogDuckDB()
+        self.index = index if index is not None else CacheIndex(self.data_root, locked=locked)
+        self.locked = self.index.locked
 
         self.project_extent = project_extent
         self.project_period = project_period
+        # The bounds of the call this store serves: every variable it builds
+        # puts them into each request, so the fetcher refuses a host the
+        # caller did not allow. ``None`` keeps the all-allowing default.
+        self.bounds = bounds if bounds is not None else Bounds()
 
     def _data_dir(self, variable_name: str) -> Path | None:
         """Return ``data/<variable>/`` or None."""
@@ -117,87 +112,127 @@ class DataStore:
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
         export_dir: str | Path | None = None,
-        **extra_kwargs: Any,
     ) -> LoadResult:
-        """Instantiate the right manager and load data."""
-        cls = get_manager_class(variable_name)
-        mgr = cls(
+        """Build the variable and load its data.
+
+        Every variable on this path takes the same five arguments and no
+        others. The escape hatch that used to sit here, ``**extra_kwargs``,
+        existed for one caller and one key -- ``geographic`` for oceanic --
+        and removing it is what makes "a variable receives no project-scoped
+        object" a property of the path rather than a habit of its callers.
+        """
+        cls = variable_class_for(variable_name)
+        variable = cls(
             config=config,
-            catalog=self.catalog,
+            index=self.index,
             project_extent=self.project_extent if project_extent is None else project_extent,
             project_period=self.project_period if project_period is None else project_period,
             data_dir=self._data_dir(variable_name),
-            **extra_kwargs,
         )
-        result = mgr.load()
+        variable.bounds = self.bounds
+        result = variable.load()
         if export_dir is not None:
-            mgr.export(result, Path(export_dir))
+            variable.export(result, Path(export_dir))
         return result
 
     def load_dem(
         self,
         config: Any,
         *,
-        geographic: Any = None,
         project_extent: tuple | None = None,
     ) -> LoadResult:
-        """Load DEM data."""
-        from hydromodpy.data.variables.dem.manager import DemManager
+        """Load DEM data.
 
-        manager = DemManager(
+        The extent comes from the source config alone -- ``mask_path``, which
+        the runtime loader fills in from the delineated watershed, or
+        ``extent`` together with ``project_extent``. There is no
+        ``geographic`` parameter: see
+        :mod:`hydromodpy.data.common.source_extent`.
+        """
+        from hydromodpy.data.variables.dem.variable import DemVariable
+
+        variable = DemVariable(
             config=config,
-            catalog=self.catalog,
+            index=self.index,
             project_extent=self.project_extent if project_extent is None else project_extent,
             data_dir=self._data_dir("dem"),
-            geographic=geographic,
         )
-        return manager.load()
+        variable.bounds = self.bounds
+        return variable.load()
 
     def load_geology(
         self,
         config: Any,
         *,
-        geographic: Any = None,
         project_extent: tuple | None = None,
     ) -> LoadResult:
-        """Load geology data."""
-        from hydromodpy.data.variables.geology.manager import GeologyManager
+        """Load geology data, on the same extent contract as :meth:`load_dem`."""
+        from hydromodpy.data.variables.geology.variable import GeologyVariable
 
-        manager = GeologyManager(
+        variable = GeologyVariable(
             config=config,
-            catalog=self.catalog,
+            index=self.index,
             project_extent=self.project_extent if project_extent is None else project_extent,
             data_dir=self._data_dir("geology"),
-            geographic=geographic,
         )
-        return manager.load()
+        variable.bounds = self.bounds
+        return variable.load()
+
+    def fetch_network(
+        self, source_cfg: Any, mask_path: str | Path, *, bounds: Bounds | None = None
+    ) -> Any:
+        """Return the network one listed source answers over the box of *mask_path*.
+
+        Read from this store's cache and stored in it, as a run stores it: a
+        workspace store keeps the answer under ``data/hydrography/``.
+        *bounds* is the :class:`Bounds` of the call that asked for the
+        network; unset, the bounds of this store. The source is built under
+        them, so a host they do not allow is refused before anything connects.
+        """
+        from hydromodpy.data.families.common import source_within_bounds
+        from hydromodpy.data.variables.hydrography.api_source import source_from_section
+        from hydromodpy.data.variables.hydrography.variable import fetch_network_through_cache
+
+        call_bounds = self.bounds if bounds is None else bounds
+        source = source_within_bounds(source_from_section(source_cfg), call_bounds)
+        return fetch_network_through_cache(
+            source_cfg,
+            Path(mask_path),
+            index=self.index,
+            data_dir=self._data_dir("hydrography"),
+            source=source,
+        )
 
     def load_hydrography(
         self,
         config: Any,
         *,
-        geographic: Any,
         out_path: str | Path,
+        base_raster: str | Path | None = None,
         stable_folder: str | Path | None = None,
     ) -> LoadResult:
-        """Load hydrography data (vector or raster) with catalog caching."""
-        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
+        """Load hydrography data (vector or raster) through the data cache.
 
-        manager = HydrographyManager(
+        The extent is ``config.mask_path``; ``base_raster`` is only the grid the
+        clipped network is rasterized onto.
+        """
+        from hydromodpy.data.variables.hydrography.variable import HydrographyVariable
+
+        variable = HydrographyVariable(
             config=config,
-            geographic=geographic,
             out_path=out_path,
-            catalog=self.catalog,
+            base_raster=base_raster,
+            index=self.index,
             data_dir=self._data_dir("hydrography"),
             stable_folder=stable_folder,
         )
-        return manager.load()
+        variable.bounds = self.bounds
+        return variable.load()
 
     def load_oceanic(
         self,
         config: Any,
         *,
-        geographic: Any = None,
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
     ) -> LoadResult:
@@ -206,7 +241,6 @@ class DataStore:
             config,
             project_extent=project_extent,
             project_period=project_period,
-            geographic=geographic,
         )
 
     def load_hydrometry(self, config) -> LoadResult:
@@ -249,15 +283,15 @@ class DataStore:
         return self.load_variable("soil_moisture", config)
 
     def cache_info(self, variable: str | None = None) -> pd.DataFrame:
-        """Show catalog entries."""
-        return self.catalog.list_entries(variable=variable)
+        """Return the rows of the data cache, one line each."""
+        return pd.DataFrame([row.to_dict() for row in self.index.rows(variable=variable)])
 
     def get_completeness_report(
         self,
         records: LoadResult | list[PointRecord],
     ) -> pd.DataFrame:
         """Compute per-station completeness stats for point records."""
-        from hydromodpy.data.common.validation import compute_completeness
+        from hydromodpy.data.contracts.completeness import compute_completeness
 
         if isinstance(records, LoadResult):
             records = records.points
@@ -281,8 +315,8 @@ class DataStore:
         return pd.DataFrame(rows)
 
     def cleanup(self) -> int:
-        """Remove catalog entries whose files no longer exist on disk."""
-        return self.catalog.cleanup()
+        """Remove the sidecars whose files no longer exist on disk. Returns the count."""
+        return len(self.index.forget_orphans())
 
     def clear_cache(
         self,
@@ -291,9 +325,8 @@ class DataStore:
         source: str | None = None,
         delete_files: bool = False,
     ) -> int:
-        """Remove catalog entries (and optionally their files)."""
-        return self.catalog.invalidate(
-            variable=variable,
-            source=source,
-            delete_files=delete_files,
-        )
+        """Remove the rows that match, and their files with *delete_files*. Returns the count."""
+        rows = self.index.rows(variable=variable, source=source)
+        for row in rows:
+            self.index.forget(row, delete_file=delete_files)
+        return len(rows)

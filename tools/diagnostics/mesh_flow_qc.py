@@ -17,16 +17,15 @@ drainage structure on an irregular Voronoi mesh:
       (hypothesis: the fill raises exactly the valley-floor channel cells).
 
 Outputs a JSON metrics file and a self-contained interactive HTML map
-(pan/zoom canvas, in the style of cheze_interactive_mesh.py).
+(pan/zoom canvas).
 
-Example (Cheze 75 m):
-    python tools/diagnostics/mesh_flow_qc.py \
-        examples/projects/19_cheze_reservoir/.solver_scratch/cheze_reservoir_preretenue_75m.v7 \
-        --streams examples/projects/19_cheze_reservoir/simulations/<sim>.parquet/geographic_hydrographic_network_generated.parquet \
-        --raw-dem examples/data/dem/DEM_armorican_massif.tif \
-        --zarr examples/projects/19_cheze_reservoir/simulations/<sim>.zarr.zip \
-        --exclude-corridor examples/data/cutoff_wall/injection_cheze.gpkg \
-        --out /tmp/qc_out
+Example (a 75 m mesh of a run):
+    python tools/diagnostics/mesh_flow_qc.py <mesh_dir> \
+        --streams <generated_hydrographic_network.parquet> \
+        --raw-dem <raw_dem.tif> \
+        --zarr <run_fields.zarr> \
+        --exclude-corridor <corridor.gpkg> \
+        --out <qc_out>
 """
 
 from __future__ import annotations
@@ -69,13 +68,16 @@ def load_mesh(solver_dir: str) -> Mesh:
     import flopy
     from shapely.geometry import Polygon
 
+    from hydromodpy.solver.modflow6.support.computational_top import read_ground_sidecar
+
     sim = flopy.mf6.MFSimulation.load(sim_ws=solver_dir, verbosity_level=0)
     gwf = sim.get_model()
     mg = gwf.modelgrid
     ncpl = int(mg.ncpl)
     xc = np.asarray(mg.xcellcenters).reshape(-1)
     yc = np.asarray(mg.ycellcenters).reshape(-1)
-    top = np.asarray(mg.top).reshape(-1).astype(float)
+    # The DISV top is the computational top; the ground sits beside the model.
+    top = read_ground_sidecar(solver_dir, written_top=np.asarray(mg.top).reshape(-1))
     idom = np.asarray(mg.idomain).reshape(mg.nlay, -1)
     active = idom[0] == 1
     iverts = mg.iverts

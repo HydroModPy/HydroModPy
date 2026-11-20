@@ -1,146 +1,238 @@
-# ======================================================================
-# HydroModPy - example 05: piezometry in a coastal aquifer
-# ----------------------------------------------------------------------
-# Gouville coastal strip (Normandy, EPSG:2154). The model domain is a
-# polygon (model_area) over a 25 m coastal DEM. Steady groundwater flow
-# solved with MODFLOW 6, with a SEA boundary: every cell below mean sea
-# level is held at the sea level (a constant-head ocean boundary), so the
-# water table slopes from the inland recharge mound down to the shore.
+# Example 05: the coastal aquifer of Gouville-sur-Mer (Manche).
 #
-# This is the coastal-piezometry case: the interplay of recharge inland
-# and a fixed sea level at the coast sets the water-table shape.
+# One year 2016 in daily stress periods on a 3.3 km2 strip of coast, cut on a
+# 25 m DEM. The aquifer is not uniform: a western strip along the shore and an
+# eastern one inland carry their own K and their own Sy. Two things drive the
+# water table, a recharge that changes every day and a sea level that follows
+# the tide. The simulated head is put next to the record of the piezometer
+# BSS 01423X0044/F4. MODFLOW 6 solves the flow.
 #
-# Launch:
-#   hmp run examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/project.toml
-# ======================================================================
+#   hmp run project.toml
 
+[site]
+name = "gouville"
 
 [workflow]
 mode = "simulation"
 
-[workspace]
-project_root = "."
-
-
 [simulation]
-name = "gouville_coastal_mf6"
-description = "Gouville coastal aquifer, steady MODFLOW 6, sea-level ocean boundary."
-if_exists = "replace"
+name = "gouville_example_05"
+description = "Gouville coastal aquifer, daily transient 2016, two parameter zones, tidal sea level, one piezometer."
+
+# 366 daily stress periods, one time step each.
+[simulation.time]
+start_datetime = "2016-01-01"
+end_datetime = "2016-12-31"
+step_value = "1 day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
-
-# ---------------------------------------------------------------------- geographic
+# The domain is the model area drawn by hand along the coast, not a catchment
+# cut from an outlet. The DEM covers this polygon and no more, so the grid is
+# the DEM itself.
 [geographic]
-source_mode = "standard"
 crs_project = "EPSG:2154"
-dem_correc_type = "breach"
-domain_extent = "box"
 
 [geographic.catchment]
-# The domain is a polygon (the coastal model area), not an outlet catchment.
-catch_def = "from_polyg_shp"
-dem_init_path = "DEM_gouville_25m.tif"
-polyg_shp_path = "gouville_model_area.shp"
-buff_area = "2%"
+kind = "from_polyg_shp"
+polyg_shp_path = "workspace:gouville_model_area.shp"
+buff_area = "10 m"
 
+# The two polygons of gouville_param_zones.gpkg become a zone number per cell.
+# They come in through the geology support, the generic way a polygon layer
+# becomes a zone of the parameters. Nothing here is about rock types.
+[domain.supports.param_zones]
+kind = "geology"
 
-# ---------------------------------------------------------------------- domain
-[domain]
-
+# One layer down to a flat base at 20 m below sea level.
 [domain.depth_model]
-# 20 m aquifer below the topography.
-kind = "constant_thickness"
-thickness = "20.0 m"
+kind = "flat_substratum"
+substratum_elevation = "-20 m"
 
-
-# ---------------------------------------------------------------------- data
 [data]
-project_crs = "EPSG:2154"
-types = ["dem", "recharge"]
-inference_mode = "warn"
+types = ["dem", "geology", "piezometry", "recharge"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "DEM_gouville_25m.tif"
+source = "file"
+path = "workspace:DEM_gouville_25m.tif"
 
-# Steady mean recharge over the coastal strip, mm/day.
+[data.geology]
+id = "param_zones"
+
+[[data.geology.sources]]
+source = "file"
+path = "../../data/masks/gouville_param_zones.gpkg"
+code_field = "zone"
+
+# The daily water-table elevation of the piezometer, in m above sea level. The
+# model does not read it. It is drawn next to the simulated head.
+[[data.piezometry.sources]]
+source = "file"
+path = "workspace:."
+station_ids = ["GOUVILLE_F4"]
+
+# The daily recharge of a reanalysis over 2016, in mm/day.
 [[data.recharge.sources]]
-source = "synthetic"
-values = [1.0]
-runoff_ratio = 0.0
+source = "file"
+path = "workspace:."
+station_ids = ["GOUVILLE"]
 
-
-# ---------------------------------------------------------------------- flow
 [flow]
-flow_regime = "steady"
-param_list = ["K", "Sy"]
-active_sinks_sources = ["recharge"]
-# Two boundaries: the sea (ocean, constant head at MSL on cells below sea
-# level) and hillslope drainage where the water table reaches the surface.
-active_bc = ["ocean", "drainage"]
+flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
+# 1 January is solved in steady state under the mean recharge of the year and
+# the mean sea level, so the year starts from a water table in balance.
+first_period_steady = true
 
-[flow.ic]
-type = "top"
-description = "Water table initialised at the topographic surface."
-
+# zone_1 is the western strip along the shore, zone_2 the eastern one inland.
 [flow.param.K.field]
-id = "K"
-kind = "homogeneous"
-unit = "m/s"
-value = 5e-5
+kind = "heterogeneous"
+unit = "m/day"
+field_spatial_id = "param_zones"
+values = { zone_1 = 18.5, zone_2 = 95.0 }
 
 [flow.param.Sy.field]
-id = "Sy"
-kind = "homogeneous"
+kind = "heterogeneous"
 unit = "-"
-value = 0.1
+field_spatial_id = "param_zones"
+values = { zone_1 = 0.08, zone_2 = 0.45 }
 
-# Sea boundary: hold every cell whose land surface is at or below 0 m NGF
-# (French height datum, mean sea level) at the sea level.
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+# The sea. Every cell whose ground is at or below the highest sea level of the
+# year is held at the sea level of the day. The steady 1 January takes the mean
+# sea level of the year, 0.519 m, and the record of the tide takes over on
+# 2 January.
 [flow.bc.ocean]
 kind = "dirichlet"
-application_domain = "top"
-description = "Constant-head sea boundary at mean sea level."
-value = "0.0 m"
 
+[flow.bc.ocean.forcing]
+kind = "piecewise"
+units = "m"
+
+[[flow.bc.ocean.forcing.segments]]
+start = "2016-01-01"
+end = "2016-01-02"
+forcing = { kind = "constant", value = 0.519 }
+
+[[flow.bc.ocean.forcing.segments]]
+start = "2016-01-02"
+forcing = { kind = "csv", path_file = "../../data/oceanic/oceanic_custom_GOUVILLE_20160101_20161231_D.csv", date_column = "datetime", value_column = "value" }
+
+# Every other cell drains at the ground surface. The conductance follows K,
+# C = K * cell area / 1 m.
 [flow.bc.drainage]
-kind = "cauchy"
-application_domain = "top"
-description = "Cauchy drainage on the aquifer top face."
-value = 0.0
+kind = "drain"
 
+# The steady 1 January takes the mean recharge of the year, the default.
 [flow.sinks_sources.recharge]
-first_clim = "mean"
 
+# The head in the cell of the piezometer, kept at every time step so the run
+# holds a series to put next to the measured one.
+[observation]
+variables = ["head"]
 
-# ---------------------------------------------------------------------- solver
-[modflow6.runtime]
-mf6_ims_complexity = "MODERATE"
+[[observation.points]]
+id = "GOUVILLE_F4"
+x = 363780.7
+y = 6897112.7
+layer = 0
 
-[modflow6.sgrid.planar]
-mode = "keep_native"
-
-[modflow6.sgrid.vertical]
-genmtd_lay = "constant"
-nlay = 1
-
-
-# ---------------------------------------------------------------------- display
+# The figures land in runs/gouville_example_05/figures/. Each one that applies
+# and fails stops the run, so a broken figure cannot go unseen. The red
+# triangle is the piezometer.
 [display]
-enabled = true
-show = false
-save = true
-output_dir = "figures"
 on_error = "raise"
-figures = [
-    "mesh_map",
-    "piezometric_map",
-    "watertable_depth_map",
-    "seepage_map",
-    "cross_section",
-    "water_budget",
-]
+
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "stations"]
+
+# The two zones of K. A cell the zone border crosses takes the mean of the
+# two, weighted by the share of the cell each zone covers.
+[[display.figure]]
+variable = "hydraulic_conductivity"
+overlays = ["stations"]
+
+[[display.figure]]
+variable = "specific_yield"
+overlays = ["stations"]
+
+# The water-table depth on 1 January, the steady state, as a first look. The
+# black cells are the sea and the seepage cells.
+[[display.figure]]
+variable = "watertable_depth"
+time = "first"
+overlays = ["seepage", "stations"]
+limits = [0.0, 15.0]
+
+# The same depth in mid March, at the high of the piezometer, and in mid
+# October, at its low.
+[[display.figure]]
+variable = "watertable_depth"
+name = "watertable_depth_march"
+time = "2016-03-15"
+overlays = ["seepage", "stations"]
+limits = [0.0, 15.0]
+
+[[display.figure]]
+variable = "watertable_depth"
+name = "watertable_depth_october"
+time = "2016-10-15"
+overlays = ["seepage", "stations"]
+limits = [0.0, 15.0]
+
+# West to east along the strip, through the piezometer, at the high and at
+# the low.
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "section_west_east_march"
+time = "2016-03-15"
+line = [[363010.0, 6897112.7], [366330.0, 6897112.7]]
+
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "section_west_east_october"
+time = "2016-10-15"
+line = [[363010.0, 6897112.7], [366330.0, 6897112.7]]
+
+# What enters and leaves the aquifer each day, over the whole strip: recharge,
+# sea, drains and storage. The strip has no single outlet, so the budget is
+# read on the zone of the whole domain.
+[[display.figure]]
+preset = "water_budget"
+station = "zone:domain"
+
+# What lands in runs/gouville_example_05/exports/, ready for QGIS or a
+# spreadsheet.
+
+# The DEM of the model: GeoTIFF.
+[[export]]
+variable = "watershed_dem"
+
+# The water table, its depth and the seepage cells in mid March and in mid
+# October: one GeoTIFF each.
+[[export]]
+variable = ["head", "watertable_depth", "seepage_mask"]
+time = "2016-03-15"
+
+[[export]]
+variable = ["head", "watertable_depth", "seepage_mask"]
+time = "2016-10-15"
+
+# The 366 days of the water table in one NetCDF file.
+[[export]]
+variable = ["head", "watertable_depth", "seepage_mask"]
+file = "watertable_2016.nc"
+
+# The water budget of every day: CSV.
+[[export]]
+variable = "budget"

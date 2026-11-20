@@ -1,4 +1,7 @@
-"""MF6 boundary-condition builders (CHD, DRN, side/ocean/stream support)."""
+"""MF6 boundary-condition builders (CHD, DRN, side/ocean/stream support).
+
+It builds the ocean, stream and side constant heads, and the drains.
+"""
 
 from __future__ import annotations
 
@@ -6,21 +9,29 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from hydromodpy.core.units import (
-    convert_payload_to_m,
+from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.units.quantities import (
+    coerce_length_series_to_m,
     factor_to_m2_per_s,
-    normalize_length_unit,
+    forcing_units,
 )
-from hydromodpy.physics.flow.boundary_condition_registry import (
-    active_side_dirichlet_boundary_ids,
-    boundary_conditions_mapping_from_flow,
-    is_boundary_condition_active,
-)
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow_common.drain_conductance import (
+from hydromodpy.mesh.cells.boundary import label_cells, side_cells, stream_cells
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.base.drain_conductance import (
     drain_discharge_band,
     hk_fallback_drain_conductance,
 )
+from hydromodpy.solver.modflow6.builders.period_forcing import simulation_window
+from hydromodpy.solver.modflow_common.boundary_roles import write_constant_head_roles
+
+logger = get_logger(__name__)
+
+# Largest to smallest area of the drained cells above which a per-cell drain
+# conductance is reported: the drained flux per unit area, C / cell_area, then
+# varies more than twofold over the mesh.
+DRAIN_AREA_SPREAD_REPORT_RATIO = 2.0
 
 
 def is_scalar_number(value: object) -> bool:
@@ -28,7 +39,7 @@ def is_scalar_number(value: object) -> bool:
 
 
 def boundary_conditions_mapping(model) -> Mapping[str, object]:
-    return boundary_conditions_mapping_from_flow(model.flow)
+    return model.inputs.boundaries.conditions
 
 
 def boundary_attr(boundary: object, name: str, default=None):
@@ -39,7 +50,7 @@ def boundary_attr(boundary: object, name: str, default=None):
 
 
 def is_bc_active(model, bc_id: str) -> bool:
-    return is_boundary_condition_active(model.flow, bc_id)
+    return model.inputs.boundaries.is_active(bc_id)
 
 
 def boundary_period_series(model, *, value: object, label: str) -> np.ndarray:
@@ -60,20 +71,6 @@ def boundary_period_series(model, *, value: object, label: str) -> np.ndarray:
     return series.astype(float)
 
 
-def coerce_length_series_to_m(*, values: object, units: object, label: str) -> np.ndarray:
-    source_units = normalize_length_unit(str(units).strip() or "m")
-    return np.asarray(
-        convert_payload_to_m(values, unit=source_units, label=label),
-        dtype=float,
-    )
-
-
-def forcing_units(forcing: object, *, fallback: object) -> object:
-    if isinstance(forcing, Mapping):
-        return forcing.get("units", fallback)
-    return getattr(forcing, "units", fallback)
-
-
 def coerce_conductance_series_to_m2_per_s(
     *,
     values: object,
@@ -84,16 +81,12 @@ def coerce_conductance_series_to_m2_per_s(
     return np.asarray(values, dtype=float) * float(factor)
 
 
-def boundary_start_value(model, *, value: object, label: str) -> float:
-    return float(boundary_period_series(model, value=value, label=label)[0])
-
-
 def resolve_side_boundary_series(model, *, boundary: object, bc_id: str) -> np.ndarray:
     forcing = boundary_attr(boundary, "forcing", None)
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(None if model.time_grid is None else model.time_grid.window),
+            simulation_window=simulation_window(model),
             nper=int(model.nper),
             label=f"flow.bc.{bc_id}.forcing",
         )
@@ -113,50 +106,46 @@ def resolve_side_boundary_series(model, *, boundary: object, bc_id: str) -> np.n
     )
 
 
-def _require_runtime_mesh_support(model, *, label: str) -> object:
-    support = getattr(model, "runtime_mesh_support", None)
-    if support is None:
-        raise ValueError(
-            f"{label} requires runtime gmsh support metadata but mesh_support is unavailable."
-        )
-    return support
+def _solver_cell_mesh(model, *, label: str) -> PlanarCellMesh:
+    """Return the cell mesh the solver cells come from, or refuse by name."""
+    solver_mesh = getattr(model, "solver_mesh", None)
+    if solver_mesh is None:
+        raise ValueError(f"{label} reads the cells of the solver mesh, but none is set.")
+    return solver_mesh.cell_mesh
+
+
+def _support_label_cells(cell_mesh: PlanarCellMesh, support_label: object) -> np.ndarray:
+    """Return the cells of one ``support_label``.
+
+    The label is ``stream``, a side id, ``boundary:<name>``, or the bare name of a
+    boundary group, which reads the family ``boundary:<name>``.
+    """
+    text = str(support_label).strip()
+    cells = label_cells(cell_mesh, text)
+    if cells.size == 0 and not text.startswith("boundary:"):
+        cells = label_cells(cell_mesh, f"boundary:{text}")
+    return cells
 
 
 def boundary_support_cell_ids(model, *, boundary: object, bc_id: str) -> list[int]:
     """Return flat cell ids selected by one BC support definition."""
-    solver_mesh = getattr(model, "solver_mesh", None)
     support_label = boundary_attr(boundary, "support_label", None)
-    if support_label is not None and not (
-        solver_mesh is None or getattr(solver_mesh, "is_structured", False)
-    ):
-        support = _require_runtime_mesh_support(model, label=f"flow.bc.{bc_id}")
-        cell_ids = support.cell_indices_for_label(str(support_label))
+    if support_label is not None:
+        cell_mesh = _solver_cell_mesh(model, label=f"flow.bc.{bc_id}")
+        cell_ids = _support_label_cells(cell_mesh, support_label)
         if cell_ids.size == 0:
             raise ValueError(
                 f"flow.bc.{bc_id}.support_label='{support_label}' did not match any "
                 "runtime mesh support."
             )
-        return [int(cell_id) for cell_id in cell_ids.tolist()]
+        return cell_ids.tolist()
     return side_boundary_cell_ids(model, bc_id)
 
 
 def side_boundary_cell_ids(model, bc_id: str) -> list[int]:
     """Return flat cell IDs touched by one side boundary."""
-    solver_mesh = getattr(model, "solver_mesh", None)
-    if solver_mesh is None or getattr(solver_mesh, "is_structured", False):
-        nrow, ncol = int(model.nrow), int(model.ncol)
-        if bc_id == "west_side":
-            return [i * ncol for i in range(nrow)]
-        if bc_id == "east_side":
-            return [i * ncol + (ncol - 1) for i in range(nrow)]
-        if bc_id == "north_side":
-            return list(range(ncol))
-        if bc_id == "south_side":
-            return list(range((nrow - 1) * ncol, nrow * ncol))
-        raise ValueError(f"Unsupported side boundary id: {bc_id}")
-
-    support = _require_runtime_mesh_support(model, label=f"flow.bc.{bc_id}")
-    return [int(cell_id) for cell_id in support.boundary_cell_indices_for_side(bc_id).tolist()]
+    cell_mesh = _solver_cell_mesh(model, label=f"flow.bc.{bc_id}")
+    return side_cells(cell_mesh, bc_id).tolist()
 
 
 def iter_side_boundary_cells(model, bc_id: str):
@@ -170,7 +159,7 @@ def iter_side_boundary_cells(model, bc_id: str):
 def apply_side_boundary_start_heads(model, strt: np.ndarray) -> np.ndarray:
     """Apply side boundary start heads on flat (nlay, ncpl) strt array."""
     bc = boundary_conditions_mapping(model)
-    for bc_id in active_side_dirichlet_boundary_ids(model.flow):
+    for bc_id in model.inputs.boundaries.active_side_dirichlet_ids():
         if not is_bc_active(model, bc_id):
             continue
         boundary = bc.get(bc_id)
@@ -193,7 +182,7 @@ def resolve_ocean_boundary_series(model) -> np.ndarray | None:
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(None if model.time_grid is None else model.time_grid.window),
+            simulation_window=simulation_window(model),
             nper=int(model.nper),
             label="flow.bc.ocean.forcing",
         )
@@ -223,7 +212,7 @@ def resolve_stream_boundary_series(model) -> np.ndarray | None:
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(None if model.time_grid is None else model.time_grid.window),
+            simulation_window=simulation_window(model),
             nper=int(model.nper),
             label="flow.bc.stream.forcing",
         )
@@ -262,13 +251,9 @@ def build_ocean_boundary_chd_spd(
     if ocean_series is None or not np.any(mask):
         return spd, mask
 
-    cell_ids = np.where(mask)[0]
+    layer_cells = _active_layer_cells(model, np.where(mask)[0])
     for kper, head in enumerate(np.asarray(ocean_series, dtype=float)):
-        period_cells: list[list[float]] = []
-        for ilay in range(int(model.nlay)):
-            for cid in cell_ids.tolist():
-                period_cells.append([ilay, cid, float(head)])
-        spd[kper] = period_cells
+        spd[kper] = [[ilay, cid, float(head)] for ilay, cid in layer_cells]
     return spd, mask
 
 
@@ -277,14 +262,12 @@ def stream_chd_support_mask(model, stream_series: np.ndarray | None) -> np.ndarr
     if stream_series is None or np.asarray(stream_series, dtype=float).size == 0:
         return np.zeros(int(model.ncpl), dtype=bool)
     boundary = boundary_conditions_mapping(model).get("stream")
-    support = _require_runtime_mesh_support(model, label="flow.bc.stream")
+    cell_mesh = _solver_cell_mesh(model, label="flow.bc.stream")
     support_label = None if boundary is None else boundary_attr(boundary, "support_label", None)
     if support_label is None:
-        cell_ids = np.asarray(support.river_cell_indices(), dtype=int).reshape(-1)
+        cell_ids = stream_cells(cell_mesh)
     else:
-        cell_ids = np.asarray(
-            support.cell_indices_for_label(str(support_label)), dtype=int
-        ).reshape(-1)
+        cell_ids = _support_label_cells(cell_mesh, support_label)
     if cell_ids.size == 0:
         raise ValueError(
             "Boundary 'stream' is active but its selected runtime mesh support is empty."
@@ -303,13 +286,9 @@ def build_stream_boundary_chd_spd(
     if stream_series is None or not np.any(mask):
         return spd, mask
 
-    cell_ids = np.where(mask)[0]
+    layer_cells = _active_layer_cells(model, np.where(mask)[0])
     for kper, head in enumerate(np.asarray(stream_series, dtype=float)):
-        period_cells: list[list[float]] = []
-        for ilay in range(int(model.nlay)):
-            for cid in cell_ids.tolist():
-                period_cells.append([ilay, cid, float(head)])
-        spd[kper] = period_cells
+        spd[kper] = [[ilay, cid, float(head)] for ilay, cid in layer_cells]
     return spd, mask
 
 
@@ -319,20 +298,129 @@ def build_side_boundary_chd_spd(model) -> dict[int, list[list[float]]]:
     spd: dict[int, dict[tuple[int, int], list[float]]] = {
         kper: {} for kper in range(int(model.nper))
     }
-    for bc_id in active_side_dirichlet_boundary_ids(model.flow):
+    for bc_id in model.inputs.boundaries.active_side_dirichlet_ids():
         if not is_bc_active(model, bc_id):
             continue
         boundary = bc.get(bc_id)
         if boundary is None:
             continue
         series = resolve_side_boundary_series(model, boundary=boundary, bc_id=bc_id)
+        support = np.asarray(
+            boundary_support_cell_ids(model, boundary=boundary, bc_id=bc_id), dtype=np.int64
+        )
+        layer_cells = _active_layer_cells(model, support[~dem_mask_flat[support]])
         for kper, head in enumerate(series):
-            for ilay in range(int(model.nlay)):
-                for cid in boundary_support_cell_ids(model, boundary=boundary, bc_id=bc_id):
-                    if bool(dem_mask_flat[cid]):
-                        continue
-                    spd[kper][(ilay, cid)] = [ilay, cid, float(head)]
+            for ilay, cid in layer_cells:
+                spd[kper][(ilay, cid)] = [ilay, cid, float(head)]
     return {kper: list(period_map.values()) for kper, period_map in spd.items()}
+
+
+def _active_layer_cells(model, cell_ids: np.ndarray) -> list[tuple[int, int]]:
+    """Return the ``(layer, cell)`` pairs of ``cell_ids`` that are active, layer by layer.
+
+    A constant head is written on every active layer of its column and never
+    on an inactive or pass-through cell, which MODFLOW 6 refuses.
+    """
+    idomain = np.asarray(model.solver_mesh.idomain)
+    cells = np.asarray(cell_ids, dtype=np.int64).reshape(-1)
+    return [
+        (ilay, int(cid))
+        for ilay in range(int(idomain.shape[0]))
+        for cid in cells[idomain[ilay, cells] > 0].tolist()
+    ]
+
+
+def side_boundary_owner_by_cell(model) -> dict[int, str]:
+    """Return the side boundary id whose head each side CHD cell keeps.
+
+    It follows the order of ``build_side_boundary_chd_spd``: a cell two
+    sides claim keeps the head of the side written last.
+    """
+    bc = boundary_conditions_mapping(model)
+    dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
+    owner: dict[int, str] = {}
+    for bc_id in model.inputs.boundaries.active_side_dirichlet_ids():
+        if not is_bc_active(model, bc_id):
+            continue
+        boundary = bc.get(bc_id)
+        if boundary is None:
+            continue
+        for cid in boundary_support_cell_ids(model, boundary=boundary, bc_id=bc_id):
+            if not bool(dem_mask_flat[cid]):
+                owner[int(cid)] = str(bc_id)
+    return owner
+
+
+_MAX_CELLS_NAMED = 5
+
+
+def refuse_constant_heads_below_bottom(
+    model,
+    *,
+    botm: np.ndarray,
+    idomain: np.ndarray,
+    ocean_spd: Mapping[int, list[list[float]]],
+    stream_spd: Mapping[int, list[list[float]]],
+    side_spd: Mapping[int, list[list[float]]],
+    structured_shape: tuple[int, int] | None = None,
+) -> None:
+    """Refuse a constant head below the bottom of its cell.
+
+    MODFLOW 6 stops on such a head with ``CHD BOUNDARY n HEAD (...) IS LESS
+    THAN CELL BOTTOM``, which names neither the boundary nor the cell in
+    model terms. The rows are merged in the order of
+    ``assemble_constant_head_stress_period_data`` (ocean, stream, sides), so
+    only the head MODFLOW 6 would receive is checked. Inactive cells are
+    skipped: MODFLOW 6 does not read a boundary there.
+
+    Raises
+    ------
+    SolverInputError
+        One line per boundary with the cells, their bottom and the head.
+    """
+    botm = np.asarray(botm, dtype=float)
+    inactive = np.asarray(idomain) <= 0
+    side_owner = side_boundary_owner_by_cell(model) if any(side_spd.values()) else {}
+    # (owner, layer, cell) -> (period, head, bottom) of the first period below.
+    below: dict[tuple[str, int, int], tuple[int, float, float]] = {}
+    for kper in range(int(model.nper)):
+        winners: dict[tuple[int, int], tuple[str, float]] = {}
+        for owner, rows in (("ocean", ocean_spd), ("stream", stream_spd), ("side", side_spd)):
+            for row in rows.get(kper, []):
+                lay, cid = int(row[0]), int(row[1])
+                label = side_owner.get(cid, "side") if owner == "side" else owner
+                winners[(lay, cid)] = (label, float(row[2]))
+        for (lay, cid), (label, head) in winners.items():
+            if inactive[lay, cid]:
+                continue
+            bottom = float(botm[lay, cid])
+            if head < bottom and (label, lay, cid) not in below:
+                below[(label, lay, cid)] = (kper, head, bottom)
+    if not below:
+        return
+
+    def _cell_name(lay: int, cid: int) -> str:
+        if structured_shape is not None:
+            ncol = int(structured_shape[1])
+            return f"layer {lay} row {cid // ncol} column {cid % ncol}"
+        return f"layer {lay} cell {cid}"
+
+    lines: list[str] = []
+    for label in sorted({key[0] for key in below}):
+        cells = sorted((key, value) for key, value in below.items() if key[0] == label)
+        named = ", ".join(
+            f"{_cell_name(lay, cid)} (head {head:.2f} m, bottom {bottom:.2f} m, period {kper + 1})"
+            for (_, lay, cid), (kper, head, bottom) in cells[:_MAX_CELLS_NAMED]
+        )
+        more = len(cells) - _MAX_CELLS_NAMED
+        tail = f", and {more} more" if more > 0 else ""
+        lines.append(f"flow.bc.{label}: {len(cells)} cell(s): {named}{tail}.")
+    raise SolverInputError(
+        "A constant head is below the bottom of its cell, and MODFLOW 6 stops on it. "
+        + " ".join(lines)
+        + " Raise the head above the bottom of the aquifer there, give the boundary "
+        "a deeper aquifer (domain.depth_model), or write enabled = false in its table."
+    )
 
 
 def resolve_drainage_conductance_series(model) -> np.ndarray | None:
@@ -345,7 +433,7 @@ def resolve_drainage_conductance_series(model) -> np.ndarray | None:
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(None if model.time_grid is None else model.time_grid.window),
+            simulation_window=simulation_window(model),
             nper=int(model.nper),
             label="flow.bc.drainage.forcing",
         )
@@ -376,7 +464,10 @@ def build_drain_stress_period_data(
     """Build DRN stress-period data with a dimensionally-correct hk fallback.
 
     When no conductance is configured, the fallback conductance is
-    ``C = hk * cell_area / top_layer_thickness`` (m2/s), shared with NWT.
+    ``C = hk * cell_area / drain_bed_thickness_m`` (m2/s), shared with NWT.
+    ``drain_bed_thickness_m`` is the clogging-layer thickness (decimeters to a
+    meter), not the model layer thickness: see
+    :func:`hydromodpy.solver.base.drain_conductance.hk_fallback_drain_conductance`.
 
     With ``sink_fill=True``, a cell in a closed depression keeps its row and
     gets zero conductance, the same rule the NWT backend applies: the ponded
@@ -386,52 +477,119 @@ def build_drain_stress_period_data(
     band of depth D by ``drain_discharge_band``, the same rule the NWT backend
     applies.
 
+    A configured conductance is one value per cell, whatever its area: see
+    :func:`report_per_cell_conductance_spread`.
+
+    A drain sits on the top active cell of each open column (``model.dem_mask``
+    closes the columns with no active cell and the lake footprint), at the top
+    of that cell, with the conductivity of its layer.
+
     The drain geometry and elevation are static, so the per-cell conductance is a
     pure function of the period's configured conductance value. A period is
     emitted only when that value changes (period 0 always); MF6 reuses the
     last-specified stress_period_data for the omitted periods. This keeps a static
     drain from rewriting all its rows for every period of a long daily run.
     """
-    sink_flat = _sink_mask_flat(model, n_cells=int(model.ncpl)) if model.sink_fill else None
+    n_cells = int(model.ncpl)
+    sink_flat = _sink_mask_flat(model, n_cells=n_cells) if model.sink_fill else None
     band_depth = float(model.drain_band_depth_m)
     conductance_floor = float(model.drain_conductance_floor_m2_s)
     bed_thickness = float(model.drain_bed_thickness_m)
-    drn_spd: dict[int, list[list[float]]] = {}
-    top_flat = solver_mesh.top
     dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
     ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
     stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
     cell_areas = solver_mesh.cell_areas()
+    drained = ~(dem_mask_flat | ocean_mask_flat | stream_mask_flat)
+    report_per_cell_conductance_spread(
+        model,
+        drainage_cond_series=drainage_cond_series,
+        cell_areas=cell_areas,
+        drained=drained,
+    )
+    cell_ids = np.flatnonzero(drained)
+    drained_sink = np.zeros(cell_ids.size, dtype=bool) if sink_flat is None else sink_flat[cell_ids]
+    layers = solver_mesh.top_active_layer()[cell_ids]
+    tops = solver_mesh.top_active_cell_top()[cell_ids]
+    areas = cell_areas[cell_ids]
+    drn_spd: dict[int, list[list[float]]] = {}
     previous_cond: float | None = None
     for kper in range(int(model.nper)):
         configured_cond_value = float(drainage_cond_series[kper])
         if previous_cond is not None and configured_cond_value == previous_cond:
             continue
         previous_cond = configured_cond_value
+        hk = (
+            None
+            if configured_cond_value > 0.0
+            else np.asarray(model.hk, dtype=float).reshape(-1, n_cells)[layers, cell_ids]
+        )
         period_cells: list[list[float]] = []
-        for cid in range(int(model.ncpl)):
-            if dem_mask_flat[cid] or ocean_mask_flat[cid] or stream_mask_flat[cid]:
-                continue
-            if sink_flat is not None and sink_flat[cid]:
+        for row, cell_id in enumerate(cell_ids.tolist()):
+            if drained_sink[row]:
                 cond_value = 0.0
-            elif configured_cond_value > 0.0:
+            elif hk is None:
                 cond_value = max(configured_cond_value, conductance_floor)
             else:
                 cond_value = hk_fallback_drain_conductance(
-                    hk=float(model.hk[0, cid]),
-                    cell_area=float(cell_areas[cid]),
+                    hk=float(hk[row]),
+                    cell_area=float(areas[row]),
                     bed_thickness=bed_thickness,
                     floor_m2_s=conductance_floor,
                 )
             elevation, cond_value = drain_discharge_band(
-                top=float(top_flat[cid]),
+                top=float(tops[row]),
                 conductance=cond_value,
                 bed_thickness=bed_thickness,
                 band_depth=band_depth,
             )
-            period_cells.append([0, cid, elevation, cond_value])
+            period_cells.append([int(layers[row]), cell_id, elevation, cond_value])
         drn_spd[kper] = period_cells
     return drn_spd
+
+
+def report_per_cell_conductance_spread(
+    model,
+    *,
+    drainage_cond_series: np.ndarray,
+    cell_areas: np.ndarray,
+    drained: np.ndarray,
+) -> None:
+    """Warn once per run when one drain conductance meets cells of unequal areas.
+
+    A positive ``flow.bc.drainage.value`` is a conductance per cell, in m2/s.
+    The drained flux per unit area is then ``C / cell_area``: on a mesh whose
+    drained cells range from ``A_min`` to ``A_max`` it varies ``A_max / A_min``
+    times, and the result changes with the mesh. On a regular grid every cell
+    has the same area and nothing is said. The derived conductance
+    ``C = K * cell_area / solver.drain_bed_thickness_m`` keeps the leakance
+    ``K / b`` the same on every cell. An auxiliary model (steady
+    initialization, spin-up) and a second build of the same model stay silent.
+    """
+    if getattr(model, "auxiliary", False) or getattr(model, "_drain_area_spread_reported", False):
+        return
+    series = np.asarray(drainage_cond_series, dtype=float).reshape(-1)
+    positive = series[series > 0.0]
+    if positive.size == 0:
+        return
+    areas = np.asarray(cell_areas, dtype=float).reshape(-1)[np.asarray(drained, dtype=bool)]
+    areas = areas[np.isfinite(areas) & (areas > 0.0)]
+    if areas.size < 2:
+        return
+    smallest, largest = float(areas.min()), float(areas.max())
+    if largest <= DRAIN_AREA_SPREAD_REPORT_RATIO * smallest:
+        return
+    model._drain_area_spread_reported = True
+    logger.warning(
+        "flow.bc.drainage.value sets one conductance per cell (%.3g m2/s), and the "
+        "drained cells range from %.3g to %.3g m2: the drained flux per unit area, "
+        "C / cell_area, varies %.1f-fold over the mesh, so the result depends on the "
+        "mesh. Leave the value out to derive C = K * cell_area / "
+        "solver.drain_bed_thickness_m, whose leakance K / b is the same on every cell.",
+        float(positive[0]),
+        smallest,
+        largest,
+        largest / smallest,
+    )
 
 
 def _sink_mask_flat(model, *, n_cells: int) -> np.ndarray:
@@ -446,6 +604,48 @@ def _sink_mask_flat(model, *, n_cells: int) -> np.ndarray:
     if mask.size != n_cells:
         raise ValueError(f"the sink mask holds {mask.size} cells, the mesh {n_cells}.")
     return mask
+
+
+def assemble_constant_head_stress_period_data(
+    model,
+    *,
+    ocean: tuple[dict[int, list[list[float]]], np.ndarray],
+    stream: tuple[dict[int, list[list[float]]], np.ndarray],
+    side: dict[int, list[list[float]]],
+) -> dict[int, list[list[float]]]:
+    """Merge the three constant-head boundaries and declare what each cell is.
+
+    MODFLOW 6 takes one CHD package, so the ocean, the stream and the lateral
+    boundaries end up in a single budget term. A cell claimed twice keeps the
+    last head written, which is why the merge order matters and why the
+    surviving row no longer says which boundary placed it.
+
+    The roles are therefore declared beside the solver files, from the masks
+    the three builders returned, at the same moment and under the same
+    condition as the package itself: a run with a CHD always has its roles on
+    disk, and a run without one never has a stale sidecar.
+    """
+    ocean_spd, ocean_mask = ocean
+    stream_spd, stream_mask = stream
+    merged: dict[int, list[list[float]]] = {}
+    for kper in range(int(model.nper)):
+        period_map: dict[tuple[int, int], list[float]] = {}
+        for entry in ocean_spd.get(kper, []):
+            period_map[(int(entry[0]), int(entry[1]))] = entry
+        for entry in stream_spd.get(kper, []):
+            period_map[(int(entry[0]), int(entry[1]))] = entry
+        for entry in side.get(kper, []):
+            period_map[(int(entry[0]), int(entry[1]))] = entry
+        merged[kper] = list(period_map.values())
+    collapsed = collapse_identical_periods(merged)
+    if any(len(rows) > 0 for rows in collapsed.values()):
+        write_constant_head_roles(
+            str(model.full_path),
+            str(model.model_output_name),
+            n_cells=int(model.ncpl),
+            masks_by_role={"ocean": ocean_mask, "stream": stream_mask},
+        )
+    return collapsed
 
 
 def _period_payloads_equal(left: object, right: object) -> bool:
@@ -477,11 +677,12 @@ def collapse_identical_periods(spd: dict[int, object]) -> dict[int, object]:
 
 
 __all__ = [
+    "DRAIN_AREA_SPREAD_REPORT_RATIO",
     "apply_side_boundary_start_heads",
+    "assemble_constant_head_stress_period_data",
     "boundary_attr",
     "boundary_conditions_mapping",
     "boundary_period_series",
-    "boundary_start_value",
     "boundary_support_cell_ids",
     "build_drain_stress_period_data",
     "build_ocean_boundary_chd_spd",
@@ -489,8 +690,6 @@ __all__ = [
     "build_stream_boundary_chd_spd",
     "coerce_conductance_series_to_m2_per_s",
     "collapse_identical_periods",
-    "coerce_length_series_to_m",
-    "forcing_units",
     "is_bc_active",
     "is_scalar_number",
     "iter_side_boundary_cells",
@@ -499,6 +698,9 @@ __all__ = [
     "resolve_ocean_boundary_series",
     "resolve_side_boundary_series",
     "resolve_stream_boundary_series",
+    "refuse_constant_heads_below_bottom",
+    "report_per_cell_conductance_spread",
     "side_boundary_cell_ids",
+    "side_boundary_owner_by_cell",
     "stream_chd_support_mask",
 ]

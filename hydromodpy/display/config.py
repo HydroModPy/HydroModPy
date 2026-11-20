@@ -1,93 +1,65 @@
 """Pydantic schema for the ``[display]`` TOML section.
 
-Each value defaults to a non-interactive, save-enabled mode that is
-safe for CI.
-
-A run renders exactly the figures listed in ``figures``. Whether one of
-them applies is decided from the figure's own declared requirements
-(:class:`hydromodpy.display.figure.FigureSpec`) against what the run
-persisted, not from a second layer of per-family booleans.
+A run draws the figures listed in ``[[display.figure]]``, each one a request that
+names a variable, a preset or panels. ``theme`` sets the look of every figure and
+``presets`` holds the user's own presets.
 """
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from collections.abc import Mapping
+from typing import Annotated, ClassVar, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.display.presets import PRESETS
+from hydromodpy.display.request import FigureRequest, check_stems, check_when, expand, named
+
+DEFAULT_THEME = "default"
 
 
 class DisplayConfig(HydroModelBase):
-    """Display behaviour resolved from the ``[display]`` TOML section."""
+    """Display behavior resolved from the ``[display]`` TOML section."""
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "output_dir": (
+            "figures are always written under figures/ of the run directory "
+            "(runs/<run>/figures/). Delete the line."
+        ),
+    }
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Master switch. When False, no figure is rendered or saved.",
     )
-    backend: Annotated[Literal["agg", "qt5agg", "auto"], Profile.DEV] = Field(
-        default="auto",
-        description=(
-            "Matplotlib backend. 'auto' selects Agg in headless mode and a "
-            "GUI backend when ``show`` is enabled."
-        ),
-    )
-    preset: Annotated[Literal["default", "print", "dark"], Profile.USER] = Field(
-        default="default",
-        description="Named theme applied before rendering any figure.",
-        json_schema_extra={
-            "value_docs": {
-                "default": (
-                    "Uses a colorful sans-serif palette on a white background, for screen viewing."
-                ),
-                "print": ("Uses a grayscale serif palette sized for black-and-white print output."),
-                "dark": ("Uses a bright palette on a dark background, for dark-themed displays."),
-            }
-        },
-    )
-    show: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Open an interactive window via ``matplotlib.pyplot.show``.",
-    )
-    save: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Write rendered figures to disk under ``output_dir``.",
-    )
-    output_dir: Annotated[str, Profile.USER] = Field(
-        default="figures",
-        description=(
-            "Name of the figures directory inside the run directory "
-            "(<project>/runs/<run>/<output_dir>/). Declared as a name, not a "
-            "path, so it stays anchored to the run it describes."
-        ),
-    )
     dpi: Annotated[int, Profile.DEV] = Field(
-        default=150,
+        default=300,
         ge=1,
         description="DPI used when saving raster figures.",
+        json_schema_extra=field_metadata(unit="dpi"),
     )
-    cmap: Annotated[str, Profile.USER] = Field(
-        default="viridis",
-        description=(
-            "Force ONE colormap onto every spatial figure. Writing it at all is the "
-            "decision, not the value: each figure otherwise picks a scale suited to "
-            "what it shows, reversed for a depth, diverging for a difference, discrete "
-            "for an indicator, and this replaces all of them. Writing the default "
-            "spelled out is therefore NOT a no-op, unlike everywhere else. Leave it "
-            "out unless one scale for everything is what you want."
-        ),
+    theme: Annotated[str, Profile.USER] = Field(
+        default=DEFAULT_THEME,
+        description=("Named theme applied before rendering any figure: default, print or dark."),
     )
-    figures: Annotated[list[str], Profile.USER] = Field(
+    figure: Annotated[list[FigureRequest], Profile.USER] = Field(
         default_factory=list,
         description=(
-            "Names of registered figures to auto-render at the end of "
-            "`hmp run` (and consumed by `hmp viz gallery`). Every name must "
-            "exist in the figure registry; list them with `hmp viz list`. "
-            "A figure whose requirements the run does not meet is skipped "
-            "with an explicit reason. Empty list disables auto-rendering. "
-            "Disable per-run via `hmp run --no-display` or for an entire "
-            "Python Project via `Project(..., no_display=True)`."
+            "Figures to draw, one ``[[display.figure]]`` table each. A figure names a "
+            "variable or a preset, or lists panels, with the fields of a panel. "
+            "``when`` says when it is drawn (``end`` by default). Two figures that "
+            "would write the same file are refused: give each one its own ``name``."
+        ),
+    )
+    presets: Annotated[dict[str, FigureRequest], Profile.USER] = Field(
+        default_factory=dict,
+        description=(
+            "Your own presets, one ``[display.presets.NAME]`` table each, written like "
+            "a figure. A figure then names one with ``preset = NAME``. A name of a "
+            "shipped preset is refused."
         ),
     )
     on_error: Annotated[Literal["warn", "raise"], Profile.USER] = Field(
@@ -99,40 +71,55 @@ class DisplayConfig(HydroModelBase):
             "a broken figure cannot pass unnoticed."
         ),
     )
-    overrides: Annotated[dict[str, dict], Profile.EXPERT] = Field(
-        default_factory=dict,
-        description=(
-            "Per-figure keyword overrides, keyed by figure name "
-            "(e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``)."
-        ),
-    )
 
-    @field_validator("figures", "overrides", mode="after")
+    @field_validator("figure", mode="before")
     @classmethod
-    def _validate_figure_names(cls, value, info):
-        """Reject figure names that are not in the registry.
+    def _refuse_a_written_special(cls, value: object) -> object:
+        """Refuse ``special`` written in a table, with the preset that names it.
 
-        Catching the typo here (config load) instead of at render time is
-        what makes a project TOML self-checking: `hmp config check` fails
-        loudly rather than a run silently producing one figure less.
+        The key stays out of every dump, so the check passed the file and the run then
+        found a figure with nothing to draw.
         """
-        from hydromodpy.display import figure_registry
+        for index, item in enumerate(value if isinstance(value, list) else ()):
+            if isinstance(item, Mapping) and "special" in item:
+                raise ValueError(
+                    f"display.figure[{index}] writes special = {item['special']!r}, which a "
+                    f"file never writes: write preset = {item['special']!r}."
+                )
+        return value
 
-        known = set(figure_registry.names())
-        current: dict[str, str] = {}
-        unknown: list[str] = []
-        for name in value:
-            try:
-                # A name a figure used to carry resolves to the current one and
-                # warns; downstream then only ever sees one spelling.
-                current[name] = figure_registry.resolve(name)
-            except KeyError:
-                unknown.append(name)
-        if unknown:
+    @field_validator("theme", mode="after")
+    @classmethod
+    def _check_theme(cls, value: str) -> str:
+        """Refuse a theme name unknown to the themes table.
+
+        The table lives in ``theme``, which loads matplotlib. The default needs no
+        look-up, so a config that keeps it loads without matplotlib.
+        """
+        if value != DEFAULT_THEME:
+            from hydromodpy.display.theme import get_theme
+
+            get_theme(value)
+        return value
+
+    @model_validator(mode="after")
+    def _check_figures_and_themes(self) -> DisplayConfig:
+        check_stems(self.figure)
+        if not (self.figure or self.presets):
+            return self
+        shipped = sorted(set(self.presets) & set(PRESETS))
+        if shipped:
             raise ValueError(
-                f"display.{info.field_name} references unknown figure(s): "
-                f"{', '.join(sorted(unknown))}. Registered figures: {', '.join(sorted(known))}"
+                f"display.presets names the shipped preset {', '.join(shipped)}. "
+                "Give your preset another name."
             )
-        if isinstance(value, dict):
-            return {current[name]: options for name, options in value.items()}
-        return [current[name] for name in value]
+        own = named(self.presets)
+        known = {**PRESETS, **own}
+        for name, preset in own.items():
+            if preset.preset is not None:
+                raise ValueError(f"Preset {name!r} names another preset; a preset is one request.")
+            expand(preset, known)
+        for figure in self.figure:
+            expand(figure, known)
+            check_when(figure, known)
+        return self

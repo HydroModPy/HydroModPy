@@ -1,3 +1,5 @@
 [flow]
-runtime_backend = "petsc"
+
+[solver.boussinesq]
+backend = "petsc"
 surface_interaction_model = "ts_vi_obstacle"

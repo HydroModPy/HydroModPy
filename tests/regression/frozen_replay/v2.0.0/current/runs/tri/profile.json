@@ -1,0 +1,158 @@
+{
+  "schema": "hydromodpy.profile.v1",
+  "process_age_s": {
+    "1": 5.865526914596558
+  },
+  "lines": [
+    {
+      "kind": "step",
+      "name": "validate",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:54.617829+00:00",
+      "duration_s": 0.0014686189824715257,
+      "max_rss_mb": 392.76953125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "resolve",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:54.622060+00:00",
+      "duration_s": 0.00019986298866569996,
+      "max_rss_mb": 392.76953125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "build_geographic",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:54.624617+00:00",
+      "duration_s": 0.06926602800376713,
+      "max_rss_mb": 443.55078125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "load_data",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:54.699154+00:00",
+      "duration_s": 0.0075112489284947515,
+      "max_rss_mb": 444.53125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "build_mesh",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:54.709751+00:00",
+      "duration_s": 0.02740079490467906,
+      "max_rss_mb": 464.57421875,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "setup_process",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:54.740574+00:00",
+      "duration_s": 0.00022258993703871965,
+      "max_rss_mb": 464.57421875,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "prepare_solver",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:54.744025+00:00",
+      "duration_s": 0.7290736039867625,
+      "max_rss_mb": 483.484375,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "solve",
+      "name": "flow_main::modflow6",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:55.490748+00:00",
+      "duration_s": 0.03912420489359647,
+      "max_rss_mb": 498.8828125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "run_solver",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:55.479617+00:00",
+      "duration_s": 0.29386036994401366,
+      "max_rss_mb": 499.2421875,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "extract",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:55.781384+00:00",
+      "duration_s": 0.16764706291723996,
+      "max_rss_mb": 502.5078125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "derive",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:55.958389+00:00",
+      "duration_s": 0.062290684902109206,
+      "max_rss_mb": 503.5703125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "export",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:56.024471+00:00",
+      "duration_s": 0.003699625958688557,
+      "max_rss_mb": 503.5703125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "export",
+      "name": "views",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:56.258542+00:00",
+      "duration_s": 0.0029339540051296353,
+      "max_rss_mb": 505.875,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "seal",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:56.031198+00:00",
+      "duration_s": 0.2321343420771882,
+      "max_rss_mb": 505.875,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "display",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:36:56.267625+00:00",
+      "duration_s": 0.019471289007924497,
+      "max_rss_mb": 507.6796875,
+      "reused": "no",
+      "key": null
+    }
+  ]
+}

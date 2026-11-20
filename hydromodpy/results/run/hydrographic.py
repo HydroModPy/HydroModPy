@@ -1,10 +1,11 @@
-"""Hydrographic-network accessors for :class:`hydromodpy.results.run.Run`.
+"""Hydrographic-network accessors for :class:`hydromodpy.results.run.view.Run`.
 
 Mixin that exposes the canonical hydrographic-network roles persisted with a
-simulation (``reference``, ``generated``, ``simulated_active``) and their
-geometric comparison helpers. Mixed into :class:`Run`; it assumes ``self``
-has ``_sim_id`` and ``_catalog`` set by :meth:`Run.__init__`, and access to
-``self.geographic`` (provided by :class:`RunGeographicMixin`).
+simulation (``reference``, ``reference_permanent``, ``generated``,
+``simulated_active``) and their geometric comparison helpers. Mixed into
+:class:`Run`; it assumes ``self`` has ``_sim_id`` and ``_catalog`` set by
+:meth:`Run.__init__`, and access to ``self.geographic`` (provided by
+:class:`RunGeographicMixin`).
 """
 
 from __future__ import annotations
@@ -20,13 +21,13 @@ class RunHydrographicMixin:
 
     def available_hydrographic_network_roles(self) -> list[str]:
         """Return the canonical hydrographic-network roles stored for this run."""
-        from hydromodpy.spatial.geographic.core.hydrographic_network import (
+        from hydromodpy.catchment.algorithms.hydrographic_network import (
             canonical_feature_name_for_role,
         )
 
         feature_names = set(self._catalog.list_geographic_features(self._sim_id))
         roles: list[str] = []
-        for role in ("reference", "generated", "simulated_active"):
+        for role in ("reference", "reference_permanent", "generated", "simulated_active"):
             feature_name = canonical_feature_name_for_role(role)
             if feature_name is not None and feature_name in feature_names:
                 roles.append(role)
@@ -38,7 +39,7 @@ class RunHydrographicMixin:
 
     def hydrographic_network(self, role: str = "generated") -> gpd.GeoDataFrame:
         """Return one persisted hydrographic network by canonical role."""
-        from hydromodpy.spatial.geographic.core.hydrographic_network import (
+        from hydromodpy.catchment.algorithms.hydrographic_network import (
             canonical_feature_name_for_role,
         )
 
@@ -46,7 +47,7 @@ class RunHydrographicMixin:
         if feature_name is None:
             raise ValueError(
                 "Unknown hydrographic-network role. Expected one of: "
-                "reference, generated, simulated_active."
+                "reference, reference_permanent, generated, simulated_active."
             )
         try:
             return self.geographic(feature_name)
@@ -60,7 +61,7 @@ class RunHydrographicMixin:
 
     def hydrographic_network_naming(self, role: str = "generated") -> dict[str, str | None]:
         """Return canonical naming hints for one hydrographic-network role."""
-        from hydromodpy.spatial.geographic.core.hydrographic_network import (
+        from hydromodpy.catchment.algorithms.hydrographic_network import (
             hydrographic_network_naming_contract,
         )
 
@@ -68,7 +69,7 @@ class RunHydrographicMixin:
         if contract.get("canonical_feature_name") is None:
             raise ValueError(
                 "Unknown hydrographic-network role. Expected one of: "
-                "reference, generated, simulated_active."
+                "reference, reference_permanent, generated, simulated_active."
             )
         return contract
 
@@ -80,7 +81,7 @@ class RunHydrographicMixin:
         tolerance_m: float = 50.0,
     ):
         """Return one tolerance-based geometric comparison between two stored networks."""
-        from hydromodpy.spatial.geographic.core.hydrographic_network_comparison import (
+        from hydromodpy.catchment.algorithms.hydrographic_network_comparison import (
             compare_hydrographic_networks,
         )
 

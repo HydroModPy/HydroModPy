@@ -1,0 +1,645 @@
+# The groundwater flow problem
+
+What head does the aquifer hold, in every cell and at every time? This page gives
+the geometry HydroModPy builds for that head, the properties that enter it and the
+state it starts from. The flow equation itself is MODFLOW's and is read at its
+source. For the same subject in plain words, see
+{doc}`../understand/what-it-computes`. What each solver supports is listed in
+{doc}`../reference/solvers`.
+
+:::{note}
+**Scope.** Three solvers read the same `[flow]` section: MODFLOW 6 (the default),
+MODFLOW-NWT and the in-house Boussinesq solver. They solve the same physical
+problem and not the same discrete equations. The balance of the two MODFLOW
+solvers is in {ref}`gwf-equation`. The Boussinesq form is on {doc}`boussinesq`.
+What enters and leaves the aquifer (recharge, drains, streams, lakes, wells) has
+its own pages: {doc}`forcing`, {doc}`soil-reservoir` and {doc}`exits`. Where the
+one-layer reading stops being true is at the end of {ref}`gwf-limits`.
+:::
+
+::::{dropdown} Notation of this page
+Lengths are in meters, time in seconds, and elevation is positive up. A key
+accepts a value with its unit ("30 m", "5 m/day"); the code converts it before it
+builds the solver input. Every symbol of the site is on {doc}`notation`.
+
+```{hmp-notation}
+```
+::::
+
+(gwf-domain)=
+## The domain
+
+Two surfaces bound the aquifer.
+
+**The top** $z_\mathrm{top}$ is the digital elevation model of the catchment,
+read from {toml}`data.dem`. By default the grid takes the value of the DEM at the
+center of each cell, and nothing else moves the top.
+{toml}`solver.modflow6.sgrid.top_sampling.mode` can ask for a statistic over the pixels
+of the cell instead, with a lower value for the cells that hold a channel
+({ref}`mesh-top`).
+
+**The bottom** $z_\mathrm{bot}$ comes from a depth model, chosen by
+{toml}`domain.depth_model.kind`. Four kinds exist:
+
+| Kind | Bottom | Reads |
+|---|---|---|
+| `constant_thickness` | $z_\mathrm{bot} = z_\mathrm{top} - H_c$ | {toml}`domain.depth_model.thickness` |
+| `flat_substratum` | $z_\mathrm{bot} = z_s$ | {toml}`domain.depth_model.substratum_elevation` |
+| `raster_substratum` | $z_\mathrm{bot} = \min\bigl(Z_r + \zeta,\ z_\mathrm{top} - H_\mathrm{min}\bigr)$ | the raster of {toml}`data.substratum`, in meters, on the datum of the DEM |
+| `raster_thickness` | $z_\mathrm{bot} = \min\bigl(z_\mathrm{top} - \lambda Z_r + \zeta,\ z_\mathrm{top} - H_\mathrm{min}\bigr)$ | the raster of {toml}`data.substratum`, in meters below the top |
+
+A flat substratum is an elevation, not a depth: where the land surface drops under
+it, no aquifer is left. A raster kind:
+
+1. reprojects the raster onto the grid of the top;
+2. refuses the run if one cell of the domain has no raster value, so the raster
+   must cover the whole extent of the domain, buffer included when
+   {toml}`geographic.domain_extent` is `"box"`;
+3. applies $\lambda$ and $\zeta$;
+4. lowers the bottom to $z_\mathrm{top} - H_\mathrm{min}$ wherever it would
+   come closer to the top than that, and logs a warning that counts the cells;
+5. refuses the run if every cell needs that correction, since no aquifer would
+   remain.
+
+```{eval-rst}
+.. plot:: theory/figures/gwf_depth_models.py
+   :alt: Four cross-sections of one valley, each with the top and the bottom of the aquifer that one depth model gives.
+   :caption: The four depth models on one valley, as ``build_domain`` returns them. Look at the
+      valley floor of the two raster kinds: where the raster bottom (dotted) comes within
+      :math:`H_\mathrm{min}` of the top (8 m here), the cells (dots) are lowered to
+      :math:`z_\mathrm{top} - H_\mathrm{min}`.
+```
+
+Take a top of 120 m everywhere and a raster that holds 40 m, or 85 m for the
+elevation kind, in every cell but one. The table gives the bottom of that cell, as
+`build_domain` returns it (the check ran the function).
+
+| Depth model | Raster value | $\zeta$, $\lambda$ | Bottom |
+|---|---|---|---|
+| `raster_thickness` | 40 m | 5 m, 1 | 85 m |
+| `raster_thickness` | 40 m | 0 m, 2 | 40 m |
+| `raster_thickness` | 0.5 m, with $H_\mathrm{min} = 1$ m | 0 m, 1 | 119 m, with a warning |
+| `raster_substratum` | 85 m | -5 m | 80 m |
+
+A raster kind needs the raster. {toml}`data.substratum` takes exactly one source.
+A file that inherits a constant thickness removes it with `thickness__delete` when
+it switches to a raster ({doc}`[domain] <../reference/parameters/domain>`,
+{doc}`../reference/parameters/grammar`).
+
+The thickness of an aquifer is an assumption in this model, not a result. No
+equation below estimates it. The field of the constant thickness declares itself
+calibrable, in log space. In the code: `Domain._build_surfaces`.
+
+(gwf-layers)=
+## The solver grid and its layers
+
+The grid samples $z_\mathrm{top}$ and $z_\mathrm{bot}$ at the center of each cell
+(the cell layout is on {doc}`mesh`). A cell with no finite value in either
+surface becomes inactive in every layer. The grid is refused when
+$z_\mathrm{bot} \ge z_\mathrm{top}$ on a valid cell. On a triangle or Voronoi mesh, a warning
+names the columns thicker than 500 m and than 10 times the median: a raster
+nodata value read as an elevation produces them ({ref}`mesh-acceptance`).
+
+The thickness is then cut into $n_\mathrm{lay}$ layers. The bottom of layer $j$ is
+
+$$
+z_{\mathrm{bot},j} = z_\mathrm{top} - H\,p_j ,
+\qquad p_{n_\mathrm{lay}} = 1 .
+$$ (eq-layer-bottom)
+
+The shares $p_j$ are the same for every cell. Three rules build them, chosen by
+{toml}`domain.layers.genmtd_lay`:
+
+| `genmtd_lay` | $p_j$ |
+|---|---|
+| `constant` | $j / n_\mathrm{lay}$ |
+| `decay`, with $\rho$ read from {toml}`domain.layers.lay_decay` | $(1 - \rho^{j}) / (1 - \rho^{n_\mathrm{lay}})$ |
+| `list` | the running sum of {toml}`domain.layers.lay_proportions` |
+
+The `decay` rule needs $\rho > 1$, and the file is refused otherwise: the layers
+then thicken with depth. With $\rho = 2$ and four layers they hold 1, 2, 4 and 8
+fifteenths of the column, from the top down. A `list` must sum to 1. With one
+layer, $p_1 = 1$ and the column is one cell. MODFLOW 6 and MODFLOW-NWT both read the table
+`[domain.layers]`, so a project has one layering whatever solver runs it. A fourth value,
+`surfaces`, gives the base of each layer instead of a share ({ref}`mesh-layer-surfaces`).
+
+```{eval-rst}
+.. plot:: theory/figures/gwf_layers.py
+   :alt: Four columns of 100 m, each cut into four layers by one rule.
+   :caption: Four layers in a column of 100 m, from ``layer_proportions``. Look at
+      the decay columns: the larger :math:`\rho`, the thinner the top layer and the thicker
+      the bottom one.
+```
+
+**What the layers can represent.** Every layer reuses the planar cells and their
+connections. With shares, only the top and the bottom of the column vary from cell to cell,
+and geology varies through the properties of each layer and cell ({ref}`gwf-properties`).
+With surfaces, the base of each layer varies too, and a layer thinner than its minimum
+thickness is pinched out: its cell becomes a vertical pass-through cell, `idomain = -1`, or
+keeps the minimum thickness ({ref}`mesh-layer-surfaces`). A pass-through cell holds no head,
+and MODFLOW 6 connects the cells above and below it. A change of the plan from one layer to
+the next, or a connection that is not the one of the plan, is not represented. MODFLOW 6
+builds every grid, structured or not, as a vertex grid (`DISV`), never as `DISU`. The
+Boussinesq solver has no layers: it works on one triangle per column. In the
+code: `layer_proportions`, `layer_stack`.
+
+(gwf-properties)=
+## The properties
+
+Each property is a field: one value for the whole domain, or one value per zone
+({doc}`[flow.param] <../reference/parameters/flow/param>`). How a zone map becomes one value per cell is on
+{doc}`solvers/field-to-cell-parameter-transfer`.
+
+| Property | Needed by a steady run | Needed by a transient run |
+|---|---|---|
+| MODFLOW 6 and MODFLOW-NWT | $K$ | $K$, $S_y$, $S_s$ |
+| Boussinesq | $K$ | $K$, $S_y$ |
+
+The Boussinesq solver reads no $S_s$. In a steady MODFLOW run, a missing $S_y$ or
+$S_s$ is filled with zero. In a transient run, a missing one stops the run.
+Example 04 gives the three values, one for the whole catchment:
+
+```{hmp-resolved} flow.param.K.field.value
+:config: 04_streamflow_intermittence_in_transient/project.toml
+```
+
+```{hmp-resolved} flow.param.Sy.field.value
+:config: 04_streamflow_intermittence_in_transient/project.toml
+```
+
+```{hmp-resolved} flow.param.Ss.field.value
+:config: 04_streamflow_intermittence_in_transient/project.toml
+```
+
+**A depth factor.** A property can carry a `field_vertical_profile`. The value
+of layer $j$ in a column is the value of the field times $f(d_j)$, where $d_j$ is
+the depth of the middle of the layer below $z_\mathrm{top}$. The key
+{toml}`depth_at|flow.param.K.field_vertical_profile.depth_at` moves that point to the top
+or the base of the layer, or takes the ground for the first layer and the base for the
+others (`surface_then_base`). A thick layer reads one value, so the choice moves its K. For
+`kind = "exponential"`:
+
+$$
+f(d) = e^{-d/d_c}, \qquad \text{or } \max\bigl(e^{-d/d_c},\ f_\mathrm{min}\bigr)
+\text{ when } f_\mathrm{min} \text{ is set.}
+$$ (eq-depth-factor)
+
+Without {toml}`min_factor|flow.param.K.field_vertical_profile.min_factor`, the
+factor has no floor and tends to zero with depth. The decay length $d_c$ can also follow the
+ground elevation $z_\mathrm{top}$ of the column. With
+{toml}`characteristic_depth_high|flow.param.K.field_vertical_profile.characteristic_depth_high`,
+$d_c$ is the characteristic depth where the ground stands at or below
+{toml}`ground_low|flow.param.K.field_vertical_profile.ground_low`, the high one at or above
+{toml}`ground_high|flow.param.K.field_vertical_profile.ground_high`, and goes linearly
+between. A weathered zone that thins under the hills is written so. For `kind = "tabulated"`, the
+factor is a linear or stepwise interpolation of the table you give, equal to the
+first and last factor outside the table. With one layer, $d_j$ is half the
+thickness: the profile then gives one factor per cell and no variation with
+depth. A profile on fewer than five layers is warned about when the file is read. Take a
+column of thickness $H = 2.5\,d_c$ and $K$ at the middle of each equal layer. One layer gives
+a transmissivity off by $-22\,\%$ to $+75\,\%$ as the water table goes from the top to
+mid-column, three layers by $-2.8\,\%$ at the top, and five layers by $-1.0\,\%$.
+
+```{eval-rst}
+.. plot:: theory/figures/gwf_depth_factor.py
+   :alt: The exponential depth factor against depth, with and without a floor, and the value of each layer.
+   :caption: The depth factor for :math:`d_c = 20` m, from ``FieldParam.vertical_factor``.
+      Each layer of a four-layer decay column takes the factor at its center (dots), not
+      an average over its thickness. Look at the deepest layer: without a floor its
+      factor would be 0.03, with :math:`f_\mathrm{min} = 0.05` it stays at 0.05.
+```
+
+**Vertical conductivity.** MODFLOW 6 reads $K_z = K / \beta$, with $\beta$ the
+{toml}`solver.modflow6.process_specific.vka`, layer by layer, so a depth factor on $K$
+reaches $K_z$. A parameter with the id `Kv` replaces it with a conductivity per
+cell, and a file that gives `Kv` and a `vka` other than 1 is refused. MODFLOW-NWT reads the
+same `Kv` as the vertical conductivity of `UPW`: the code writes `layvka = 0` and `vka = Kv`,
+converted to the time unit of the solver like $K$. A `Kv` that is not positive is refused.
+
+The code refuses a $K$ that is zero, negative or not finite on an active cell. A
+heterogeneous $K$ whose zones do not cover the whole domain produces exactly that.
+In the code: `FieldParam.vertical_factor`.
+
+(gwf-tensor)=
+### The conductivity tensor
+
+The `NPF` package of MODFLOW 6 reads the tensor by its principal
+values, $K$ along the first axis, `K22` along the second and $K_z$ along the third, and
+by three angles {cite:p}`langevin2017`. Four parameters complete $K$ and `Kv` for it. `K22`
+is the conductivity along the second axis, and MODFLOW 6 takes $K$ when it is left out.
+`angle1` turns the first axis from east towards north, counter-clockwise, so it is not a
+compass azimuth and N30E reads `angle1 = 60`. `angle2` raises the first axis above the
+horizontal, and `angle3` turns the tensor about it. All three are in degrees, zero when they
+are left out. Each is a `[flow.param.<id>]` like $K$, homogeneous or per zone. `K22` takes a
+vertical profile like $K$, an angle does not. The parameters reach `NPF` only when the flow
+sets them, so a run without them writes the same files as before. A non-zero `angle2` or
+`angle3` turns XT3D on, because MODFLOW 6 reads these two angles only under XT3D, and so does
+a `K22` whose axes leave the connections of the mesh
+({doc}`solvers/xt3d-on-irregular-disv-meshes`). The file is refused with MODFLOW-NWT or
+Boussinesq, which would drop them, and with an `angle2` outside $[-90, 90]$ degrees. The run
+store keeps $K_z$ and, when set, `K22` and the three angles with the other static properties
+({doc}`../contribute/architecture/storage-layout`).
+
+```toml
+[flow]
+param_list = ["K", "Sy", "Ss", "K22", "angle1", "angle2"]
+
+[flow.param.K22.field]
+kind = "homogeneous"
+value = "1e-6 m/s"
+
+[flow.param.angle1.field]
+kind = "homogeneous"
+value = 30.0
+
+[flow.param.angle2.field]
+kind = "homogeneous"
+value = 20.0
+```
+
+(gwf-equation)=
+## What the solvers solve
+
+MODFLOW 6 and MODFLOW-NWT write Darcy's law and mass conservation for the head in
+each cell, by control volumes, with one head per cell at its center
+{cite:p}`harbaugh2005,langevin2017`; chapter 2 of {cite:t}`langevin2017` gives the
+control-volume form. The derivation is not repeated here. Three pieces of it are used by other pages of this site, so they
+are written once.
+
+In a catchment the aquifer is mostly unconfined. The head can sit below the top of
+a cell, and then the thickness that carries flow is the saturated thickness
+
+$$
+B(h) = \min\bigl(\max(h - z_\mathrm{bot},\ 0),\ H\bigr) .
+$$ (eq-saturated-thickness)
+
+For a cell $n$, the balance of one time step is
+
+$$
+\sum_{m \in \mathcal{N}(n)} G_{nm}\,(h_m - h_n)
++ \sum_{p} \Phi_{n,p}
+= \frac{1}{\delta t}\Bigl[\,S_s\,a_n\,B_n\,(h_n - h_n^\mathrm{old})
++ S_y\,a_n\,(B_n - B_n^\mathrm{old})\Bigr] .
+$$ (eq-cell-balance)
+
+The left side is the water that enters the cell during the step: the exchange with
+the neighbors and the stress packages. The right side is the change of the volume
+stored. $h^\mathrm{old}$ is the head at the start of the step. This is the one
+statement of the balance on the site; the solver pages refer to it. Between two
+cells of a layer, the conductance joins the two half cells in series:
+
+$$
+\frac{1}{G_{nm}}
+= \frac{c_{nm}}{K_n\,B_n\,w_{nm}}
++ \frac{c_{mn}}{K_m\,B_m\,w_{nm}} ,
+$$ (eq-conductance)
+
+with $w_{nm}$ the width of the shared face and $c_{nm}$ the distance from the
+center of $n$ to that face. Under the Newton formulation, the series is built with
+the full cell thicknesses and multiplied by the saturated fraction of the upstream
+cell ({cite:p}`langevin2017`).
+
+What HydroModPy sets:
+
+- **Every cell is convertible.** `icelltype = 1` in the MODFLOW 6 `NPF` package,
+  `iconvert = 1` in `STO`, `laytyp = 1` in the MODFLOW-NWT `UPW` package. The
+  specific yield $S_y$ acts while the water table is inside the cell, and $S_s$
+  above the top of a full cell. In example 04, $S_y = 0.05$ and
+  $S_s B \le 3 \times 10^{-4}$, a ratio of about 170.
+- **No `CELL_AVERAGING` option.** The series average of the equation above is the
+  MODFLOW 6 default.
+- **Newton, with under-relaxation, by default.** MODFLOW-NWT is the Newton
+  formulation of MODFLOW-2005 {cite:p}`niswonger2011`, on the same convertible
+  layers and a structured grid. The options and the stopping tests are on
+  {ref}`solvers-newton-ims`.
+- **Voronoi faces bisect the centers.** That is the case the two-point form of
+  {eq}`eq-conductance` needs. Elsewhere, the XT3D correction is on
+  {doc}`solvers/xt3d-on-irregular-disv-meshes`.
+- **The Boussinesq solver** writes the same balance on triangles. Its edge flux
+  takes the harmonic mean of $K$ and the arithmetic mean of $B$ of the two cells,
+  and its storage has no $S_s$. See {doc}`boussinesq`.
+
+The smoothing of $B$ near the bottom of a cell is on {doc}`solvers`.
+
+(gwf-time)=
+## Time
+
+The run is cut into stress periods of length $\Delta t$, one per forcing value
+({doc}`forcing`). Within a period the forcing is constant. Each period is cut into
+$n_\mathrm{sub}$ equal time steps $\delta t = \Delta t / n_\mathrm{sub}$, and the
+time integration is the backward Euler scheme of {cite:p}`langevin2017`:
+{eq}`eq-cell-balance` is written with the stress and the conductances at the end
+of the step. The time step multiplier is 1, so the steps of a period are equal.
+The one exception is {toml}`solver.modflow6.runtime.mf6_ats`: with it, MODFLOW 6 may cut a
+transient step further where the solver does not converge, never above the step
+asked for. The Boussinesq solver takes one step per period.
+
+```{hmp-params}
+simulation.time.step_value
+simulation.time.substeps_per_period
+```
+
+The solver time step is a numerical choice: a period solved in one step differs
+from the same period in several. {ref}`solvers-time` gives the size of that
+difference on a test case.
+
+{toml}`flow.flow_regime` picks the regime. A `steady` run is one steady period
+over the whole `[simulation.time]` window, whatever step the file writes. In a
+`transient` run, {toml}`flow.first_period_steady` marks the first
+period as steady, in the three solvers. In a steady period the right side
+of the balance is zero, the storage plays no part, and the heads settle where the
+forcing of that period puts them. Example 04 states the regime:
+
+```{hmp-resolved} flow.flow_regime
+:config: 04_streamflow_intermittence_in_transient/project.toml
+```
+
+In the code: `sto_period_settings`.
+
+(gwf-windows)=
+### A long run in windows
+
+A long transient run can be cut into windows, and {doc}`../how-to/long-transient-runs-in-windows`
+gives the commands. Each window is a run of its own, sealed with its own `final_state/`, and
+window $k$ starts from the final state of window $k-1$. A window edge must fall on the end of a stress period, because a period cut in two would be
+another problem than the one the run in one piece solves.
+
+```{hmp-params}
+simulation.time.window_length
+simulation.time.window
+```
+
+A chain is meant to give the same heads as the run in one piece, and it does when the state that
+passes from one window to the next is not changed on the way. I measured it on a transient
+MODFLOW 6 model of twelve monthly periods, five time steps each, on a grid of 25 by 25 convertible
+cells, with a variable recharge and a constant head on one edge, cut after six periods. The first
+window always equals the start of the run in one piece to the last bit. The second window differs
+from the end of the run in one piece by the size the start head was written at.
+
+| Start head of window 2 | Newton | Largest difference, window 2 |
+|---|---|---|
+| text, as FloPy writes it | no | 1.13e-9 m |
+| text, as FloPy writes it | yes | 1.14e-9 m |
+| binary, float64 | no | none, equal to the bit |
+| binary, float64 | yes | none, equal to the bit |
+
+HydroModPy reads `final_state/` in float64 and gives the head to MODFLOW 6 as a binary array of
+float64, so a chain of windows equals the run in one piece to the last bit. A lake stage is written
+with all its digits for the same reason. On a lake linked to the cells below it, a window that
+started again from `initial_stage` was 2.3e-2 m away in head and 3.6e-2 m in stage after six
+months, a stage written with eight decimals was 1.3e-9 m and 2.1e-9 m away, and a stage written
+with all its digits was equal to the bit.
+
+One case stays short of the last bit. With SFR and its `STORAGE` option, `final_state/` also
+keeps the stage of each reach and the next window gives it to MODFLOW 6 as `INITIALSTAGES`.
+Without it window 2 is 1.0e-4 m away in head and 1.0e-7 m in stage. With it the difference is
+6.4e-10 m in head and 9.0e-13 m in stage. MODFLOW 6 keeps a routing state of the reach beyond its
+stage, and nothing reads that state again. Writing the stage with 17 digits gives the same
+difference, so it does not come from the text.
+
+The starting heads of a computed start (`steady_state` and `spinup_cyclic`) are those of the run
+in one piece, and they apply to window 1 only. {toml}`flow.restart_from` is the start of window 1.
+The soil reservoir runs on the whole simulation, and each window takes its own periods of that
+run ({doc}`soil-reservoir`).
+
+(gwf-start)=
+## The starting heads
+
+The head at the start of the run, $h_0$, is declared in the flat table `[flow.ic]`.
+Its value is the same in every layer of a column. `bottom` is the bottom of the
+deepest layer.
+
+| `kind` | $h_0$ |
+|---|---|
+| `top` | $z_\mathrm{top}$ |
+| `top_offset` | $z_\mathrm{top} - v$, with $v$ the `value` |
+| `bottom` | $z_{\mathrm{bot},n_\mathrm{lay}}$ |
+| `custom` | $v$ |
+| `steady_state` | the solution $h^\star$ of the steady problem under a constant recharge, see below |
+| `spinup_cyclic` | the state a cyclic run settles at, see below |
+
+In every case, a cell on an imposed head (an ocean, a stream or a side boundary)
+starts at that head. `top` is a full aquifer; the card of {toml}`flow.ic.h.kind`
+gives the default.
+
+The solver does not read this table. `prepare_solver` turns it into one initial
+state of the frozen `Model`, and the backend builds its start heads from that state.
+The auxiliary solves below are two variants of the `Model`: `steady_variant` for
+`steady_state`, and `cycle_variant` for each cycle of `spinup_cyclic`. A variant
+is a new object, so the `Model` of the run is never changed.
+
+**The equilibrium.** For `steady_state`, the code first solves an auxiliary
+steady problem with the same solver, the same grid and the same properties. It
+starts from the top, whatever the backend, and `steady_variant` gives it the constant
+recharge and a single steady period. Its
+recharge is a constant, set by {toml}`flow.ic.h.source`: the time mean of the
+record, each period by its length, or the rate that you state. The result is $h_0$:
+
+$$
+\nabla\!\cdot\!\bigl(K\,B(h^\star)\,\nabla h^\star\bigr) + \bar N + q_\mathrm{bc}(h^\star) = 0 ,
+\qquad h_0 = h^\star ,
+$$
+
+where $\bar N$ is the constant recharge and $q_\mathrm{bc}$ the exchanges with
+the boundaries per unit area, held at the value of the first period
+({toml}`flow.ic.h.boundary_condition_policy`).
+
+**The settled cycle.** For `spinup_cyclic`, the run repeats its own period. Cycle
+$c + 1$ starts from the heads where cycle $c$ ended, $h_\mathrm{end}^{(c)}$, and
+the first cycle starts from {toml}`flow.ic.h.first_cycle_from`. `cycle_variant` hands
+the end heads of cycle $c$ to cycle $c + 1$ as its start. The loop stops when
+
+$$
+\max_n \bigl|\,h^{(c+1)}_{\mathrm{end},n} - h^{(c)}_{\mathrm{end},n}\,\bigr| \le \varepsilon_h ,
+$$ (eq-spinup)
+
+with $\varepsilon_h$ the {toml}`flow.ic.h.tol_head`, or after
+{toml}`flow.ic.h.max_cycles` cycles. The maximum counts every cell, not the mean.
+
+```{eval-rst}
+.. plot:: theory/figures/gwf_spinup.py
+   :alt: Largest and mean change of the end-of-cycle heads against the cycle number, with the tolerance.
+   :caption: The stopping test of :eq:`eq-spinup`, applied by ``cycles_have_settled`` to 200
+      cells of which 10 drift slowly. Look at the two curves: the mean change falls under
+      :math:`\varepsilon_h` at cycle 6, the largest change only at cycle 10, and
+      the largest change decides. With the default of 4 cycles, this loop would stop
+      before it settles.
+```
+
+**When the first period is steady.** With {toml}`flow.first_period_steady` at its
+default, period 0 is solved as a steady state, and the heads above are only the
+first guess of that solve. They change the convergence and not the state reached.
+To make the run start from a state you choose, set it to `false` (see
+{doc}`[flow.ic] <../reference/parameters/flow/ic>`).
+
+A run can also restart from the last time step of an earlier run
+({toml}`flow.restart_from`). That state replaces $h_0$. In the code:
+`build_head_initial_condition_array`.
+
+**Starts the file refuses.** The cycle carries the heads. It does not carry the stage of a lake, which
+starts again from its `initial_stage` at each cycle, so a file with a lake and a `spinup_cyclic` start
+is refused when it is read. `hmp spinup` carries both from one cycle to the next. Start from its
+result with {toml}`flow.restart_from`. That key beside a `steady_state` or a `spinup_cyclic` start is
+refused too, because the computed start would replace the restart without a message. The auxiliary
+steady solve of `steady_state` can leave heads that did not converge. A transport run that follows
+such a start stops with `SolverDivergedError`, since particles and solutes would follow a head field
+that is not a solution. The soil reservoir has a start of its own, and the two starts can come from
+two windows. {ref}`soil-start` says when that is wanted.
+
+(gwf-stress)=
+## What enters and leaves
+
+The stress terms $\Phi_{n,p}$ of the balance come from packages. Each one has its
+page.
+
+| Term | MODFLOW 6 package | Page |
+|---|---|---|
+| Recharge $N$ | `RCHA` | {doc}`forcing`, {doc}`soil-reservoir` |
+| Evapotranspiration that the soil did not meet, or a negative recharge routed to evaporation | `EVTA` | {doc}`soil-reservoir`, {doc}`forcing` |
+| Drainage at the land surface | `DRN` | {doc}`exits` |
+| Imposed heads: ocean, stream, sides | `CHD` | {doc}`exits` |
+| Wells | `WEL` | {doc}`exits` |
+| Stream reaches, lakes, flow barriers, water transfers | `SFR`, `LAK`, `HFB`, `MVR` | {doc}`exits` |
+
+Recharge and injection are positive when water enters the aquifer, and a well with
+a negative rate pumps. Where no boundary is activated, the edge of the domain
+carries no flow. A boundary or a sink is active when its table is declared, under
+{toml}`flow.bc.<name>` or `[flow.sinks_sources]`, and `enabled = false` keeps the table
+and switches it off.
+
+(gwf-limits)=
+## Limits
+
+- **Shallow and unconfined.** Every cell is convertible. The code is built for the
+  saturated zone of a catchment, from the surface down to a substratum that you
+  place. The thickness is chosen, not computed.
+- **No unsaturated flow.** The code builds no `UZF` package. The water that reaches
+  the water table is a recharge, given or computed by the daily soil store of
+  {doc}`soil-reservoir`.
+- **No density-dependent flow, no compaction, no delayed yield.** The code builds
+  neither a `BUY` nor a `CSUB` package, and the specific yield releases its water
+  at once.
+- **Constant forcing, impervious edges.** The forcing is constant over a stress
+  period. The bottom and the sides of the domain are impervious, except where a
+  boundary is activated.
+- **A bottom above the top is refused.** So is a bottom that equals it, and a
+  raster that leaves one cell without a value.
+- **Only layers by surfaces pinch out.** Shares give every cell the same proportions, so no
+  layer reaches zero thickness, and the thickness cannot fall below $H_\mathrm{min}$ with a
+  raster kind. The thickness of a layer by surfaces is an input and is not calibrable.
+- **Boussinesq has one layer and no $S_s$.** It reads $K$ and $S_y$ only.
+- **Newton and rewetting exclude each other** in MODFLOW 6.
+- **A transient run with the soil reservoir refuses a steady first period.** The reservoir
+  sends a daily recharge that is zero after a dry day, and a one-period steady
+  state would start the run from a drained aquifer.
+- **Each solver has its own boundaries.** What each solver supports is listed in
+  {doc}`../reference/solvers`, and the file is refused when the solver cannot carry a
+  boundary it asks for.
+
+(gwf-dupuit)=
+### Where the one-layer reading stops
+
+A model with one layer, and the Boussinesq solver always, are Dupuit by
+construction: the flow is horizontal and the head does not vary with depth
+{cite:p}`dupuit1863,brutsaert2005`. Over a flow path of length $L_h$ through a
+saturated thickness $B$, the vertical head difference against the horizontal one
+scales as $\beta\,(B / L_h)^2$, an order of magnitude without prefactor. With
+$B = 30$ m and $\beta = 10$, that is 0.036 under hillslopes of 500 m and 0.9
+under hillslopes of 100 m, where Dupuit no longer holds. Within about
+$B\sqrt{\beta}$ of a stream (100 m here, one or two cells of a 75 m grid), the
+flow converges and bends upwards. A one-layer model leaves that resistance to the
+conductance of the drain or of the stream cell ({doc}`exits`).
+
+The water table follows the topography, and the drains carry much of the outflow,
+when the criterion of {cite:t}`haitjema2005subdued` exceeds 1. It compares the
+recharge, times the squared distance between streams, with the conductivity, the
+thickness and the largest rise of the land above the streams, and it assumes a uniform
+recharge and thickness. Below 1, the drains act along the streams only.
+
+HydroModPy has no seepage face below the top of a cell. The drains of the top
+layer and the surface closures of the Boussinesq solver take the water at the cell
+top, and a stream imposed as a head fixes the head of the whole cell. With
+{toml}`domain.layers.nlay` above 1 and a ratio
+{toml}`solver.modflow6.process_specific.vka`, MODFLOW 6 and MODFLOW-NWT carry one head per
+layer, so the vertical resistance enters the solution. The code computes none of
+these ratios and refuses no model for its aspect ratio. A depth factor
+({eq}`eq-depth-factor`) shortens the effective thickness.
+
+## Parameters of this page
+
+The fields below are the ones that appear in the equations. Open a row for its
+card.
+
+```{hmp-params}
+domain.depth_model.kind
+domain.depth_model.thickness
+domain.depth_model.substratum_elevation
+domain.depth_model.offset
+domain.depth_model.min_thickness
+domain.depth_model.scale
+data.substratum.sources.path
+domain.layers.nlay
+domain.layers.genmtd_lay
+domain.layers.lay_decay
+domain.layers.lay_proportions
+domain.layers.pinch_out
+flow.param.K.field.value
+flow.param.Sy.field.value
+flow.param.Ss.field.value
+flow.param.K.field_vertical_profile.kind
+flow.param.K.field_vertical_profile.characteristic_depth
+flow.param.K.field_vertical_profile.min_factor
+solver.modflow6.process_specific.vka
+flow.flow_regime
+flow.first_period_steady
+flow.ic.h.kind
+flow.ic.h.value
+flow.ic.h.source
+flow.ic.h.boundary_condition_policy
+flow.ic.h.max_cycles
+flow.ic.h.tol_head
+flow.ic.h.first_cycle_from
+flow.restart_from
+```
+
+## Checked by
+
+The tests that import the code of this page. The box is generated: a new test
+appears here on the next build.
+
+```{hmp-tested-by}
+hydromodpy.model.flow
+hydromodpy.model.model
+hydromodpy.model.flow_config
+hydromodpy.model.domain
+hydromodpy.model.properties.field_param
+hydromodpy.model.properties.property_table
+hydromodpy.solver.modflow_grid
+hydromodpy.model.initial.state
+hydromodpy.model.initial.heads
+hydromodpy.model.initial_config
+hydromodpy.solver.modflow6.build
+hydromodpy.solver.modflow_nwt.nwt
+```
+
+## In the code
+
+| What | Where |
+|---|---|
+| The top, the bottom and the raster depth models | `hydromodpy/model/domain/domain.py` (`Domain._build_surfaces`, `Domain._substratum_from_raster`), `hydromodpy/model/domain/depth_model_config.py` |
+| Reading the substratum raster | `hydromodpy/model/domain/build.py` (`read_substratum_source`) |
+| Layers, the check bottom below top | `hydromodpy/model/domain/layering.py` (`layer_proportions`, `layer_stack`, `pinch_out`, `assert_bottom_below_top`), `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`) |
+| The properties, per cell and per layer | `hydromodpy/solver/modflow6/support/property_mapping.py` (`resolve_k33_field`, `K_TENSOR_NPF_NAMES`), `hydromodpy/model/properties/property_table.py`, `resolve_required_flow_properties` |
+| The depth factor | `hydromodpy/model/properties/vertical_profile.py` (`vertical_factor`, read by `FieldParam.vertical_factor`), `SolverMesh.layer_center_depths` |
+| The MODFLOW 6 balance: `NPF`, `STO`, `IC`, Newton | `hydromodpy/solver/modflow6/build.py` (`run_pre_processing`), `hydromodpy/solver/modflow6/builders/solver_options.py` (`newton_options`) |
+| The MODFLOW-NWT balance: `UPW` | `hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py` |
+| Steady and transient periods | `hydromodpy/solver/modflow_grid/discretization_temporal.py`, `hydromodpy/solver/modflow6/builders/period_forcing.py` (`sto_period_settings`) |
+| The Model a solver reads, and its variants | `hydromodpy/model/model.py` (`Model`, `steady_variant`, `cycle_variant`, `model_from_flow`) |
+| The windows of a chain | `hydromodpy/core/time/window.py` (`chain_windows`, `window_grid`), `hydromodpy/project/windows.py` (`run_windows`), `hydromodpy/results/storage/final_state.py` (`FinalState`) |
+| The starting heads | `hydromodpy/model/initial_config.py` (`initial_state_of`), `hydromodpy/model/initial/state.py` (the five states), `hydromodpy/model/initial/heads.py` (`cycles_have_settled`), `hydromodpy/solver/modflow6/builders/initial_conditions.py` (`build_start_heads`) |
+
+## See also
+
+- {doc}`solvers`: what each solver adds to this problem, and how MODFLOW 6 and MODFLOW-NWT differ.
+- {doc}`boussinesq`: the in-house solver in full.
+- {doc}`../reference/parameters/flow/ic`: the keys of the starting state.

@@ -1,0 +1,166 @@
+[workflow]
+mode = "calibration"
+[workspace]
+project_root = "."
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+reuse_existing_outputs = true
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_armorican_massif.tif"
+x_outlet = 389358.0
+y_outlet = 6816630.0
+snap_dist = "150 m"
+buff_area = "10%"
+[geographic.enforce_streams]
+enabled = true
+mode = "constant"
+depth_m = 10.0
+[domain]
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = 30.0
+[data]
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_armorican_massif.tif"
+[[data.geology.sources]]
+source = "brgm_1m"
+[[data.hydrography.sources]]
+source = "custom"
+path = "nancon_stream_network.gpkg"
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+station_ids = ["NANCON"]
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["NANCON_REA"]
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["NANCON_REA"]
+[flow]
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+flow_regime = "steady"
+[flow.ic]
+type = "top"
+description = "Water table initialised at the topographic surface."
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 1.0e-5
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.01
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+[simulation]
+name = "nancon_ref_ex04"
+description = "Nancon - replique MF6 de example_04_calibration.py, K puis Sy par Nelder-Mead."
+if_exists = "replace"
+[simulation.time]
+start_datetime = "1995-01-01"
+end_datetime = "2020-12-31"
+step_value = 1
+step_unit = "day"
+coverage_policy = "warn"
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+[simulation.results.derived]
+release_flux = true
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+accumulation_flux = true
+[modflow6.runtime]
+print_head = false
+save_specific_discharge = false
+save_saturation = false
+[calibration]
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+persist_iteration_detail = "full"
+use_cache = true
+rerun_best_with_outputs = true
+[calibration.parameters.K]
+bounds = [1e-8, 1e-2]
+[calibration.parameters.Sy]
+bounds = [1e-4, 0.5]
+[calibration.outputs.seepage_network]
+support = "network"
+stream_geometry_path = "nancon_stream_network.gpkg"
+weighting = "area"
+tau_specific_ratio = 1.0e-4
+roptim_max = 2.0
+time = "last"
+observed_position_accuracy = "50 m"
+diagonal_neighbors = false
+[calibration.protocol]
+name = "matching_hydrographic_network"
+version = "1.1"
+steady_metric = "distance_mean"
+steady_method = "scipy_nelder_mead"
+steady_max_iter = 60
+[calibration.protocol.steady_engine_options]
+maxiter = 30
+maxfev = 60
+xatol = 0.30
+fatol = 0.05
+[calibration.protocol.transient_engine_options]
+maxiter = 120
+maxfev = 120
+xatol = 3.7e-5
+fatol = 1e-5
+[calibration.uncertainty]
+[display]
+enabled = true
+preset = "default"
+show = false
+save = true
+output_dir = "figures"
+on_error = "warn"
+figures = [
+    "watershed_id_card",
+    "mesh_map",
+    "boundary_package_map",
+    "depression_map",
+    "flow_direction_map",
+    "hydrograph_sim_obs",
+    "hydrograph_log_nse",
+    "hydrograph",
+    "duration_curve",
+    "recession",
+    "seasonal_boxplot",
+    "water_budget",
+    "flux_timeseries",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "recharge_map",
+    "simulated_active_network",
+    "accumulation_map",
+    "downslope_distance_map",
+    "downslope_distance_crossing",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "parameter_cost_profile",
+    "calibration_convergence",
+    "calibration_trace",
+    "matching_hydrographic_network_card",
+]

@@ -1,0 +1,76 @@
+"""The steps the geographic pipeline chains: the run, the catchment and the domain polygons."""
+
+from pathlib import Path
+
+import geopandas as gpd
+import numpy as np
+import pytest
+import rasterio
+from pydantic import ValidationError
+from shapely.geometry import box
+
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
+from hydromodpy.catchment.preprocess.pipeline_steps import (
+    build_standard_catchment,
+    build_standard_domain_polygons,
+    prepare_geographic_run,
+)
+from tests._helpers.geographic_cases import outlet_config, write_features
+from tests._helpers.geotiffs import write_geotiff
+from tests._helpers.terrain_doubles import fake_accumulation
+
+
+def _dem(tmp_path: Path) -> Path:
+    values = np.arange(100, dtype="float32").reshape(10, 10)
+    return write_geotiff(tmp_path / "dem.tif", values, cell=100.0, nodata=-9999.0)
+
+
+def _config(**catchment) -> GeographicConfig:
+    return outlet_config(x=450.0, y=550.0, catchment={"snap_dist": "150 m", **catchment})
+
+
+def test_aggregated_dem(tmp_path: Path) -> None:
+    dem = _dem(tmp_path)
+
+    def prepared(name: str, **catchment):
+        return prepare_geographic_run(
+            config=_config(**catchment), out_dir_path=tmp_path / name, dem_path=dem
+        )
+
+    native, same = prepared("a"), prepared("c", dem_resolution=100.0)
+    coarse = prepared("b", dem_resolution="200 m")
+    assert (native.dem_res, native.dem_path) == (100.0, str(dem))
+    assert (native.crs_project, native.epsg) == ("EPSG:2154", 2154)
+    assert coarse.dem_res == 200.0
+    assert Path(coarse.dem_path).name == "dem_init_200m.tif"
+    assert Path(coarse.dem_path).is_relative_to(tmp_path / "b")
+    with rasterio.open(coarse.dem_path) as src:
+        assert (src.height, src.width) == (5, 5)
+    assert same.dem_path == str(dem)
+
+
+def test_polygon_catchment_and_buffered_domain(tmp_path) -> None:
+    dem = _dem(tmp_path)
+    polygon = write_features(tmp_path / "given.shp", [box(200.0, 200.0, 800.0, 800.0)])
+    config = GeographicConfig.from_polygon(polygon, buff_area="100 m")
+    run = prepare_geographic_run(config=config, out_dir_path=tmp_path / "run", dem_path=dem)
+    options = dict(config=config, paths=run.paths, crs_project=run.crs_project)
+    watershed = build_standard_catchment(
+        **options, accumulation=fake_accumulation(), backend=object()
+    )
+    domain = build_standard_domain_polygons(**options, dem_path=dem)
+    assert watershed == run.paths.watershed_shp
+    assert gpd.read_file(watershed).total_bounds.tolist() == [200.0, 200.0, 800.0, 800.0]
+    assert domain.buffer_distance_m == 100.0
+    assert gpd.read_file(run.paths.box_buff).total_bounds.tolist() == [100.0, 100.0, 900.0, 900.0]
+    assert domain.catchment_area_km2 == pytest.approx(0.36)
+
+
+def test_dem_domain_has_no_catchment(tmp_path) -> None:
+    dem = _dem(tmp_path)
+    config = GeographicConfig.from_dem()
+    run = prepare_geographic_run(config=config, out_dir_path=tmp_path / "run", dem_path=dem)
+    options = dict(config=config, paths=run.paths, accumulation=None, crs_project=None)
+    assert build_standard_catchment(**options, backend=object(), unsupported_mode="ignore") is None
+    with pytest.raises(ValueError, match="Unsupported catch_def"):
+        build_standard_catchment(**options, backend=object())

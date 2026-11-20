@@ -3,6 +3,10 @@
 Inverse of :func:`hydromodpy.results.exporters.netcdf.export_netcdf`. Variable
 names are validated against :mod:`hydromodpy.results.field_registry` before any
 read so unknown fields fail fast with :class:`UnknownFieldError`.
+
+A field keeps the shape it was written with, ``(time, layer, face)`` when it has
+layers, ``(time, face)`` when it has none or when the file holds one layer asked
+for by name.
 """
 
 from __future__ import annotations
@@ -60,10 +64,15 @@ def import_netcdf_fields(
             if name not in ds.variables:
                 logger.debug("Variable '%s' not in %s, skipping", name, input_path)
                 continue
-            arr = ds[name]
-            if timesteps is not None and "time" in arr.dims:
-                arr = arr.isel(time=timesteps)
-            out[name] = np.asarray(arr.values)
+            out[name] = _read(ds, name, timesteps)
 
     logger.info("Imported NetCDF: %s (%d fields)", input_path, len(out))
     return out
+
+
+def _read(ds: xr.Dataset, name: str, timesteps: list[int] | None) -> np.ndarray:
+    """One variable, restricted to the requested timesteps."""
+    arr = ds[name]
+    if timesteps is not None and "time" in arr.dims:
+        arr = arr.isel(time=timesteps)
+    return np.asarray(arr.values)

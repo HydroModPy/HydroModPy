@@ -1,0 +1,35 @@
+# ----------------------------------------------------------------------
+# Reference case: hydrographic network extraction on Nançon.
+# ----------------------------------------------------------------------
+
+[site]
+name = "nancon"
+
+[geographic]
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
+kind = "from_outlet_coord"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = 50
+buff_area = "20% of sqrt(area)"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.5
+prune_short_streams = false
+min_stream_length_m = 0.0
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = false
+
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "file"
+path = "../../../../examples/data/dem/DEM_armorican_massif.tif"
+

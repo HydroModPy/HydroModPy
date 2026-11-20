@@ -1,5 +1,5 @@
 # Semantic model configuration — Nançon watershed aquifer study
-# Values taken directly from examples/projects/02_nancon_watershed/project.toml
+# Values taken from a Nançon project of HydroModPy.
 
 # ── Model structure: SM = ⟨IM, OM, Par_M, States_M⟩ ─────────────────────────
 [model.structure]

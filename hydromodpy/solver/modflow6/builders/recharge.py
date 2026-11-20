@@ -1,4 +1,7 @@
-"""MF6 recharge / EVT stress-period data builders."""
+"""MF6 recharge / EVT stress-period data builders.
+
+It builds RCH, the routed negative recharge and the soil ETP on EVT.
+"""
 
 from __future__ import annotations
 
@@ -6,26 +9,58 @@ import hashlib
 import os
 import threading
 import warnings
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from numbers import Real
 from pathlib import Path
+from typing import Literal
 
+import flopy
 import numpy as np
 
-from hydromodpy.core.time import validate_recharge_coverage
-from hydromodpy.core.units import convert_payload_to_m_per_s
-from hydromodpy.physics.forcing.validation import (
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.time.window import validate_recharge_coverage
+from hydromodpy.core.units.quantities import convert_payload_to_m_per_s
+from hydromodpy.model.forcing.cells import discretize_fields_on_cells, discretize_points_on_cells
+from hydromodpy.model.forcing.steady_periods import (
+    apply_first_clim,
+    first_clim_on_part,
+    first_clim_sets_a_deficit,
+    one_period_rate,
+    split_net_recharge,
+)
+from hydromodpy.model.forcing.validation import (
+    complete_period_table,
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
-from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
+from hydromodpy.solver.modflow6.builders.boundary_conditions import (
+    collapse_identical_periods,
+    is_bc_active,
+)
+from hydromodpy.solver.modflow6.builders.period_forcing import simulation_window
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+
+logger = get_logger(__name__)
 
 
-def sanitize_numeric_payload(payload: object) -> object:
-    """Validate one finite numeric payload and return it unchanged."""
-    ensure_finite_numeric_payload(payload, label="recharge payload")
-    return payload
+def _warn_fixed_extinction_depth(evt_depth: float) -> None:
+    """Warn that the routed deficit uses one EVT extinction depth."""
+    message = (
+        "Routed climatic deficit uses a fixed EVT extinction depth of "
+        f"{evt_depth} m; a sustained deficit can saturate the water table near "
+        "this depth rather than over the full saturated thickness."
+    )
+    logger.warning(message)
+    warnings.warn(message, RuntimeWarning, stacklevel=3)
+
+
+ETP_IGNORED_OUTSIDE_SOIL_MODE = (
+    "[flow.sinks_sources.etp] is declared, and MODFLOW 6 draws no ETP from the water "
+    "table outside soil mode: the loaded ETP is ignored, as before. Declare "
+    "[flow.sinks_sources.recharge.soil] to send the ETP the soil leaves unmet to the "
+    "EVT package, or remove [flow.sinks_sources.etp]."
+)
 
 
 def validate_recharge_numeric_payload(
@@ -94,57 +129,30 @@ def extract_evt_payload_2d(
     negative_to_evt: bool,
     *,
     steady: object,
+    first_clim: object = "mean",
+    durations: Sequence[float] | np.ndarray,
 ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
     """Route negative recharge arrays to EVT and clip RCH to non-negative values.
 
-    Steady periods carry the time-mean deficit; transient periods keep their own
-    split (see ``route_negative_recharge_to_evt``). ``steady`` is the per-period
-    steady flag (model.steady).
+    RCH keeps the clipped rate of every period: ``recharge_to_spd`` gives the
+    steady periods their ``first_clim`` rate. The deficit is final here: a
+    transient period keeps its own, a steady period takes the ``first_clim``
+    rate of the deficits (``split_net_recharge``). ``steady`` is
+    the per-period steady flag (model.steady).
     """
     normalized_rch = {int(kper): np.asarray(value, dtype=float) for kper, value in rch_data.items()}
     if not negative_to_evt:
         return normalized_rch, None
 
     has_negative = any(np.any(arr < 0.0) for arr in normalized_rch.values())
-    if not has_negative:
+    if not has_negative and not first_clim_sets_a_deficit(first_clim, steady):
         return normalized_rch, None
 
-    return route_negative_recharge_to_evt(normalized_rch, steady=steady)
-
-
-def series_payload_value(payload: object, kper: int, *, first_clim: object) -> float:
-    """Resolve one scalar climate value from a scalar/sequence payload."""
-    if kper == 0:
-        if first_clim == "mean":
-            arr = np.asarray(payload, dtype=float)
-            return float(np.mean(arr))
-        if first_clim == "first":
-            if hasattr(payload, "iloc"):
-                first = payload.iloc[0]
-                if isinstance(first, Real) and not isinstance(first, bool):
-                    return float(first)
-                first_arr = np.asarray(first, dtype=float).ravel()
-                return float(first_arr[0]) if first_arr.size else 0.0
-            arr = np.asarray(payload, dtype=float).ravel()
-            return float(arr[0]) if arr.size else 0.0
-        if isinstance(first_clim, Real) and not isinstance(first_clim, bool):
-            return float(first_clim)
-
-    if hasattr(payload, "iloc"):
-        idx = min(max(int(kper), 0), len(payload) - 1)
-        value = payload.iloc[idx]
-        if isinstance(value, Real) and not isinstance(value, bool):
-            return float(value)
-        value_arr = np.asarray(value, dtype=float).ravel()
-        if value_arr.size:
-            return float(value_arr[0])
-        return 0.0
-
-    arr = np.asarray(payload, dtype=float).ravel()
-    if arr.size == 0:
-        return 0.0
-    idx = min(max(int(kper), 0), int(arr.size) - 1)
-    return float(arr[idx])
+    _, deficit = split_net_recharge(
+        normalized_rch, steady=steady, first_clim=first_clim, durations=durations
+    )
+    clipped = {kper: np.maximum(arr, 0.0) for kper, arr in normalized_rch.items()}
+    return clipped, deficit
 
 
 def extract_evt_payload(
@@ -152,46 +160,37 @@ def extract_evt_payload(
     payload: object,
     negative_to_evt: bool,
 ) -> tuple[object, dict[int, object] | None]:
-    """Route negative recharge values to EVT and keep RCH non-negative."""
-    if not negative_to_evt or not payload_has_negative_values(payload):
+    """Route negative recharge values to EVT and keep RCH non-negative.
+
+    Same rule as :func:`extract_evt_payload_2d`, for every payload form: RCH
+    keeps every period's clipped rate, the deficit of a steady period follows
+    ``first_clim``.
+    """
+    first_clim = model.first_clim if model.first_clim is not None else "mean"
+    if not negative_to_evt:
+        return payload, None
+    if not payload_has_negative_values(payload) and not first_clim_sets_a_deficit(
+        first_clim, getattr(model, "steady", None)
+    ):
         return payload, None
 
     if isinstance(payload, Mapping):
-        return extract_evt_payload_2d(payload, True, steady=model.steady)
+        return extract_evt_payload_2d(
+            payload, True, steady=model.steady, first_clim=first_clim, durations=model.perlen
+        )
 
-    payload_for_rch = copy_runtime_payload(payload)
-    evt_payload = copy_runtime_payload(payload)
-
-    if isinstance(payload_for_rch, list):
-        payload_for_rch = np.asarray(payload_for_rch, dtype=float)
-    if isinstance(evt_payload, list):
-        evt_payload = np.asarray(evt_payload, dtype=float)
-
-    if hasattr(evt_payload, "clip"):
-        try:
-            payload_for_rch = evt_payload.clip(lower=0.0)
-        except TypeError:
-            payload_for_rch = clip_negative_payload(payload_for_rch)
-    else:
-        payload_for_rch = clip_negative_payload(payload_for_rch)
-
-    evt_negative = np.asarray(evt_payload, dtype=float)
-    evt_negative[evt_negative >= 0.0] = 0.0
-    evt_negative = np.abs(evt_negative)
-
-    first_clim = model.first_clim if model.first_clim is not None else "mean"
-    steady = model.steady
-
-    def _evt_value(kper: int) -> object:
-        if kper < len(steady) and bool(steady[kper]):
-            # Steady spin-up carries the time-mean deficit.
-            return series_payload_value(evt_negative, 0, first_clim="mean")
-        # Transient period keeps its own deficit (period 0 uses its own value).
-        policy = "first" if kper == 0 else first_clim
-        return series_payload_value(evt_negative, kper, first_clim=policy)
-
-    evt_spd: dict[int, object] = {kper: _evt_value(kper) for kper in range(int(model.nper))}
-    return payload_for_rch, evt_spd
+    deficit_payload = np.maximum(-_payload_sequence(payload), 0.0)
+    deficit = first_clim_on_part(
+        _period_rows(model, deficit_payload),
+        steady=model.steady,
+        first_clim=first_clim,
+        sign=-1.0,
+        durations=model.perlen,
+    )
+    evt_spd: dict[int, object] = {
+        kper: (float(value) if np.ndim(value) == 0 else value) for kper, value in deficit.items()
+    }
+    return clip_negative_payload(copy_runtime_payload(payload)), evt_spd
 
 
 def bind_recharge_from_flow(model) -> None:
@@ -209,15 +208,13 @@ def bind_recharge_from_flow(model) -> None:
             model.first_clim = "mean"
         return
 
-    active = getattr(model.flow, "active_sinks_sources", [])
-    if "recharge" not in active:
+    if "recharge" not in model.inputs.active_sinks_sources:
         model.recharge = 0.0
         if model.first_clim is None:
             model.first_clim = "mean"
         return
 
-    sinks_sources = getattr(model.flow, "sinks_sources", {})
-    recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, Mapping) else None
+    recharge_cfg = model.inputs.recharge
     if recharge_cfg is None:
         model.recharge = 0.0
         if model.first_clim is None:
@@ -238,7 +235,7 @@ def bind_recharge_from_flow(model) -> None:
     if has_temporal_index(payload):
         validate_recharge_coverage(
             payload,
-            model.time_grid.window if getattr(model, "time_grid", None) is not None else None,
+            simulation_window(model),
         )
     payload = convert_payload_to_m_per_s(
         payload,
@@ -251,6 +248,12 @@ def bind_recharge_from_flow(model) -> None:
         label="flow.sinks_sources.recharge.values",
         allow_negative=negative_to_evt,
     )
+    # The EVT routing reads first_clim: set it before routing.
+    model.first_clim = getattr(
+        recharge_cfg,
+        "first_clim",
+        model.first_clim if model.first_clim is not None else "mean",
+    )
     if hasattr(model, "nper"):
         payload, evt_payload = extract_evt_payload(model, payload, negative_to_evt)
         model._evt_rate_payload = evt_payload
@@ -258,11 +261,6 @@ def bind_recharge_from_flow(model) -> None:
         model._pending_negative_to_evt = negative_to_evt
 
     model.recharge = payload
-    model.first_clim = getattr(
-        recharge_cfg,
-        "first_clim",
-        model.first_clim if model.first_clim is not None else "mean",
-    )
 
 
 def bind_heterogeneous_recharge(model, recharge_cfg: object) -> None:
@@ -283,74 +281,57 @@ def bind_heterogeneous_recharge(model, recharge_cfg: object) -> None:
     )
 
 
+def _discretize_heterogeneous_source(
+    model, source: object, *, interpolation_method: str, source_unit: str
+) -> dict[int, np.ndarray] | None:
+    """Discretize one gridded or located-point source onto the solver cells.
+
+    Shared by the aquifer recharge and the soil residual ETP: both hand a
+    ``LoadResult``-like ``source`` and get back ``{kper: (ncpl,) m/s}``, or
+    ``None`` when ``source`` carries neither fields nor points. The centers are
+    those of the solver mesh, whatever its engine, and its planar mesh gives
+    the cell polygons the ``"area"`` method weighs pixels by.
+    """
+    sim_window = simulation_window(model)
+    centers = model.solver_mesh.cell_centers()
+
+    # Prefer fields; fall back to located points.
+    if getattr(source, "has_fields", False):
+        return discretize_fields_on_cells(
+            load_result=source,
+            centers=centers,
+            nper=int(model.nper),
+            simulation_window=sim_window,
+            method=interpolation_method,
+            mesh=model.solver_mesh.planar_mesh,
+            mesh_crs=model.solver_mesh.cell_mesh.crs_wkt,
+        )
+    if getattr(source, "has_points", False):
+        return discretize_points_on_cells(
+            load_result=source,
+            centers=centers,
+            nper=int(model.nper),
+            simulation_window=sim_window,
+            method=interpolation_method,
+            source_unit=source_unit,
+            mesh_crs=model.solver_mesh.cell_mesh.crs_wkt,
+        )
+    return None
+
+
 def resolve_deferred_heterogeneous_recharge(model) -> None:
     """Discretize stored heterogeneous recharge after solver_mesh is available."""
     het_source = getattr(model, "_heterogeneous_recharge_source", None)
     if het_source is None:
         return
 
-    sim_window = model.time_grid.window if model.time_grid is not None else None
-    interp_method = getattr(model, "_heterogeneous_interpolation_method", "nearest")
-    source_unit = getattr(model, "_heterogeneous_source_unit", "mm/day")
-    use_structured = bool(getattr(model.solver_mesh, "is_structured", False))
-    if use_structured:
-        from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
-            discretize_fields_on_sgrid,
-            discretize_points_on_sgrid,
-        )
-    else:
-        from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
-            discretize_fields_on_planar_mesh,
-            discretize_points_on_planar_mesh,
-        )
-        from hydromodpy.spatial.mesh.model.cell_types import CellType
-
-        solver_planar = model.solver_mesh.planar_mesh
-        planar_mesh = getattr(model, "runtime_mesh_planar", None)
-        # The runtime_mesh_planar is the triangular seed mesh; on a Voronoi solver grid
-        # recharge must discretize onto the actual (POLYGON) solver cells, which the
-        # HydroMesh exposes ragged-safe (cell_centroids + n_cells).
-        if planar_mesh is None or CellType.POLYGON in getattr(solver_planar, "cell_types", ()):
-            planar_mesh = solver_planar
-
-    # Prefer fields; fall back to located points.
-    if getattr(het_source, "has_fields", False):
-        if use_structured:
-            raw_arrays = discretize_fields_on_sgrid(
-                load_result=het_source,
-                sgrid=model.solver_mesh,
-                nper=int(model.nper),
-                simulation_window=sim_window,
-                method=interp_method,
-            )
-        else:
-            raw_arrays = discretize_fields_on_planar_mesh(
-                load_result=het_source,
-                planar_mesh=planar_mesh,
-                nper=int(model.nper),
-                simulation_window=sim_window,
-                method=interp_method,
-            )
-    elif getattr(het_source, "has_points", False):
-        if use_structured:
-            raw_arrays = discretize_points_on_sgrid(
-                load_result=het_source,
-                sgrid=model.solver_mesh,
-                nper=int(model.nper),
-                simulation_window=sim_window,
-                method=interp_method,
-                source_unit=source_unit,
-            )
-        else:
-            raw_arrays = discretize_points_on_planar_mesh(
-                load_result=het_source,
-                planar_mesh=planar_mesh,
-                nper=int(model.nper),
-                simulation_window=sim_window,
-                method=interp_method,
-                source_unit=source_unit,
-            )
-    else:
+    raw_arrays = _discretize_heterogeneous_source(
+        model,
+        het_source,
+        interpolation_method=getattr(model, "_heterogeneous_interpolation_method", "nearest"),
+        source_unit=getattr(model, "_heterogeneous_source_unit", "mm/day"),
+    )
+    if raw_arrays is None:
         model._heterogeneous_recharge_source = None
         return
 
@@ -358,6 +339,8 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
         raw_arrays,
         getattr(model, "_heterogeneous_negative_to_evt", False),
         steady=model.steady,
+        first_clim=model.first_clim if model.first_clim is not None else "mean",
+        durations=model.perlen,
     )
     validate_recharge_numeric_payload(
         raw_arrays,
@@ -369,6 +352,106 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
     model.recharge = raw_arrays
     model._evt_rate_payload = evt_payload
     model._heterogeneous_recharge_source = None
+
+
+def bind_soil_etp_from_flow(model) -> None:
+    """Resolve the soil residual ETP source MODFLOW 6 draws through EVTA.
+
+    Outside soil mode MODFLOW 6 has never read the ETP [flow.sinks_sources.etp]
+    activates; a project without a soil section keeps that
+    behavior, with one warning added (``ETP_IGNORED_OUTSIDE_SOIL_MODE``).
+    """
+    model._soil_etp_source = None
+    if "etp" not in model.inputs.active_sinks_sources:
+        return
+
+    etp_cfg = model.inputs.etp
+    if etp_cfg is None or not etp_cfg.from_soil_reservoir:
+        logger.warning(ETP_IGNORED_OUTSIDE_SOIL_MODE)
+        return
+
+    if etp_cfg.heterogeneous_source is None:
+        raise RuntimeError(
+            "the soil residual ETP reached MODFLOW 6 without its grid; "
+            "apply_etp_load_result_to_flow must pass the FieldRecord through."
+        )
+
+    model._soil_etp_source = etp_cfg.heterogeneous_source
+    model._soil_etp_interpolation_method = etp_cfg.interpolation_method
+    model._soil_evt_surface_offset_m = float(etp_cfg.surface_offset.to("m").magnitude)
+    model._soil_evt_extinction_depth_m = float(etp_cfg.extinction_depth)
+
+
+def resolve_deferred_soil_etp(model) -> None:
+    """Discretize the soil residual ETP after solver_mesh is available."""
+    source = getattr(model, "_soil_etp_source", None)
+    if source is None:
+        model._soil_etp_rate = None
+        return
+    model._soil_etp_rate = _discretize_heterogeneous_source(
+        model,
+        source,
+        interpolation_method=getattr(model, "_soil_etp_interpolation_method", "nearest"),
+        source_unit="mm/day",
+    )
+
+
+def build_soil_evta_payload(
+    model,
+    solver_mesh,
+    *,
+    ocean_support_mask: np.ndarray,
+    stream_support_mask: np.ndarray,
+    lake_cell_ids: Iterable[int],
+    drain_active: bool,
+    shared_dir: str | None,
+) -> tuple[dict[int, np.ndarray] | dict[int, dict], np.ndarray, float] | None:
+    """Build the EVTA payload for the ETP the soil reservoir leaves unmet.
+
+    Vectorized over cells and periods: the list builder's double loop
+    (``build_evt_stress_period_data``) would run 4.4e8 iterations at a
+    Nancon-sized chronicle (243 552 cells x 1826 periods). ``None`` outside
+    soil mode, so the caller keeps the routed-recharge EVT path untouched.
+    """
+    soil_rate = getattr(model, "_soil_etp_rate", None)
+    if soil_rate is None:
+        return None
+
+    ncpl = int(model.ncpl)
+    # Same exclusion as the routed-recharge EVT list builder: the lake's own
+    # rainfall is handled by LAK, and CHD cells never receive MF6 ET.
+    skip = np.asarray(ocean_support_mask, dtype=bool).reshape(-1) | np.asarray(
+        stream_support_mask, dtype=bool
+    ).reshape(-1)
+    for cid in lake_cell_ids:
+        if 0 <= int(cid) < ncpl:
+            skip[int(cid)] = True
+    top_flat = evt_surface(solver_mesh, ~skip)
+
+    rate_by_period: dict[int, np.ndarray] = {}
+    for kper in range(int(model.nper)):
+        raw_value = soil_rate.get(kper, 0.0) if isinstance(soil_rate, Mapping) else soil_rate
+        rate = as_recharge_flat(model, raw_value, kper=kper).copy()
+        rate[skip] = 0.0
+        rate_by_period[kper] = rate
+    rate_by_period = collapse_identical_periods(rate_by_period)
+
+    rate_payload = externalize_recharge_spd(
+        rate_by_period,
+        basename=model.model_name_mf6,
+        shared_dir=shared_dir,
+        package="evta",
+    )
+
+    # The EVT surface follows the DRN elevation of the cell: the soil has
+    # already taken the ETP it could, so the residual only draws from the
+    # water that would otherwise reach the drain.
+    band_depth = float(getattr(model, "drain_band_depth_m", 0.0))
+    band_term = 0.5 * band_depth if drain_active and band_depth > 0.0 else 0.0
+    surface_offset_m = float(getattr(model, "_soil_evt_surface_offset_m", 0.0))
+    surface = top_flat - band_term - surface_offset_m
+    depth = float(getattr(model, "_soil_evt_extinction_depth_m", 2.0))
+    return rate_payload, surface, depth
 
 
 def scalar_to_flat(model, value: float) -> np.ndarray:
@@ -416,83 +499,89 @@ def as_recharge_flat(model, value: object, *, kper: int | None = None) -> np.nda
     raise ValueError(f"Unsupported recharge payload shape {arr.shape}.")
 
 
-def series_like_to_scalar(model, kper: int) -> float:
-    return series_payload_value(model.recharge, kper, first_clim=model.first_clim)
-
-
-def _payload_sequence(model) -> np.ndarray:
-    payload = model.recharge
+def _payload_sequence(payload: object) -> np.ndarray:
     if hasattr(payload, "iloc"):
         values = [payload.iloc[idx] for idx in range(len(payload))]
         return np.asarray(values, dtype=float).reshape(-1)
     return np.asarray(payload, dtype=float)
 
 
-def recharge_to_spd(model) -> dict[int, np.ndarray]:
-    spd: dict[int, np.ndarray] = {}
-    if isinstance(model.recharge, Mapping):
-        for kper in range(model.nper):
-            arr = model.recharge.get(kper)
-            if arr is None:
-                raise ValueError(f"model.recharge mapping is missing stress period {kper}.")
-            spd[kper] = as_recharge_flat(model, arr, kper=kper)
-        return spd
+def _period_rows(model, payload: object) -> dict[int, np.ndarray]:
+    """Return the own rate of every period, before any ``first_clim`` rule.
 
-    if isinstance(model.recharge, Real) and not isinstance(model.recharge, bool):
-        scalar = float(model.recharge)
-        for kper in range(model.nper):
-            spd[kper] = scalar_to_flat(model, scalar)
-        return spd
+    Each entry is a scalar (0-d array) or one value per cell. A record longer
+    than a one-period run gives that period its time mean, or its first value
+    when the period is steady and ``first_clim`` is ``"first"``
+    (:func:`~hydromodpy.model.forcing.steady_periods.one_period_rate`).
+    """
+    nper = int(model.nper)
+    if isinstance(payload, Real) and not isinstance(payload, bool):
+        return {kper: np.asarray(float(payload)) for kper in range(nper)}
 
-    arr = _payload_sequence(model)
+    arr = _payload_sequence(payload)
     if arr.ndim == 0:
-        scalar = float(arr)
-        for kper in range(model.nper):
-            spd[kper] = scalar_to_flat(model, scalar)
-        return spd
+        return {kper: np.asarray(float(arr)) for kper in range(nper)}
     if arr.ndim == 1:
         if arr.size == 1:
-            scalar = float(arr[0])
-            for kper in range(model.nper):
-                spd[kper] = scalar_to_flat(model, scalar)
-            return spd
+            return {kper: np.asarray(float(arr[0])) for kper in range(nper)}
         if arr.size == int(model.ncpl):
-            flat = as_recharge_flat(model, arr)
-            for kper in range(model.nper):
-                spd[kper] = flat.copy()
-            return spd
-        if arr.size == int(model.nper):
-            steady = model.steady
+            return {kper: arr.astype(float) for kper in range(nper)}
+        if arr.size == nper:
+            return {kper: np.asarray(float(arr[kper])) for kper in range(nper)}
+        if nper == 1:
+            flags = getattr(model, "steady", None)
+            steady = flags is not None and bool(np.asarray(flags, dtype=bool).reshape(-1)[0])
             first_clim = model.first_clim if model.first_clim is not None else "mean"
-            for kper in range(model.nper):
-                if kper < len(steady) and bool(steady[kper]):
-                    # Steady spin-up uses the first_clim policy (mean by default).
-                    value = series_payload_value(arr, 0, first_clim=first_clim)
-                else:
-                    value = float(arr[kper])
-                spd[kper] = scalar_to_flat(model, float(value))
-            return spd
-        if int(model.nper) == 1:
-            scalar = series_payload_value(model.recharge, 0, first_clim=model.first_clim)
-            spd[0] = scalar_to_flat(model, float(scalar))
-            return spd
+            rate = one_period_rate(
+                arr,
+                steady=steady,
+                first_clim=first_clim,
+                durations=getattr(model.inputs.time.grid, "record_lengths_seconds", None),
+            )
+            return {0: np.asarray(rate)}
         raise ValueError(
             "model.recharge sequence length must be 1, nper "
-            f"({int(model.nper)}), or ncpl ({int(model.ncpl)}); got {int(arr.size)}."
+            f"({nper}), or ncpl ({int(model.ncpl)}); got {int(arr.size)}."
         )
     if arr.ndim == 2 and arr.size == int(model.ncpl):
-        flat = as_recharge_flat(model, arr)
-        for kper in range(model.nper):
-            spd[kper] = flat.copy()
-        return spd
-    if arr.ndim >= 2 and arr.shape[0] == int(model.nper):
-        for kper in range(model.nper):
-            spd[kper] = as_recharge_flat(model, arr[kper], kper=kper)
-        return spd
+        flat = arr.ravel().astype(float)
+        return {kper: flat.copy() for kper in range(nper)}
+    if arr.ndim >= 2 and arr.shape[0] == nper:
+        return {kper: np.asarray(arr[kper], dtype=float) for kper in range(nper)}
     raise ValueError(
         "model.recharge array must be scalar, length nper, length ncpl, "
         "one grid array, or one leading entry per stress period."
     )
+
+
+def recharge_to_spd(model) -> dict[int, np.ndarray]:
+    """Return the RCH rate of every period, one flat ``(ncpl,)`` array each.
+
+    Every steady period takes the rate ``first_clim`` states, clipped at zero;
+    a transient period keeps its own (:mod:`hydromodpy.model.forcing.steady_periods`).
+    This is the only place MODFLOW 6 applies ``first_clim`` to the recharge.
+    """
+    first_clim = model.first_clim if model.first_clim is not None else "mean"
+    if isinstance(model.recharge, Mapping):
+        table = complete_period_table(
+            model.recharge, nper=int(model.nper), label="flow.sinks_sources.recharge.values"
+        )
+        rows: dict[int, np.ndarray] = {
+            kper: as_recharge_flat(model, arr, kper=kper) for kper, arr in table.items()
+        }
+    else:
+        # The rule acts on the own rates before they are spread over the cells,
+        # so a series keeps the mean of its own values, to the last bit.
+        rows = _period_rows(model, model.recharge)
+
+    steady = getattr(model, "steady", None)
+    if steady is not None and np.any(np.asarray(steady, dtype=bool)):
+        rows = apply_first_clim(rows, steady=steady, first_clim=first_clim, durations=model.perlen)
+        steady_flags = np.asarray(steady, dtype=bool).reshape(-1)
+        for kper in range(int(model.nper)):
+            if kper < steady_flags.size and steady_flags[kper]:
+                rows[kper] = np.maximum(rows[kper], 0.0)
+    return {kper: as_recharge_flat(model, rows[kper], kper=kper) for kper in range(model.nper)}
 
 
 def mask_recharge_on_lake_cells(
@@ -521,14 +610,19 @@ def mask_recharge_on_lake_cells(
 
 RECHARGE_BINARY_MIN_PERIODS = 64
 
+# READARRAY header text MF6 ignores on read (tests/integration/
+# test_shared_recharge_equivalence.py:97-99); kept for a human reading the file.
+_HEADER_TEXT_BY_PACKAGE: dict[str, str] = {"rcha": "RECHARGE", "evta": "RATE"}
+
 
 def externalize_recharge_spd(
     spd: dict[int, np.ndarray],
     *,
     basename: str,
     shared_dir: str | os.PathLike[str] | None = None,
+    package: Literal["rcha", "evta"] = "rcha",
 ) -> dict[int, np.ndarray] | dict[int, dict]:
-    """Route long transient recharge stacks to external binary array files.
+    """Route long transient recharge or soil-ETP stacks to external binary files.
 
     FloPy formats INTERNAL arrays value by value, which dominates
     ``write_simulation`` on multi-thousand-period chronicles. External binary
@@ -542,17 +636,19 @@ def externalize_recharge_spd(
     references them (``filename`` without ``data``), instead of re-writing
     thousands of files per trial under the GIL. The write is atomic
     (temp + rename), so concurrent first-generation trials never read a partial
-    file.
+    file. ``package`` picks the file names and the binary header text: RCHA
+    (recharge, the default) keeps its files byte for byte, EVTA (the soil
+    residual ETP) writes alongside it under the same digest scheme.
     """
     if len(spd) < RECHARGE_BINARY_MIN_PERIODS:
         return spd
     if shared_dir is not None:
-        return _shared_recharge_spd(spd, Path(shared_dir))
+        return _shared_recharge_spd(spd, Path(shared_dir), package=package)
     return {
         kper: {
             "factor": 1.0,
             "data": arr,
-            "filename": f"{basename}.rcha.{kper}.bin",
+            "filename": f"{basename}.{package}.{kper}.bin",
             "binary": True,
         }
         for kper, arr in spd.items()
@@ -570,7 +666,7 @@ def _recharge_digest(spd: dict[int, np.ndarray]) -> str:
     return hasher.hexdigest()
 
 
-def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None:
+def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int, *, text: str) -> None:
     """Write one recharge period to ``target`` in the exact MF6 binary format.
 
     Idempotent and race-safe: skips a complete existing target, and otherwise
@@ -594,7 +690,7 @@ def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None
     header = BinaryHeader.create(
         bintype="head",
         precision="double",
-        text="RECHARGE",
+        text=text,
         ncol=ncpl,
         nrow=1,
         ilay=1,
@@ -628,14 +724,17 @@ def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None
         raise
 
 
-def _shared_recharge_spd(spd: dict[int, np.ndarray], shared_dir: Path) -> dict[int, dict]:
-    """Write the trial-invariant recharge once and return reference-only specs."""
+def _shared_recharge_spd(
+    spd: dict[int, np.ndarray], shared_dir: Path, *, package: str = "rcha"
+) -> dict[int, dict]:
+    """Write the trial-invariant stack once and return reference-only specs."""
     shared_dir.mkdir(parents=True, exist_ok=True)
     digest = _recharge_digest(spd)
+    text = _HEADER_TEXT_BY_PACKAGE[package]
     out: dict[int, dict] = {}
     for kper, arr in spd.items():
-        target = shared_dir / f"rcha_{digest}.{kper}.bin"
-        _write_shared_recharge_bin(target, np.asarray(arr, dtype=np.float64), kper)
+        target = shared_dir / f"{package}_{digest}.{kper}.bin"
+        _write_shared_recharge_bin(target, np.asarray(arr, dtype=np.float64), kper, text=text)
         out[kper] = {"factor": 1.0, "filename": str(target), "binary": True}
     return out
 
@@ -658,6 +757,142 @@ def finalize_pending_recharge_evt(model) -> None:
     model._pending_negative_to_evt = False
 
 
+def _evt_keep_mask_and_top_layer(
+    model,
+    solver_mesh,
+    *,
+    ocean_support_mask: np.ndarray,
+    stream_support_mask: np.ndarray,
+    lake_cell_ids: Iterable[int],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the (``keep``, ``top_layer_by_cell``) pair shared by every EVT builder.
+
+    ``keep`` marks the cells that may carry an aquifer EVT record: not ocean,
+    not stream, not under a lake, and with at least one active layer.
+    ``top_layer_by_cell`` is each cell's first active layer, used to place the
+    EVT sink on the uppermost active layer rather than always layer 0. Both
+    are period-invariant, so every caller computes them once.
+    """
+    ncpl = int(model.ncpl)
+    ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
+    stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
+    top_layer_by_cell = solver_mesh.top_active_layer()
+    has_active = top_layer_by_cell >= 0
+    top_layer_by_cell = np.maximum(top_layer_by_cell, 0)
+    skip = ocean_mask_flat | stream_mask_flat
+    for cid in lake_cell_ids:
+        if 0 <= int(cid) < ncpl:
+            skip[int(cid)] = True
+    keep = ~skip & has_active
+    return keep, top_layer_by_cell
+
+
+def areal_layer_index(solver_mesh) -> np.ndarray | None:
+    """Return the layer RCHA and EVTA act on per column, or None when layer 0 serves.
+
+    Without a layer array the two packages act on layer 0. MODFLOW 6 moves the
+    flux of an inactive top cell (``idomain`` 0) down to the first active cell by
+    itself, but drops the flux of a pass-through cell (``idomain`` -1). A stack
+    with a pass-through cell therefore names the top active layer of each column
+    (0 for a column with none, whose rate is nil). Any other stack gets None and
+    its files do not change.
+    """
+    if not (np.asarray(solver_mesh.idomain) < 0).any():
+        return None
+    return np.maximum(solver_mesh.top_active_layer(), 0)
+
+
+def evt_surface(solver_mesh, keep: np.ndarray) -> np.ndarray:
+    """Return the EVT surface: the top of the top active cell where ``keep``, the model top elsewhere.
+
+    The rate is zero outside ``keep``, so the surface written there is inert.
+    """
+    top = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
+    keep = np.asarray(keep, dtype=bool).reshape(-1) & (solver_mesh.top_active_layer() >= 0)
+    return np.where(keep, solver_mesh.top_active_cell_top(), top)
+
+
+def evt_routing_is_layer0_only(
+    model,
+    solver_mesh,
+    *,
+    ocean_support_mask: np.ndarray,
+    stream_support_mask: np.ndarray,
+    lake_cell_ids: Iterable[int] = (),
+) -> bool:
+    """Return True when every kept EVT cell's first active layer is 0.
+
+    Cheap, period-invariant precheck for ``build_evt_array_stress_period_data``:
+    when it holds, the vectorized array build is byte-for-byte equivalent to
+    ``build_evt_stress_period_data`` -> ``collapse_identical_periods`` ->
+    ``evt_list_spd_to_array_payload``, so the caller can skip the O(ncells x
+    nper) list builder entirely. Keeps an empty ``keep`` mask eligible (no EVT
+    record is ever produced either way).
+    """
+    keep, top_layer_by_cell = _evt_keep_mask_and_top_layer(
+        model,
+        solver_mesh,
+        ocean_support_mask=ocean_support_mask,
+        stream_support_mask=stream_support_mask,
+        lake_cell_ids=lake_cell_ids,
+    )
+    return bool(np.all(top_layer_by_cell[keep] == 0))
+
+
+def build_evt_array_stress_period_data(
+    model,
+    solver_mesh,
+    *,
+    ocean_support_mask: np.ndarray,
+    stream_support_mask: np.ndarray,
+    lake_cell_ids: Iterable[int] = (),
+) -> tuple[dict[int, np.ndarray], np.ndarray, float] | None:
+    """Vectorized EVTA payload, built directly instead of through the list path.
+
+    Equivalent, cell for cell and period for period, to ``build_evt_stress_period_data``
+    -> ``collapse_identical_periods`` -> ``evt_list_spd_to_array_payload`` ONLY when
+    ``evt_routing_is_layer0_only`` holds; the caller checks that first and falls back
+    to the list path otherwise. Avoids ever materializing the list builder's
+    ``O(ncells x nper)`` Python records: each period's rate is one numpy array, and
+    only the periods whose array differs from the previous one are kept, matching
+    ``collapse_identical_periods`` (MF6 reuses the previous array on a gap).
+    """
+    evt_payload = getattr(model, "_evt_rate_payload", None)
+    if evt_payload is None:
+        return None
+
+    # evt_extinction_depth in meters; floor only guards a degenerate zero depth.
+    evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
+    ncpl = int(model.ncpl)
+    keep, _top_layer_by_cell = _evt_keep_mask_and_top_layer(
+        model,
+        solver_mesh,
+        ocean_support_mask=ocean_support_mask,
+        stream_support_mask=stream_support_mask,
+        lake_cell_ids=lake_cell_ids,
+    )
+    top_flat = evt_surface(solver_mesh, keep)
+
+    rate_by_period: dict[int, np.ndarray] = {}
+    previous: np.ndarray | None = None
+    any_positive = False
+    for kper in range(int(model.nper)):
+        raw_value = evt_payload.get(kper, 0.0) if isinstance(evt_payload, Mapping) else evt_payload
+        rate_flat = as_recharge_flat(model, raw_value, kper=kper)
+        period_rate = np.where(keep & (rate_flat > 0.0), rate_flat, 0.0)
+        if previous is None or not np.array_equal(previous, period_rate):
+            rate_by_period[kper] = period_rate
+        if period_rate.any():
+            any_positive = True
+        previous = period_rate
+
+    if not any_positive:
+        return None
+
+    _warn_fixed_extinction_depth(evt_depth)
+    return rate_by_period, top_flat[:ncpl].copy(), evt_depth
+
+
 def build_evt_stress_period_data(
     model,
     solver_mesh,
@@ -677,22 +912,17 @@ def build_evt_stress_period_data(
     if evt_payload is None:
         return None
 
-    top_flat = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
-    ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
-    stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
     # evt_extinction_depth in meters; floor only guards a degenerate zero depth.
     evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
-    # Place the EVT sink on the uppermost active layer of each cell, not layer 0.
-    # idomain and the skip mask are loop-invariant, so precompute them once.
     ncpl = int(model.ncpl)
-    active_by_layer = solver_mesh.idomain() == 1
-    has_active = active_by_layer.any(axis=0)
-    top_layer_by_cell = np.argmax(active_by_layer, axis=0)  # first active layer per cell
-    skip = ocean_mask_flat | stream_mask_flat
-    for cid in lake_cell_ids:
-        if 0 <= int(cid) < ncpl:
-            skip[int(cid)] = True
-    keep = ~skip & has_active
+    keep, top_layer_by_cell = _evt_keep_mask_and_top_layer(
+        model,
+        solver_mesh,
+        ocean_support_mask=ocean_support_mask,
+        stream_support_mask=stream_support_mask,
+        lake_cell_ids=lake_cell_ids,
+    )
+    top_flat = evt_surface(solver_mesh, keep)
 
     evt_spd: dict[int, list[list[float]]] = {}
     for kper in range(int(model.nper)):
@@ -711,13 +941,7 @@ def build_evt_stress_period_data(
         evt_spd[kper] = period_cells
 
     if any(len(v) > 0 for v in evt_spd.values()):
-        warnings.warn(
-            "Routed climatic deficit uses a fixed EVT extinction depth of "
-            f"{evt_depth} m; a sustained deficit can saturate the water table near "
-            "this depth rather than over the full saturated thickness.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+        _warn_fixed_extinction_depth(evt_depth)
         return evt_spd
     return None
 
@@ -763,11 +987,17 @@ def evt_list_spd_to_array_payload(
 
 
 __all__ = [
+    "ETP_IGNORED_OUTSIDE_SOIL_MODE",
     "as_recharge_flat",
     "bind_heterogeneous_recharge",
     "bind_recharge_from_flow",
+    "bind_soil_etp_from_flow",
+    "build_evt_array_stress_period_data",
     "build_evt_stress_period_data",
+    "build_soil_evta_payload",
     "evt_list_spd_to_array_payload",
+    "areal_layer_index",
+    "evt_routing_is_layer0_only",
     "clip_negative_payload",
     "copy_runtime_payload",
     "empty_recharge_aux",
@@ -778,8 +1008,159 @@ __all__ = [
     "payload_has_negative_values",
     "recharge_to_spd",
     "resolve_deferred_heterogeneous_recharge",
-    "sanitize_numeric_payload",
+    "resolve_deferred_soil_etp",
     "scalar_to_flat",
-    "series_like_to_scalar",
-    "series_payload_value",
 ]
+
+
+def _shared_forcing_dir(model) -> str | None:
+    """Return the folder a calibration trial keeps its forcing binaries in, else None.
+
+    The folder is ``shared_forcing_dir`` of the slot the run builds in. The
+    calibration sandbox of a trial names it: one ``_shared_recharge`` folder for
+    every trial of a session, because the recharge is the same for all of them,
+    or a folder of the trial itself when the phase samples a recharge parameter.
+    The recharge and the residual ETP of the soil are then written there once
+    and every trial references them (see ``externalize_recharge_spd``). A run
+    without that folder keeps the binaries beside its model files.
+
+    The returned path is OS-native: it is only ever handed to the local filesystem
+    and to the ``OPEN/CLOSE`` line of the same run's MF6 input, inside a scratch
+    tree the sandbox deletes on exit. Unlike the catalog's relative paths, it is
+    never read back on another platform, so it must not be posix-normalized.
+    """
+    slot = getattr(model, "slot", None)
+    folder = None if slot is None else slot.shared_forcing_dir
+    return None if folder is None else os.fspath(folder)
+
+
+def build_recharge_and_evt(
+    model,
+    solver_mesh: SolverMesh,
+    ocean_support_mask,
+    stream_support_mask,
+):
+    """RCH, and EVT from the soil residual ETP or the routed negative recharge."""
+    # LOCAL, never an attribute of the model. On the shared calibration path
+    # `externalize_recharge_spd` hands FloPy filenames without the arrays, so
+    # the only thing keeping the stack alive afterwards was `model.rch_spd`,
+    # which nothing in the package ever read. Measured on the Nancon at 25 m:
+    # 1826 periods x 243 552 cells x 8 bytes = 3.31 GB retained per model, for
+    # the whole solve, times the number of concurrent trials.
+    rch_spd = recharge_to_spd(model)
+    if model._lake_cell_ids:
+        rch_spd = mask_recharge_on_lake_cells(rch_spd, lake_cell_ids=model._lake_cell_ids)
+    rch_spd = collapse_identical_periods(rch_spd)
+    recharge_payload = externalize_recharge_spd(
+        rch_spd,
+        basename=model.model_name_mf6,
+        shared_dir=_shared_forcing_dir(model),
+    )
+    del rch_spd
+    # A stack with a pass-through cell names the top active layer of each column.
+    areal_layer = areal_layer_index(solver_mesh)
+    model.rch = flopy.mf6.ModflowGwfrcha(
+        model.gwf,
+        recharge=recharge_payload,
+        auxiliary=["CONCENTRATION"],
+        aux=empty_recharge_aux(model),
+        pname="RCHA",
+        **({} if areal_layer is None else {"irch": areal_layer}),
+    )
+    soil_evta = build_soil_evta_payload(
+        model,
+        solver_mesh,
+        ocean_support_mask=ocean_support_mask,
+        stream_support_mask=stream_support_mask,
+        lake_cell_ids=model._lake_cell_ids,
+        drain_active=is_bc_active(model, "drainage"),
+        shared_dir=_shared_forcing_dir(model),
+    )
+    # Prefer the vectorized EVTA build: it is byte-for-byte equivalent to
+    # build_evt_stress_period_data -> collapse_identical_periods ->
+    # evt_list_spd_to_array_payload whenever every kept EVT cell's first active
+    # layer is 0 (evt_routing_is_layer0_only, cheap and period-invariant), and
+    # it never materializes the list builder's O(ncells x nper) Python records
+    # (63M lists / ~12 GB on a real daily chronicle). Otherwise keep the list
+    # path, which also handles the rare cell whose top layer is inactive.
+    evt_array = None
+    if evt_routing_is_layer0_only(
+        model,
+        solver_mesh,
+        ocean_support_mask=ocean_support_mask,
+        stream_support_mask=stream_support_mask,
+        lake_cell_ids=model._lake_cell_ids,
+    ):
+        evt_array = build_evt_array_stress_period_data(
+            model,
+            solver_mesh,
+            ocean_support_mask=ocean_support_mask,
+            stream_support_mask=stream_support_mask,
+            lake_cell_ids=model._lake_cell_ids,
+        )
+        # evt_spd is the single source of truth for the soil/routed-EVT collision
+        # guard below, whichever path ran; the list payload itself is only needed
+        # when the vectorized path did not run.
+        evt_spd = True if evt_array is not None else None
+    else:
+        evt_spd = build_evt_stress_period_data(
+            model,
+            solver_mesh,
+            ocean_support_mask=ocean_support_mask,
+            stream_support_mask=stream_support_mask,
+            lake_cell_ids=model._lake_cell_ids,
+        )
+    if soil_evta is not None:
+        if evt_spd is not None:
+            raise RuntimeError(
+                "the soil residual ETP and the routed negative recharge both ask for "
+                "the EVT package; soil mode refuses [data.recharge], so this state is "
+                "a bug."
+            )
+        soil_rate, soil_surface, soil_depth = soil_evta
+        model.evt = flopy.mf6.ModflowGwfevta(
+            model.gwf,
+            surface=soil_surface,
+            depth=soil_depth,
+            rate=soil_rate,
+            save_flows=True,
+            pname="EVTA",
+            **({} if areal_layer is None else {"ievt": areal_layer}),
+        )
+    elif evt_array is not None:
+        rate_by_period, evt_surface, evt_depth = evt_array
+        model.evt = flopy.mf6.ModflowGwfevta(
+            model.gwf,
+            surface=evt_surface,
+            depth=evt_depth,
+            rate=rate_by_period,
+            save_flows=True,
+            pname="EVTA",
+        )
+    elif evt_spd is not None:
+        evt_spd = collapse_identical_periods(evt_spd)
+        # Prefer the array package (EVTA): a compact READARRAY per changed period is far
+        # cheaper to write than O(ncells) list records on chronicles. It is exactly
+        # equivalent while every EVT record sits on layer 0 (the builder skips lake
+        # cells, the usual inactive-top source); otherwise fall back to the list.
+        evt_array = evt_list_spd_to_array_payload(
+            evt_spd, top_flat=solver_mesh.top, ncpl=int(model.ncpl)
+        )
+        if evt_array is not None:
+            rate_by_period, evt_surface, evt_depth = evt_array
+            model.evt = flopy.mf6.ModflowGwfevta(
+                model.gwf,
+                surface=evt_surface,
+                depth=evt_depth,
+                rate=rate_by_period,
+                save_flows=True,
+                pname="EVTA",
+            )
+        else:
+            maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)
+            model.evt = flopy.mf6.ModflowGwfevt(
+                model.gwf,
+                stress_period_data=evt_spd,
+                maxbound=maxbound,
+                save_flows=True,
+            )

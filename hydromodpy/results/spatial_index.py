@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import internal_dir
+from hydromodpy.core.state.layout import internal_dir
 
 try:
     from shapely import STRtree
@@ -198,7 +198,7 @@ def locator_for(
 ) -> CellLocator:
     """Return a :class:`CellLocator`, reusing the one built for *fingerprint*.
 
-    Without a fingerprint the mesh cannot be recognised, so a fresh locator is
+    Without a fingerprint the mesh cannot be recognized, so a fresh locator is
     returned and nothing is cached.
     """
     if fingerprint is None:

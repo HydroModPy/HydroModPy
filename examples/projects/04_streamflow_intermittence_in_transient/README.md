@@ -1,64 +1,52 @@
-# 04 - Streamflow intermittence in transient
+# Example 04: the seepage network of the Nançon through the seasons
 
-Nancon catchment (Brittany, EPSG:2154), extracted from the regional 75 m
-DEM by outlet snapping. **Monthly transient** groundwater flow over three
-years (2000-2002), solved with **MODFLOW 6**, forced by observed monthly
-recharge and runoff.
+The Nançon catchment at Lécousse (Ille-et-Vilaine), 65 km² cut out of a regional 75 m DEM. A
+monthly transient run from 2000 to 2002, a 30 m aquifer in one layer, seepage at the ground
+surface, and the SIM2 recharge and runoff of the catchment. As the recharge swings between wet
+winters and dry summers, the seepage cells spread out and draw back. MODFLOW 6 solves the flow.
+A run takes about a minute and a half.
 
-The theme is intermittence: as recharge oscillates between wet winters and
-dry summers, the watertable rises and falls, so the seepage cells and the
-simulated active network expand and contract over the year.
+## The files
 
-## Run
+- `project.toml`: the model, its figures and its exports.
+- `py1_run_and_plot.py`: plays `project.toml` one step at a time in a `hmp.Lab`. After
+  `load_data` it draws the recharge and the runoff, and after `prepare_solver` the mesh on the
+  relief. It then gives Sy three values, 0.001, 0.05 and 0.3, and keeps a run for each:
+  `nancon_sy_small`, `nancon_intermittence_mf6` (the Sy of the file, so the run of
+  `project.toml`) and `nancon_sy_large`. With Sy = 0.001 the water table moves by metres in a
+  month, and MODFLOW 6 needs four time steps per month to converge. For each run the script
+  prints the months when the catchment seeps the least and the most, with the NSE of the
+  discharge, and draws the seepage cells and a section of the water table for these two months,
+  the share of the 36 months each cell seeps, the discharge against the gauge, and the seepage
+  share of the catchment over time.
+
+The DEM, the mapped streams, the gauge and the recharge and runoff of station `NANCON` are read
+from the shared `data/` folder of the workspace. The model reads the DEM and the forcing. The
+streams and the gauge are drawn, exported and scored against.
+
+## Commands
+
+From this folder:
 
 ```bash
-hmp run examples/projects/04_streamflow_intermittence_in_transient/project.toml
-
-# seasonal intermittence: seepage at the extreme months, via the Python API
-python examples/projects/04_streamflow_intermittence_in_transient/run_manual.py
-
-hmp viz gallery examples/projects/04_streamflow_intermittence_in_transient/project.toml
+hmp run project.toml
+python py1_run_and_plot.py
+hmp export nancon_intermittence_mf6 --list
 ```
 
-Runtime: about 15 s (36 timesteps, COMPLEX solver).
+Run the file twice and nothing is computed the second time. The script takes about six minutes
+and writes the next version of each run, `_v2`, when it is played again.
 
-## Data
+## What a run writes
 
-| File | Family | Role |
-|---|---|---|
-| `dem/DEM_armorican_massif.tif` | dem | regional 75 m DEM (covers the Nancon) |
-| `recharge/recharge_custom_NANCON_*.csv` | recharge | observed monthly recharge (mm/d) |
-| `runoff/runoff_custom_NANCON_*.csv` | runoff | monthly runoff, added to baseflow |
+- `runs/nancon_intermittence_mf6/figures/`: the catchment card, the mesh on the topography, the
+  water-table depth with the seepage cells and a section from south to north in October 2002,
+  the share of the run each cell seeps, the discharge against the gauge on a log axis, the
+  seepage share of the catchment beside the discharge, and the monthly water budget.
+- `runs/nancon_intermittence_mf6/exports/`: the catchment and the mapped streams as GeoPackage,
+  the water-table depth and the seepage cells of October 2002 as GeoTIFF, the simulated and
+  gauged discharge as CSV, and the water budget as CSV.
+- `summary/`: the figures the script draws, outside the sealed runs.
 
-## Intermittence
-
-`run_manual.py` counts seepage cells for each month. Over this period, the
-wet network goes from ~450 cells (dry month) to ~1670 (wet month): about
-**1200 cells switch on and off** over time. These are the intermittent
-reaches; the core that stays active throughout is the perennial network.
-The script renders `seepage_map` for the wettest and the driest month (same
-figure, two `timestep` values).
-
-## Figures
-
-| Figure | What it shows |
-|---|---|
-| `watershed_id_card` | catchment identity card |
-| `mesh_map` | solver grid |
-| `piezometric_map` | watertable elevation (last timestep) |
-| `watertable_depth_map` | watertable depth + seepage |
-| `seepage_map` | seepage zones (time-varying) |
-| `simulated_active_network` | active draining network |
-| `hydrograph` | simulated discharge over time |
-| `flux_timeseries` | water budget per timestep |
-| `cross_section` | topography / watertable cross section |
-| `water_budget` | cumulative budget per component |
-
-## Technical debt
-
-The legacy script computed a `persistency_index` (fraction of time a cell
-is active) and monthly/weekly/daily intermittence maps. These
-**time-aggregated fields do not exist yet** as canonical v1 fields. In the
-meantime, intermittence is read through the seasonal seepage dynamics
-above rather than through a single index. An aggregated `persistency_index`
-field would be the natural addition.
+The discharge is the drain flow routed to the outlet, plus the runoff. It is scored against the
+gauge on 2001 and 2002, and the year 2000 is spin-up.

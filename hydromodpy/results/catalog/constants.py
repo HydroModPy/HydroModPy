@@ -1,76 +1,18 @@
 """Catalog constants and small solver helpers.
 
-Hosts string sentinels reused across the catalog write path (``GLOBAL_ZONE``,
-``OUTLET_STATION``), the canonical table-name lists, and the solver
-category resolver. The DDL itself lives in the SQL migration scripts under
-``catalog/migrations/``.
+Hosts the Parquet view names, the SQL of the dimension joins and the metric helpers that read the direction table. The DDL of the index lives in
+:mod:`hydromodpy.results.catalog.index_schema`.
 """
 
 from __future__ import annotations
 
-GLOBAL_ZONE = "__global__"
-"""Sentinel parameter zone used when no spatial zoning applies."""
+from typing import TYPE_CHECKING, TypeVar
 
-OUTLET_STATION = "__outlet__"
-"""Sentinel station id for the catchment outlet."""
+from hydromodpy.core.exceptions import ResultsError
+from hydromodpy.core.scoring.metric_table import METRIC_SENSE, MetricSense
 
-TRASH_RETENTION_DAYS = 30
-"""Days a trashed run stays restorable before ``gc --apply`` may hard-purge it."""
-
-STALE_HEARTBEAT_MINUTES = 10
-"""Minutes without a heartbeat before a ``running`` sim is treated as stale."""
-
-# v2 catalog table names (DuckDB). Kept in sync with
-# ``catalog/migrations/0001_initial.sql``.
-TABLE_NAMES: tuple[str, ...] = (
-    "_schema_version",
-    "schema_migrations",
-    "solvers",
-    "statuses",
-    "flow_regimes",
-    "mesh_topologies",
-    "dim_variables",
-    "dim_stations",
-    "dim_metrics",
-    "dim_projects",
-    "dim_study_areas",
-    "stations",
-    "simulations",
-    "parameters",
-    "metrics",
-    "metric_definitions",
-    "runs_environment",
-    "provenance",
-    "observations",
-    "audit_log",
-    "deletions",
-    "tracked_files",
-    "geographic_features",
-    "geographic_metadata",
-    "tags",
-    "sim_notes",
-    "export_log",
-    "purge_journal",
-    "calibration_sessions",
-    "calibration_iterations",
-    "workflow_steps",
-)
-
-# Per-simulation DuckDB tables (used by lifecycle deletion and hmp_package).
-# ``purge_journal`` is deliberately excluded: it is the two-phase hard-purge
-# journal cleared by the purge process itself, not part of the normal cascade.
-PER_SIM_TABLE_NAMES: tuple[str, ...] = (
-    "parameters",
-    "metrics",
-    "provenance",
-    "geographic_features",
-    "geographic_metadata",
-    "runs_environment",
-    "tags",
-    "sim_notes",
-    "export_log",
-    "tracked_files",
-)
+if TYPE_CHECKING:
+    import numpy as np
 
 # Per-simulation Parquet view aliases. Files live at
 # ``runs/<run>/tables.parquet/<view>.parquet`` in the project.
@@ -83,83 +25,124 @@ PARQUET_VIEW_NAMES: tuple[str, ...] = (
     "metrics",
     "provenance",
     "observation_points",
+    "data_inventory",
     "sfr_reaches",
+    "soil_budget",
+    "mesh_cell_families",
+    "mesh_face_families",
 )
 
 
-# Canonical v2 solver codes, mirroring ``solvers.code`` rows in
-# ``catalog/migrations/0001_initial.sql``.
-VALID_SOLVER_CODES: frozenset[str] = frozenset(
-    {
-        "boussinesq",
-        "gr4j",
-        "modflow6",
-        "modflow_nwt",
-        "modpath",
-        "mt3dms",
-    }
-)
+MESH_ENGINE_SQL: str = "s.mesh_engine"
+"""SQL expression of the ``mesh_engine`` column of a run: the engine its seal names.
 
-# Short aliases users may type on the CLI mapped to canonical solver codes.
-SOLVER_ALIASES: dict[str, str] = {
-    "mf6": "modflow6",
-    "nwt": "modflow_nwt",
-}
+The indexer copies ``geometry.mesh_engine`` of ``manifest.json`` into the
+column, so a run whose configuration has no ``[mesh]`` section shows the
+default engine it ran on. The expression reads the ``simulations`` table
+under the alias ``s``.
+"""
 
 
-def canonical_solver_code(name: str) -> str:
-    """Return the canonical solver code for a user-typed name or alias."""
-    key = str(name).strip().lower()
-    return SOLVER_ALIASES.get(key, key)
+RETIRED_METRIC_NAMES: dict[str, str] = {"log_nse": "nse_log"}
+"""Metric names the catalog no longer knows, each with the name to write.
+
+A query naming one is refused with the new name.
+"""
 
 
-def solver_category(solver_name: str) -> str | None:
-    """Return the category for in-tree solvers without importing solver layers."""
-    known = {
-        "boussinesq": "integrated",
-        "gr4j": "lumped",
-        "modflow6": "distributed",
-        "modflow_nwt": "distributed",
-        "modpath": "distributed",
-        "mt3dms": "distributed",
-    }
-    parts = [part.strip() for part in str(solver_name).split(",") if part.strip()]
-    if not parts:
-        return None
-    categories = {known[part] for part in parts if part in known}
-    if len(categories) == 1 and len(categories) == len(parts):
-        return categories.pop()
-    return None
+class UnrankedMetricError(ResultsError, ValueError):
+    """Raised when a metric has no declared direction, so best is undefined."""
 
 
-def validate_solver_code(solver_name: str) -> str:
-    """Validate a solver code against the canonical v2 vocabulary.
+def metric_sense(metric: str) -> MetricSense:
+    """Return the direction of ``metric`` from :data:`METRIC_SENSE`.
 
-    Returns the trimmed lower-case code on success.
-
-    Raises
-    ------
-    ValueError
-        When *solver_name* is not a known ``solvers.code`` value.
+    Raises :class:`UnrankedMetricError` for a retired name, with the name to
+    write, and for a metric without a declared direction: taking the highest
+    value of an error would hand back the worst run under the name of the best.
     """
-    key = str(solver_name).strip().lower()
-    if key not in VALID_SOLVER_CODES:
-        known = ", ".join(sorted(VALID_SOLVER_CODES))
-        raise ValueError(f"Unknown solver code {solver_name!r}. Expected one of: {known}.")
-    return key
+    key = str(metric).strip().lower()
+    if key in RETIRED_METRIC_NAMES:
+        raise UnrankedMetricError(
+            f"Metric '{metric}' was renamed: write '{RETIRED_METRIC_NAMES[key]}'."
+        )
+    sense = METRIC_SENSE.get(key)
+    if sense is None:
+        known = ", ".join(sorted(METRIC_SENSE))
+        raise UnrankedMetricError(
+            f"Metric '{metric}' has no declared direction, so best and worst are "
+            f"undefined for it. Metrics with a direction: {known}."
+        )
+    return sense
+
+
+Value = TypeVar("Value", float, "np.ndarray")
+
+
+def _flips(metric: str) -> bool:
+    """Say whether ``metric`` rises with the fit, so its cost is one minus it.
+
+    Refuses a metric best at a target (zero or one): it is no cost as it stands.
+    """
+    sense = metric_sense(metric)
+    if sense in ("zero", "one"):
+        raise UnrankedMetricError(
+            f"Metric '{metric}' is best at {0 if sense == 'zero' else 1}, not at one end "
+            "of its range: it has no cost to minimise."
+        )
+    return sense == "max"
+
+
+def cost_of(metric: str, score: Value) -> Value:
+    """Return the cost a search minimizes for a ``score`` of ``metric``.
+
+    One minus the score for a metric that rises with the fit (an efficiency,
+    perfect at 1); the score itself for one that falls (an error, a distance).
+    A value or an array.
+    """
+    return 1.0 - score if _flips(metric) else score
+
+
+def score_of(metric: str, cost: Value) -> Value:
+    """Return the score of ``metric`` that a search ``cost`` stands for.
+
+    The inverse of :func:`cost_of`.
+    """
+    return 1.0 - cost if _flips(metric) else cost
+
+
+def metric_rank_sql(metric: str, *, best: bool, column: str = "m.value") -> str:
+    """Return the ``ORDER BY`` expression that puts the best (or worst) value first.
+
+    The direction is :func:`metric_sense`, which refuses a metric without one.
+    """
+    sense = metric_sense(metric)
+    if sense == "max":
+        return f"{column} {'DESC' if best else 'ASC'}"
+    if sense == "min":
+        return f"{column} {'ASC' if best else 'DESC'}"
+    target = "0" if sense == "zero" else "1"
+    return f"ABS({column} - {target}) {'ASC' if best else 'DESC'}"
+
+
+SIMULATIONS_FROM = (
+    "FROM simulations s "
+    "JOIN solvers sv ON s.solver_id = sv.id "
+    "JOIN statuses st ON s.status_id = st.id "
+    "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
+    "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id"
+)
+"""The ``simulations`` table joined to the codes of its dimensions, as every reader of a row joins it."""
 
 
 __all__ = [
-    "GLOBAL_ZONE",
-    "OUTLET_STATION",
+    "SIMULATIONS_FROM",
+    "MESH_ENGINE_SQL",
     "PARQUET_VIEW_NAMES",
-    "PER_SIM_TABLE_NAMES",
-    "SOLVER_ALIASES",
-    "STALE_HEARTBEAT_MINUTES",
-    "TABLE_NAMES",
-    "TRASH_RETENTION_DAYS",
-    "VALID_SOLVER_CODES",
-    "canonical_solver_code",
-    "solver_category",
-    "validate_solver_code",
+    "RETIRED_METRIC_NAMES",
+    "UnrankedMetricError",
+    "cost_of",
+    "metric_rank_sql",
+    "metric_sense",
+    "score_of",
 ]

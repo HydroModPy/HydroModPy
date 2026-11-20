@@ -1,0 +1,244 @@
+# Former figure names and what replaces each one.
+# One table per name. "figure" is the [[display.figure]] that replaces it (a list when it takes two).
+# "none" says what to do when nothing replaces it, and "lost" what the new form no longer shows.
+
+[abherve_two_stage_card]
+figure = { preset = "root_search", when = "session" }
+lost = "The two-stage layout is gone. The calibration_progress figure shows the phases."
+
+[accumulation_map]
+figure = { variable = "drain_accumulation_flux", scale = "log" }
+
+[bisection_bracket_trace]
+figure = { preset = "root_search", when = "session" }
+
+[boundary_package_map]
+figure = { variable = "package_cells" }
+
+[calibration_convergence]
+figure = { preset = "calibration_progress", when = "session" }
+
+[calibration_landscape]
+figure = { preset = "calibration_landscape", when = "session" }
+
+[calibration_objective_surface]
+figure = { preset = "calibration_landscape", when = "session" }
+lost = "The interpolated surface is gone. The trials are drawn as markers coloured by cost."
+
+[calibration_pairplot]
+figure = { preset = "calibration_landscape", when = "session" }
+
+[calibration_progress]
+figure = { preset = "calibration_progress", when = "session" }
+
+[calibration_trace]
+figure = { variable = "trials.parameter", type = "series", facet = "parameter", when = "session" }
+
+[calibration_trial_distribution]
+figure = { variable = "trials.parameter", type = "distribution", facet = "parameter", when = "session" }
+
+[concentration_boxplot]
+figure = { variable = "concentration", type = "groups", by = "time" }
+
+[concentration_map]
+figure = { variable = "concentration", layer = 0 }
+
+[conditioning_impact_map]
+none = "This figure never showed a difference, because the two runs it compared were equal. To compare a topography with another run, write a figure with variable = \"topography\" and against = \"<run>\"."
+
+[cross_section]
+figure = { variable = "watertable_elevation", type = "section", name = "cross_section" }
+
+[depression_map]
+figure = { variable = "depression_fill_depth", scale = "log" }
+
+[difference_map]
+none = "A difference needs a second run, which a project file cannot name. Draw it in Python with run.figure(variable, against=<run>), or with hmp show --figure <variable>."
+
+[distribution]
+none = "The cohort figures of a multi-site project read summary tables, not a run. Draw them with the overview of the project."
+
+[downslope_distance_crossing]
+figure = { preset = "root_search", when = "session" }
+
+[downslope_distance_map]
+figure = { variable = "downslope_distance", scale = "log" }
+lost = "The four paper classes of the old map are now one logarithmic colour ramp."
+
+[duration_curve]
+figure = { variable = "discharge", type = "distribution", cumulative = true }
+lost = "The Q10, Q50 and Q90 markers are not drawn."
+
+[ensemble_band]
+figure = { preset = "ensemble_band" }
+
+[flow_direction_map]
+figure = { preset = "flow_directions" }
+
+[flow_intermittence_map]
+figure = { variable = "simulated_active_network", reduce = "frequency" }
+lost = "The panel that classes cells as perennial or intermittent is gone. A cell flowing 100 % of the time reads as perennial."
+
+[flow_persistence_map]
+figure = { variable = "simulated_active_network", reduce = "frequency" }
+
+[flux_timeseries]
+figure = { preset = "water_budget" }
+lost = "The fluxes are now in mm/d over the zone, not in m3/s or mm per period."
+
+[hydrograph]
+figure = { preset = "hydrograph" }
+
+[hydrograph_log_nse]
+figure = { preset = "hydrograph", scale = "log", name = "hydrograph_log" }
+lost = "The drainage and runoff curves, which only Python could ask for, are not drawn."
+
+[hydrograph_sim_obs]
+figure = { preset = "hydrograph" }
+
+[hydrographic_network_comparison]
+figure = { preset = "network_comparison" }
+
+[hydrographic_network_generated]
+figure = { variable = "topography", overlays = ["relief", "generated_network"] }
+
+[hydrographic_network_generated_extra_only]
+figure = { preset = "network_comparison" }
+lost = "The view of the extra reaches alone is gone. The comparison colours both kinds."
+
+[hydrographic_network_permanence]
+figure = { variable = "topography", overlays = ["relief", "network"] }
+
+[hydrographic_network_reference]
+figure = { variable = "topography", overlays = ["relief", "network"] }
+
+[hydrographic_network_reference_missing_only]
+figure = { preset = "network_comparison" }
+lost = "The view of the missing reaches alone is gone. The comparison colours both kinds."
+
+[lake_abacus_comparison]
+figure = { preset = "lake_abacus_comparison" }
+
+[lake_stage_sim_obs]
+figure = { variable = "stage", observed = true }
+
+[lake_volume_sim_obs]
+figure = { variable = "volume" }
+lost = "The observed volume, which came from the abacus of the DEM, is not drawn."
+
+[map]
+none = "The cohort figures of a multi-site project read summary tables, not a run. Draw them with the overview of the project."
+
+[mass_balance_error]
+figure = { variable = "mass_balance.percent_error", type = "series" }
+
+[matching_hydrographic_network_card]
+figure = { preset = "root_search", when = "session" }
+lost = "The phase layout of the card is gone. The calibration_progress figure shows the phases."
+
+[mesh_map]
+figure = { variable = "topography", overlays = ["mesh", "outline", "outlet"] }
+
+[network_extent_bounds_map]
+figure = { variable = "network_agreement" }
+lost = "The maximal and minimal bound views are gone. The figure shows the bound of the run."
+
+[observed_network_heads_map]
+figure = { preset = "observed_network_heads" }
+
+[parameter_cost_profile]
+figure = { variable = ["trials.parameter", "trials.cost"], type = "xy", facet = "parameter", when = "session" }
+lost = "The acceptable band is not drawn."
+
+[parameter_map]
+figure = { variable = "hydraulic_conductivity", facet = "layer" }
+
+[parameter_section]
+figure = { variable = "hydraulic_conductivity", type = "section" }
+
+[particle_tracks]
+figure = { preset = "particle_tracks" }
+
+[piezo_timeseries_sim_obs]
+figure = [
+  { preset = "hydrograph", variable = "head" },
+  { preset = "residuals", variable = "head" },
+]
+
+[piezometric_map]
+figure = { variable = "watertable_elevation" }
+
+[piper_diagram]
+none = "No run holds major ions, so this figure is gone. Draw it outside HydroModPy from your own analyses."
+
+[recession]
+figure = { preset = "recession" }
+
+[recession_power_law]
+figure = { preset = "recession" }
+lost = "The options a, b, k and porosity are gone. The fit is made on the falling limbs of the run."
+
+[recharge_map]
+figure = { variable = "recharge", layer = "sum" }
+
+[residence_time_distribution]
+figure = { preset = "residence_time_distribution" }
+
+[residuals]
+figure = { preset = "residuals" }
+lost = "The autocorrelation and residual-against-simulated panels are not drawn."
+
+[roptim_validity_chart]
+none = "This figure needed a list of sites passed by hand, so it is gone. The root_search preset shows how the search ended on one session."
+
+[scatter_one_to_one]
+figure = { variable = "discharge", type = "xy", observed = true, reference = ["one_to_one"] }
+
+[schoeller_diagram]
+none = "No run holds major ions, so this figure is gone. Draw it outside HydroModPy from your own analyses."
+
+[seasonal_boxplot]
+figure = { variable = "discharge", type = "groups", by = "month", observed = true }
+
+[seepage_map]
+figure = { variable = "seepage_mask" }
+
+[seepage_network_confusion_map]
+figure = { variable = "network_agreement" }
+
+[seepage_network_reference_overlay]
+figure = { variable = "seepage_mask", overlays = ["relief", "network"] }
+
+[sfr_longitudinal_profile]
+figure = { preset = "sfr_longitudinal_profile" }
+lost = "The time and variable options are gone. The profile shows the head."
+
+[sfr_reach_network]
+figure = [
+  { variable = "sfr_reaches.strahler", type = "map" },
+  { variable = "streambed_top" },
+]
+
+[sfr_reach_timeseries]
+figure = { variable = "downstream_flow" }
+
+[side_by_side]
+none = "Several runs need a set of runs, which a project file cannot name. Draw them in Python with a set of runs and facet = \"run\"."
+
+[simulated_active_network]
+figure = { variable = "simulated_active_network" }
+
+[simulated_active_network_reference_overlay]
+figure = { variable = "simulated_active_network", overlays = ["relief", "network"] }
+
+[stiff_diagram]
+none = "No run holds major ions, so this figure is gone. Draw it outside HydroModPy from your own analyses."
+
+[water_budget]
+figure = { preset = "water_budget" }
+
+[watershed_id_card]
+figure = { preset = "watershed_id_card" }
+
+[watertable_depth_map]
+figure = { variable = "watertable_depth" }

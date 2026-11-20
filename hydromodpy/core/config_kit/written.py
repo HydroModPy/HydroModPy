@@ -1,0 +1,279 @@
+"""What a configuration was given, as opposed to the defaults it took.
+
+Pydantic keeps the fields a model was given in ``model_fields_set``, and a
+validator may read it to tell a key the file wrote from its default. A copy
+of the configuration that spells out every default turns every default into a
+written key, and such a validator then answers otherwise: it refuses a key the
+file never wrote, or takes the default where the file was silent. The copy
+written here leaves out the defaults nobody gave, so it validates into the same
+model, with the same fields set.
+
+The same reading tells which experimental keys a configuration wrote, so a run
+can say so without a default ever counting.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterator, Mapping, Sequence
+from functools import cache
+from typing import Annotated, Any, Literal, get_args, get_origin
+
+from pydantic import BaseModel, TypeAdapter
+
+from hydromodpy.core.config_kit.introspect import written_tables_of
+from hydromodpy.core.console.progress import MILESTONE
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def written_fields(model: BaseModel) -> tuple[str, ...]:
+    """Return the fields of *model* that are not a default taken in silence.
+
+    A field counts when the file, a caller or the run set it, or when it holds
+    a value other than its default: a validator that derives one field from
+    another (``step_value = "7 days"`` gives ``step_unit``), or a value set
+    under a section the file never wrote. The tag of a model (a field that
+    admits one literal) always counts, since a union reads the model by it.
+    """
+    return tuple(name for name in type(model).model_fields if _is_written(model, name))
+
+
+def written_payload(model: BaseModel) -> dict[str, Any]:
+    """Return ``model.model_dump(mode="json")`` cut down to its written fields, at every depth."""
+    pruned = _prune(model, model.model_dump(mode="json"))
+    assert isinstance(pruned, dict)
+    return pruned
+
+
+def written_as_a_file(model: BaseModel) -> dict[str, Any]:
+    """Return what *model* says as a TOML file says it, at every depth.
+
+    It is :func:`written_payload` without what a file cannot hold or does not say: a
+    field marked ``toml_exclude``, which a loader fills, a null, and an empty section
+    or list at its default, which a loader fills too. An empty table over a default of
+    ``None`` stays: ``[mesh]`` and no mesh are two models. The document a run freezes
+    says the same, so this reads alike before and after a round trip through it.
+    """
+    said = _as_a_file(model, model.model_dump(mode="json"))
+    assert isinstance(said, dict)
+    return said
+
+
+def written_experimental_keys(model: BaseModel) -> tuple[str, ...]:
+    """Return the experimental keys *model* was given, as dotted paths, in field order.
+
+    A key counts the way :func:`written_fields` counts it, so a default taken in
+    silence gives nothing. A marked section is one entry and the walk stops
+    there, since the mark covers what is below it. A selector counts when it holds
+    a marked value, and its entry names the value.
+    """
+    return tuple(_experimental_keys(model, ""))
+
+
+def experimental_keys_line(keys: Sequence[str]) -> str:
+    """Return the one line that tells a user which experimental keys are in use."""
+    return f"Experimental keys in use, they may change in a minor release: {', '.join(keys)}"
+
+
+def log_experimental_keys(model: BaseModel) -> None:
+    """Log that line once, when *model* wrote an experimental key."""
+    keys = written_experimental_keys(model)
+    if keys:
+        logger.info("%s", experimental_keys_line(keys), extra=MILESTONE)
+
+
+def _experimental_keys(value: Any, path: str) -> Iterator[str]:
+    if isinstance(value, BaseModel):
+        for name, info in type(value).model_fields.items():
+            key = f"{path}.{name}" if path else name
+            extra = info.json_schema_extra
+            extra = extra if isinstance(extra, dict) else {}
+            held = getattr(value, name)
+            if held is None:
+                # TOML has no null: a loader that fills a section it did not find
+                # sets the field, and the file wrote nothing.
+                continue
+            if not (
+                extra.get("stability") == "experimental"
+                or extra.get("experimental_values")
+                or isinstance(held, (BaseModel, Mapping, list, tuple))
+            ):
+                # Nothing below a plain unmarked value can be experimental, so the
+                # costly comparison with the default is skipped.
+                continue
+            if not _is_written(value, name):
+                continue
+            if extra.get("stability") == "experimental":
+                yield key
+                continue
+            marked = extra.get("experimental_values", ())
+            for item in held if isinstance(held, (list, tuple)) else (held,):
+                if isinstance(item, str) and item in marked:
+                    yield f'{key} = "{item}"'
+            yield from _experimental_keys(held, key)
+        for name, table in written_tables_of(value).items():
+            key = f"{path}.{name}" if path else name
+            if getattr(type(table), "stability", None) == "experimental":
+                yield key
+                continue
+            yield from _experimental_keys(table, key)
+    elif isinstance(value, Mapping):
+        for name, item in value.items():
+            yield from _experimental_keys(item, f"{path}.{name}")
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            yield from _experimental_keys(item, f"{path}[{index}]")
+
+
+def _is_written(model: BaseModel, name: str) -> bool:
+    """Whether *name* counts as written on *model*, as :func:`written_fields` counts it."""
+    return (
+        name in model.model_fields_set
+        or _is_tag(type(model).model_fields[name].annotation)
+        or not _holds_its_default(model, name)
+    )
+
+
+def _is_tag(annotation: Any) -> bool:
+    return get_origin(annotation) is Literal and len(get_args(annotation)) == 1
+
+
+def _holds_its_default(model: BaseModel, name: str) -> bool:
+    """Whether the field holds its default, as the field type validates it.
+
+    A default is stored as written in the class (``2.0`` for a length) and
+    validated only when taken (``2.0 m``), so the raw default never equals
+    the value. A default that cannot be built or compared counts as departed
+    from: the copy then says more than needed, never less.
+    """
+    value = getattr(model, name)
+    cls = type(model)
+    raw, validated = _validated_default(cls, name)
+    try:
+        if raw is _DEPENDS:
+            info = cls.model_fields[name]
+            default = info.get_default(
+                call_default_factory=True, validated_data=dict(model.__dict__)
+            )
+            if _same(value, default):
+                return True
+            return _same(value, _field_adapter(cls, name).validate_python(default))
+        if raw is _UNBUILT:
+            return False
+        if _same(value, raw):
+            return True
+        return validated is not _UNBUILT and _same(value, validated)
+    except Exception:
+        return False
+
+
+_DEPENDS = object()
+"""The default is built from the data of the model, so it is not cached."""
+
+_UNBUILT = object()
+"""The default, or its validation, raised."""
+
+
+@cache
+def _validated_default(cls: type[BaseModel], name: str) -> tuple[Any, Any]:
+    """Return the raw default of a field and the same default validated by the field type.
+
+    The pair depends on the class and the name only, so it is built once per
+    field of the process. A default factory that reads the validated data gives
+    ``_DEPENDS`` twice and the caller builds it for each model.
+    """
+    info = cls.model_fields[name]
+    if info.default_factory_takes_validated_data:
+        return _DEPENDS, _DEPENDS
+    try:
+        raw = info.get_default(call_default_factory=True)
+    except Exception:
+        return _UNBUILT, _UNBUILT
+    try:
+        return raw, _field_adapter(cls, name).validate_python(raw)
+    except Exception:
+        return raw, _UNBUILT
+
+
+@cache
+def _field_adapter(cls: type[BaseModel], name: str) -> TypeAdapter[Any]:
+    info = cls.model_fields[name]
+    return TypeAdapter(Annotated[info.annotation, *info.metadata])
+
+
+def _same(value: Any, other: Any) -> bool:
+    """Compare two configuration values by what they hold, private marks aside."""
+    if isinstance(value, BaseModel) or isinstance(other, BaseModel):
+        return type(value) is type(other) and value.model_dump() == other.model_dump()
+    if isinstance(value, Mapping) and isinstance(other, Mapping):
+        return value.keys() == other.keys() and all(_same(value[k], other[k]) for k in value)
+    if isinstance(value, (list, tuple)) and isinstance(other, (list, tuple)):
+        return len(value) == len(other) and all(map(_same, value, other))
+    return bool(value == other)
+
+
+def _prune(value: Any, dumped: Any) -> Any:
+    """Return *dumped* restricted to what *value* was given, where both have the same shape."""
+    if isinstance(value, BaseModel) and isinstance(dumped, Mapping):
+        pruned = {
+            name: _prune(getattr(value, name), dumped[name])
+            for name in written_fields(value)
+            if name in dumped
+        }
+        for name, table in written_tables_of(value).items():
+            if name in dumped:
+                pruned[name] = _prune(table, dumped[name])
+        return pruned
+    if isinstance(value, Mapping) and isinstance(dumped, Mapping) and len(value) == len(dumped):
+        return {
+            key: _prune(item, dumped_item)
+            for item, (key, dumped_item) in zip(value.values(), dumped.items(), strict=True)
+        }
+    if isinstance(value, (list, tuple)) and isinstance(dumped, list) and len(value) == len(dumped):
+        return [_prune(item, dumped_item) for item, dumped_item in zip(value, dumped, strict=True)]
+    return dumped
+
+
+def _as_a_file(value: Any, dumped: Any) -> Any:
+    """Return *dumped* as a file says *value*, where both have the same shape (a model at root)."""
+    if isinstance(value, BaseModel) and isinstance(dumped, Mapping):
+        said = {}
+        for name in written_fields(value):
+            info = type(value).model_fields[name]
+            extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
+            if name not in dumped or extra.get("toml_exclude") is True:
+                continue
+            item = _as_a_file(getattr(value, name), dumped[name])
+            filled = item in ({}, []) and (
+                info.default is not None or info.default_factory is not None
+            )
+            if item is not None and not filled:
+                said[name] = item
+        for name, table in written_tables_of(value).items():
+            if name in dumped:
+                said[name] = _as_a_file(table, dumped[name])
+        return said
+    if isinstance(value, Mapping) and isinstance(dumped, Mapping) and len(value) == len(dumped):
+        pairs = zip(value.values(), dumped.items(), strict=True)
+        said = {key: _as_a_file(item, dumped_item) for item, (key, dumped_item) in pairs}
+        return {key: item for key, item in said.items() if item is not None}
+    if isinstance(value, (list, tuple)) and isinstance(dumped, list) and len(value) == len(dumped):
+        pairs = zip(value, dumped, strict=True)
+        items = [_as_a_file(item, dumped_item) for item, dumped_item in pairs]
+        return [item for item in items if item is not None]
+    if isinstance(dumped, Mapping):
+        return {key: item for key, item in dumped.items() if item is not None}
+    if isinstance(dumped, list):
+        return [item for item in dumped if item is not None]
+    return dumped
+
+
+__all__ = [
+    "experimental_keys_line",
+    "log_experimental_keys",
+    "written_as_a_file",
+    "written_experimental_keys",
+    "written_fields",
+    "written_payload",
+]

@@ -1,0 +1,46 @@
+case_id = "lu_boundary_periodic_1d"
+category = "analytical"
+regime = "transient"
+dimension = "1d"
+config_file = "config_modflownwt.toml"
+default_solver = "modflow_nwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflow_nwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+modflow6_irregular_tri = "config_modflow6_irregular_tri.toml"
+modflow6_voronoi = "config_modflow6_voronoi.toml"
+boussinesq = "config_boussinesq.toml"
+boussinesq_local = "config_boussinesq_local.toml"
+
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_periods = 192
+expected_spatial_shape = [5, 50]
+
+[time]
+dt_seconds = 3600.0
+
+[reference]
+xmin = 0.0
+xmax = 100.0
+base_head_m = 10.0
+tide_amplitude_m = 0.25
+tide_period_hours = 24.0
+hydraulic_conductivity_m_per_s = 1e-4
+reference_saturated_thickness_m = 10.0
+specific_yield = 0.2
+profile_axis = 0
+# Four tides of start-up, four compared.
+compare_start_day = 4.0
+# Columns where the reference keeps at least this share of the sea amplitude.
+harmonic_min_ratio = 0.05
+
+[plot]
+profile_times_days = [7.0, 7.25, 7.5, 7.75, 8.0]
+monitor_positions_m = [5.0, 15.0, 30.0]

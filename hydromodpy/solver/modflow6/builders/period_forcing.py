@@ -13,10 +13,12 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from numbers import Real
 
+import flopy
 import numpy as np
 
-from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
-from hydromodpy.core.units.volumetric_flow import parse_to_m3_per_s
+from hydromodpy.core.units.quantities import parse_to_m3_per_s, parse_to_m_per_s
+from hydromodpy.model.properties.property_table import require_positive_storage
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 
 def _attr(payload: object, name: str) -> object:
@@ -26,11 +28,15 @@ def _attr(payload: object, name: str) -> object:
     return getattr(payload, name, None)
 
 
+def simulation_window(model) -> object | None:
+    """The calendar window of the run, or None when its time grid has no dates."""
+    grid = model.inputs.time.grid
+    return None if grid is None else grid.window
+
+
 def forcing_kind(forcing: object) -> str | None:
     """Return the forcing discriminator (``constant`` / ``csv`` / ...) or None."""
     kind = _attr(forcing, "kind")
-    if kind is None:
-        kind = _attr(forcing, "mode")
     return str(kind) if kind is not None else None
 
 
@@ -116,24 +122,6 @@ def resolve_use_ts6(forcing: object, *, mode: str, nper: int, min_periods: int) 
     return nper > int(min_periods)
 
 
-def package_unit_conversions(model) -> tuple[float, float]:
-    """Return ``(time_conversion, length_conversion)`` for Manning-type scaling.
-
-    MF6 LAK / SFR need these only to scale MANNING / WEIR flow formulas into the
-    model's unit system. HMP runs TDIS in seconds and METERS, so both are 1.0; we
-    read ``model.time_units`` to stay correct if that ever changes.
-    """
-    time_units = str(getattr(model, "time_units", "seconds") or "seconds").lower()
-    seconds_per_unit = {
-        "seconds": 1.0,
-        "minutes": 60.0,
-        "hours": 3600.0,
-        "days": 86400.0,
-        "years": 31557600.0,
-    }
-    return float(seconds_per_unit.get(time_units, 1.0)), 1.0
-
-
 def sto_period_settings(
     steady_flags: Sequence[bool],
 ) -> tuple[dict[int, bool], dict[int, bool]]:
@@ -179,9 +167,37 @@ __all__ = [
     "forcing_kind",
     "forcing_to_si",
     "forcing_unit",
-    "package_unit_conversions",
     "resolve_forcing_mode",
     "resolve_use_ts6",
+    "simulation_window",
     "sto_period_settings",
     "ts6_times_and_values",
 ]
+
+
+def build_storage_package(model, solver_mesh: SolverMesh) -> None:
+    """Build STO on ``solver_mesh``, the grid DISV writes, lake footprint included.
+
+    Every layer is convertible. A storage a transient period reads is checked
+    on the active cells of that grid only, since the solver reads none on an
+    inactive cell (``require_positive_storage``).
+    """
+    steady_flags = [bool(model.steady[i]) for i in range(int(model.nper))]
+    steady_state_spd, transient_spd = sto_period_settings(steady_flags)
+    iconvert = np.ones((model.nlay,), dtype=int)
+    require_positive_storage(
+        model.sy,
+        model.ss,
+        active_mask=solver_mesh.idomain > 0,
+        iconvert=iconvert,
+        steady=steady_flags,
+        profiles=model.inputs.properties.profiles,
+    )
+    model.sto = flopy.mf6.ModflowGwfsto(
+        model.gwf,
+        sy=model.sy,
+        ss=model.ss,
+        iconvert=iconvert,
+        steady_state=steady_state_spd or None,
+        transient=transient_spd or None,
+    )

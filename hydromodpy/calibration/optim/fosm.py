@@ -12,7 +12,8 @@ there and approximate in proportion to how curved it is. It is not a posterior: 
 carries no prior and states nothing about probability beyond the propagation of a
 residual variance through one derivative.
 
-What it costs: one model run per parameter, forward differences about the optimum.
+What it costs: one model run per parameter, forward differences about the optimum,
+run side by side when the search runs its trials so.
 That is cheaper than restarting the whole search, which is why it exists beside
 ``multistart`` rather than instead of it.
 
@@ -77,36 +78,38 @@ class ParameterUncertainty:
 def forward_difference_jacobian(
     names: Sequence[str],
     reference: Mapping[str, float],
-    simulate: Callable[[Mapping[str, float]], np.ndarray],
+    simulate_all: Callable[[list[dict[str, float]]], Sequence[np.ndarray]],
     *,
     relative_step: float = 0.01,
 ) -> np.ndarray:
     """Return the (n_obs, n_par) derivative of the simulated vector.
 
-    ``simulate`` runs the model at one parameter set and returns its value at each
-    observation, in a fixed order. One run per parameter, plus the reference one the
-    caller has already paid for.
+    ``simulate_all`` takes the list of parameter sets to run, one per parameter
+    plus the reference one, which is last. It returns the simulated value at each
+    observation for each set, in the order of the list and in a fixed order of
+    observations. It is free to run them side by side.
 
     A parameter the simulated vector does not respond to gives a column of zeros,
     which is not an error: it is the statement that this calibration could not see
     that parameter, and the covariance says so by refusing to invert.
     """
-    step_of = {}
-    base = np.asarray(simulate(reference), dtype=float).ravel()
+    steps = [_step_for(float(reference[name]), relative_step) for name in names]
+    runs = [
+        {**reference, name: float(reference[name]) + step}
+        for name, step in zip(names, steps, strict=True)
+    ]
+    *perturbed, base = (
+        np.asarray(vector, dtype=float).ravel() for vector in simulate_all([*runs, dict(reference)])
+    )
     columns = []
-    for name in names:
-        step = _step_for(float(reference[name]), relative_step)
-        step_of[name] = step
-        moved = dict(reference)
-        moved[name] = float(reference[name]) + step
-        perturbed = np.asarray(simulate(moved), dtype=float).ravel()
-        if perturbed.size != base.size:
+    for name, step, vector in zip(names, steps, perturbed, strict=True):
+        if vector.size != base.size:
             raise ValueError(
-                f"perturbing {name!r} returned {perturbed.size} simulated value(s) and the "
+                f"perturbing {name!r} returned {vector.size} simulated value(s) and the "
                 f"reference returned {base.size}; a Jacobian needs the same observations in "
                 "the same order at every run."
             )
-        columns.append((perturbed - base) / step)
+        columns.append((vector - base) / step)
     return np.column_stack(columns) if columns else np.empty((base.size, 0))
 
 
@@ -124,7 +127,7 @@ def linearized_covariance(jacobian: np.ndarray, residuals: np.ndarray) -> np.nda
 
     The residual variance is the sum of squares over the degrees of freedom, which
     is what makes this a covariance of the fit and not of the observations. Fewer
-    observations than parameters is refused rather than regularised: there is no
+    observations than parameters is refused rather than regularized: there is no
     width to report from a fit with nothing left over.
     """
     J = np.asarray(jacobian, dtype=float)

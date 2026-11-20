@@ -24,7 +24,7 @@ LAK tests under tests/validation and tests/integration, which hardcode
 The pipeline is wired end to end (no xfail)
 -------------------------------------------
 The data -> flow binders (``apply_lake_geometry_to_flow`` /
-``apply_lake_abacus_to_flow`` in structure_binders.py) run in the planning step,
+``apply_lake_abacus_to_flow`` in binders/lakes.py) run in the planning step,
 so the loaded lake_geometry polygon and lake_abacus table reach the flow lake
 payload, ``_active_lake_definitions`` resolves the lake, and the LAK build branch
 fires for real. The primary test therefore asserts a genuine LAK build: a
@@ -41,7 +41,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.solver.modflow6.builders.initial_conditions import read_restart_lake_stages
+from hydromodpy.results.storage.prior_state import read_restart_lake_stages
 from tests.regression.golden_utils import (
     _open_result_store,
     _resolve_sim_id,
@@ -51,7 +51,7 @@ from tests.regression.golden_utils import (
 )
 
 # Outlet of the committed regional DEM catchment (EPSG:2154); the synthetic lake
-# polygon is centred here so it lands inside the delineated catchment / DISV
+# polygon is centered here so it lands inside the delineated catchment / DISV
 # active area.
 _X_OUTLET = 265611.933
 _Y_OUTLET = 6784182.776
@@ -71,7 +71,7 @@ _DEM_PATH = _REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif"
 def _write_lake_geometry_fixture(data_dir: Path) -> Path:
     """Write a tiny rectangular lake polygon (~200 m box) at the outlet.
 
-    The polygon is in the project CRS (EPSG:2154) so GridIntersect needs no
+    The polygon is in the project CRS (EPSG:2154) so the lake cell rule needs no
     reprojection, and is sized to span a few cells of the small DISV grid.
     """
     geom_dir = data_dir / "lake_geometry"
@@ -120,37 +120,41 @@ types = ["recharge"]
 
 [[data.recharge.sources]]
 source = "synthetic"
-values = [2.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0]
+values = [2.0]
 freq = "MS"
-runoff_ratio = 0.1
+"""
+
+_DEM_DATA_TOML = f"""
+[[data.dem.sources]]
+source = "file"
+path = "{_DEM_PATH}"
 """
 
 
-def _config_body(*, active_bc: list[str], flow_extra: str, data_toml: str) -> str:
+def _config_body(*, flow_extra: str, data_toml: str) -> str:
     """Return the self-contained project TOML for the given lake declaration.
 
     Self-contained (no ``base_config``) so the run does not inherit the committed
     fixtures' relative well / oceanic paths, which would break when the config
-    lives in tmp_path. ``active_bc`` and any lake-specific ``flow.*`` subtables
-    are injected into the single ``[flow]`` table (TOML forbids declaring it
-    twice). Uses one aligned 30-day period and a small 30x30 / 1-layer DISV grid
-    to keep the mf6 run fast; ``keep_solver_files`` retains ``.hmp/scratch`` so
+    lives in tmp_path. Any lake-specific ``flow.*`` subtables are injected after
+    the drainage and recharge tables. Uses one aligned 30-day period and a small
+    30x30 / 1-layer DISV grid to keep the mf6 run fast; ``keep_solver_files`` keeps ``runs/<run>/solver/`` so
     the LAK package file can be asserted on disk.
     """
-    active_bc_toml = ", ".join(f'"{name}"' for name in active_bc)
     return f"""\
+[site]
+name = "cheze"
+
 [workflow]
 mode = "simulation"
 
 [workspace]
-project_root = "."
 
 [geographic]
 crs_project = "{_PROJECT_CRS}"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
-dem_init_path = "{_DEM_PATH}"
+kind = "from_outlet_coord"
 x_outlet = {_X_OUTLET}
 y_outlet = {_Y_OUTLET}
 snap_dist = "50 m"
@@ -162,7 +166,7 @@ kind = "constant_thickness"
 thickness = "50.0 m"
 
 [simulation]
-name = "lake e2e"
+name = "lake_e2e"
 
 [simulation.results]
 keep_solver_files = true
@@ -175,13 +179,11 @@ coverage_policy = "warn"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [flow]
 flow_regime = "transient"
-active_sinks_sources = ["recharge"]
-active_bc = [{active_bc_toml}]
 param_list = ["K", "Ss", "Sy"]
 
 [flow.param.K.field]
@@ -197,7 +199,7 @@ kind = "homogeneous"
 value = "0.02 -"
 
 [flow.ic]
-type = "top"
+kind = "top"
 
 [flow.bc.drainage]
 application_domain = "top"
@@ -207,16 +209,14 @@ value = "0.0 m2/s"
 first_clim = "mean"
 {flow_extra}
 {data_toml}
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 30
-ny = 30
+[mesh.regular]
+shape = [30, 30]
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 2
 
 [display]
-show = false
+enabled = false
 """
 
 
@@ -228,9 +228,9 @@ def _write_lake_config(
 ) -> None:
     """Write the lake project TOML: a drainage outlet plus a config-declared lake.
 
-    ``active_bc`` carries ``lake`` (-> MF6 LAK, modflow6-only) and ``drainage`` (a
-    seepage outlet that lets the flow model converge). The lake carries a WEIR
-    spillway outlet so its stage is capped near the surrounding terrain. The lake
+    The lake table (-> MF6 LAK, modflow6-only) and the ``drainage`` table (a
+    seepage outlet that lets the flow model converge) are both declared. The lake
+    carries a WEIR spillway outlet so its stage is capped near the surrounding terrain. The lake
     reaches the build only through the CUSTOM lake_geometry / lake_abacus data
     sources and the ``flow.sinks_sources.lakes`` payload, so the whole data layer
     is on the path.
@@ -238,33 +238,30 @@ def _write_lake_config(
     flow_extra = f"""
 [flow.sinks_sources.lakes.{_LAKE_ID}]
 bedleak = 0.1
-stageinit = "{_STAGE_INIT_M} m"
+initial_stage = "{_STAGE_INIT_M} m"
 
 [[flow.sinks_sources.lakes.{_LAKE_ID}.outlets]]
-couttype = "WEIR"
+kind = "WEIR"
 invert = "104.0 m"
 width = "5.0 m"
 lakeout = 0
 """
     data_toml = (
         _RECHARGE_DATA_TOML
+        + _DEM_DATA_TOML
         + f"""
 [[data.lake_geometry.sources]]
-source = "custom"
+source = "file"
 path = "{geometry_path}"
 
 [[data.lake_abacus.sources]]
-source = "custom"
+source = "file"
 path = "{abacus_path}"
 lake_id = "{_LAKE_ID}"
 """
     )
     config_path.write_text(
-        _config_body(
-            active_bc=["lake", "drainage"],
-            flow_extra=flow_extra,
-            data_toml=data_toml,
-        ),
+        _config_body(flow_extra=flow_extra, data_toml=data_toml),
         encoding="utf-8",
     )
 
@@ -272,11 +269,7 @@ lake_id = "{_LAKE_ID}"
 def _write_no_lake_config(config_path: Path) -> None:
     """Write the SAME base config without a lake (drainage only, no LAK)."""
     config_path.write_text(
-        _config_body(
-            active_bc=["drainage"],
-            flow_extra="",
-            data_toml=_RECHARGE_DATA_TOML,
-        ),
+        _config_body(flow_extra="", data_toml=_RECHARGE_DATA_TOML + _DEM_DATA_TOML),
         encoding="utf-8",
     )
 
@@ -298,7 +291,7 @@ def _assert_planner_infers_lake_families(config_path: Path) -> None:
     while the loader / binder are unported.
     """
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.data.managers.planner import DataPlanner
+    from hydromodpy.data.loading.planner import DataPlanner
 
     cfg = HydroModPyConfig.from_toml(config_path)
     plan = DataPlanner().build(cfg.data, flow_active_bc=cfg.flow.active_bc)
@@ -361,7 +354,7 @@ def test_lake_project_e2e_builds_lak_and_extracts_stage(tmp_path: Path) -> None:
     )
     assert laktab_files, f"No laktab written under {model_ws}: the abacus did not reach LAK."
 
-    # SECONDARY: the lake produced a finite stage series near stageinit, proving
+    # SECONDARY: the lake produced a finite stage series near initial_stage, proving
     # the lake actually ran. Lake series land under the ``lake:<id>`` station id.
     store = _open_result_store(out_path)
     try:
@@ -371,7 +364,7 @@ def test_lake_project_e2e_builds_lak_and_extracts_stage(tmp_path: Path) -> None:
         last_stage = float(stage.iloc[-1])
         assert last_stage == last_stage, "lake stage is NaN"  # NaN-check
         assert 98.0 < last_stage < 108.0, (
-            f"lake stage {last_stage} not in the abacus bracket near stageinit {_STAGE_INIT_M}"
+            f"lake stage {last_stage} not in the abacus bracket near initial_stage {_STAGE_INIT_M}"
         )
         # The lake-aquifer exchange must also be extracted for the lake id.
         exchange = store.query_timeseries(sim_id, f"lake:{_LAKE_ID}", "gwf_exchange")

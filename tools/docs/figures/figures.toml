@@ -1,0 +1,292 @@
+# Manifest of the documentation figures, read and written by render_ex04_figures.py.
+# One [[figure]] per image. `request` is the figure request, drawn with run.figure.
+# `command` makes the run, `redraw` draws the figure again from the stored run.
+# A dark image is the same request drawn with the theme "dark".
+
+[meta]
+generated = "2026-11-04"
+hydromodpy = "2.0.0rc1"
+example = "04"
+script = "tools/docs/figures/render_ex04_figures.py"
+budget_bytes = 153600
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_downslope_distance_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure downslope_distance --time 2002-10-15 --opt 'scale=\"log\"'"
+pages = []
+request = { variable = "downslope_distance", scale = "log", time = "2002-10-15" }
+width = 1032
+height = 1004
+bytes = 28310
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_downslope_distance_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure downslope_distance --time 2002-10-15 --opt 'scale=\"log\"'"
+pages = []
+request = { variable = "downslope_distance", scale = "log", time = "2002-10-15" }
+width = 1032
+height = 1004
+bytes = 29506
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_flow_intermittence_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure simulated_active_network --opt 'reduce=\"frequency\"'"
+pages = []
+request = { variable = "simulated_active_network", reduce = "frequency" }
+width = 1020
+height = 974
+bytes = 21688
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_flow_intermittence_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure simulated_active_network --opt 'reduce=\"frequency\"'"
+pages = []
+request = { variable = "simulated_active_network", reduce = "frequency" }
+width = 1020
+height = 974
+bytes = 22398
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_flow_persistence_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure simulated_active_network --opt 'reduce=\"frequency\"'"
+pages = []
+request = { variable = "simulated_active_network", reduce = "frequency" }
+width = 1048
+height = 974
+bytes = 28074
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_flow_persistence_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure simulated_active_network --opt 'reduce=\"frequency\"'"
+pages = []
+request = { variable = "simulated_active_network", reduce = "frequency" }
+width = 1048
+height = 974
+bytes = 28948
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_flux_timeseries-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure water_budget"
+pages = []
+request = { preset = "water_budget" }
+width = 1292
+height = 692
+bytes = 13144
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_flux_timeseries.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure water_budget"
+pages = []
+request = { preset = "water_budget" }
+width = 1292
+height = 692
+bytes = 13956
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_hydrograph_log_nse-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure hydrograph --opt 'scale=\"log\"' --opt 'name=\"hydrograph_log\"'"
+pages = []
+request = { preset = "hydrograph", scale = "log", name = "hydrograph_log" }
+width = 1337
+height = 767
+bytes = 31198
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_hydrograph_log_nse.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure hydrograph --opt 'scale=\"log\"' --opt 'name=\"hydrograph_log\"'"
+pages = []
+request = { preset = "hydrograph", scale = "log", name = "hydrograph_log" }
+width = 1337
+height = 767
+bytes = 35656
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_seepage_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure seepage_mask --time 2002-10-15"
+pages = []
+request = { variable = "seepage_mask", time = "2002-10-15" }
+width = 850
+height = 944
+bytes = 19038
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_seepage_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure seepage_mask --time 2002-10-15"
+pages = []
+request = { variable = "seepage_mask", time = "2002-10-15" }
+width = 850
+height = 944
+bytes = 19798
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_seepage_network_confusion_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure network_agreement --time 2002-10-15"
+pages = []
+request = { variable = "network_agreement", time = "2002-10-15" }
+width = 895
+height = 944
+bytes = 22352
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_seepage_network_confusion_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure network_agreement --time 2002-10-15"
+pages = []
+request = { variable = "network_agreement", time = "2002-10-15" }
+width = 895
+height = 944
+bytes = 23908
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_watertable_depth_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure watertable_depth --time 2002-10-15"
+pages = []
+request = { variable = "watertable_depth", time = "2002-10-15" }
+width = 1066
+height = 842
+bytes = 85098
+
+[[figure]]
+path = "docs/source/_static/figures/understand/ex04_watertable_depth_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure watertable_depth --time 2002-10-15"
+pages = []
+request = { variable = "watertable_depth", time = "2002-10-15" }
+width = 1066
+height = 842
+bytes = 84644
+
+[[figure]]
+path = "docs/source/_static/figures/solvers/nancon_mf6_hydrograph_sim_obs-dark.webp"
+kind = "solvers"
+theme = "dark"
+run = "nancon_mf6"
+config = "run_mf6_exact.toml"
+command = "hmp run run_mf6_exact.toml --set display.preset=dark"
+redraw = "hmp show nancon_mf6 --figure hydrograph"
+pages = ["theory/validation.md"]
+request = { preset = "hydrograph" }
+width = 1292
+height = 692
+bytes = 32268
+
+[[figure]]
+path = "docs/source/_static/figures/solvers/nancon_mf6_hydrograph_sim_obs.webp"
+kind = "solvers"
+theme = "light"
+run = "nancon_mf6"
+config = "run_mf6_exact.toml"
+command = "hmp run run_mf6_exact.toml"
+redraw = "hmp show nancon_mf6 --figure hydrograph"
+pages = ["theory/validation.md"]
+request = { preset = "hydrograph" }
+width = 1292
+height = 692
+bytes = 35318
+
+[[figure]]
+path = "docs/source/_static/figures/solvers/nancon_nwt_hydrograph_sim_obs-dark.webp"
+kind = "solvers"
+theme = "dark"
+run = "nancon_nwt"
+config = "run_nwt_exact.toml"
+command = "hmp run run_nwt_exact.toml --set display.preset=dark"
+redraw = "hmp show nancon_nwt --figure hydrograph"
+pages = ["theory/validation.md"]
+request = { preset = "hydrograph" }
+width = 1292
+height = 692
+bytes = 32202
+
+[[figure]]
+path = "docs/source/_static/figures/solvers/nancon_nwt_hydrograph_sim_obs.webp"
+kind = "solvers"
+theme = "light"
+run = "nancon_nwt"
+config = "run_nwt_exact.toml"
+command = "hmp run run_nwt_exact.toml"
+redraw = "hmp show nancon_nwt --figure hydrograph"
+pages = ["theory/validation.md"]
+request = { preset = "hydrograph" }
+width = 1292
+height = 692
+bytes = 34834
+

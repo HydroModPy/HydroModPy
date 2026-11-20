@@ -1,0 +1,554 @@
+"""FAIR views of a sealed run or job directory, read from the directory alone.
+
+:func:`context_from_directory` is the only way a view gets its
+:class:`FairExportContext`: from the seal and the documents beside it, never
+from a workspace, the index or a ``sim_id``. A run or a job directory handed
+to somebody else carries none of those. The views are written into that
+directory.
+
+Three rules, each one a way a view could say more than the directory.
+
+**A view renders the seal and nothing else.** It reads ``manifest.json``,
+``provenance.json`` and, for a job, ``inputset.json`` and ``outcome.json``.
+It never hashes an artifact again, never opens a workspace file and never
+reads the clock: it is dated by ``sealed_at``. Rendering it twice gives the
+same bytes, so a view can be deleted and written again at any time.
+
+**Every href is relative to the directory.** The crate root ``./`` of the
+RO-Crate is the directory that holds ``ro-crate-metadata.json``, and the STAC
+assets resolve against ``stac-item.json``. A view written anywhere else names
+paths that resolve nowhere.
+
+**Nothing is claimed that the directory does not say.** The licence and the
+creators of a run come from the ``[publication]`` table of its frozen
+``config.toml``; a run without one says ``LicenseRef-undetermined`` rather
+than a default. A bounding box is written in WGS84, as STAC and schema.org require,
+and only when the directory names the CRS of the box it records.
+"""
+
+from __future__ import annotations
+
+import json
+import tomllib
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import Any
+
+from hydromodpy.core.exceptions import ExportError
+from hydromodpy.core.io.document_version import VersionWindow
+from hydromodpy.core.io.file_digest import sha256_and_size
+from hydromodpy.results.export.context import AssetEntry, FairExportContext, InputEntry
+from hydromodpy.results.publication import PublicationConfig
+from hydromodpy.results.record.manifest import read_manifest
+from hydromodpy.results.record.record import PROVENANCE_VERSIONS
+from hydromodpy.results.storage.contract import (
+    RUN_CONFIG_FILENAME,
+    RUN_MANIFEST_FILENAME,
+    RUN_PROVENANCE_FILENAME,
+)
+from hydromodpy.results.storage.json_io import read_sealed_json
+from hydromodpy.schema.job.documents import check_job_document
+from hydromodpy.schema.job.extent import SpatialExtent
+from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS, UNDETERMINED
+from hydromodpy.schema.job.layout import (
+    INPUTSET_FILENAME,
+    JOB_PROVENANCE_FILENAME,
+    OUTCOME_FILENAME,
+)
+from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS
+from hydromodpy.schema.job.provenance import PROVENANCE_VERSIONS as JOB_PROVENANCE_VERSIONS
+from hydromodpy.schema.job.seal import JobSeal, read_job_seal
+from hydromodpy.schema.media_types import (
+    JSON_MEDIA_TYPE,
+    OCTET_STREAM_MEDIA_TYPE,
+    PARQUET_MEDIA_TYPE,
+    TOML_MEDIA_TYPE,
+    ZARR_MEDIA_TYPE,
+)
+from hydromodpy.schema.seal import ArtifactRecord
+
+_RUN_FORMAT_MEDIA_TYPES: dict[str, str] = {
+    "json": JSON_MEDIA_TYPE,
+    "toml": TOML_MEDIA_TYPE,
+    "zarr": ZARR_MEDIA_TYPE,
+    "parquet": PARQUET_MEDIA_TYPE,
+}
+"""The ``format`` labels of a run manifest that name a type the table holds.
+
+Any other label is written as an octet stream:
+the run manifest records a suffix, not a type, and a view does not guess one.
+"""
+
+_DIRECTORY_FORMATS: frozenset[str] = frozenset({"zarr", "directory"})
+"""The ``format`` labels of a run manifest that name a directory, not a file."""
+
+_LICENCE_URLS: dict[str, str] = {
+    "cc-by-4.0": "https://creativecommons.org/licenses/by/4.0/",
+    "cc-by-sa-4.0": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "cc0-1.0": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "etalab-2.0": "https://spdx.org/licenses/etalab-2.0",
+}
+"""SPDX ids the exporters already know by URL. Any other id is kept as it is."""
+
+_WGS84_EPSG = 4326
+
+
+def context_from_directory(directory: Path | str) -> FairExportContext:
+    """Build the export context of a sealed run or job directory.
+
+    The profile is read off the seal: a job manifest says ``"profile":
+    "job"``, a run manifest carries ``manifest_version``. An unsealed
+    directory is refused, because a view renders the seal and there is none.
+    """
+    root = Path(directory)
+    manifest_path = root / RUN_MANIFEST_FILENAME
+    if not manifest_path.is_file():
+        raise ExportError(
+            f"{root} carries no {RUN_MANIFEST_FILENAME}: it is not sealed, "
+            "and a generated view renders the seal"
+        )
+    manifest = _read_object(manifest_path)
+    if manifest.get("profile") == "job":
+        if manifest.get("geometry") is not None:
+            _job_extent(manifest["geometry"], where=f"{manifest_path} geometry")
+        return _job_context(root, read_job_seal(manifest_path))
+    if manifest.get("profile") == "run" or "manifest_version" in manifest:
+        return _run_context(root, read_manifest(root))
+    raise ExportError(
+        f"{manifest_path} is neither a run manifest nor a job manifest; "
+        "no view can be rendered from it"
+    )
+
+
+def sealed_root_of(path: Path | str) -> Path:
+    """Return the sealed directory a view renders, for a path inside or equal to one.
+
+    A whole-run format writes either in the sealed directory itself, where
+    its relative paths resolve, or at one path under it, an export the run
+    asked for. Either way the view renders the same seal, and this returns
+    the directory that carries it.
+
+    Raises
+    ------
+    ExportError
+        When no directory from *path* upwards carries ``manifest.json``.
+    """
+    here = Path(path)
+    here = here if here.is_dir() else here.parent
+    while not (here / RUN_MANIFEST_FILENAME).is_file():
+        if here.parent == here:
+            raise ExportError(
+                f"no sealed directory carries {path!r}: a generated view renders the seal, "
+                "and none is reachable from there."
+            )
+        here = here.parent
+    return here
+
+
+# ---------------------------------------------------------------------------
+# run profile
+# ---------------------------------------------------------------------------
+
+
+def _run_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
+    """Read a run directory: its seal, and the provenance the seal hashes."""
+    run = _mapping(manifest.get("run"))
+    geometry = _mapping(manifest.get("geometry"))
+    period = _mapping(manifest.get("period"))
+    provenance_path = root / RUN_PROVENANCE_FILENAME
+    provenance: Mapping[str, Any] = (
+        read_sealed_json(provenance_path, PROVENANCE_VERSIONS, key="provenance_version")
+        if provenance_path.is_file()
+        else {}
+    )
+    solver = _mapping(provenance.get("solver"))
+    git = _mapping(provenance.get("git"))
+    environment = _mapping(provenance.get("environment"))
+
+    identity = _mapping(manifest.get("identity"))
+    replay = _mapping(_mapping(manifest.get("lineage")).get("replay"))
+    epsg = _int_or_none(geometry.get("crs_epsg"))
+    crs_wkt = geometry.get("crs_wkt")
+    sim_row: dict[str, Any] = {
+        "name": run.get("name"),
+        "description": run.get("description"),
+        "project": run.get("project"),
+        "n_cells": geometry.get("n_cells"),
+        "n_layers": geometry.get("n_layers"),
+        "n_timesteps": period.get("n_timesteps"),
+        "crs_epsg": epsg,
+        # 72 of 78 real manifests hold an EPSG code in this field, not WKT.
+        "crs_wkt": crs_wkt if _is_wkt(crs_wkt) else None,
+        "doi": run.get("doi"),
+        "contact_email": run.get("contact_email"),
+        "started_at": run.get("started_at"),
+        "ended_at": run.get("ended_at"),
+        "period_start": period.get("start"),
+        "period_end": period.get("end"),
+        "request_id": identity.get("request_id"),
+        "solution_key": identity.get("solution_key"),
+        "replay_class": replay.get("class"),
+        **_bbox_columns(_wgs84_bbox(geometry.get("bbox"), epsg)),
+    }
+    sim_id = str(run.get("sim_id") or root.name)
+    publication = publication_of(root)
+    return FairExportContext(
+        sim_id=sim_id,
+        sim_row=sim_row,
+        runs_env={
+            "git_commit": git.get("commit"),
+            "rng_seed": environment.get("rng_seed"),
+        },
+        workspace_meta={},
+        workspace_path=root,
+        license_url=(
+            _licence_reference(publication.license) if publication.license else UNDETERMINED.spdx
+        ),
+        creator_name=", ".join(publication.creators) or None,
+        creator_email=_text_or_none(run.get("contact_email")),
+        assets=(_seal_asset(root), *_run_assets(manifest.get("artifacts"))),
+        inputs=tuple(_run_inputs(manifest.get("inputs"))),
+        lockfile_path=None,
+        solver_binary_sha256=_text_or_none(solver.get("binary_sha256")),
+        solver_name=_text_or_none(solver.get("name")),
+        solver_version=_text_or_none(solver.get("version")),
+        hydromodpy_version=str(_mapping(provenance.get("tool")).get("version") or "unknown"),
+        generated_at=str(manifest.get("sealed_at") or ""),
+    )
+
+
+def publication_of(root: Path) -> PublicationConfig:
+    """Return the ``[publication]`` table of the frozen ``config.toml`` of a run directory.
+
+    An empty table when the directory has no frozen config or the config
+    declares none.
+    """
+    config = root / RUN_CONFIG_FILENAME
+    if not config.is_file():
+        return PublicationConfig()
+    with config.open("rb") as handle:
+        table = tomllib.load(handle).get("publication") or {}
+    return PublicationConfig.model_validate(table)
+
+
+def _run_assets(entries: Any) -> list[AssetEntry]:
+    """Turn the artifact list of a run seal into assets, the seal itself aside."""
+    assets: list[AssetEntry] = []
+    for entry in _records(entries):
+        path = str(entry.get("path") or "")
+        if not path or path == RUN_MANIFEST_FILENAME:
+            continue
+        role = str(entry.get("role") or "other")
+        file_format = str(entry.get("format") or "")
+        assets.append(
+            AssetEntry(
+                key=path,
+                relative_path=path,
+                media_type=_RUN_FORMAT_MEDIA_TYPES.get(file_format, OCTET_STREAM_MEDIA_TYPE),
+                roles=(_stac_role(role), role),
+                # The digest of a directory store is not the digest of a file.
+                sha256=None
+                if file_format in _DIRECTORY_FORMATS
+                else _text_or_none(entry.get("sha256")),
+                size_bytes=_int_or_none(entry.get("bytes")),
+            )
+        )
+    return assets
+
+
+def _run_inputs(entries: Any) -> list[InputEntry]:
+    """Turn the input list of a run seal into input entries.
+
+    Only the file name of a recorded path reaches a view: the seal stores the
+    absolute path the run read, which names the account that ran it.
+    """
+    return [
+        InputEntry(
+            role=str(entry.get("role") or "input"),
+            category=str(entry.get("category") or ""),
+            original_path=Path(str(entry.get("path") or "")).name,
+            sha256=str(entry.get("sha256") or ""),
+            size_bytes=_int_or_none(entry.get("bytes")) or 0,
+        )
+        for entry in _records(entries)
+    ]
+
+
+def _stac_role(role: str) -> str:
+    """Map a run artifact role onto the STAC asset role vocabulary."""
+    if role in ("fields", "data") or role.startswith("table:"):
+        return "data"
+    return "metadata"
+
+
+# ---------------------------------------------------------------------------
+# job profile
+# ---------------------------------------------------------------------------
+
+
+def _job_context(root: Path, seal: JobSeal) -> FairExportContext:
+    """Read a job directory: its seal and the three documents the seal hashes."""
+    inputset = _optional_object(root / INPUTSET_FILENAME, INPUTSET_VERSIONS)
+    provenance = _optional_object(root / JOB_PROVENANCE_FILENAME, JOB_PROVENANCE_VERSIONS)
+    outcome = _optional_object(root / OUTCOME_FILENAME, OUTCOME_VERSIONS)
+    process = _mapping(outcome.get("process")) or _mapping(provenance.get("process"))
+    backend = _mapping(provenance.get("backend"))
+    resources = _records(inputset.get("resources"))
+
+    geometry = seal.geometry
+    extents = [
+        _job_extent(
+            resource["spatial"],
+            where=f"{INPUTSET_FILENAME} resource {resource.get('name')!r}",
+        )
+        for resource in resources
+        if resource.get("spatial") is not None
+    ]
+    if geometry is not None:
+        bbox = _extent_wgs84_bbox(geometry)
+        crs_epsg = _crs_epsg(geometry.crs)
+    else:
+        bbox = _union_bbox([_extent_wgs84_bbox(extent) for extent in extents])
+        crs_epsg = _shared_epsg(extents)
+    job_id = seal.request_id or str(outcome.get("job_id") or root.name)
+    process_label = " ".join(
+        str(part) for part in (process.get("id"), process.get("version")) if part
+    )
+    sim_row: dict[str, Any] = {
+        "name": process_label or job_id,
+        "description": f"HydroModPy job {job_id}",
+        "crs_epsg": crs_epsg,
+        "started_at": outcome.get("started_at"),
+        "ended_at": outcome.get("finished_at"),
+        **_bbox_columns(bbox),
+    }
+    rollup = _mapping(inputset.get("licence_rollup"))
+    return FairExportContext(
+        sim_id=job_id,
+        sim_row=sim_row,
+        runs_env={"git_commit": _mapping(provenance.get("git")).get("commit")},
+        workspace_meta={},
+        workspace_path=root,
+        license_url=_licence_reference(str(rollup.get("expression") or UNDETERMINED.spdx)),
+        creator_name=None,
+        creator_email=None,
+        assets=(_seal_asset(root), *_job_assets(seal.artifacts)),
+        inputs=tuple(_job_input(resource) for resource in resources),
+        lockfile_path=None,
+        solver_binary_sha256=_text_or_none(backend.get("sha256")),
+        solver_name=_text_or_none(backend.get("name") or backend.get("id")),
+        solver_version=_text_or_none(backend.get("version")),
+        hydromodpy_version=str(_mapping(provenance.get("tool")).get("version") or "unknown"),
+        # The instant as the seal spells it, so a view and its seal read the same text.
+        generated_at=seal.model_dump(mode="json", include={"sealed_at"})["sealed_at"],
+    )
+
+
+def _job_assets(records: Sequence[ArtifactRecord]) -> list[AssetEntry]:
+    """Turn the artifact list of a job seal into assets, digests included."""
+    assets: list[AssetEntry] = []
+    for record in records:
+        if not record.path:
+            continue
+        assets.append(
+            AssetEntry(
+                key=record.path,
+                relative_path=record.path,
+                media_type=record.media_type or OCTET_STREAM_MEDIA_TYPE,
+                roles=("data",) if record.role == "output" else ("metadata",),
+                sha256=record.sha256,
+                size_bytes=record.bytes,
+            )
+        )
+    return assets
+
+
+def _job_input(resource: Mapping[str, Any]) -> InputEntry:
+    """Turn one resource of ``inputset.json`` into an input entry."""
+    source = _mapping(resource.get("source"))
+    licence = _mapping(resource.get("licence"))
+    href = str(resource.get("href") or "")
+    return InputEntry(
+        role=str(resource.get("role") or resource.get("name") or "input"),
+        category="input",
+        original_path=Path(href).name or str(resource.get("name") or ""),
+        sha256=str(resource.get("sha256") or ""),
+        size_bytes=_int_or_none(resource.get("bytes")) or 0,
+        source_type=_text_or_none(source.get("slug")),
+        source_ref=_text_or_none(source.get("endpoint")),
+        license=_text_or_none(licence.get("spdx")),
+        data_provider=_text_or_none(source.get("publisher")),
+        fetched_at=_text_or_none(source.get("fetched_at")),
+    )
+
+
+def _job_extent(document: Any, *, where: str) -> SpatialExtent:
+    """Read the extent a job document records.
+
+    One shape is read, the one :class:`SpatialExtent` writes. Anything else is
+    refused, because a view that skipped it would publish a job with no place.
+    """
+    try:
+        return SpatialExtent.from_document(document)
+    except ValueError as exc:
+        raise ExportError(f"{where} is not a spatial extent: {exc}") from exc
+
+
+def _extent_wgs84_bbox(extent: SpatialExtent) -> tuple[float, float, float, float]:
+    """Reproject the native box of a job extent to WGS84 longitude and latitude."""
+    from pyproj import Transformer
+    from pyproj.exceptions import ProjError
+
+    try:
+        transformer = Transformer.from_crs(extent.crs, _WGS84_EPSG, always_xy=True)
+        xmin, ymin, xmax, ymax = transformer.transform_bounds(*extent.bbox)
+    except ProjError as exc:
+        raise ExportError(
+            f"the extent {list(extent.bbox)} in {extent.crs!r} cannot be reprojected "
+            f"to WGS84: {exc}"
+        ) from exc
+    return (float(xmin), float(ymin), float(xmax), float(ymax))
+
+
+def _crs_epsg(crs: str) -> int | None:
+    """Return the EPSG code of a CRS, or ``None`` when it has none."""
+    from pyproj import CRS
+
+    return CRS.from_user_input(crs).to_epsg()
+
+
+def _shared_epsg(extents: Sequence[SpatialExtent]) -> int | None:
+    """Return the EPSG code every spatial input agrees on, or ``None``."""
+    codes = {_crs_epsg(extent.crs) for extent in extents}
+    return codes.pop() if len(codes) == 1 else None
+
+
+def _licence_reference(expression: str) -> str:
+    """Return the URL the exporters use for a known SPDX id, else the id."""
+    return _LICENCE_URLS.get(expression.strip().lower(), expression)
+
+
+# ---------------------------------------------------------------------------
+# shared readers
+# ---------------------------------------------------------------------------
+
+
+def _seal_asset(root: Path) -> AssetEntry:
+    """Name the seal as an asset, hashed from its bytes.
+
+    A seal cannot record its own digest. The view records it, which ties the
+    view to the one seal it was rendered from.
+    """
+    digest, size = sha256_and_size(root / RUN_MANIFEST_FILENAME)
+    return AssetEntry(
+        key=RUN_MANIFEST_FILENAME,
+        relative_path=RUN_MANIFEST_FILENAME,
+        media_type=JSON_MEDIA_TYPE,
+        roles=("metadata", "manifest"),
+        sha256=digest,
+        size_bytes=size,
+        description="Seal of this directory, written last.",
+    )
+
+
+def _wgs84_bbox(bbox: Any, epsg: int | None) -> tuple[float, float, float, float] | None:
+    """Reproject a native bounding box to WGS84 longitude and latitude.
+
+    A box whose CRS is not named is dropped rather than written as if it were
+    in degrees: a synthetic model in meters would land in the Gulf of Guinea.
+    """
+    native = _bbox_or_none(bbox)
+    if native is None or epsg is None:
+        return None
+    if epsg == _WGS84_EPSG:
+        return native
+    from pyproj import Transformer
+    from pyproj.exceptions import CRSError
+
+    try:
+        transformer = Transformer.from_crs(epsg, _WGS84_EPSG, always_xy=True)
+    except CRSError:
+        return None
+    xmin, ymin, xmax, ymax = transformer.transform_bounds(*native)
+    return (float(xmin), float(ymin), float(xmax), float(ymax))
+
+
+def _bbox_columns(bbox: tuple[float, float, float, float] | None) -> dict[str, float]:
+    """Spell a box the way :attr:`FairExportContext.bbox` reads it."""
+    if bbox is None:
+        return {}
+    keys = ("bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax")
+    return dict(zip(keys, bbox, strict=True))
+
+
+def _bbox_or_none(value: Any) -> tuple[float, float, float, float] | None:
+    if not isinstance(value, (list, tuple)) or len(value) != 4:
+        return None
+    try:
+        xmin, ymin, xmax, ymax = (float(v) for v in value)
+    except (TypeError, ValueError):
+        return None
+    return (xmin, ymin, xmax, ymax)
+
+
+def _union_bbox(
+    boxes: Sequence[tuple[float, float, float, float]],
+) -> tuple[float, float, float, float] | None:
+    if not boxes:
+        return None
+    xmins, ymins, xmaxs, ymaxs = zip(*boxes, strict=True)
+    return (min(xmins), min(ymins), max(xmaxs), max(ymaxs))
+
+
+def _is_wkt(value: Any) -> bool:
+    return isinstance(value, str) and "[" in value
+
+
+def _int_or_none(value: Any) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _text_or_none(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value)
+    return text or None
+
+
+def _mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _records(value: Any) -> list[Mapping[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [entry for entry in value if isinstance(entry, Mapping)]
+
+
+def _read_object(path: Path) -> Mapping[str, Any]:
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ExportError(f"{path} cannot be read as JSON: {exc}") from exc
+    if not isinstance(document, Mapping):
+        raise ExportError(f"{path} is not a JSON object")
+    return document
+
+
+def _optional_object(path: Path, window: VersionWindow) -> Mapping[str, Any]:
+    """Read a document the seal hashes, empty when the directory lacks it."""
+    if not path.is_file():
+        return {}
+    return check_job_document(_read_object(path), window, path=path)
+
+
+__all__ = [
+    "context_from_directory",
+    "publication_of",
+    "sealed_root_of",
+]

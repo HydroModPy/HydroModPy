@@ -13,16 +13,25 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.core.logging import get_logger
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.model.sinks_sources.lake import (
+    LAKE_FORCING_SIGN_CONVENTION,
+    lake_forcing_sign_refusal,
+)
 from hydromodpy.solver.modflow6.builders._lake_definitions import _lake_attr, _scalar
 from hydromodpy.solver.modflow6.builders.period_forcing import (
     constant_forcing_value,
     forcing_to_si,
     forcing_unit,
     resolve_use_ts6,
+    simulation_window,
     ts6_times_and_values,
 )
 from hydromodpy.solver.modflow6.support.time_series import Ts6Series
+
+logger = get_logger(__name__)
 
 
 def _forcing_si_per_period(
@@ -54,7 +63,7 @@ def _forcing_si_per_period(
         return ()
     per_period = resolve_period_values_from_forcing(
         forcing=forcing,
-        simulation_window=None if model.time_grid is None else model.time_grid.window,
+        simulation_window=simulation_window(model),
         nper=nper,
         label=label,
     )
@@ -78,11 +87,11 @@ _OUTLET_COUTTYPES = ("WEIR", "MANNING", "SPECIFIED")
 
 
 def _outlet_couttype(lake_id: str, outlet: object) -> str:
-    raw = _lake_attr(outlet, "couttype")
+    raw = _lake_attr(outlet, "kind")
     couttype = str(raw).strip().upper() if raw is not None else ""
     if couttype not in _OUTLET_COUTTYPES:
         raise ValueError(
-            f"flow.sinks_sources.lakes.{lake_id} outlet couttype must be one of "
+            f"flow.sinks_sources.lakes.{lake_id} outlet kind must be one of "
             f"{', '.join(_OUTLET_COUTTYPES)}; got {raw!r}."
         )
     return couttype
@@ -248,7 +257,7 @@ def _emit_outlet_rate_rows(
     outletno = 0
     for lake_id, definition in lakes.items():
         for outlet in definition.get("outlets") or []:
-            couttype = str(_lake_attr(outlet, "couttype") or "").strip().upper()
+            couttype = str(_lake_attr(outlet, "kind") or "").strip().upper()
             if couttype == "SPECIFIED":
                 forcing = _lake_attr(outlet, "forcing")
                 rate = _lake_attr(outlet, "rate")
@@ -278,6 +287,7 @@ def _emit_steady_stage_hold_rows(
     model,
     *,
     lake_index: int,
+    lake_id: str,
     definition: Mapping[str, Any],
     period_rows: dict[int, list[list[Any]]],
 ) -> None:
@@ -285,14 +295,29 @@ def _emit_steady_stage_hold_rows(
 
     Opt-in through ``steady_stage_hold``: a managed reservoir's observed initial
     level is rarely the natural steady equilibrium, so the warm-up equilibrates
-    the aquifer AROUND ``stageinit`` (LAK status CONSTANT) instead of solving a
+    the aquifer AROUND ``initial_stage`` (LAK status CONSTANT) instead of solving a
     free stage that would override it. The lake re-activates on the first
-    transient period and starts the chronicle exactly at ``stageinit``.
+    transient period and starts the chronicle exactly at ``initial_stage``.
+
+    Without the hold, a steady first period solves the stage freely and the
+    chronicle starts from that equilibrium. ``initial_stage`` is then only the
+    first guess of the solver, so the build says so once per lake.
     """
-    if not definition.get("steady_stage_hold"):
-        return
     steady = _steady_period_flags(model)
     if not steady or not steady[0]:
+        return
+    if not definition.get("steady_stage_hold"):
+        stage = definition.get("initial_stage")
+        if stage is not None and not getattr(model, "auxiliary", False):
+            logger.warning(
+                "Lake %r: the first period is steady and steady_stage_hold is false, so "
+                "the steady solve sets the stage and initial_stage = %s m is only its "
+                "first guess. Set flow.sinks_sources.lakes.%s.steady_stage_hold = true "
+                "to start the chronicle at initial_stage.",
+                lake_id,
+                _scalar(stage),
+                lake_id,
+            )
         return
     period_rows.setdefault(0, []).append([int(lake_index), "status", "CONSTANT"])
     first_transient = next((k for k, flag in enumerate(steady) if not flag), None)
@@ -329,6 +354,7 @@ def _emit_forcing_rows(
     use_ts6 = resolve_use_ts6(forcing, mode=mode, nper=nper, min_periods=min_periods)
     if value is not None and not use_ts6:
         si_value = float(forcing_to_si(value, forcing, location, volumetric))
+        _refuse_negative_lake_forcing(keyword, location, (si_value,))
         steady = _steady_period_flags(model)
         if keyword in _MANAGED_FORCINGS and steady and steady[0]:
             # Constant managed transfer: hold it at zero through the steady spin-up,
@@ -350,7 +376,7 @@ def _emit_forcing_rows(
 
     per_period = resolve_period_values_from_forcing(
         forcing=forcing,
-        simulation_window=None if model.time_grid is None else model.time_grid.window,
+        simulation_window=simulation_window(model),
         nper=nper,
         label=location,
     )
@@ -359,6 +385,7 @@ def _emit_forcing_rows(
         float(forcing_to_si(raw, forcing, f"{location}[{idx}]", volumetric, explicit_unit=unit))
         for idx, raw in enumerate(per_period)
     )
+    _refuse_negative_lake_forcing(keyword, location, per_period_si)
     per_period_si = _neutralize_managed_on_steady(model, keyword, per_period_si)
 
     if use_ts6:
@@ -383,6 +410,25 @@ def _emit_forcing_rows(
         if previous is None or si_value != previous:
             period_rows.setdefault(kper, []).append([int(lake_index), keyword, si_value])
             previous = si_value
+
+
+def _refuse_negative_lake_forcing(
+    keyword: str, location: str, per_period_si: tuple[float, ...]
+) -> None:
+    """Refuse a negative lake forcing before MODFLOW 6 stops on it.
+
+    The config check sees the values written in the file. This one also sees
+    the values read from a CSV or a data family.
+    """
+    if keyword not in LAKE_FORCING_SIGN_CONVENTION:
+        return
+    for kper, value in enumerate(per_period_si):
+        if value < 0.0:
+            raise SolverInputError(
+                lake_forcing_sign_refusal(
+                    keyword, value, where=f"{location}, period {kper + 1}, in SI units"
+                )
+            )
 
 
 def _ts6_series_name(lake_index: int, keyword: str) -> str:

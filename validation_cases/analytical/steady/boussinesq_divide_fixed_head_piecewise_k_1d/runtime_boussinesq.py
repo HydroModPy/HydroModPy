@@ -19,6 +19,7 @@ def run_boussinesq_divide_fixed_head_piecewise_k_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> ValidationRunResult:
     """Run the divide-fixed-head piecewise-K case through the real launcher."""
     return run_piecewise_strip_boussinesq_launcher_case(
@@ -26,8 +27,9 @@ def run_boussinesq_divide_fixed_head_piecewise_k_case(
         case_id=CASE_ID,
         caller_file=caller_file,
         timeout=timeout,
+        public_solver_label=public_solver_label,
         process_id="flow_validation",
-        simulation_name="Boussinesq divide validation",
+        simulation_name="boussinesq_divide_validation",
         simulation_description="Steady piecewise-K west-divide strip",
         initial_head_m=7.0,
         east_head_m=EAST_HEAD_M,

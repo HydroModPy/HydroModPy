@@ -1,0 +1,5 @@
+# Accessibility violations that the probe (tools/docs/site_probe.py) accepts, each
+# with the reason and the file that has to change. A rule listed here is skipped on
+# every page unless the entry names one with `page`. `target` is a substring of the
+# CSS selector axe gives for the node. Remove an entry when its cause is fixed.
+

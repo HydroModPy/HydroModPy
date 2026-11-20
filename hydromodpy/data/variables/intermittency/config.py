@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.tracking import InputFile
-from hydromodpy.data.managers.base_config import BaseVariableConfig
-from hydromodpy.data.variables.timeseries_variable_config import (
+from hydromodpy.core.tracking.input_file import InputFile
+from hydromodpy.data.families.base_config import BaseVariableConfig
+from hydromodpy.data.families.timeseries_config import (
     SparseStationFallbackMixin,
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    registered_section_source,
 )
 
 
@@ -27,17 +29,29 @@ class IntermittencySourceConfig(
     department code, project extent, or a spatial mask.
     """
 
-    source: Annotated[Literal["custom", "hubeau"], Profile.USER] = Field(
+    source: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Data provider: 'custom' for user files, 'hubeau' for Hub'Eau stream-flow API.",
+        description=(
+            "Data provider: 'custom' for user files, or the id of a source registered for the "
+            "intermittency section, such as 'hubeau' for the Hub'Eau stream-flow API."
+        ),
     )
+
+    @field_validator("source")
+    @classmethod
+    def _check_the_source_is_served_for_intermittency(cls, source: str) -> str:
+        return registered_section_source(source, "intermittency")
 
     # --- Custom source fields ---
     path: Annotated[
         Path | None,
         Profile.USER,
         InputFile(role="intermittency", category="data"),
-    ] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
+    ] = Field(
+        default=None,
+        description="Directory containing location file and chronicle CSVs.",
+        json_schema_extra=field_metadata(site_scoped=True),
+    )
 
     # --- API source fields ---
     code_departement: Annotated[list[str] | None, Profile.USER] = Field(
@@ -50,10 +64,10 @@ class IntermittencySourceConfig(
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> IntermittencySourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles)."
+                    "File source requires 'path' (directory with location + chronicles)."
                 )
         return self
 

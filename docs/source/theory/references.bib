@@ -1,11 +1,7 @@
 % HydroModPy theory bibliography.
 %
-% Entries cover: foundational hydrogeology (Boussinesq, Dupuit, Theis,
-% Hantush, Brutsaert), MODFLOW family documentation (Harbaugh, Niswonger,
-% Langevin), HydroModPy seepage-calibration paper (Abherve), and the
-% optimization libraries wrapped by the calibration backend (Bergstra,
-% Hansen, Nelder-Mead, Virtanen/SciPy, Pedregosa/scikit-learn,
-% Rasmussen-Williams, Christen-Fox).
+% Only the entries a page cites appear on the bibliography page. A new DOI is
+% resolved against Crossref before the entry is added.
 
 % --- Foundational hydrogeology ---
 
@@ -97,6 +93,39 @@
   number      = {6-A55},
   year        = {2017},
   doi         = {10.3133/tm6A55}
+}
+
+@techreport{provost2017,
+  author      = {Provost, A. M. and Langevin, C. D. and Hughes, J. D.},
+  title       = {Documentation for the {``XT3D''} option in the {Node Property Flow (NPF)} Package of {MODFLOW} 6},
+  institution = {U.S. Geological Survey},
+  type        = {Techniques and Methods},
+  number      = {6-A56},
+  year        = {2017},
+  doi         = {10.3133/tm6A56}
+}
+
+% --- Numerical closures and upscaling ---
+
+@article{marcais2017,
+  author  = {Mar\c{c}ais, J. and de Dreuzy, J.-R. and Erhel, J.},
+  title   = {Dynamic coupling of subsurface and seepage flows solved within a regularized partition formulation},
+  journal = {Advances in Water Resources},
+  volume  = {109},
+  pages   = {94--105},
+  year    = {2017},
+  doi     = {10.1016/j.advwatres.2017.09.008}
+}
+
+@article{renard1997,
+  author  = {Renard, Ph. and de Marsily, G.},
+  title   = {Calculating equivalent permeability: a review},
+  journal = {Advances in Water Resources},
+  volume  = {20},
+  number  = {5-6},
+  pages   = {253--278},
+  year    = {1997},
+  doi     = {10.1016/S0309-1708(96)00050-4}
 }
 
 % --- HydroModPy stream-network calibration ---
@@ -217,29 +246,35 @@
 }
 
 @article{floriancic2024knickpoint,
-  author  = {Floriancic, M. G. and Abherv{\'e}, R. and Bouchez, C. and Martinez, J. J. and Roques, C.},
+  author  = {Floriancic, M. G. and Abherv{\'e}, R. and Bouchez, C. and Jimenez-Martinez, J. and Roques, C.},
   title   = {Evidence of Groundwater Seepage and Mixing at the Vicinity of a Knickpoint in a Mountain Stream},
   journal = {Geophysical Research Letters},
   volume  = {51},
+  number  = {17},
+  pages   = {e2024GL111325},
   year    = {2024},
   doi     = {10.1029/2024GL111325}
 }
 
 @article{lemesnil2024coastal,
-  author  = {Le Mesnil, M. and Gauvain, A. and Gresselin, F. and Aquilina, L. and de Dreuzy, J.},
+  author  = {Le Mesnil, M. and Gauvain, A. and Gresselin, F. and Aquilina, L. and de Dreuzy, J.-R.},
   title   = {Characterizing coastal aquifer heterogeneity from a single piezometer head chronicle},
   journal = {Journal of Hydrology},
+  volume  = {642},
   pages   = {131859},
   year    = {2024},
   doi     = {10.1016/j.jhydrol.2024.131859}
 }
 
-@article{marti2024wetland,
+@article{marti2025wetland,
   author  = {Marti, E. and Leray, S. and Roques, C.},
   title   = {Catchment landforms predict groundwater-dependent wetland sensitivity to recharge changes},
-  journal = {Hydrology and Earth System Sciences Discussions},
-  year    = {2024},
-  doi     = {10.5194/HESS-2024-381}
+  journal = {Hydrology and Earth System Sciences},
+  volume  = {29},
+  number  = {20},
+  pages   = {5665--5676},
+  year    = {2025},
+  doi     = {10.5194/hess-29-5665-2025}
 }
 
 @book{anderson2015applied,
@@ -306,6 +341,17 @@
   doi     = {10.1016/j.cageo.2013.04.024},
 }
 
+@article{nobre2011hand,
+  author  = {Nobre, A. D. and Cuartas, L. A. and Hodnett, M. and Renn{\'o}, C. D. and Rodrigues, G. and Silveira, A. and Waterloo, M. and Saleska, S.},
+  title   = {Height {A}bove the {N}earest {D}rainage -- a hydrologically relevant new terrain model},
+  journal = {Journal of Hydrology},
+  volume  = {404},
+  number  = {1--2},
+  pages   = {13--29},
+  year    = {2011},
+  doi     = {10.1016/j.jhydrol.2011.03.051},
+}
+
 @article{ng2018gsflowgrass,
   author  = {Ng, Gene-Hua Crystal and Wickert, Andrew D. and Somers, Lauren D. and Saberi, Leila and Cronkite-Ratcliff, Collin and Niswonger, Richard G. and McKenzie, Jeffrey M.},
   title   = {GSFLOW-GRASS v1.0.0: GIS-enabled hydrologic modeling of coupled groundwater-surface-water systems},
@@ -356,4 +402,261 @@
   pages   = {1463--1486},
   year    = {2025},
   doi     = {10.5194/gmd-18-1463-2025},
+}
+
+@article{zimmer2020zeroflow,
+  author  = {Zimmer, Margaret A. and others},
+  title   = {Zero or not? Causes and consequences of zero-flow stream gage readings},
+  journal = {WIREs Water},
+  volume  = {7},
+  number  = {3},
+  year    = {2020},
+  doi     = {10.1002/wat2.1436},
+}
+
+@article{zanetti2024nonperennial,
+  author  = {Zanetti, Filippo and Durighetto, Nicola and Vingiani, Filippo and Botter, Gianluca},
+  title   = {Stream Network Dynamics of Non-Perennial Rivers: Insights From Integrated
+             Surface-Subsurface Hydrological Modeling of Two Virtual Catchments},
+  journal = {Water Resources Research},
+  volume  = {60},
+  number  = {6},
+  year    = {2024},
+  doi     = {10.1029/2023WR035631},
+}
+
+@techreport{allen1998,
+  author      = {Allen, Richard G. and Pereira, Luis S. and Raes, Dirk and Smith, Martin},
+  title       = {Crop evapotranspiration: guidelines for computing crop water requirements},
+  institution = {Food and Agriculture Organization of the United Nations},
+  address     = {Rome},
+  type        = {FAO Irrigation and Drainage Paper},
+  number      = {56},
+  year        = {1998},
+}
+
+@book{chow1988,
+  author    = {Chow, Ven Te and Maidment, David R. and Mays, Larry W.},
+  title     = {Applied Hydrology},
+  publisher = {McGraw-Hill},
+  address   = {New York},
+  year      = {1988},
+}
+
+@techreport{thornthwaite1957,
+  author      = {Thornthwaite, C. W. and Mather, J. R.},
+  title       = {Instructions and tables for computing potential evapotranspiration
+                 and the water balance},
+  institution = {Drexel Institute of Technology},
+  type        = {Publications in Climatology},
+  number      = {10(3)},
+  year        = {1957},
+  url         = {https://udspace.udel.edu/handle/19716/35598},
+}
+
+@article{manabe1969,
+  author  = {Manabe, Syukuro},
+  title   = {Climate and the ocean circulation: {I}. The atmospheric circulation and
+             the hydrology of the earth's surface},
+  journal = {Monthly Weather Review},
+  volume  = {97},
+  number  = {11},
+  pages   = {739--774},
+  year    = {1969},
+  doi     = {10.1175/1520-0493(1969)097<0739:CATOC>2.3.CO;2},
+}
+
+@techreport{westenbroek2018,
+  author      = {Westenbroek, Stephen M. and Engott, John A. and Kelson, Victor A.
+                 and Hunt, Randall J.},
+  title       = {{SWB} Version 2.0: A soil-water-balance code for estimating net
+                 infiltration and other water-budget components},
+  institution = {U.S. Geological Survey},
+  type        = {Techniques and Methods},
+  number      = {6-A59},
+  year        = {2018},
+  doi         = {10.3133/tm6A59},
+}
+
+@techreport{markstrom2008,
+  author      = {Markstrom, Steven L. and Niswonger, Richard G. and Regan, R. Steven
+                 and Prudic, David E. and Barlow, Paul M.},
+  title       = {{GSFLOW}: Coupled ground-water and surface-water flow model based on the
+                 integration of the {P}recipitation-{R}unoff {M}odeling {S}ystem ({PRMS})
+                 and the {M}odular {G}round-{W}ater {F}low {M}odel ({MODFLOW-2005})},
+  institution = {U.S. Geological Survey},
+  type        = {Techniques and Methods},
+  number      = {6-D1},
+  year        = {2008},
+  doi         = {10.3133/tm6D1},
+}
+
+@article{ireson2013,
+  author  = {Ireson, A. M. and Butler, A. P.},
+  title   = {A critical assessment of simple recharge models: application to the {UK}
+             {C}halk},
+  journal = {Hydrology and Earth System Sciences},
+  volume  = {17},
+  number  = {6},
+  pages   = {2083--2096},
+  year    = {2013},
+  doi     = {10.5194/hess-17-2083-2013},
+}
+
+@article{moore2007,
+  author  = {Moore, R. J.},
+  title   = {The {PDM} rainfall-runoff model},
+  journal = {Hydrology and Earth System Sciences},
+  volume  = {11},
+  number  = {1},
+  pages   = {483--499},
+  year    = {2007},
+  doi     = {10.5194/hess-11-483-2007},
+}
+
+@article{lemoigne2020,
+  author  = {Le Moigne, Patrick and Besson, Fran\c{c}ois and Martin, Eric and Boé, Julien
+             and Boone, Aaron and Decharme, Bertrand and Etchevers, Pierre and
+             Faroux, Stéphanie and Habets, Florence and Lafaysse, Matthieu and
+             Leroux, Delphine and Rousset-Regimbeau, Fabienne},
+  title   = {The latest improvements with {SURFEX} v8.0 of the {S}afran-{I}sba-{M}odcou
+             hydrometeorological model for {F}rance},
+  journal = {Geoscientific Model Development},
+  volume  = {13},
+  number  = {9},
+  pages   = {3925--3946},
+  year    = {2020},
+  doi     = {10.5194/gmd-13-3925-2020},
+}
+
+@techreport{nrcs2004,
+  author      = {{USDA Natural Resources Conservation Service}},
+  title       = {National Engineering Handbook, Part 630 Hydrology, Chapter 10:
+                 Estimation of direct runoff from storm rainfall},
+  institution = {U.S. Department of Agriculture},
+  year        = {2004},
+  number      = {210-VI-NEH},
+}
+
+@inproceedings{hawkins2002,
+  author    = {Hawkins, Richard H. and Jiang, Ruiyun and Woodward, Donald E. and
+               Hjelmfelt, Allen T. and Van Mullem, Joseph A.},
+  title     = {Runoff curve number method: examination of the initial abstraction ratio},
+  booktitle = {Proceedings of the Second Federal Interagency Hydrologic Modeling Conference},
+  year      = {2002},
+  url       = {https://ponce.sdsu.edu/hawkins_initial_abstraction.pdf},
+}
+
+@techreport{dewandel2020,
+  author      = {Dewandel, B. and others},
+  title       = {Projet de recherche {MORPHEUS}: {M}éth{O}dologie de {R}égionalisation des
+                 {P}ropriétés {H}ydrog{E}ologiques des aq{U}ifères de {S}ocle},
+  institution = {BRGM},
+  number      = {RP-69431-FR},
+  year        = {2020},
+  url         = {http://infoterre.brgm.fr/rapports//RP-69431-FR.pdf},
+}
+
+@misc{berthier2013,
+  author       = {Berthier, Lionel},
+  title        = {Présentation {S}ols de {B}retagne},
+  howpublished = {IGCS seminar, 11 December 2013},
+  year         = {2013},
+  url          = {https://gissol.hub.inrae.fr/content/download/409/3858?version=1},
+}
+
+@techreport{schroeder1994,
+  author      = {Schroeder, Paul R. and others},
+  title       = {The Hydrologic Evaluation of Landfill Performance ({HELP}) Model:
+                 Engineering Documentation for Version 3},
+  institution = {U.S. Environmental Protection Agency},
+  number      = {EPA/600/R-94/168b},
+  year        = {1994},
+}
+
+@techreport{neitsch2011,
+  author      = {Neitsch, Susan L. and Arnold, Jeffrey G. and Kiniry, James R.
+                 and Williams, Jimmy R.},
+  title       = {Soil and Water Assessment Tool Theoretical Documentation,
+                 Version 2009},
+  institution = {Texas Water Resources Institute},
+  number      = {TR-406},
+  year        = {2011},
+}
+
+@article{seibert2012,
+  author  = {Seibert, Jan and Vis, Marc J. P.},
+  title   = {Teaching hydrological modeling with a user-friendly catchment-runoff-model
+             software package},
+  journal = {Hydrology and Earth System Sciences},
+  volume  = {16},
+  number  = {9},
+  pages   = {3315--3325},
+  year    = {2012},
+  doi     = {10.5194/hess-16-3315-2012},
+}
+
+% --- MODFLOW 6 framework, mover, routing and meshing ---
+
+@techreport{hughes2017framework,
+  author      = {Hughes, J. D. and Langevin, C. D. and Banta, E. R.},
+  title       = {Documentation for the {MODFLOW} 6 framework},
+  institution = {U.S. Geological Survey},
+  type        = {Techniques and Methods},
+  number      = {6-A57},
+  year        = {2017},
+  doi         = {10.3133/tm6A57}
+}
+
+@article{morway2021mvr,
+  author  = {Morway, E. D. and Langevin, C. D. and Hughes, J. D.},
+  title   = {Use of the {MODFLOW} 6 Water Mover Package to Represent Natural and Managed Hydrologic Connections},
+  journal = {Groundwater},
+  volume  = {59},
+  number  = {6},
+  pages   = {913--924},
+  year    = {2021},
+  doi     = {10.1111/gwat.13117}
+}
+
+@article{ocallaghan1984,
+  author  = {O'Callaghan, J. F. and Mark, D. M.},
+  title   = {The extraction of drainage networks from digital elevation data},
+  journal = {Computer Vision, Graphics, and Image Processing},
+  volume  = {28},
+  number  = {3},
+  pages   = {323--344},
+  year    = {1984},
+  doi     = {10.1016/S0734-189X(84)80011-0}
+}
+
+@article{geuzaine2009gmsh,
+  author  = {Geuzaine, C. and Remacle, J.-F.},
+  title   = {Gmsh: A 3-D finite element mesh generator with built-in pre- and post-processing facilities},
+  journal = {International Journal for Numerical Methods in Engineering},
+  volume  = {79},
+  number  = {11},
+  pages   = {1309--1331},
+  year    = {2009},
+  doi     = {10.1002/nme.2579}
+}
+
+@techreport{langevin2022gwt,
+  author      = {Langevin, C. D. and Provost, A. M. and Panday, S. and Hughes, J. D.},
+  title       = {Documentation for the {MODFLOW} 6 Groundwater Transport Model},
+  institution = {U.S. Geological Survey},
+  type        = {Techniques and Methods},
+  number      = {6-A61},
+  year        = {2022},
+  doi         = {10.3133/tm6A61}
+}
+
+@article{berge2019voronoi,
+  author  = {Berge, R. L. and Klemetsdal, {\O}. S. and Lie, K.-A.},
+  title   = {Unstructured {V}oronoi grids conforming to lower-dimensional objects},
+  journal = {Computational Geosciences},
+  volume  = {23},
+  pages   = {169--188},
+  year    = {2019},
+  doi     = {10.1007/s10596-018-9790-0}
 }

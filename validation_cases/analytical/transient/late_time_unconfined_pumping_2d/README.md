@@ -20,6 +20,11 @@ Reference model:
   `T = K * href` and `S = Sy`,
 - early delayed-yield effects are excluded from the comparison window.
 
+On a mesh, the reference is read where the model computes: at the center of
+the cell each monitor point reads, with the well at the center of the cell
+that holds it. The `boussinesq` and `boussinesq_local` variants run on 71 x 71
+squares split into 10082 triangles, the cell area of the MODFLOW grid.
+
 This is not a full Neuman solution. It is a lightweight validation of:
 
 - transient well forcing,
@@ -31,3 +36,19 @@ Run manually:
 ```powershell
 python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case
 ```
+
+Reference used by the documentation:
+
+- reference: Theis well function at late time with `T = K * href` and `S = Sy`, early delayed-yield effects left out
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+s(r,t)=\frac{Q}{4\pi T}E_1(u)
+$$
+
+$$
+u=\frac{r^2S}{4Tt},\qquad T=K\,h_{\mathrm{ref}},\qquad S=S_y
+$$

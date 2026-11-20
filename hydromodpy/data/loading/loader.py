@@ -1,9 +1,13 @@
 """Runtime data loading orchestrator driven by a resolved data plan.
 
 This module centralizes launcher data-phase loading logic so that the launcher
-stays focused on orchestration order. It exposes :class:`DataManagersRuntimeLoader`
-for stateful orchestration and :func:`load_variable` as a thin pure helper for
-per-variable dispatch.
+stays focused on orchestration order. It exposes :class:`DataLoader`,
+and that is the whole surface: a second, module-level ``load_variable`` used to
+sit at the bottom as "a thin pure helper for per-variable dispatch", with no
+importer anywhere in the tree and its own divergent copy of the dem / geology /
+hydrography branch. It was the last caller that passed ``geographic`` to a
+raster variable without first filling ``mask_path`` in, and it went with that
+parameter rather than being repaired.
 """
 
 from __future__ import annotations
@@ -14,16 +18,24 @@ from datetime import datetime as dt
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
+from hydromodpy.core.exceptions import (
+    ConfigError,
+    ConfigMissingError,
+    DataError,
+    HydroModPyError,
+)
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time import resolve_simulation_time_window_dates
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR, WorkspacePathRegistry
+from hydromodpy.core.runtime.bounds import Bounds
+from hydromodpy.core.state.scratch import preprocessing_dir
+from hydromodpy.core.time.window import resolve_simulation_time_window_dates
+from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, VariableSpec
+from hydromodpy.data.loading.plan import DataLoadPlan
 from hydromodpy.data.loading.store import DataStore
-from hydromodpy.data.managers.plan import DataLoadPlan
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.data.provenance.lockfile import LockedInputs
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -32,34 +44,40 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class DataManagersRuntimeLoader:
-    """Load data products for the resolved active manager families.
+class DataLoader:
+    """Load data products for the resolved active variable families.
 
-    The loader owns the shared DuckDB data catalog, resolves each configured
-    variable section, applies the simulation time window when relevant, and
-    stores loaded products on the workflow context.
+    The loader holds one :class:`DataStore` on the data folder of the run,
+    built with the ``locked`` lockfile when the run is frozen,
+    resolves each configured variable section, applies the simulation time
+    window when relevant, and stores loaded products on the workflow context.
     """
 
-    def __init__(self, *, config_path: str | Path, data_plan: DataLoadPlan) -> None:
+    def __init__(
+        self,
+        *,
+        config_path: str | Path,
+        data_plan: DataLoadPlan,
+        bounds: Any = None,
+        locked: LockedInputs | None = None,
+    ) -> None:
         self.config_path = Path(config_path).resolve()
         self.data_plan = data_plan
-        self._catalog: DataCatalogDuckDB | None = None
-        self._cache_root: Path | None = None
+        self.locked = locked
+        self.bounds = bounds if bounds is not None else Bounds()
         self._store: DataStore | None = None
 
-    def _init_catalog(self, workspace_paths: WorkspacePathRegistry) -> None:
-        """Lazily create the shared DataCatalogDuckDB backed by ``data/cache.duckdb``."""
-        if self._catalog is not None:
-            if self._store is None:
-                self._store = DataStore(catalog=self._catalog, data_root=self._cache_root)
+    def _init_store(self, workspace_paths: WorkspacePathRegistry) -> None:
+        """Create the store on the data folder of the run, once."""
+        if self._store is not None:
             return
-        self._cache_root = workspace_paths.data_dir
-        self._cache_root.mkdir(parents=True, exist_ok=True)
-        self._catalog = DataCatalogDuckDB(self._cache_root / "cache.duckdb")
+        data_root = workspace_paths.data_dir
+        data_root.mkdir(parents=True, exist_ok=True)
         self._store = DataStore(
-            catalog=self._catalog,
-            data_root=self._cache_root,
+            data_root=data_root,
             workspace_root=workspace_paths.root,
+            bounds=self.bounds,
+            locked=self.locked,
         )
 
     def _require_store(self) -> DataStore:
@@ -74,9 +92,9 @@ class DataManagersRuntimeLoader:
         try:
             workspace_paths = self._workspace_paths(result)
         except (AttributeError, ValueError):
-            self._store = DataStore(catalog=self._catalog)
+            self._store = DataStore(bounds=self.bounds, locked=self.locked)
             return
-        self._init_catalog(workspace_paths)
+        self._init_store(workspace_paths)
 
     @classmethod
     def known_variables(cls) -> set[str]:
@@ -84,15 +102,20 @@ class DataManagersRuntimeLoader:
         return set(VARIABLE_SPECS)
 
     def load_all(self, result: WorkflowContext) -> None:
-        """Load active data-manager families into ``result``.
+        """Load active data variable families into ``result``.
 
         Sequential types (dem, geology, hydrography) are loaded first in
         order, then the remaining independent types (observation + climatic).
-        Everything runs sequentially: the shared DuckDB catalog connection is
-        not thread-safe, so a thread pool would corrupt result sets.
+        Everything runs sequentially: the store holds one in-memory index of the
+        data cache, and two writers of one station would meet at its file lock.
+
+        A variable that cannot be loaded stops the run with a typed error,
+        whatever its family. Only a type the planner inferred, under
+        ``data.inference_mode = "warn"``, is dropped, with a warning that
+        names it.
         """
         workspace_paths = self._workspace_paths(result)
-        self._init_catalog(workspace_paths)
+        self._init_store(workspace_paths)
 
         sequential = []
         independent = []
@@ -103,25 +126,22 @@ class DataManagersRuntimeLoader:
             else:
                 independent.append(type_name)
 
-        # Phase 1: sequential types (dependency order preserved).
-        for type_name in sequential:
-            self._load_single(result, type_name)
-
-        # Phase 2: independent types. The shared DuckDB catalog connection
-        # is not thread-safe (single internal cursor); concurrent loaders
-        # corrupt one another's result sets, e.g. dropping the runoff
-        # series mid-fetch with "Invalid Input Error: No open result set".
-        # Loading the rest sequentially is the simplest correct fix and
-        # the speed cost is negligible (only a handful of data managers
-        # per project, each < 1 s).
-        for type_name in independent:
-            try:
+        with progress.task("Data families", total=len(sequential) + len(independent)) as bar:
+            # Phase 1: sequential types (dependency order preserved).
+            for type_name in sequential:
                 self._load_single(result, type_name)
-            except Exception as exc:
-                logger.error("Load of '%s' failed: %s", type_name, exc)
+                bar.advance()
+
+            # Phase 2: independent types, loaded one after the other (a handful
+            # of variables per project, each under a second). A failure here stops the run as it
+            # does for the first phase: a run that goes on without its gauge
+            # or its forcing, and exits 0, is a wrong result nobody sees.
+            for type_name in independent:
+                self._load_single(result, type_name)
+                bar.advance()
 
     def _load_single(self, result: WorkflowContext, type_name: str) -> None:
-        """Load a single data-manager type."""
+        """Load a single data variable."""
         spec = VARIABLE_SPECS.get(type_name)
         if spec is None:
             logger.warning("Unsupported data type '%s' in plan.", type_name)
@@ -141,7 +161,7 @@ class DataManagersRuntimeLoader:
         1. Fetch the ``[data.<variable>]`` section, bail out if absent.
         2. Apply the simulation time window (unless the spec opts out).
         3. Validate the config, resolve period/masks.
-        4. Instantiate the manager and stash the result on ``loaded_data``.
+        4. Instantiate the variable and stash the result on ``loaded_data``.
         5. Run an optional post-load export hook (intermittency).
         """
         self._ensure_store(result)
@@ -168,14 +188,11 @@ class DataManagersRuntimeLoader:
             period = self._resolve_period_for_spec(cfg, spec, result)
             self._apply_default_masks(cfg, result)
 
-            extra_kwargs = {}
-            if variable == "oceanic":
-                extra_kwargs["geographic"] = result.setup.geographic
             export_dir = None
             if spec.export_stable_subdir:
                 workspace_paths = self._workspace_paths(result)
                 export_dir = (
-                    workspace_paths.project_root / PREPROCESSING_DIR / spec.export_stable_subdir
+                    preprocessing_dir(workspace_paths.project_root) / spec.export_stable_subdir
                 )
 
             load_result = self._require_store().load_variable(
@@ -184,7 +201,6 @@ class DataManagersRuntimeLoader:
                 project_period=period,
                 project_extent=None,
                 export_dir=export_dir,
-                **extra_kwargs,
             )
             setattr(result.loaded_data, variable, load_result)
         except Exception as exc:
@@ -192,14 +208,28 @@ class DataManagersRuntimeLoader:
 
     @staticmethod
     def _apply_default_masks(cfg: Any, result: WorkflowContext) -> None:
+        """Fill every ``mask_path`` the model declares from the delineated watershed.
+
+        A section declares one when the extent is a property of the request and
+        not of a source -- hydrography concatenates its sources before clipping
+        once. Everything else declares it per source.
+        """
         geographic = result.setup.geographic
         if geographic is None:
             return
+        watershed_shp = getattr(geographic, "watershed_shp", None)
+        if not watershed_shp:
+            return
+        watershed = Path(watershed_shp)
+        if "mask_path" in getattr(type(cfg), "model_fields", {}) and not getattr(
+            cfg, "mask_path", None
+        ):
+            cfg.mask_path = watershed
         for src in getattr(cfg, "sources", ()):
             if "mask_path" not in getattr(type(src), "model_fields", {}):
                 continue
             if not getattr(src, "mask_path", None):
-                src.mask_path = Path(geographic.watershed_shp)
+                src.mask_path = watershed
 
     def _resolve_period_for_spec(
         self,
@@ -228,7 +258,7 @@ class DataManagersRuntimeLoader:
         return None
 
     def _load_dem_data(self, result: WorkflowContext) -> None:
-        """Load DEM data via DemManager."""
+        """Load DEM data via DemVariable."""
         self._ensure_store(result)
         from hydromodpy.data.variables.dem.config import DemConfig
 
@@ -250,16 +280,16 @@ class DataManagersRuntimeLoader:
 
             result.loaded_data.dem = self._require_store().load_dem(
                 dem_cfg,
-                geographic=result.setup.geographic,
                 project_extent=None,
             )
         except Exception as exc:
             self._handle_data_loading_error(result, "dem", exc)
 
     def _load_geology_data(self, result: WorkflowContext) -> None:
-        """Load geology data via GeologyManager, then build GeologyField."""
+        """Load geology data via GeologyVariable, then build GeologyField."""
         self._ensure_store(result)
         from hydromodpy.data.variables.geology.config import GeologyConfig
+        from hydromodpy.data.variables.geology.field import build_geology_field
 
         raw_section = self._get_data_section(result, "geology")
         if raw_section is None:
@@ -275,19 +305,19 @@ class DataManagersRuntimeLoader:
         try:
             geology_cfg = GeologyConfig.model_validate(raw_section)
 
+            geographic = result.setup.geographic
             for src in geology_cfg.sources:
-                if not src.mask_path and result.setup.geographic is not None:
-                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+                if not src.mask_path and geographic is not None:
+                    src.mask_path = self._geology_request_mask(geographic)
 
             load_result = self._require_store().load_geology(
                 geology_cfg,
-                geographic=result.setup.geographic,
                 project_extent=None,
             )
 
             if load_result.fields:
                 field_record = load_result.fields[0]
-                geology_field = self._build_geology_field_from_record(
+                geology_field = build_geology_field(
                     field_record,
                     geology_cfg=geology_cfg,
                     raster_support=raster_support,
@@ -297,85 +327,26 @@ class DataManagersRuntimeLoader:
                 self._handle_data_loading_error(
                     result,
                     "geology",
-                    ValueError("GeologyManager returned no field records"),
+                    ValueError("GeologyVariable returned no field records"),
                 )
         except Exception as exc:
             self._handle_data_loading_error(result, "geology", exc)
 
     @staticmethod
-    def _build_geology_field_from_record(
-        field_record,
-        *,
-        geology_cfg,
-        raster_support,
-    ):
-        """Build a GeologyField from a FieldRecord (GeoPackage or raster)."""
-        from hydromodpy.data.variables.geology.config import (
-            validate_geology_config_data,
-        )
-        from hydromodpy.data.variables.geology.io import (
-            infer_source_kind,
-            load_geology_encoded_grid,
-            load_geology_encoded_grid_on_raster_support,
-        )
-        from hydromodpy.spatial.field.geology.geology_field import GeologyField
+    def _geology_request_mask(geographic) -> Path:
+        """Return the file whose extent the geology request must cover.
 
-        data_path = field_record.data
-        if isinstance(data_path, Path):
-            data_path = str(data_path)
-        else:
-            data_path = str(data_path)
-
-        # BRGM data always uses CODE_LEG; custom sources carry their own code_field.
-        source_name = getattr(field_record, "source", "")
-        if source_name in ("brgm_1m", "brgm_50k"):
-            code_field = "CODE_LEG"
-        else:
-            code_field = "CODE_LEG"
-            for src in getattr(geology_cfg, "sources", []):
-                if getattr(src, "source", "") == "custom" and getattr(src, "code_field", None):
-                    code_field = src.code_field
-                    break
-        source_kind = infer_source_kind(data_path)
-
-        cfg_dict = {
-            "id": str(geology_cfg.id),
-            "source": {
-                "path": data_path,
-                "kind": source_kind,
-                "code_field": code_field,
-                "all_touched": False,
-            },
-            "cell_samples_per_axis": int(geology_cfg.cell_samples_per_axis),
-        }
-
-        if raster_support is not None and source_kind == "vector":
-            cfg_dict["source"]["reference_raster_path"] = data_path
-            cfg = validate_geology_config_data(cfg_dict)
-            loaded = load_geology_encoded_grid_on_raster_support(
-                cfg,
-                raster_support=raster_support,
-            )
-        else:
-            if source_kind == "vector":
-                cfg_dict["source"]["reference_raster_path"] = data_path
-            cfg = validate_geology_config_data(cfg_dict)
-            loaded = load_geology_encoded_grid(cfg)
-
-        field = GeologyField(
-            identifier=str(geology_cfg.id),
-            encoded_codes=loaded["encoded_codes"],
-            encoded_to_zone=loaded["encoded_to_zone"],
-            transform=loaded["transform"],
-            crs=loaded["crs"],
-            source_kind=str(loaded["source_kind"]),
-            default_cell_samples_per_axis=int(geology_cfg.cell_samples_per_axis),
-        )
-        # Expose the cached source path so the overview report can re-open
-        # the original vector file for map rendering. The overview panel
-        # looks for one of `source_path`, `geol_file`, `vector_source`.
-        field.source_path = data_path
-        return field
+        Geology feeds a heterogeneous parameter on every active cell, and the
+        active domain is the buffered box by default (``domain_extent='box'``).
+        The watershed polygon is smaller by the buffer, so a request clipped to
+        it leaves a frame of cells that no zone covers, where K comes out 0.
+        The buffered-box DEM contains every domain extent, so it is asked for.
+        The watershed polygon stays the fallback when that DEM is absent.
+        """
+        box_dem = getattr(geographic, "watershed_box_buff_dem", None)
+        if box_dem and Path(str(box_dem)).exists():
+            return Path(str(box_dem))
+        return Path(geographic.watershed_shp)
 
     @staticmethod
     def _resolve_geology_raster_support(result: WorkflowContext) -> Any:
@@ -413,12 +384,16 @@ class DataManagersRuntimeLoader:
 
         try:
             hydro_cfg = HydrographyConfig.model_validate(raw_section)
+            self._apply_default_masks(hydro_cfg, result)
             workspace_paths = self._workspace_paths(result)
+            geographic = result.setup.geographic
             result.loaded_data.hydrography = self._require_store().load_hydrography(
                 hydro_cfg,
-                geographic=result.setup.geographic,
                 out_path=workspace_paths.project_root,
-                stable_folder=workspace_paths.project_root / PREPROCESSING_DIR,
+                base_raster=(
+                    None if geographic is None else getattr(geographic, "watershed_dem", None)
+                ),
+                stable_folder=preprocessing_dir(workspace_paths.project_root),
             )
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrography", exc)
@@ -429,10 +404,10 @@ class DataManagersRuntimeLoader:
         type_name: str,
         detail: str,
     ) -> None:
-        message = f"Data manager '{type_name}' is active but {detail}."
+        message = f"Data variable '{type_name}' is active but {detail}."
         if self._is_required_data_type(result, type_name):
-            raise ValueError(message)
-        logger.warning("%s", message)
+            raise ConfigMissingError(message)
+        logger.warning("%s The run goes on without '%s'.", message, type_name)
 
     def _handle_data_loading_error(
         self,
@@ -440,10 +415,10 @@ class DataManagersRuntimeLoader:
         type_name: str,
         exc: Exception,
     ) -> None:
-        message = f"Failed to load data manager '{type_name}': {exc}"
+        message = f"Failed to load data variable '{type_name}': {exc}"
         if self._is_required_data_type(result, type_name):
-            raise ValueError(message) from exc
-        logger.warning("%s", message)
+            raise _typed_load_failure(message, exc) from exc
+        logger.warning("%s The run goes on without '%s'.", message, type_name)
         existing = getattr(result.loaded_data, type_name, None)
         if existing is not None and hasattr(existing, "warnings"):
             existing.warnings.append(message)
@@ -494,12 +469,6 @@ class DataManagersRuntimeLoader:
             return
         section["date_start"], section["date_end"] = simulation_dates
 
-    def _resolve_path_like(self, value: Any) -> Path:
-        path = Path(str(value)).expanduser()
-        if not path.is_absolute():
-            path = (self.config_path.parent / path).resolve()
-        return path
-
     def _workspace_paths(self, result: WorkflowContext) -> WorkspacePathRegistry:
         workspace = result.setup.workspace
         if workspace is None:
@@ -507,23 +476,6 @@ class DataManagersRuntimeLoader:
         if hasattr(workspace, "paths"):
             return workspace.paths
         return WorkspacePathRegistry.from_config(result.cfg.workspace)
-
-    def _resolve_manager_input_path(
-        self,
-        *,
-        section: Mapping[str, Any] | None,
-        keys: tuple[str, ...],
-        default_root: Path | None,
-    ) -> Path | None:
-        """Resolve one manager input path with section-override precedence."""
-        if section is not None:
-            for key in keys:
-                raw_value = section.get(key)
-                if isinstance(raw_value, str) and raw_value.strip():
-                    return self._resolve_path_like(raw_value)
-        if default_root is None:
-            return None
-        return Path(default_root)
 
     @staticmethod
     def _as_string_list(value: Any) -> list[str]:
@@ -542,39 +494,21 @@ class DataManagersRuntimeLoader:
         return []
 
 
-def load_variable(
-    variable_name: str,
-    *,
-    catalog: DataCatalogDuckDB,
-    config: Any,
-    context: Any,
-) -> Any:
-    """Load one resolved variable config through DataStore."""
-    spec = VARIABLE_SPECS.get(variable_name)
-    if spec is None:
-        raise KeyError(f"Unknown variable: {variable_name!r}")
+def _typed_load_failure(message: str, exc: Exception) -> Exception:
+    """Return the error that stops a run whose variable could not be loaded.
 
-    workspace_paths = None
-    workspace = getattr(getattr(context, "setup", None), "workspace", None)
-    if workspace is not None and hasattr(workspace, "paths"):
-        workspace_paths = workspace.paths
-    data_root = getattr(workspace_paths, "data_dir", None)
-    store = DataStore(catalog=catalog, data_root=data_root)
-
-    geographic = getattr(getattr(context, "setup", None), "geographic", None)
-    if variable_name == "dem":
-        return store.load_dem(config, geographic=geographic)
-    if variable_name == "geology":
-        return store.load_geology(config, geographic=geographic)
-    if variable_name == "hydrography":
-        if workspace_paths is None:
-            raise ValueError("Hydrography loading requires workspace paths.")
-        return store.load_hydrography(
-            config,
-            geographic=geographic,
-            out_path=workspace_paths.project_root,
-            stable_folder=workspace_paths.project_root / PREPROCESSING_DIR,
-        )
-    if variable_name == "oceanic":
-        return store.load_oceanic(config, geographic=geographic)
-    return store.load_variable(variable_name, config)
+    The class keeps the category of the cause, so the exit code says what went
+    wrong: a missing file, a refused config, a source or cache failure. A cause
+    with no category of its own becomes a :class:`DataError`.
+    """
+    if isinstance(exc, FileNotFoundError):
+        return FileNotFoundError(message)
+    if isinstance(exc, ValidationError):
+        return ConfigError(message)
+    if isinstance(exc, HydroModPyError):
+        try:
+            return type(exc)(message)
+        except TypeError:
+            # A class whose constructor needs more than a message.
+            return ConfigError(message) if isinstance(exc, ConfigError) else DataError(message)
+    return DataError(message)

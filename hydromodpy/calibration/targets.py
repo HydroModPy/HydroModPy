@@ -5,16 +5,21 @@ writing one required knowing the Pydantic tree by heart. The question a
 hydrogeologist asks runs the other way: what does THIS model carry that a search
 could move, what is it worth now, and in what unit.
 
-The catalogue answers from the resolved configuration rather than from a
+The catalog answers from the resolved configuration rather than from a
 hand-written inventory. A list typed by hand is an assertion about the code that
 nothing keeps true; walking the configuration that the run itself validated
 cannot drift from it, and it names the boundaries and parameters this project
 actually declares instead of everything the schema could hold.
 
+Each target also carries the name a TOML writes to reach it, so a file names a
+quantity instead of an address into the Pydantic tree. The name is derived here
+and nowhere else, from the entries the walk crosses and from what the field
+itself declares.
+
 What is left out is deliberate. A boolean is a switch, not a value to search
-between two bounds. An index, a count and an identifier are not physical
-quantities. A field the user profile does not show is a knob of the numerical
-scheme, and searching over a substep count optimises the solver rather than the
+between two bounds. An index, a count, a coordinate and an identifier are not
+physical quantities. A field the user profile does not show is a knob of the numerical
+scheme, and searching over a substep count optimizes the solver rather than the
 model. The mesh is refused by :mod:`hydromodpy.calibration.optim.parameters` for
 its own reasons and is not offered here either.
 """
@@ -22,48 +27,62 @@ its own reasons and is not offered here either.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from numbers import Real
 from typing import Any
 
 from pydantic import BaseModel
 
+from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.spatial.field.core.physical_bounds import PHYSICAL_BOUNDS
+from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS
+from hydromodpy.model.properties.property_table import PROPERTIES
+from hydromodpy.solver.base.registry import solvers
 
-WALKED_SECTIONS: tuple[str, ...] = ("flow",)
-"""Configuration sections the catalogue walks.
+WALKED_SECTIONS: tuple[str, ...] = ("flow", "domain.depth_model")
+"""Configuration sections the catalog walks.
 
 Flow carries the hydraulic properties, the boundaries and the sinks and sources,
-which is what a groundwater calibration moves. Transport joins this list the day
-its solutes are calibrated the same way.
+which is what a groundwater calibration moves. The depth model carries the
+aquifer geometry: the thickness of a ``constant_thickness`` model, the elevation
+of a ``flat_substratum`` one. Only the model the project declares is walked, so
+only its own field is listed. A raster depth model declares nothing searchable:
+it is a map, not one number. Transport joins this list the day its solutes are
+calibrated the same way.
 """
 
-NON_PHYSICAL_FIELDS: frozenset[str] = frozenset(
-    {
-        "id",
-        "layer",
-        "row",
-        "col",
-        "cell_id",
-        "nper",
-        "nlay",
-        "iface",
-        "boundnames",
-        "substeps_per_period",
-        "seed",
-        "verbose",
-        "listunit",
-        "maxiterout",
-        "iprnwt",
-        "ibotav",
-        "linmeth",
-        "backflag",
-        "itmuni",
-    }
-)
-"""Leaf names that are numeric without being a physical quantity."""
+NAMED_BY_THEIR_FIELD: tuple[str, ...] = ("domain.depth_model",)
+"""Sections whose targets are named by their field alone, plus the options table
+of the backend that runs (``solver.<backend_name>``).
+
+A project has one depth model, and its fields already say the quantity:
+``thickness`` reads better than ``depth_model.thickness`` and cannot mean
+anything else. An options table is expert by nature, and a field of it carries
+its own ``Calibrable``, so the walk keeps what it declares and names it by its
+field. A collision with another target still falls back to the long form, like
+any other shared spelling.
+"""
+
+_REGISTRY_ID_BY_PATH: dict[str, str] = {
+    "domain.depth_model.substratum_elevation": "elevation",
+    "flow.sinks_sources.recharge.soil.ru": "soil_ru",
+    "flow.sinks_sources.recharge.soil.alpha": "soil_alpha",
+    "flow.sinks_sources.recharge.soil.kc": "soil_kc",
+    "flow.sinks_sources.recharge.soil.bypass_fraction": "soil_bypass_fraction",
+    "flow.sinks_sources.recharge.soil.transit_time": "soil_transit_time",
+    "flow.sinks_sources.recharge.soil.impervious_fraction": "soil_impervious_fraction",
+    "flow.sinks_sources.recharge.soil.curve_number": "soil_curve_number",
+    "flow.sinks_sources.recharge.soil.runoff_time": "soil_runoff_time",
+    "flow.sinks_sources.recharge.soil.runoff_lag": "soil_runoff_lag",
+}
+"""Targets whose physical range is read under a key their path does not spell.
+
+The registry knows an ``elevation``, and the field is named after what it is
+the elevation of. Stated here rather than guessed from a suffix, which would
+hand ``hydchr_unit`` whatever ``unit`` might one day mean.
+"""
 
 
 @dataclass(frozen=True)
@@ -74,66 +93,208 @@ class CalibrationTarget:
     """Dotted path to write in ``[calibration.parameters.<name>].path``."""
 
     instance: str | None
-    """The declared entry this value belongs to: a parameter id, a boundary id, a lake."""
+    """The outermost declared entry this value belongs to: a parameter id, a
+    boundary id, a lake. It is what the physical registry is keyed on."""
+
+    instances: tuple[str, ...]
+    """Every declared entry crossed on the way down, outermost first.
+
+    One level for ``flow.param.K``, two for a heterogeneous zone under it
+    (``K``, ``zone_1``). The name is built from this chain, so an inner mapping
+    key adds to the identity instead of replacing it.
+    """
+
+    name: str
+    """What a TOML writes under ``[calibration.parameters.<name>]`` to reach this
+    value without naming a path."""
+
+    calibrable: Calibrable | None
+    """What the field itself declares about being searched, when it declares
+    anything: the space to search in, the sampling law, the unit. It never decides that
+    this target exists; the walk already did."""
 
     current: float | None
-    """What the configuration holds today, which is where a bound is usually centred."""
+    """What the configuration holds today, which is where a bound is usually centered."""
 
     units: str | None
-    """The unit a sibling field declares, when one does."""
+    """The unit the model reads this value in: the field its annotation names
+    (``bedleak_unit``), else a sibling ``unit`` field, else the annotation."""
 
     physical_bounds: tuple[float, float] | None
-    """The range the physical registry enforces, or ``None`` when it knows this id not."""
+    """The range the physical registry enforces, written in ``units``, or ``None``
+    when it knows this id not."""
+
+    registry_id: str | None
+    """The id the physical range was read under, or ``None``.
+
+    Published because the guard that faces a declared bound with that range has
+    no way to recompute it: a dotted path does not say which of its segments was
+    a declared entry and which was a schema attribute, and guessing by scanning
+    them would hand a well named ``k`` the ceiling of a conductivity."""
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly record for the CLI and the report."""
         return {
+            "name": self.name,
             "path": self.path,
             "instance": self.instance,
             "current": self.current,
             "units": self.units,
+            "search_space": None if self.calibrable is None else self.calibrable.search_space,
+            "sampling": None if self.calibrable is None else self.calibrable.sampling,
+            "default_bounds": None if self.calibrable is None else self.calibrable.bounds,
             "physical_bounds": list(self.physical_bounds) if self.physical_bounds else None,
+            "registry_id": self.registry_id,
         }
 
 
 def calibration_targets(config: Any) -> list[CalibrationTarget]:
     """Return every value ``config`` exposes to a calibration, in path order."""
-    found: list[CalibrationTarget] = []
-    for section in WALKED_SECTIONS:
-        node = getattr(config, section, None)
-        if node is None:
-            continue
-        _walk(node, prefix=section, instance=None, units=None, found=found)
-    return sorted(found, key=lambda target: target.path)
+    found: list[_Found] = []
+    solver = getattr(config, "solver", None)
+    backend = solver.backend_name if solver is not None else None
+    if _reads_a_property(backend):
+        for section in WALKED_SECTIONS:
+            node = _section(config, section)
+            if node is None:
+                continue
+            _walk(node, prefix=section, instances=(), units=None, found=found)
+    # The options table of the backend that runs, walked the same way: a field of it
+    # that carries a ``Calibrable`` is listed whatever its profile, because the table
+    # is expert by nature and the annotation is the backend author's explicit choice
+    # to calibrate one option of it.
+    if backend is not None:
+        try:
+            options = solver.options_of(backend)
+        except ValueError:
+            # A backend may declare no options table: the catalog keeps the
+            # property sections the walk above collected.
+            options = None
+        if options is not None:
+            _walk(
+                options,
+                prefix=f"solver.{backend}",
+                instances=(),
+                units=None,
+                found=found,
+                expert=True,
+            )
+    found = [item for item in found if not _excluded_by_a_declared_entry(config, item)]
+    found.sort(key=lambda item: item.path)
+    return _named(found)
+
+
+def _reads_a_property(backend: str | None) -> bool:
+    """Whether the flow backend that runs reads a property of the aquifer.
+
+    A backend lists the trait ``properties`` when ``[flow.param]`` and
+    ``[domain.depth_model]`` reach its solve. A global model that reads
+    neither offers none, so no target waits on a trial that would cost the
+    same whatever the property moved. A backend the registry does not hold,
+    which only the stubs a caller hands over can be, keeps the walk.
+    """
+    if backend is None:
+        return True
+    try:
+        return PROPERTIES in solvers.get("flow", backend).supports
+    except SolverInputError:
+        return True
+
+
+def _excluded_by_a_declared_entry(config: Any, item: _Found) -> bool:
+    """Whether the paths the field keeps itself out of name an entry this file declares."""
+    if item.calibrable is None:
+        return False
+    return any(_is_declared(config, path) for path in item.calibrable.excluded_by)
+
+
+def _is_declared(config: Any, dotted: str) -> bool:
+    """Whether the document itself declares the entry a path names.
+
+    The boundary is the document, not the schema: a section that carries the field
+    only as its default does not declare it, and a mapping key written by the file
+    does."""
+    *head, last = dotted.split(".")
+    node = _section(config, ".".join(head))
+    if isinstance(node, Mapping):
+        return last in node
+    if isinstance(node, BaseModel):
+        return last in node.model_fields_set
+    return False
 
 
 def targets_by_path(targets: list[CalibrationTarget]) -> dict[str, CalibrationTarget]:
-    """Index a catalogue by its dotted paths."""
+    """Index a catalog by its dotted paths."""
     return {target.path: target for target in targets}
+
+
+def targets_by_name(targets: list[CalibrationTarget]) -> dict[str, CalibrationTarget]:
+    """Index a catalog by the name a TOML writes.
+
+    Names are unique by construction: a spelling two targets would share is
+    given to neither, and both fall back to a longer one.
+    """
+    return {target.name: target for target in targets}
+
+
+def _section(config: Any, dotted: str) -> Any:
+    """Return the node at ``dotted`` under ``config``, or None when a link is missing."""
+    node = config
+    for part in dotted.split("."):
+        node = getattr(node, part, None)
+        if node is None:
+            return None
+    return node
+
+
+@dataclass(frozen=True)
+class _Found:
+    """One leaf the walk kept, before it is given a name."""
+
+    path: str
+    instances: tuple[str, ...]
+    current: float
+    units: str | None
+    calibrable: Calibrable | None
 
 
 def _walk(
     node: Any,
     *,
     prefix: str,
-    instance: str | None,
+    instances: tuple[str, ...],
     units: str | None,
-    found: list[CalibrationTarget],
+    found: list[_Found],
+    field_info: Any = None,
+    expert: bool = False,
 ) -> None:
     if isinstance(node, BaseModel):
-        node_units = _declared_units(node) or units
-        for field_name, field_info in type(node).model_fields.items():
+        own_units = _declared_units(node)
+        for field_name, sub_info in type(node).model_fields.items():
             # A field the user profile does not show is a knob of the numerical
             # scheme, not a property of the aquifer. Searching over a substep
-            # count would optimise the solver rather than the model.
-            if extract_profile(field_info) is not Profile.USER:
+            # count would optimize the solver rather than the model. An options
+            # table of a backend is expert by nature, so there the ``expert``
+            # flag lifts the profile gate and the field's own ``Calibrable``
+            # decides what the catalog lists.
+            if not expert and extract_profile(sub_info) is not Profile.USER:
                 continue
+            # A leaf's unit is its own Calibrable's, else its node's, else what
+            # the walk inherited: 'soil.ru' must read 'mm' from its field, not
+            # 'mm/day' from its FlowRechargeConfig parent, and
+            # 'etp.extinction_depth' must read 'm' from its own declaration,
+            # not 'mm/day' from the sibling 'units' FlowEtpConfig carries for
+            # its 'values' payload.
+            declared = declared_calibrable(sub_info)
+            leaf_units = _unit_the_leaf_is_read_in(node, declared)
             _walk(
                 getattr(node, field_name, None),
                 prefix=f"{prefix}.{field_name}",
-                instance=instance,
-                units=node_units,
+                instances=instances,
+                units=leaf_units or own_units or units,
                 found=found,
+                field_info=sub_info,
+                expert=expert,
             )
         return
     if isinstance(node, Mapping):
@@ -143,23 +304,108 @@ def _walk(
                 prefix=f"{prefix}.{key}",
                 # The dict key IS the declared entry: a parameter id, a boundary
                 # id, a lake. It is also what the physical registry is keyed on.
-                instance=str(key),
+                # It is appended rather than substituted, so a zone under a
+                # parameter reads 'K.zone_1' and not 'zone_1'.
+                instances=instances + (str(key),),
                 units=units,
                 found=found,
+                field_info=field_info,
+                expert=expert,
             )
         return
-    leaf = prefix.rsplit(".", 1)[-1]
-    if not _is_a_physical_number(node) or leaf in NON_PHYSICAL_FIELDS:
+    calibrable = declared_calibrable(field_info)
+    if not _is_a_physical_number(node) or calibrable is None:
         return
     found.append(
-        CalibrationTarget(
+        _Found(
             path=prefix,
-            instance=instance,
+            instances=instances,
             current=float(node),
             units=units,
-            physical_bounds=_physical_bounds_for(instance, leaf),
+            calibrable=calibrable,
         )
     )
+
+
+def declared_calibrable(field_info: Any) -> Calibrable | None:
+    """Return what a Pydantic field declares about being searched, or None."""
+    extra = getattr(field_info, "json_schema_extra", None)
+    if not isinstance(extra, dict):
+        return None
+    hint = extra.get("calibrable")
+    return hint if isinstance(hint, Calibrable) else None
+
+
+def _base_name(item: _Found) -> str:
+    """Return the spelling this target asks for, before collisions are settled."""
+    leaf = item.path.rsplit(".", 1)[-1]
+    if item.path.startswith("solver."):
+        # An option of the backend that runs names its leaf alone: the second
+        # segment of the path is the backend itself, never a quantity.
+        return leaf
+    if any(item.path.startswith(f"{section}.") for section in NAMED_BY_THEIR_FIELD):
+        return leaf
+    if not item.instances:
+        # Nothing declared it by name, so the field and what holds it say it:
+        # 'flow.sinks_sources.recharge.values' reads 'recharge.values'.
+        return ".".join(item.path.split(".")[-2:])
+    if item.calibrable is not None and item.calibrable.is_the_value_of_its_instance:
+        return ".".join(item.instances)
+    return ".".join((*item.instances, leaf))
+
+
+def _named(found: list[_Found]) -> list[CalibrationTarget]:
+    """Give every target its name, and no name to two targets at once."""
+    bases = [_base_name(item) for item in found]
+    shared = {name for name in bases if bases.count(name) > 1}
+    names = [
+        # A spelling two targets would answer to is given to neither: the long
+        # form is unambiguous, and a collision has to be visible rather than
+        # arbitrated.
+        ".".join(item.path.split(".")[1:]) if base in shared else base
+        for item, base in zip(found, bases, strict=True)
+    ]
+    if len(set(names)) != len(names):  # pragma: no cover - paths are unique
+        names = [".".join(item.path.split(".")[1:]) for item in found]
+    return [_target(item, name) for item, name in zip(found, names, strict=True)]
+
+
+def _target(item: _Found, name: str) -> CalibrationTarget:
+    """Return the target of one leaf the walk kept, under its settled name."""
+    instance = item.instances[0] if item.instances else None
+    leaf = item.path.rsplit(".", 1)[-1]
+    leaf_first = item.calibrable is None or not item.calibrable.is_the_value_of_its_instance
+    bounds = _physical_bounds_for(
+        item.path, instance, leaf, leaf_first=leaf_first, units=_units_of(item)
+    )
+    return CalibrationTarget(
+        path=item.path,
+        instance=instance,
+        instances=item.instances,
+        name=name,
+        calibrable=_searched_as_written_when_signed(item.calibrable, bounds),
+        current=item.current,
+        units=_units_of(item),
+        physical_bounds=bounds,
+        registry_id=_registry_id_for(item.path, instance, leaf, leaf_first=leaf_first),
+    )
+
+
+def _searched_as_written_when_signed(
+    calibrable: Calibrable | None, bounds: tuple[float, float] | None
+) -> Calibrable | None:
+    """Search a value that can be negative as written, not in log space.
+
+    A field parameter declares a log search because a conductivity spans
+    decades, and every flow parameter shares that field. An angle of the K
+    tensor shares it too, but it is signed: its range reaches below zero, and
+    a log search refuses any bound that does.
+    """
+    if calibrable is None or bounds is None or bounds[0] >= 0.0:
+        return calibrable
+    if calibrable.search_space != "log" and calibrable.sampling != "log_uniform":
+        return calibrable
+    return replace(calibrable, search_space="identity", sampling="uniform")
 
 
 def _is_a_physical_number(value: Any) -> bool:
@@ -179,20 +425,88 @@ def _declared_units(node: BaseModel) -> str | None:
     return None
 
 
-def _physical_bounds_for(instance: str | None, leaf: str) -> tuple[float, float] | None:
-    for candidate in (instance, leaf):
+def _unit_the_leaf_is_read_in(node: BaseModel, declared: Calibrable | None) -> str | None:
+    """Return the unit a leaf declares: the field its annotation names, else its own unit.
+
+    ``bedleak`` is read in whatever ``bedleak_unit`` says, so the SI unit its
+    annotation carries is only the default of that field.
+    """
+    if declared is None:
+        return None
+    if declared.unit_field is not None:
+        named = getattr(node, declared.unit_field, None)
+        if isinstance(named, str) and named.strip():
+            return named.strip()
+    return declared.units
+
+
+def _registry_id_for(
+    path: str, instance: str | None, leaf: str, *, leaf_first: bool = False
+) -> str | None:
+    """Return the registry key this value is known under: its entry, else its leaf.
+
+    ``instance`` is checked first only when the leaf IS the quantity of its
+    instance (``K.value`` is a conductivity because ``K`` is). A nested
+    property that is not its instance's headline quantity, like
+    ``K.characteristic_depth`` (a depth, not a conductivity), would otherwise
+    borrow ``K``'s own range the moment a param id happens to spell a known
+    key: the same confusion ``soil.transit_time`` avoids from the other side,
+    by never answering to a bare leaf the registry did not mean for it.
+    """
+    stated = _REGISTRY_ID_BY_PATH.get(path)
+    if stated is not None:
+        return stated
+    order = (leaf, instance) if leaf_first else (instance, leaf)
+    for candidate in order:
         if not candidate:
             continue
-        bound = PHYSICAL_BOUNDS.get(str(candidate).lower())
-        if bound is not None:
-            return (bound.lo, bound.hi)
+        if str(candidate).lower() in PHYSICAL_BOUNDS:
+            return str(candidate).lower()
     return None
 
 
+def _units_of(item: _Found) -> str | None:
+    return item.units or (item.calibrable.units if item.calibrable else None)
+
+
+def _physical_bounds_for(
+    path: str,
+    instance: str | None,
+    leaf: str,
+    *,
+    leaf_first: bool = False,
+    units: str | None = None,
+) -> tuple[float, float] | None:
+    """Return the registry range of this value, written in the unit it is read in.
+
+    The registry keeps one canonical unit per quantity. A conductivity read in
+    ``m/day`` is offered its range in ``m/day``, because a bound is written from
+    it next to the current value. A unit that does not convert gets no range
+    rather than one in the wrong unit.
+    """
+    key = _registry_id_for(path, instance, leaf, leaf_first=leaf_first)
+    if key is None:
+        return None
+    bound = PHYSICAL_BOUNDS[key]
+    if units is None:
+        return (bound.lo, bound.hi)
+    from hydromodpy.core.units.parse import convert_between_units
+
+    try:
+        return (
+            convert_between_units(bound.lo, from_unit=bound.canonical_unit, to_unit=units),
+            convert_between_units(bound.hi, from_unit=bound.canonical_unit, to_unit=units),
+        )
+    except ValueError:
+        return None
+
+
 __all__ = [
-    "NON_PHYSICAL_FIELDS",
+    "NAMED_BY_THEIR_FIELD",
     "WALKED_SECTIONS",
     "CalibrationTarget",
     "calibration_targets",
+    "declared_calibrable",
+    "targets_by_name",
     "targets_by_path",
 ]

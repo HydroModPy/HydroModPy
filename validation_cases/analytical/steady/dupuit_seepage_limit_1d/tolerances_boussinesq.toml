@@ -1,0 +1,24 @@
+[seepage_limit]
+position_error = 3.4
+head_profile_max_abs_error = 4.2e-4
+
+[invariance]
+head_max_abs_error = 1e-12
+
+[control]
+drain_outflow_ratio_error = 1.2e-6
+
+[doc]
+reason = """
+PETSc VI obstacle, the exact h <= z_top complementarity, on 320 triangles (80
+columns of 5 m, 2 rows). It has no drain: a cell seeps when its head is within
+1e-6 m of its surface, read on the mean of each 5 m bin, and the water that
+leaves is the surface-excess flux. Measured, the seepage limit sits at 200 m
+(error 0) in the three scenarios of x_e = 200 m and at 135 m against 133.3 m for
+the doubled K (1.67 m): bound twice that. Head profile: max error 2.1e-4 m, 7.0e-5
+m for the doubled K; bound twice the largest. The K/R invariance holds to 8.9e-16
+m, roundoff, and moves no cell: bound 1e-12 m. The absolute residual closure
+follows the recharge (1e-9, 1e-11, 1e-7 m3/s). Doubling K alone moves 26 cells
+and leaves the surface outflow at R * area to 5.8e-7, bound 1.2e-6. The flat
+start at 2 m above the surface converges in 30 iterations.
+"""

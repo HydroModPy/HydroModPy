@@ -2,7 +2,7 @@
 Example: validity_frame on calibration results (catalog.duckdb).
 
 Run from ANY directory that contains (or has a subdirectory with) catalog.duckdb:
-    cd examples/projects/02_nancon_watershed
+    cd path/to/your/project
     python3 /path/to/validity_frame/examples/calibration_example.py
 
 The script automatically finds ALL catalog.duckdb files under the current
@@ -53,8 +53,8 @@ catalogs = sorted(search_root.rglob("catalog.duckdb"))
 if not catalogs:
     print(f"\n[ERROR] No catalog.duckdb found under:\n  {search_root}")
     print("\nRun the calibration first:")
-    print("  cd examples/projects/02_nancon_watershed")
-    print("  hmp run run_calibration_k.toml")
+    print("  cd path/to/your/project")
+    print("  hmp calibrate <calibration file>.toml")
     sys.exit(1)
 
 print(f"\nFound {len(catalogs)} catalog(s) under {search_root}")

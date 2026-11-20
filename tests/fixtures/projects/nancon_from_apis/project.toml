@@ -1,0 +1,147 @@
+# Nancon, every input from a public service: BD ALTI, BD Topage, Hub'Eau, SIM2.
+# Steady state over 2000-2019, K calibrated on the full BD Topage network.
+#
+#   hmp calibrate project.toml --check
+#   hmp run project.toml
+
+[site]
+name = "nancon"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_network_k_from_apis"
+description = "Nancon, inputs from public services, K from the full BD Topage network, steady state."
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2019-12-31"
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow6"]
+
+[geographic]
+crs_project = "EPSG:2154"
+
+# The gauge J001401001, Le Nancon a Lecousse. BD ALTI 25 m aggregated to 75 m.
+[geographic.catchment]
+kind = "from_outlet_coord"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+dem_resolution = "75 m"
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+
+[data]
+types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
+
+[[data.dem.sources]]
+source = "bdalti"
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+station_ids = ["J001401001"]
+
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+[[data.runoff.sources]]
+source = "sim2"
+extent = "watershed"
+
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+# Drains at the top, conductance derived from K: the criterion identifies K/R.
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
+[calibration]
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+# Every BD Topage reach, permanent and intermittent, scored as the API returns
+# it: each line drawn on the cells it crosses, never retraced from its heads.
+# No minimal map: in one state it would be the one scored.
+[calibration.outputs.seepage_network]
+support = "network"
+
+[calibration.outputs.seepage_network.map]
+complete = "data.hydrography"
+drawn_by = "crossing"
+[[calibration.objective_blocks]]
+name = "network_extent"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+[[calibration.phases]]
+name = "steady_conductivity"
+description = "K from the full BD Topage network, steady state over 2000-2019."
+parameters = ["K"]
+regime = "steady"
+objective_blocks = ["network_extent"]
+method = "bisection"
+
+[display]
+on_error = "warn"
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "network"]
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "network_agreement"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+
+[[display.figure]]
+preset = "root_search"
+when = "session"
+
+[[export]]
+variable = ["watershed", "hydrographic_network_reference"]
+
+[[export]]
+variable = ["watertable_depth", "seepage_mask", "release_flux"]
+time = "last"
+format = "geotiff"
+
+[[export]]
+variable = ["discharge", "discharge_obs"]
+
+[[export]]
+variable = "budget"

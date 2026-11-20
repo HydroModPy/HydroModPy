@@ -1,0 +1,10 @@
+# Messages quoted in a "What can go wrong" table that the package does not print.
+# Each entry is a substring of the quote, the tool that prints it, and why the
+# table quotes it. A quote of HydroModPy itself never goes here: fix the page.
+#
+# [[external]]
+# match = "Input should be"
+# tool = "pydantic"
+# reason = "The wording of pydantic for a Literal; only the field path is HydroModPy's."
+
+external = []

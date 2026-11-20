@@ -1,8 +1,11 @@
 # Boussinesq Hillslope Interception 1D
 
-Steady synthetic groundwater-flow case used to validate the PETSc VI obstacle
-`flow/boussinesq` runtime on a sloping hillslope where the water table reaches
-the land surface near the outlet.
+Steady synthetic groundwater-flow case used to validate the seepage face of a
+sloping hillslope where the water table reaches the land surface near the
+outlet. Six solvers run it: the PETSc VI obstacle `flow/boussinesq` runtime, the
+default local engine (`boussinesq_local`), and MODFLOW-NWT, MODFLOW 6 on a
+structured grid, MODFLOW 6 on irregular triangles and MODFLOW 6 on their
+Voronoi dual, which drain the land surface through a DRN.
 
 Intent:
 
@@ -21,28 +24,41 @@ Numerical setup:
 - fixed head `5 m` on the east side,
 - west side left as the natural divide/no-flow boundary.
 
+The MODFLOW variants (`config_modflownwt.toml` and its overrides) put a DRN on
+the land surface, as HydroModPy does for a drained hillslope. Its conductance is
+`K * area / b` with `b = 1 m`, so the leakance is the same on every cell. The
+surface is sampled at the cell centers (linear raster, 5.0625 m at the center of
+the last column), and the east head is the surface there. The two unstructured
+variants read the triangle bundle built by `mesh_bundle.py` (586 triangles of
+about 6 m, stored under `mesh_bundles/`; rebuild it with
+`python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.mesh_bundle`)
+and sample the surface from a 2.5 m raster, so that no flat strip lies along
+the east face. Their reference is evaluated at each cell and averaged over the
+same 10 m bins as the model.
+
+A DRN has a finite conductance: the head stands above the surface by the head
+that passes what the face drains, `(R + K S^2) b / K = 3.9e-4 m`. The clearance
+check of those variants bounds that excess instead of the obstacle closure.
+
 Comparison:
 
 - simulated observable: `watertable_elevation`,
-- primary metric: inland interception position along `x`,
-- secondary sanity checks: no overshoot above topography and low cross-row spread,
-- reference: analytical no-drain steady Boussinesq recharge profile with west
-  divide and east fixed head, intersected with the linear topography,
-- numerical interception is detected with a small `5 cm` contact tolerance on
-  the row-averaged profile.
+- reference: the exact steady free-boundary solution under Dupuit. Below the
+  emergence point `x_e` the head is the land surface and seeps out; above it
+  all the recharge flows through the aquifer and the water table meets the
+  surface tangentially at `x_e` (322.4 m here),
+- metrics: the head profile on every column, and the contact point, where the
+  head comes within `5 cm` of the surface, read the same way on the model and
+  on the reference (281.6 m here: the tangent contact starts 41 m upslope of
+  `x_e` at that tolerance),
+- sanity checks: no overshoot above topography (or, with a DRN, no more than the
+  drain excess) and low cross-row spread,
+- the solve starts from the outlet head over the whole hillslope, not from the
+  answer.
 
-Important limitation:
-
-- this case is intentionally exposed only for `solver=boussinesq`;
-- `solver=boussinesq` runs with `runtime_backend = "petsc"` and
-  `surface_interaction_model = "vi_obstacle"`;
-- the analytical target is an interception-position approximation inherited
-  from the no-drain profile, not a full free-boundary seepage-face solution;
-- the PETSc VI obstacle result is numerically clean but shifts the interception
-  position relative to that no-drain diagnostic; see
-  `docs/developers/boussinesq_petsc_vi_hillslope_interception_analysis.md`;
-- dry-zone profile metrics are reported for diagnosis, but the asserted
-  benchmark remains the emergence position itself.
+Until 2026-10-09 the reference was the profile without the surface, crossed with
+the topography (244.8 m). It ignores the seepage face: its dry heads sit 0.1 to
+0.16 m above the exact ones.
 
 Direct execution:
 
@@ -50,3 +66,15 @@ Direct execution:
 python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.run_case --solver boussinesq
 python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.run_case --solver boussinesq --show
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+R\left(x_e-x_{\min}\right)=K\,S\left(z_{\mathrm{top}}(x_e)-z_b\right),\qquad z_{\mathrm{top}}(x)=z_{\mathrm{toe}}+S\left(L-x\right)
+$$
+
+$$
+\left(h-z_b\right)^2=\left(z_{\mathrm{top}}(x_e)-z_b\right)^2+\frac{R}{K}\left[\left(x_e-x_{\min}\right)^2-\left(x-x_{\min}\right)^2\right]\quad (x<x_e),\qquad h=z_{\mathrm{top}}\quad (x\ge x_e)
+$$

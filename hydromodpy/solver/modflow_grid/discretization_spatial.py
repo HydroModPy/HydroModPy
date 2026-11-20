@@ -3,145 +3,64 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.catchment.surface import Surface
+from hydromodpy.catchment.surface_sampling import PreparedSurfaceSampler
+from hydromodpy.core.fields.grid_reference import GridReference
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.base.protocols import DomainLike
-from hydromodpy.solver.modflow_common.sgrid_to_flopy import translate as sgrid_spec_to_flopy
-from hydromodpy.solver.modflow_grid.grid_context import (
-    SolverGridContext,
-    grid_reference_from_solver_mesh,
+from hydromodpy.model.domain.cell_column import (
+    CellColumn,
+    resample_to_mesh_shape,
+    resolve_domain_surfaces,
 )
+from hydromodpy.model.domain.domain import Domain
+from hydromodpy.model.domain.layering import (
+    assert_bottom_below_top,
+    coerce_vertical_config,
+    layer_stack,
+)
+from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
-    PlanarGridConfig,
-    SolverSGridConfig,
-    TopSamplingConfig,
-    VerticalGridConfig,
-)
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
-from hydromodpy.spatial.mesh.ops.zonal_stats import zonal_top
-from hydromodpy.spatial.surface import Surface
-from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
+
+if TYPE_CHECKING:
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+
+__all__ = [
+    "StructuredGridBuilder",
+    "StructuredGridSpec",
+    "build_spatial_discretization",
+    "resolve_layer_bases",
+    "SolverGridContext",
+    "grid_reference_from_solver_mesh",
+]
 
 logger = get_logger(__name__)
 
 
-def resolve_domain_surfaces(
+def resolve_layer_bases(
     *,
-    domain: DomainLike,
-) -> tuple[Surface, Surface]:
-    """Validate and return top/substratum surfaces used by spatial gridding."""
-    if domain is None:
-        raise ValueError("Modflow spatial geometry is domain-only: a Domain object is required.")
+    domain: Domain,
+    vertical_config: VerticalGridConfig | None,
+) -> dict[str, Surface]:
+    """Return the base surfaces the layering reads, by name, from ``domain.layer_bases``.
 
-    surface_topo = getattr(domain, "surface_topo", None)
-    substratum = getattr(domain, "substratum", None)
-    if surface_topo is None or substratum is None:
-        raise ValueError(
-            "Modflow spatial geometry is domain-only: domain.surface_topo "
-            "and domain.substratum are required."
-        )
-    if not isinstance(surface_topo, Surface) or not isinstance(substratum, Surface):
-        raise TypeError("Domain surfaces must be Surface instances.")
-
-    top = np.asarray(surface_topo.as_array(), dtype=float)
-    bot = np.asarray(substratum.as_array(), dtype=float)
-    if top.shape != bot.shape:
-        raise ValueError(f"Domain surface mismatch: top{top.shape} != substratum{bot.shape}.")
-
-    surface_topo.assert_same_geographic_domain(substratum)
-    return surface_topo, substratum
-
-
-def project_surfaces_to_planar_grid(
-    *,
-    top_surface: Surface,
-    bottom_surface: Surface,
-    planar_config: PlanarGridConfig | None,
-    nodata: float,
-) -> tuple[Surface, Surface]:
-    """Project domain surfaces to the target solver planar grid when requested."""
-    if planar_config is None or planar_config.mode == "keep_native":
-        return top_surface, bottom_surface
-
-    resampled_top = top_surface.resample_to_shape(
-        int(planar_config.ny),
-        int(planar_config.nx),
-        resampling=str(planar_config.resampling),
-        nodata=float(nodata),
-        name=top_surface.name,
-    )
-    resampled_bottom = bottom_surface.resample_to_shape(
-        int(planar_config.ny),
-        int(planar_config.nx),
-        resampling=str(planar_config.resampling),
-        nodata=float(nodata),
-        name=bottom_surface.name,
-    )
-    resampled_top.assert_same_geographic_domain(resampled_bottom)
-    return resampled_top, resampled_bottom
-
-
-def _coerce_vertical_config(
-    vertical_config: VerticalGridConfig | Mapping[str, object] | None,
-) -> VerticalGridConfig:
-    if vertical_config is None:
-        return VerticalGridConfig()
-    if isinstance(vertical_config, VerticalGridConfig):
-        return vertical_config
-    if isinstance(vertical_config, Mapping):
-        return VerticalGridConfig.from_mapping(vertical_config)
-    raise TypeError("vertical_config must be None, VerticalGridConfig, or a mapping of values.")
-
-
-def _compute_layer_proportions(
-    *,
-    genmtd_lay: str,
-    nlay: int | None,
-    lay_decay: float | None,
-    lay_proportions: list[float] | None,
-) -> tuple[np.ndarray, int]:
-    if genmtd_lay == "list":
-        arr = np.asarray(lay_proportions, dtype=float)
-        return np.cumsum(arr), int(arr.size)
-    if genmtd_lay == "constant":
-        nlay_int = int(nlay)
-        return np.arange(1, nlay_int + 1, dtype=float) / nlay_int, nlay_int
-    if genmtd_lay == "decay":
-        nlay_int = int(nlay)
-        decay = float(lay_decay)
-        idx = np.arange(1, nlay_int + 1, dtype=float)
-        allp = (1 - decay**idx) / (1 - decay**nlay_int)
-        return allp, nlay_int
-    raise ValueError(f"Unsupported genmtd_lay '{genmtd_lay}'. Allowed: list, constant, decay.")
-
-
-def _assert_bottom_below_top(
-    *,
-    top: np.ndarray,
-    bot: np.ndarray,
-    nodata: float,
-) -> None:
-    valid = np.isfinite(top) & np.isfinite(bot) & (top > float(nodata)) & (bot > float(nodata))
-    if not np.any(valid):
-        raise ValueError("No finite overlapping valid cells found between top and bottom surfaces.")
-    violations = bot[valid] >= top[valid]
-    if np.any(violations):
-        n_bad = int(np.count_nonzero(violations))
-        total = int(violations.size)
-        max_delta = float(np.max(bot[valid] - top[valid]))
-        raise ValueError(
-            "Bottom surface must be strictly below top surface on valid cells "
-            f"({n_bad}/{total} violations, max(bot-top)={max_delta:.6g})."
-        )
+    Only a layering by surfaces reads any. A name the domain does not hold is
+    refused when the layers are built, with the names it holds.
+    """
+    names = () if vertical_config is None else vertical_config.base_surface_names
+    held = getattr(domain, "layer_bases", None) or {}
+    return {name: held[name] for name in names if name in held}
 
 
 # A valid cell thicker than this multiple of the median, and thicker than the floor
 # below, is reported. Both bounds are needed: the multiple alone fires on a legitimate
 # variable-thickness substratum, the floor alone fires on a genuinely deep aquifer.
 _THICKNESS_OUTLIER_FACTOR = 10.0
+
 _THICKNESS_OUTLIER_FLOOR_M = 500.0
 
 
@@ -150,7 +69,7 @@ def _warn_on_outlier_thickness(*, top: np.ndarray, bot: np.ndarray, valid: np.nd
 
     A raster NODATA sentinel that reaches the sampler as an ordinary elevation is
     interpolated as if it were terrain, so a cell whose stencil straddles the mask
-    edge ends up kilometres deep with a perfectly clean top and an active idomain.
+    edge ends up kilometers deep with a perfectly clean top and an active idomain.
     Nothing downstream notices: the model converges and its mass balance closes,
     while those cells carry a transmissivity and a storage several hundred times the
     nominal ones. This check does not change the mesh; it makes the symptom visible
@@ -179,134 +98,18 @@ def _warn_on_outlier_thickness(*, top: np.ndarray, bot: np.ndarray, valid: np.nd
     )
 
 
-def _zonal_top_flat(
-    *,
-    hydro_mesh: object,
-    top_surface: Surface,
-    centroid_top: np.ndarray,
-    bottom_flat: np.ndarray,
-    nodata: float,
-    top_sampling: TopSamplingConfig,
-    channel_mask: np.ndarray | None,
-) -> np.ndarray:
-    """Zonal per-cell top from the DEM; falls back to the centroid sample.
-
-    Reduces every DEM pixel inside each cell (thalweg stat on channel pixels,
-    area stat on hillslope pixels) instead of one bilinear sample at the cell
-    generator. Requires a fully georeferenced ``top_surface``; without it the
-    centroid projection is returned unchanged.
-    """
-    from rasterio.transform import from_bounds
-
-    support = getattr(top_surface, "support", None)
-    fields = ("xmin", "xmax", "ymin", "ymax", "nrows", "ncols")
-    if support is None or any(getattr(support, name, None) is None for name in fields):
-        logger.warning("Zonal top sampling needs a georeferenced surface; using centroid sample.")
-        return centroid_top
-
-    dem = np.asarray(top_surface.as_array(), dtype=float)
-    out_shape = (int(support.nrows), int(support.ncols))
-    if dem.shape != out_shape:
-        logger.warning(
-            "Surface array %s does not match its support %s; using centroid sample.",
-            dem.shape,
-            out_shape,
-        )
-        return centroid_top
-    transform = from_bounds(
-        float(support.xmin),
-        float(support.ymin),
-        float(support.xmax),
-        float(support.ymax),
-        int(support.ncols),
-        int(support.nrows),
-    )
-    result = zonal_top(
-        planar_mesh=hydro_mesh,
-        dem=dem,
-        transform=transform,
-        out_shape=out_shape,
-        centroid_top=centroid_top,
-        nodata=float(nodata),
-        channel_mask=channel_mask,
-        hillslope_stat=top_sampling.hillslope_stat,
-        channel_stat=top_sampling.channel_stat,
-        min_pixels=int(top_sampling.min_pixels),
-        spike_guard_tol_m=float(top_sampling.spike_guard_tol_m),
-        bottom=bottom_flat,
-        min_thickness_m=float(top_sampling.min_thickness_m),
-    )
-    logger.info(
-        "Zonal top sampling: %d/%d cells zonal (%d channel), %d lowered "
-        "(max -%.2f m, mean -%.2f m), %d spike-reverted, %d thickness-clamped.",
-        int(result.info["n_zonal"]),
-        int(result.info["n_cells"]),
-        int(result.info["n_channel_cells"]),
-        int(result.info["n_lowered"]),
-        result.info["max_lowered_m"],
-        result.info["mean_lowered_m"],
-        int(result.info["n_spike_reverted"]),
-        int(result.info["n_thickness_clamped"]),
-    )
-    return result.top
-
-
 def _build_extruded_solver_mesh_from_runtime_planar(
     *,
-    planar_mesh: object,
-    top_surface: Surface,
-    bottom_surface: Surface,
+    cell_mesh: PlanarCellMesh,
+    column: CellColumn,
     vertical_config: VerticalGridConfig | None,
     nodata: float,
-    grid_dual: str = "voronoi",
-    top_sampling: TopSamplingConfig | None = None,
-    channel_mask: np.ndarray | None = None,
+    base_surfaces: dict[str, Surface] | None = None,
 ) -> SolverMesh:
-    # grid_dual="voronoi" (MF6 default): the solver grid is the Voronoi/PEBI dual of
-    # the gmsh triangulation (exact perpendicular-bisector CVFD orthogonality, an
-    # interior node, an M-matrix, ~half the cells). grid_dual="triangle": keep the
-    # triangulation cells as the DISV grid (for solvers that need simplices). Either
-    # way the triangulation stays the refinement/constraint seed engine.
-    if grid_dual == "voronoi":
-        from hydromodpy.spatial.mesh.ops.voronoi import (
-            domain_polygon_from_mesh,
-            voronoi_dual_of_mesh,
-        )
-
-        triangulation = (
-            planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
-        )
-        planar_mesh = voronoi_dual_of_mesh(triangulation, domain_polygon_from_mesh(triangulation))
-    elif grid_dual != "triangle":
-        raise ValueError(f"Unsupported grid_dual '{grid_dual}'. Allowed: voronoi, triangle.")
-
-    mesh_2d = planar_mesh
-    hydro_mesh = (
-        planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
-    )
-
-    # Sample top/botm at the cell centers (Voronoi generators or triangle centroids)
-    # from the domain surfaces.
-    x_centers, y_centers = mesh_2d.cell_centroids()
-    cfg = _coerce_vertical_config(vertical_config)
-    top_sampler = PreparedSurfaceSampler.from_surface(top_surface)
-    bottom_sampler = PreparedSurfaceSampler.from_surface(bottom_surface)
-    top_flat = np.asarray(top_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
-    bottom_flat = np.asarray(bottom_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
-
-    # Optional zonal projection: reduce every DEM pixel inside a cell (thalweg on
-    # channel pixels) instead of one centroid sample. Default 'centroid' leaves
-    # top_flat byte-identical. Only top is zonal; bottom stays on the centroid.
-    if top_sampling is not None and top_sampling.mode == "zonal":
-        top_flat = _zonal_top_flat(
-            hydro_mesh=hydro_mesh,
-            top_surface=top_surface,
-            centroid_top=top_flat,
-            bottom_flat=bottom_flat,
-            nodata=nodata,
-            top_sampling=top_sampling,
-            channel_mask=channel_mask,
-        )
+    """Extrude an unstructured cell mesh: the column and the layer bases sampled at the cell centers."""
+    x_centers, y_centers = cell_mesh.centers.T
+    cfg = coerce_vertical_config(vertical_config)
+    top_flat, bottom_flat = column.top, column.bottom
 
     invalid = (
         ~np.isfinite(top_flat)
@@ -314,90 +117,231 @@ def _build_extruded_solver_mesh_from_runtime_planar(
         | (top_flat <= float(nodata))
         | (bottom_flat <= float(nodata))
     )
-    top_flat = np.where(invalid, float(nodata), top_flat)
-    bottom_flat = np.where(invalid, float(nodata), bottom_flat)
-    _assert_bottom_below_top(top=top_flat, bot=bottom_flat, nodata=nodata)
+    assert_bottom_below_top(top=top_flat, bot=bottom_flat, nodata=nodata)
     _warn_on_outlier_thickness(top=top_flat, bot=bottom_flat, valid=~invalid)
 
-    allp, nlay = _compute_layer_proportions(
-        genmtd_lay=cfg.genmtd_lay,
-        nlay=cfg.nlay,
-        lay_decay=cfg.lay_decay,
-        lay_proportions=cfg.lay_proportions,
-    )
-    botm = top_flat[None, :] - ((top_flat - bottom_flat)[None, :] * allp[:, None])
-    botm[:, invalid] = float(nodata)
-    inactive_mask = np.tile(invalid.reshape(1, -1), (nlay, 1))
-    return SolverMesh(
-        planar_mesh=hydro_mesh,
+    bases = {
+        name: np.asarray(
+            PreparedSurfaceSampler.from_surface(surface).sample(x_centers, y_centers), dtype=float
+        ).reshape(-1)
+        for name, surface in (base_surfaces or {}).items()
+    }
+    stack = layer_stack(
         top=top_flat,
-        botm=botm,
-        inactive_mask=inactive_mask,
+        bottom=bottom_flat,
+        invalid=invalid,
+        vertical_config=cfg,
+        bases=bases,
+        nodata=nodata,
     )
+    return SolverMesh(cell_mesh=cell_mesh, top=top_flat, botm=stack.botm, idomain=stack.idomain)
+
+
+@dataclass(frozen=True)
+class StructuredGridSpec:
+    """The vertical part of a structured grid: top, layer bottoms and ``idomain``.
+
+    ``top`` has the shape of the surfaces, ``botm`` and ``idomain`` one more
+    axis for the layers. ``idomain`` is 1 active, 0 outside the domain, -1 a
+    pinched cell of a layering by surfaces.
+    """
+
+    top: np.ndarray
+    botm: np.ndarray
+    nlay: int
+    idomain: np.ndarray
+
+
+class StructuredGridBuilder:
+    """Build the vertical part of a regular grid from two absolute-elevation surfaces.
+
+    ``top_surface`` and ``bottom_surface`` are absolute altitudes in the same
+    datum, and the builder never adds one to the other. The geometry is metric.
+    The planar grid is not built here. It is the mesh of the regular engine, and
+    ``Surface.resample_to_shape(...)`` resamples the surfaces to its shape
+    beforehand. The builder checks that the surfaces describe the same domain,
+    asks :func:`hydromodpy.model.domain.layering.layer_stack`, which the
+    unstructured extrusion calls too, for the layer bottoms and the ``idomain``,
+    and returns them with the top in a :class:`StructuredGridSpec`.
+    """
+
+    def __init__(self):
+        # No hidden state: deterministic transformations only.
+        pass
+
+    def build_from_surfaces(
+        self,
+        top_surface: Surface,
+        bottom_surface: Surface,
+        vertical_config: VerticalGridConfig | Mapping[str, object] | None = None,
+        base_surfaces: Mapping[str, Surface] | None = None,
+    ) -> StructuredGridSpec:
+        """
+        Build one structured grid from two absolute-elevation surfaces.
+
+        The method intentionally separates three steps:
+        1. Validate horizontal/geometric compatibility of inputs.
+        2. Build `botm` and `idomain` with :func:`layer_stack`.
+        3. Return a `StructuredGridSpec`.
+
+        ``base_surfaces`` holds the layer bases a layering by surfaces reads, on
+        the grid of ``top_surface``.
+        """
+        cfg = coerce_vertical_config(vertical_config)
+
+        # 1) Horizontal compatibility checks.
+        #    "Same geographic domain" means same CRS + same spatial extent.
+        top_surface.assert_same_geographic_domain(bottom_surface)
+
+        support = top_surface.support
+        if support is None:
+            raise ValueError("Top surface must carry a RasterSupport.")
+        support.assert_complete_domain()
+
+        top = np.asarray(top_surface.as_array(), dtype=float)
+        bot = np.asarray(bottom_surface.as_array(), dtype=float)
+        if top.shape != bot.shape:
+            raise ValueError(
+                "top_surface and bottom_surface must have the same discretization "
+                f"before vertical grid construction: top{top.shape} != bottom{bot.shape}. "
+                "Use Surface.resample_to_shape(...) beforehand."
+            )
+
+        nodata = float(cfg.nodata)
+
+        # Mask invalid cells consistently in both surfaces.
+        invalid = ~np.isfinite(top) | ~np.isfinite(bot) | (top <= nodata) | (bot <= nodata)
+        top = np.array(top, dtype=float, copy=True)
+        bot = np.array(bot, dtype=float, copy=True)
+        top[invalid] = nodata
+        bot[invalid] = nodata
+
+        assert_bottom_below_top(top=top, bot=bot, nodata=nodata)
+
+        # 2) Layer bottoms and idomain from config.
+        bases = {}
+        for name, surface in (base_surfaces or {}).items():
+            values = np.asarray(surface.as_array(), dtype=float)
+            if values.shape != top.shape:
+                raise ValueError(
+                    f"The layer base {name!r} has shape {values.shape}, the top {top.shape}."
+                )
+            bases[name] = values
+        stack = layer_stack(
+            top=top, bottom=bot, invalid=invalid, vertical_config=cfg, bases=bases, nodata=nodata
+        )
+
+        # The planar grid is the mesh's, the steps of the support are only checked.
+        width = float(support.xmax) - float(support.xmin)
+        height = float(support.ymax) - float(support.ymin)
+        dx = float(support.dx) if support.dx is not None else width / int(support.ncols)
+        dy = float(support.dy) if support.dy is not None else height / int(support.nrows)
+        if dx <= 0 or dy <= 0:
+            raise ValueError(f"Invalid support cell sizes: dx={dx}, dy={dy}.")
+
+        return StructuredGridSpec(
+            top=top,
+            botm=stack.botm,
+            nlay=int(stack.botm.shape[0]),
+            idomain=stack.idomain,
+        )
+
+
+def _build_structured_solver_mesh(
+    *,
+    cell_mesh: PlanarCellMesh,
+    top_surface: Surface,
+    bottom_surface: Surface,
+    vertical_config: VerticalGridConfig | None,
+    nodata: float,
+    column: CellColumn,
+    base_surfaces: dict[str, Surface] | None = None,
+) -> tuple[SolverMesh, Surface, Surface]:
+    """Extrude a regular mesh on its column, with the layer bases resampled to its shape.
+
+    The planar grid is the mesh's. The column gives the top and the bottom, the surfaces
+    give the layer bases and the support. Returns the solver mesh and the top and bottom
+    surfaces at the resolution of the mesh.
+    """
+    nrow, ncol = cell_mesh.structured_shape
+    base_surfaces = dict(base_surfaces or {})
+    if np.asarray(top_surface.as_array()).shape != (nrow, ncol):
+        top_surface = resample_to_mesh_shape(top_surface, cell_mesh, nodata)
+        bottom_surface = resample_to_mesh_shape(bottom_surface, cell_mesh, nodata)
+        base_surfaces = {
+            name: resample_to_mesh_shape(surface, cell_mesh, nodata)
+            for name, surface in base_surfaces.items()
+        }
+    top_surface = Surface(
+        name=top_surface.name, values=column.top.reshape(nrow, ncol), support=top_surface.support
+    )
+    bottom_surface = Surface(
+        name=bottom_surface.name,
+        values=column.bottom.reshape(nrow, ncol),
+        support=bottom_surface.support,
+    )
+
+    # The builder gives the vertical part only, the planar grid is the mesh's.
+    spec = StructuredGridBuilder().build_from_surfaces(
+        top_surface=top_surface,
+        bottom_surface=bottom_surface,
+        vertical_config=vertical_config,
+        base_surfaces=base_surfaces,
+    )
+    solver_mesh = SolverMesh(
+        cell_mesh=cell_mesh,
+        top=spec.top.reshape(-1),
+        botm=spec.botm.reshape(spec.nlay, -1),
+        idomain=spec.idomain.reshape(spec.nlay, -1),
+    )
+    return solver_mesh, top_surface, bottom_surface
 
 
 def build_spatial_discretization(
     *,
-    domain: DomainLike,
-    sgrid_config: SolverSGridConfig | None,
-    runtime_planar_mesh: object | None = None,
-    channel_mask: np.ndarray | None = None,
+    domain: Domain,
+    vertical_config: VerticalGridConfig | None,
+    cell_mesh: PlanarCellMesh,
+    column: CellColumn,
 ) -> SolverGridContext:
-    """Build normalized spatial discretization from domain surfaces or runtime mesh.
+    """Extrude a planar cell mesh on its column into the solver grid.
 
-    ``channel_mask`` (aligned to ``domain.surface_topo``) flags DEM channel pixels
-    for zonal top sampling; it is only used on the runtime-mesh path when
-    ``sgrid_config.top_sampling.mode == 'zonal'``.
+    The planar part is ``cell_mesh``: a regular grid (``structured_shape`` set) or
+    any unstructured one. The top and the bottom are ``column``, which
+    ``modflow_column`` builds from ``domain.surface_topo`` and ``domain.substratum`` at
+    ``prepare_solver``. This function adds the layers of ``vertical_config``, the
+    ``[domain.layers]`` table that every solver reads; a layering by surfaces also reads
+    ``domain.layer_bases``, and its pinched cells get ``idomain`` -1. A regular mesh whose
+    shape differs from the surfaces gets the layer bases resampled to it.
+
+    The interfaces are checked once built: an active cell with a top at or
+    below its bottom raises. The solver warns about active cells in more than one
+    connected group once its grid is final (``active_connectivity``).
     """
-    vertical_config: VerticalGridConfig | None = None
-    planar_config: PlanarGridConfig | None = None
-    grid_dual = "voronoi"
-    top_sampling: TopSamplingConfig | None = None
-    if sgrid_config is not None:
-        vertical_config = sgrid_config.vertical
-        planar_config = sgrid_config.planar
-        grid_dual = sgrid_config.grid_dual
-        top_sampling = sgrid_config.top_sampling
-
     nodata = float(vertical_config.nodata if vertical_config is not None else -9999.0)
 
     top_surface, bottom_surface = resolve_domain_surfaces(domain=domain)
+    base_surfaces = resolve_layer_bases(domain=domain, vertical_config=vertical_config)
 
-    if runtime_planar_mesh is None:
-        top_surface, bottom_surface = project_surfaces_to_planar_grid(
-            top_surface=top_surface,
-            bottom_surface=bottom_surface,
-            planar_config=planar_config,
-            nodata=nodata,
-        )
-        top = np.asarray(top_surface.as_array(), dtype=float)
-        bottom = np.asarray(bottom_surface.as_array(), dtype=float)
-        sgrid_spec = StructuredGridBuilder().build_from_surfaces(
+    if cell_mesh.structured_shape is not None:
+        solver_mesh, top_surface, bottom_surface = _build_structured_solver_mesh(
+            cell_mesh=cell_mesh,
             top_surface=top_surface,
             bottom_surface=bottom_surface,
             vertical_config=vertical_config,
-        )
-        sgrid = sgrid_spec_to_flopy(sgrid_spec)
-        zbot = np.asarray(sgrid.botm, dtype=float)
-        inactive_mask = (
-            ~np.isfinite(top) | ~np.isfinite(bottom) | (top <= nodata) | (bottom <= nodata)
-        )
-        solver_mesh = SolverMesh.from_sgrid(
-            sgrid,
-            zbot=zbot,
-            inactive_mask=np.asarray(inactive_mask, dtype=bool),
+            nodata=nodata,
+            column=column,
+            base_surfaces=base_surfaces,
         )
     else:
         solver_mesh = _build_extruded_solver_mesh_from_runtime_planar(
-            planar_mesh=runtime_planar_mesh,
-            top_surface=top_surface,
-            bottom_surface=bottom_surface,
+            cell_mesh=cell_mesh,
+            column=column,
             vertical_config=vertical_config,
             nodata=nodata,
-            grid_dual=grid_dual,
-            top_sampling=top_sampling,
-            channel_mask=channel_mask,
+            base_surfaces=base_surfaces,
         )
+    solver_mesh.check_interfaces()
 
     return SolverGridContext(
         grid=grid_reference_from_solver_mesh(
@@ -411,8 +355,62 @@ def build_spatial_discretization(
     )
 
 
-__all__ = [
-    "build_spatial_discretization",
-    "project_surfaces_to_planar_grid",
-    "resolve_domain_surfaces",
-]
+def grid_reference_from_solver_mesh(
+    solver_mesh: SolverMesh,
+    *,
+    crs: str | None = None,
+    nodata: float = -9999.0,
+) -> GridReference:
+    """Build a GridReference from a SolverMesh."""
+    mesh_bounds = solver_mesh.planar_mesh.bounds()
+    xmin, ymin = float(mesh_bounds[0]), float(mesh_bounds[1])
+    xmax, ymax = float(mesh_bounds[2]), float(mesh_bounds[3])
+    return GridReference(
+        n_cells=solver_mesh.n_cells,
+        bounds=(xmin, ymin, xmax, ymax),
+        crs=crs,
+        nodata=float(nodata),
+        structured_shape=solver_mesh.structured_shape,
+        cell_size_hint=float(solver_mesh.characteristic_length),
+    )
+
+
+@dataclass(slots=True)
+class SolverGridContext:
+    """Runtime bundle for one solver grid (structured or unstructured)."""
+
+    grid: GridReference
+    solver_mesh: SolverMesh
+    top_surface: Surface
+    bottom_surface: Surface
+    template_raster_path: str | None = None
+
+    @property
+    def top_elevation(self) -> np.ndarray:
+        """Top elevation as flat (n_cells,) array."""
+        return np.asarray(self.solver_mesh.top, dtype=float)
+
+    @property
+    def bottom_layer(self) -> np.ndarray:
+        """Bottom elevation of deepest layer as flat (n_cells,) array."""
+        return np.asarray(self.solver_mesh.botm[-1], dtype=float)
+
+    @property
+    def nlay(self) -> int:
+        return self.solver_mesh.nlay
+
+    @property
+    def n_cells(self) -> int:
+        return self.solver_mesh.n_cells
+
+    @property
+    def is_structured(self) -> bool:
+        return self.solver_mesh.is_structured
+
+    @property
+    def nrow(self) -> int:
+        return self.solver_mesh.nrow
+
+    @property
+    def ncol(self) -> int:
+        return self.solver_mesh.ncol

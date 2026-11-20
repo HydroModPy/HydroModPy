@@ -1,0 +1,83 @@
+[workflow]
+mode = "calibration"
+[workspace]
+project_root = "."
+[simulation]
+name = "calibration_dupuit"
+description = "Calibration Optuna de K sur aquifère Dupuit synthétique."
+[[simulation.process]]
+id = "flow"
+type = "flow"
+solvers = ["modflow_nwt"]
+[geographic]
+source_mode = "synthetic"
+[geographic.synthetic]
+case_id = "calibration_dupuit"
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "50.0 m"
+nx = 40
+ny = 5
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 20.0
+[domain]
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "20.0 m"
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["west_side", "east_side"]
+param_list = ["K"]
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+value = "1e-4 m/s"
+[flow.ic]
+type = "custom"
+value = "5.0 m"
+[flow.bc.west_side]
+kind = "dirichlet"
+value = "5.0 m"
+[flow.bc.east_side]
+kind = "dirichlet"
+value = "5.0 m"
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+[data]
+types = ["recharge"]
+inference_mode = "warn"
+[[data.recharge.sources]]
+source = "synthetic"
+values = [3.0]
+runoff_ratio = 0.0
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 5
+resampling = "nearest"
+[modflownwt.sgrid.vertical]
+nlay = 1
+[display]
+enabled = false
+[calibration]
+method = "optuna"
+max_iter = 20
+save_runs = "best_n"
+save_best_n = 3
+seed = 42
+objective = "rmse"
+variable = "head"
+[calibration.parameters.K_aquifer]
+bounds = [1e-6, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+[calibration.outputs.head]
+variable = "head"
+support = "point"
+x = "200 m"
+y = "25 m"
+time = "last"
+observed_values = [6.235]

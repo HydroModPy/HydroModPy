@@ -1,0 +1,48 @@
+[workspace]
+data_dir = "data"
+
+[workflow]
+mode = "simulation"
+
+[geographic]
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
+kind = "from_outlet_coord"
+dem_init_path = "dem.tif"
+snap_dist = "150 m"
+buff_area = "10%"
+x_outlet = 389285.9
+y_outlet = 6816518.7
+
+[simulation]
+name = "alpha-k2e_5"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-03-31"
+step_value = "1 month"
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = [
+    "modflow6",
+]
+
+[flow]
+flow_regime = "steady"
+param_list = [
+    "K",
+]
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 2e-05
+
+[flow.bc.drainage]
+kind = "drain"
+
+[site]
+name = "alpha"

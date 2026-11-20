@@ -1,7 +1,7 @@
 """Read the persisted lake abacus comparison for a run.
 
 A module-level view (not a ``Run`` method, to keep the ``Run`` public surface
-under the CLAUDE.md cap) that opens the per-sim Zarr and returns the reference vs
+under its cap) that opens the per-sim Zarr and returns the reference vs
 simulated abacus arrays a lake used during ``bed_reconstruction``.
 """
 
@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 __all__ = ["run_lake_abacus"]
 
@@ -21,7 +21,7 @@ def run_lake_abacus(run: Run, lake_id: str | None = None) -> dict:
     With ``lake_id=None`` the lake holding the most water at full pool is returned,
     not the first one persisted: a reservoir and its pre-retenue differ by more than
     an order of magnitude in storage, and defaulting to whichever happened to be
-    written first shows the small one and hides the one being modelled. ``lake_ids``
+    written first shows the small one and hides the one being modeled. ``lake_ids``
     carries every persisted lake so a caller can iterate. Raises ``KeyError`` when no
     lake abacus was persisted for this run.
     """

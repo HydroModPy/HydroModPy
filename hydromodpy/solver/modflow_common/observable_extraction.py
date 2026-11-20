@@ -19,6 +19,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.catchment.drainage.graph import DownhillGraph
+from hydromodpy.catchment.drainage.routing import route_release_to_discharge, upstream_area
+from hydromodpy.core.budget.flux import networks_route_drainage
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
@@ -30,20 +33,16 @@ from hydromodpy.solver.base.observables import (
     scalar_observable,
     series_observable,
 )
+from hydromodpy.solver.modflow_common.boundary_roles import read_constant_head_roles
 from hydromodpy.solver.modflow_common.calibration_extractors import (
     ReleasePackage,
     extract_discharge_from_cbc,
     extract_head_from_hds,
     extract_release_flux_by_cell_from_cbc,
     extract_saturated_thickness_by_cell_from_hds,
+    extract_water_table_by_cell_from_hds,
 )
-from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
-from hydromodpy.solver.modflow_common.discharge_routing import (
-    flat_cell_index,
-    route_release_to_discharge,
-    routing_graph_for_model,
-    upstream_area_m2,
-)
+from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask
 
 RoutedDischargeReader = Callable[[Path, str, "pd.DatetimeIndex | None"], "pd.Series | None"]
 StationCellMapper = Callable[[Mapping[str, tuple[int, int, int]]], dict[str, tuple[int, int, int]]]
@@ -60,41 +59,24 @@ _SURFACE_TO_MOVER_RECORDS = ("SFR-TO-MVR", "LAK-TO-MVR")
 _CONSTANT_HEAD_RECORDS = ("CHD", "CONSTANT HEAD")
 
 
-def resolve_run_output(ctx: Any, *, name_attributes: Sequence[str]) -> tuple[Path, Any, str]:
-    """Return the scratch directory, the model and the model name for a run.
-
-    A lightweight trial writes nothing to the store, so the only trace of the
-    run is the scratch directory the execution registry recorded.
-    """
-    output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
-    model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
-    if output_dir is None or model is None:
-        raise ObservableNotAvailableError(f"No solver output recorded for run {ctx.run.id!r}")
-    model_name = next(
-        (
-            value
-            for value in (getattr(model, attr, None) for attr in name_attributes)
-            if value is not None
-        ),
-        None,
-    )
-    if model_name is None:
-        raise ObservableNotAvailableError(f"Model name is missing for run {ctx.run.id!r}")
-    return Path(output_dir), model, str(model_name)
-
-
 def _stream_role_cells(model: Any) -> np.ndarray | None:
     """Cells whose CHD rows carry the stream role, as the builder recorded them.
 
-    The MF6 build stores the mask it used to place the stream boundary, and it
-    is the only thing that tells a stream CHD apart from an ocean or a side CHD
-    once they share a single package in the budget.
+    The role is the only thing that tells a stream CHD apart from an ocean or a
+    side CHD once they share a single package in the budget, and the build
+    declares it beside the solver files: reading it needs the run directory,
+    never a live flopy model. The MF6 build also keeps the masks on the model
+    for its own packages, which is its business and stays inside its package.
+    A backend that builds no CHD package leaves no sidecar and rules nothing in.
     """
-    mask = getattr(model, "_stream_support_mask", None)
-    if mask is None:
+    directory = getattr(model, "full_path", None)
+    name = getattr(model, "model_output_name", None)
+    if directory is None or name is None:
         return None
-    flat = np.asarray(mask, dtype=bool).reshape(-1)
-    return flat if bool(flat.any()) else None
+    roles = read_constant_head_roles(directory, str(name))
+    if roles is None or not roles.has_role("stream"):
+        return None
+    return roles.mask_for("stream")
 
 
 def _drain_routes_to_mover(model: Any) -> bool:
@@ -121,6 +103,12 @@ def release_packages_for_model(model: Any) -> list[ReleasePackage]:
     record joins the union whenever the DRN package feeds the mover. A package
     the run never built is skipped; a package it built keeps its record
     mandatory downstream.
+
+    The stored ``release_flux`` field sums the same paths from the persisted
+    budget (``hydromodpy.core.budget.flux.release_flux_stack``): ``drain``,
+    ``drain_to_mover``, ``stream``, ``lake`` and ``constant_head_stream``, the
+    constant head restricted to the same stream-role cells. A change here is a
+    change there.
     """
     packages: list[ReleasePackage] = []
     if getattr(model, "drn", None) is not None:
@@ -200,18 +188,72 @@ def excluded_release_records_for_model(model: Any) -> dict[str, str]:
     return excluded
 
 
-def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray]:
-    """Return the top and the base of the aquifer, one value per cell."""
+def routing_graph_for_model(model: Any) -> DownhillGraph:
+    """Return the graph the release is routed on: the receivers of the descent D.
+
+    D is the routing copy of the top the solver itself meshed, built once by
+    the backend's build: filled so every cell drains, seeded on the rim and the
+    constant-head cells, pinned along the generated network A. A river CHD
+    keeps its steepest descent, so the release passes through it and the
+    outlet keeps the domain sum. Its neighborhood
+    is fixed by the mesh, shared nodes (D8) on quads and shared faces elsewhere.
+    The raster the geographic step conditioned is never read: sampling it at
+    cell centers grows new pits and drops the cells whose center falls on
+    nodata.
+    """
+    descent = getattr(model, "descent", None)
+    if descent is None:
+        raise ValueError(
+            "a per-cell discharge is routed on the descent D of the build, and this model "
+            "carries none: run its pre-processing first."
+        )
+    return descent.metric.graph
+
+
+def flat_cell_index(model: Any, cell: tuple[int, int, int]) -> int:
+    """Return the flat mesh index of a ``(layer, row, col)`` observable cell.
+
+    The release is summed over layers onto one value per planar cell, so the
+    layer is dropped here. On an unstructured mesh a cell arrives as
+    ``(layer, 0, cell_id)`` and the third slot already IS the flat index, which
+    is the convention ``find_cell_at_point`` and the head reader share.
+    """
+    solver_mesh = model.solver_mesh
+    _, row, col = (int(part) for part in cell)
+    n_cells = int(solver_mesh.n_cells)
+    if not solver_mesh.is_structured:
+        if row != 0:
+            raise ValueError(
+                f"an unstructured mesh addresses a cell as (layer, 0, cell_id); got row={row}."
+            )
+        index = col
+    else:
+        index = row * int(solver_mesh.ncol) + col
+    if not 0 <= index < n_cells:
+        raise ValueError(f"cell {cell} maps to flat index {index}, outside the {n_cells} cells.")
+    return index
+
+
+def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return the top and the base of the aquifer and the water-table layer, per cell.
+
+    The water-table layer is the top active layer of the column, -1 on a column
+    no surface process reaches (``model.inactive_mask``: no active cell, or a
+    lake footprint).
+    """
     mesh = getattr(model, "solver_mesh", None)
     if mesh is None:
         raise ObservableNotAvailableError(
-            "saturated_thickness needs a solver mesh on the run model."
+            "A value per cell of the aquifer needs a solver mesh on the run model."
         )
     top = np.asarray(mesh.top, dtype=float).reshape(-1)
     botm = np.asarray(mesh.botm, dtype=float)
     if botm.ndim == 1:
         botm = botm.reshape(1, -1)
-    return top, botm[-1].reshape(-1)
+    layer = mesh.top_active_layer()
+    closed = np.asarray(model.inactive_mask, dtype=bool).reshape(-1)
+    layer[closed] = -1
+    return top, botm[-1].reshape(-1), layer
 
 
 def extract_common_modflow_observables(
@@ -240,27 +282,53 @@ def extract_common_modflow_observables(
     head_requests = [r for r in requests if r.name == "head" and r.support == "cell"]
     discharge_requests = [r for r in requests if r.name == "discharge" and r.support == "domain"]
     discharge_cell_requests = [r for r in requests if r.name == "discharge" and r.support == "cell"]
-    area_requests = [r for r in requests if r.name == "upstream_area" and r.support == "cell"]
+    area_requests = [
+        r for r in requests if r.name == "upstream_area" and r.support in ("cell", "cells")
+    ]
     release_requests = [r for r in requests if r.name == "release_flux" and r.support == "cells"]
     thickness_requests = [
         r for r in requests if r.name == "saturated_thickness" and r.support == "cells"
     ]
+    xy_requests = [r for r in requests if r.name == "cell_xy" and r.support in ("cell", "cells")]
+    table_requests = [r for r in requests if r.name == "head" and r.support == "cells"]
     handled = {id(r) for r in head_requests + discharge_requests + discharge_cell_requests}
+    handled |= {id(r) for r in table_requests}
     handled |= {id(r) for r in release_requests + thickness_requests + area_requests}
+    handled |= {id(r) for r in xy_requests}
     unserved = [r for r in requests if id(r) not in handled]
 
     if discharge_requests:
-        # A routed network owns the discharge observable. With route_drainage the
+        # A routed series owns the discharge observable. With route_drainage the
         # in-catchment drainage has been moved into DRN-TO-MVR, so the plain DRAIN
-        # record left in the budget is the buffer drainage of the neighbouring
-        # basins and summing it would score the wrong water. The reader is injected
-        # by the backend: SFR is MODFLOW 6 only, and `modflow_common` must not
-        # import a backend.
+        # record left in the budget is the buffer drainage of the neighboring
+        # basins and summing it would score the wrong water. Without it, or with a
+        # lake and no network, the hillslope drainage stays in DRAIN, outside the
+        # routed series, so the catchment DRAIN budget is added to it. The baseflow
+        # of the reach cells leaves through the bed leakage, never through DRAIN, so
+        # nothing is counted twice. The runoff forcing is injected into the network
+        # or the lake either way. The reader is injected by the backend: SFR and LAK
+        # are MODFLOW 6 only, and `modflow_common` must not import a backend.
         series = None
         routed = False
         if routed_discharge_reader is not None:
             series = routed_discharge_reader(output_dir, model_name, time_index)
             routed = series is not None
+        if routed and not networks_route_drainage(getattr(model, "inputs", None)):
+            try:
+                hillslope = extract_discharge_from_cbc(
+                    output_dir,
+                    model_name,
+                    time_index,
+                    catchment_mask=catchment_cell_mask(model),
+                )
+            except NotImplementedError:
+                # A mover of another package (drain to lake) is in the budget: the
+                # DRAIN record cannot be read as hillslope drainage. Keep the routed
+                # series alone rather than refuse a calibration that ran before.
+                hillslope = None
+            if hillslope is not None:
+                n_steps = min(len(series), len(hillslope))
+                series = series.iloc[:n_steps] + hillslope.to_numpy(dtype=float)[:n_steps]
         if series is None:
             series = extract_discharge_from_cbc(
                 output_dir,
@@ -295,13 +363,37 @@ def extract_common_modflow_observables(
     if area_requests:
         # Static geometry, but it belongs with the discharge: the runoff a gauge
         # sees has to be the runoff over exactly the cells whose release it sees.
-        graph = routing_graph_for_model(
-            model, diagonal_neighbors=any(r.diagonal_neighbors for r in area_requests)
-        )
-        areas = upstream_area_m2(model, graph, catchment_mask=catchment_cell_mask(model))
+        graph = routing_graph_for_model(model)
+        areas = upstream_area(
+            np.asarray(model.solver_mesh.cell_areas(), dtype=float).reshape(-1),
+            graph,
+            catchment_mask=catchment_cell_mask(model),
+        ).m2
         for request in area_requests:
+            if request.support == "cells":
+                # The whole static field, one row: what a gauge snap searches for
+                # the most accumulated cell near a coordinate.
+                served[request.id] = ObservableResult(
+                    request_id=request.id,
+                    values=np.asarray(areas, dtype=float).reshape(1, -1),
+                    units="m2",
+                )
+                continue
             served[request.id] = scalar_observable(
                 request, float(areas[flat_cell_index(model, request.cell)]), units="m2"
+            )
+
+    if xy_requests:
+        # The planar cell centers, in the model CRS. A gauge snap searches them,
+        # and reads them here so the calibration layer never touches the mesh.
+        centroids = np.asarray(model.solver_mesh.cell_centers(), dtype=float)[:, :2]
+        for request in xy_requests:
+            if request.support == "cells":
+                values = centroids
+            else:
+                values = centroids[flat_cell_index(model, request.cell)]
+            served[request.id] = ObservableResult(
+                request_id=request.id, values=np.array(values, dtype=float), units="m"
             )
 
     if release_requests or discharge_cell_requests:
@@ -334,9 +426,7 @@ def extract_common_modflow_observables(
                 # No reach under that gauge: sum what the aquifer released above
                 # it. The release is the union of every package crossing the
                 # aquifer face, so this holds for DRN, LAK and the movers alike.
-                graph = routing_graph_for_model(
-                    model, diagonal_neighbors=any(r.diagonal_neighbors for r in unrouted)
-                )
+                graph = routing_graph_for_model(model)
                 routed = route_release_to_discharge(
                     frame.to_numpy(),
                     graph,
@@ -358,16 +448,25 @@ def extract_common_modflow_observables(
                 )
 
     if thickness_requests:
-        top, bottom = _aquifer_bounds(model)
+        top, bottom, layer = _aquifer_bounds(model)
         frame = extract_saturated_thickness_by_cell_from_hds(
             output_dir,
             model_name,
             top=top,
             bottom=bottom,
+            layer=layer,
             time_index=time_index,
         )
         for request in thickness_requests:
             served[request.id] = field_observable(request, frame, units=_THICKNESS_UNITS)
+
+    if table_requests:
+        # The head of every cell is the water table: the top active cell of each column.
+        frame = extract_water_table_by_cell_from_hds(
+            output_dir, model_name, layer=_aquifer_bounds(model)[2], time_index=time_index
+        )
+        for request in table_requests:
+            served[request.id] = field_observable(request, frame, units=_HEAD_UNITS)
 
     return served, unserved
 
@@ -383,6 +482,7 @@ def _n_cells(model: Any) -> int | None:
 
 __all__ = (
     "extract_common_modflow_observables",
+    "flat_cell_index",
     "release_packages_for_model",
-    "resolve_run_output",
+    "routing_graph_for_model",
 )

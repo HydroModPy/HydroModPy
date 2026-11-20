@@ -20,6 +20,8 @@ NY = 5
 LENGTH_X_M = 100.0
 WIDTH_Y_M = 10.0
 
+from .reference import periodic_recharge_levels_mm_day
+
 
 def _periodic_recharge_series_mm_day(
     *,
@@ -30,10 +32,14 @@ def _periodic_recharge_series_mm_day(
     nper: int,
     dt_seconds: float,
 ) -> list[float]:
-    start_days = (np.arange(int(nper), dtype=float) * float(dt_seconds)) / SECONDS_PER_DAY
-    angular_frequency = 2.0 * np.pi / float(period_days)
-    values = float(mean_recharge_mm_day) + (
-        float(amplitude_mm_day) * np.sin((angular_frequency * start_days) + float(phase_radians))
+    step_days = float(dt_seconds) / SECONDS_PER_DAY
+    values = periodic_recharge_levels_mm_day(
+        start_days=np.arange(int(nper), dtype=float) * step_days,
+        step_days=step_days,
+        mean_recharge_mm_day=mean_recharge_mm_day,
+        amplitude_mm_day=amplitude_mm_day,
+        period_days=period_days,
+        phase_radians=phase_radians,
     )
     return [float(value) for value in values]
 
@@ -42,6 +48,7 @@ def run_boussinesq_linearized_unconfined_recharge_periodic_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> object:
     """Run the periodic recharge case through the local transient Boussinesq backend."""
     metadata = load_case_metadata(CASE_DIR)
@@ -68,6 +75,7 @@ def run_boussinesq_linearized_unconfined_recharge_periodic_case(
         case_id=CASE_ID,
         caller_file=caller_file,
         timeout=timeout,
+        public_solver_label=public_solver_label,
         nx=NX,
         ny=NY,
         nper=nper,
@@ -80,9 +88,7 @@ def run_boussinesq_linearized_unconfined_recharge_periodic_case(
         storage_coefficient=float(reference_cfg["specific_yield"]),
         flow_section={
             "flow_regime": "transient",
-            "ic": {"type": "custom", "value": base_head_m},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["west_side", "east_side"],
+            "ic": {"kind": "custom", "value": base_head_m},
             "sinks_sources": {
                 "recharge": {
                     "values": recharge_m_s,

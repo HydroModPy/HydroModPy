@@ -1,0 +1,250 @@
+{
+  "schema": "hydromodpy.profile.v1",
+  "process_age_s": {
+    "1": 6.932897567749023
+  },
+  "lines": [
+    {
+      "kind": "step",
+      "name": "validate",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:30.456532+00:00",
+      "duration_s": 0.0038837940664961934,
+      "max_rss_mb": 366.0078125,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "resolve",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:30.464384+00:00",
+      "duration_s": 0.0004603569395840168,
+      "max_rss_mb": 366.0078125,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "build_geographic",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:30.468573+00:00",
+      "duration_s": 0.15898753597866744,
+      "max_rss_mb": 415.2109375,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "load_data",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:30.639314+00:00",
+      "duration_s": 0.005627313046716154,
+      "max_rss_mb": 415.3828125,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "build_mesh",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:30.649989+00:00",
+      "duration_s": 0.055218396009877324,
+      "max_rss_mb": 417.2265625,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "setup_process",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:30.710971+00:00",
+      "duration_s": 0.0005071859341114759,
+      "max_rss_mb": 417.2265625,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "prepare_solver",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:30.716481+00:00",
+      "duration_s": 1.3296020759735256,
+      "max_rss_mb": 432.60546875,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "solve",
+      "name": "flow_main::modflow_nwt",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:32.072088+00:00",
+      "duration_s": 0.01557851699180901,
+      "max_rss_mb": 434.6328125,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "run_solver",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:32.058766+00:00",
+      "duration_s": 0.13129578193183988,
+      "max_rss_mb": 435.19140625,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "extract",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:32.201902+00:00",
+      "duration_s": 0.30909788294229656,
+      "max_rss_mb": 436.94140625,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "derive",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:32.522983+00:00",
+      "duration_s": 0.12609157303813845,
+      "max_rss_mb": 440.01171875,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "export",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:32.654693+00:00",
+      "duration_s": 0.00452130101621151,
+      "max_rss_mb": 440.01171875,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "export",
+      "name": "data",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:33.053323+00:00",
+      "duration_s": 0.1887046730844304,
+      "max_rss_mb": 443.0546875,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "export",
+      "name": "views",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:33.242618+00:00",
+      "duration_s": 0.003396121086552739,
+      "max_rss_mb": 443.0546875,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "seal",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:32.664764+00:00",
+      "duration_s": 0.5843117469921708,
+      "max_rss_mb": 443.0546875,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "figure",
+      "name": "water_budget",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:33.312808+00:00",
+      "duration_s": null,
+      "max_rss_mb": null,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "kind": "step",
+      "name": "display",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:33.253216+00:00",
+      "duration_s": 1.654323177994229,
+      "max_rss_mb": 455.01171875,
+      "reused": "no",
+      "key": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    }
+  ],
+  "from_a_later_version": {
+    "kept": true,
+    "note": "written by a later 2.x"
+  }
+}

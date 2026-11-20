@@ -13,7 +13,6 @@ CORE_MODULES = (
     "duckdb",
     "pandera",
     "zarr",
-    "sqlalchemy",
     "xugrid",
 )
 
@@ -21,8 +20,6 @@ DOC_MODULES = (
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
-    "sphinx_polyversion",
-    "sphinxcontrib.autodoc_pydantic",
 )
 
 TEST_MODULES = (

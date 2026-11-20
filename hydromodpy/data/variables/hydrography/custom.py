@@ -7,6 +7,7 @@ from pathlib import Path
 import geopandas as gpd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.common.geometry import require_declared_crs
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 logger = get_logger(__name__)
@@ -15,18 +16,22 @@ _VECTOR_EXTENSIONS = ("*.shp", "*.gpkg", "*.geojson")
 _RASTER_EXTENSIONS = ("*.tif", "*.tiff")
 
 
-def load_custom(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
+SOURCE_PATH_ATTR = "source_path"
+"""Key of ``GeoDataFrame.attrs`` naming the file a network was read from."""
+
+
+def load_file(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
     """Read a local file pointed to by *config.path*.
 
     Returns a ``GeoDataFrame`` for vector files (SHP/GPKG/GeoJSON) or a
-    ``Path`` for raster files (TIF/TIFF).  The manager handles the raster
+    ``Path`` for raster files (TIF/TIFF).  The variable handles the raster
     pipeline separately.
     """
     path = Path(config.path)
 
     if path.is_dir():
         # Try raster first, then vector. Scaffold EXAMPLE templates are skipped.
-        from hydromodpy.data.common.io_helpers import is_scaffold_example
+        from hydromodpy.data.common.files import is_scaffold_example
 
         def _scan(extensions: tuple[str, ...]) -> list[Path]:
             found: list[Path] = []
@@ -38,7 +43,7 @@ def load_custom(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
         if raster:
             path = raster[0]
             logger.info("Auto-detected raster file: %s", path)
-            return path
+            return _checked_raster(path)
 
         vector = _scan(_VECTOR_EXTENSIONS)
         if not vector:
@@ -53,7 +58,19 @@ def load_custom(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
     # Single file - decide by extension
     if path.suffix.lower() in (".tif", ".tiff"):
         logger.info("Loading custom hydrography raster from %s", path)
-        return path
+        return _checked_raster(path)
 
     logger.info("Loading custom hydrography vector from %s", path)
-    return gpd.read_file(path)
+    frame = gpd.read_file(path)
+    require_declared_crs(frame.crs, path=path, variable="hydrography")
+    frame.attrs[SOURCE_PATH_ATTR] = str(path)
+    return frame
+
+
+def _checked_raster(path: Path) -> Path:
+    """*path*, once it is known to declare a CRS."""
+    import rasterio
+
+    with rasterio.open(str(path)) as src:
+        require_declared_crs(src.crs, path=path, variable="hydrography")
+    return path

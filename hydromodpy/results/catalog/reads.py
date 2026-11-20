@@ -1,36 +1,41 @@
-"""Read-side queries against the catalog.
+"""Read-side queries against the index.
 
 Tabular ``query_*``, ``list_*``, ``read_geographic_*`` accessors plus a
-DataFrame property over ``simulations`` and the ``export`` dispatch. All
-methods are pure reads and never mutate DuckDB or the on-disk artefacts.
-
-Everything here therefore works on a catalog opened with ``read_only=True``,
-and that is how inspection paths open one: listing, showing, querying or
-plotting a project leaves its index file untouched.
+DataFrame property over ``simulations``. Every method is a pure read: the
+index is opened read-only, and listing, showing, querying or plotting a
+project leaves its file untouched.
 """
 
 from __future__ import annotations
 
-import json
-import math
-from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 import numpy as np
 import pandas as pd
 
+from hydromodpy.results.catalog.constants import MESH_ENGINE_SQL, SIMULATIONS_FROM
+from hydromodpy.results.storage.contract import geographic_feature_files
+
 if TYPE_CHECKING:
     import geopandas as gpd
-
-    from hydromodpy.core.config_kit.export_spec import ExportSpec
 
 # Filter columns that map to a real simulations.* column (no dim join).
 _SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
     {
         "sim_id",
         "name",
+        "name_stem",
         "project",
+        "site",
+        "site_fingerprint",
+        "recipe",
+        "case_id",
+        "rel_dir",
+        "attempt_id",
+        "label",
+        "session_id",
+        "hydromodpy_version",
         "mesh_hash",
         "n_cells",
         "n_layers",
@@ -40,29 +45,26 @@ _SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
         "period_start",
         "period_end",
         "time_unit",
-        "config_hash",
+        "solution_key",
+        "request_id",
         "config_source",
         "parent_sim_id",
         "lineage_kind",
-        "zarr_packed",
-        "storage_basename",
-        "geographic_fingerprint",
         "duration_s",
         "created_at",
-        "updated_at",
         "scientific_objective",
-        "study_area_name",
         "doi",
     }
 )
 
-# Filter columns resolved via dim-table JOINs.
+# Filter columns resolved via dim-table JOINs, and the engine the seal names.
 _SIMULATION_DIM_FILTERS: dict[str, str] = {
     "solver": "sv.code",
     "solver_category": "sv.category",
     "flow_regime": "fr.code",
     "status": "st.code",
     "mesh_topology": "mt.code",
+    "mesh_engine": MESH_ENGINE_SQL,
 }
 
 _SIMULATION_FILTER_COLUMNS: frozenset[str] = _SIMULATION_DIRECT_FILTERS | frozenset(
@@ -73,6 +75,8 @@ _SIMULATION_ORDER_COLUMNS: frozenset[str] = _SIMULATION_FILTER_COLUMNS | frozens
     {
         "started_at",
         "ended_at",
+        "nse",
+        "calibrated_by_cost",
         "bbox_xmin",
         "bbox_ymin",
         "bbox_xmax",
@@ -106,19 +110,15 @@ def _order_clause(order_by: str | tuple[str, str] | None) -> str | None:
 
 
 _SIMULATIONS_VIEW_SELECT = (
-    # Listing/search path: never pull the two heavy config JSON blobs (per-sim
-    # config access goes through Run._load_row's own query). Dropping them at the
-    # SQL layer keeps `ls` memory bounded on large, federated workspaces.
-    "SELECT s.* EXCLUDE (config_toml, config_snapshot), "
+    # Listing path: never pull the two config blobs (a run reads its own row
+    # through Run._load_row), so `ls` stays cheap on a project of many runs.
+    "SELECT s.* EXCLUDE (config_toml, config_snapshot, mesh_engine), "
     "sv.code AS solver, sv.category AS solver_category, "
     "st.code AS status, "
     "fr.code AS flow_regime, "
-    "mt.code AS mesh_topology "
-    "FROM simulations s "
-    "JOIN solvers sv ON s.solver_id = sv.id "
-    "JOIN statuses st ON s.status_id = st.id "
-    "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
-    "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id"
+    "mt.code AS mesh_topology, "
+    f"{MESH_ENGINE_SQL} AS mesh_engine "
+    f"{SIMULATIONS_FROM}"
 )
 
 
@@ -126,10 +126,9 @@ class ReadsMixin:
     """Read-only queries for :class:`Catalog`.
 
     Relies on attributes provided by the facade: ``self._backend``
-    (CatalogBackend port), ``self._db`` (DuckDB connection, kept for
-    exporters that take a raw cursor), and ``self._paths``
-    (StoragePathResolver), plus ``self.open_zarr`` and
-    ``self.fields_path_for`` for field reads / exports.
+    (a ``DuckDBBackend``), ``self._workspace`` (the project root) and
+    ``self._paths`` (StoragePathResolver), plus ``self.open_zarr`` for the
+    field reads.
     """
 
     def query_field(
@@ -139,6 +138,38 @@ class ReadsMixin:
         timestep: int,
         layer: int | None = None,
     ) -> np.ndarray:
+        """Read one stored period of a field as an array.
+
+        A field the run did not store but can rebuild (water-table depth,
+        seepage mask, drain outflow) is computed from the stored ones.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        variable
+            Field name, for example ``"head"``.
+        timestep
+            Index of the stored period, ``0`` for the first.
+        layer
+            Layer index of a three-dimensional field. ``None`` keeps every layer.
+
+        Returns
+        -------
+        numpy.ndarray
+            The values of that period, one per cell (and per layer).
+
+        Raises
+        ------
+        KeyError
+            If the run neither stores nor can rebuild ``variable``.
+
+        Examples
+        --------
+        >>> heads = cat.query_field(
+        ...     run.sim_id, "head", timestep=0, layer=0
+        ... )  # doctest: +SKIP
+        """
         from hydromodpy.results.derive.virtual_fields import read_field_or_virtual
 
         return read_field_or_virtual(self, str(sim_id), variable, timestep, layer=layer)
@@ -149,60 +180,97 @@ class ReadsMixin:
         station_id: str,
         variable: str,
         period: tuple | None = None,
+        *,
+        source: str = "simulated",
     ) -> pd.Series:
-        from hydromodpy.results.derive.time_alignment import normalize_period_bounds
+        """Read one series of a run at one station.
 
-        query = (
-            "SELECT time, timestep, value FROM timeseries "
-            "WHERE sim_id = ? AND station_id = ? AND variable = ?"
-        )
-        params: list = [str(sim_id), station_id, variable]
-        if period is not None:
-            lo, hi, hi_inclusive = normalize_period_bounds(period)
-            query += " AND time >= ? AND time " + ("<= ?" if hi_inclusive else "< ?")
-            params.extend([lo, hi])
-        query += " ORDER BY timestep"
-        result = self._backend.query(query, params)
-        if result.empty:
-            raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
-        # Strip tz back to naive so the returned series aligns with
-        # simulation-internal tz-naive time indexes.
-        idx = pd.DatetimeIndex(result["time"])
-        if idx.tz is not None:
-            idx = idx.tz_convert("UTC").tz_localize(None)
-        return pd.Series(
-            result["value"].values,
-            index=idx,
-            name=variable,
-        )
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        station_id
+            Station the series belongs to, for example ``"outlet"``.
+        variable
+            Series name, for example ``"discharge"``.
+        period
+            Window ``(start, end)``, or a year as text (``"2002"``). It keeps the
+            stress periods it overlaps, as ``Run.timeseries`` reads it. ``None``
+            reads the whole series.
+        source
+            ``"simulated"``, the default, or ``"observed"`` for the measurement
+            of the same variable.
+
+        Returns
+        -------
+        pandas.Series
+            Values indexed by time (naive UTC timestamps), named ``variable``.
+
+        Raises
+        ------
+        KeyError
+            If the run holds no such series.
+
+        Examples
+        --------
+        >>> q = cat.query_timeseries(
+        ...     run.sim_id, "outlet", "discharge", period="2002"
+        ... )  # doctest: +SKIP
+        """
+        return self[sim_id].timeseries(variable, station=station_id, period=period, source=source)
 
     def query_budget(
         self,
         sim_id: str | UUID,
         zone_id: str | None = None,
-        period: tuple[int, int] | None = None,
+        steps: tuple[int, int] | None = None,
     ) -> pd.DataFrame:
-        query = "SELECT * FROM budgets WHERE sim_id = ?"
-        params: list = [str(sim_id)]
-        if zone_id is not None:
-            query += " AND zone_id = ?"
-            params.append(zone_id)
-        if period is not None:
-            query += " AND timestep >= ? AND timestep <= ?"
-            params.extend(period)
-        return self._backend.query(query, params)
+        """Return the water budget rows of a run.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        zone_id
+            Keep only this budget zone. ``None`` keeps every zone.
+        steps
+            ``(first, last)`` period indexes, both included.
+
+        Returns
+        -------
+        pandas.DataFrame
+            One row per term, zone and timestep, as stored in the ``budgets``
+            table.
+        """
+        return self[sim_id].budget(zone_id=zone_id, steps=steps)
 
     def query_mass_balance(self, sim_id: str | UUID) -> pd.DataFrame:
-        return self._backend.query(
-            "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
-            [str(sim_id)],
-        )
+        """Return the mass-balance rows of a run, one per timestep, in time order."""
+        return self[sim_id].mass_balance
 
     def get_provenance(
         self,
         sim_id: str | UUID,
         variable: str | None = None,
     ) -> pd.DataFrame:
+        """Return where the input data of a run came from.
+
+        One row per input variable: the source type (an HTTP API, a user file,
+        a data manager, a derived product or the cache), the source reference,
+        the SHA-256 digests and the loader that read it.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        variable
+            Keep only this input variable, for example ``"dem"``.
+
+        Returns
+        -------
+        pandas.DataFrame
+            The rows of the ``provenance`` table for that run.
+        """
         query = "SELECT * FROM provenance WHERE sim_id = ?"
         params: list = [str(sim_id)]
         if variable is not None:
@@ -210,13 +278,11 @@ class ReadsMixin:
             params.append(variable)
         return self._backend.query(query, params)
 
-    def list_simulations(self, *, named_only: bool = False, **filters) -> pd.DataFrame:
-        """Return one DataFrame row per simulation matching ``filters``.
+    def list_simulations(self, **filters) -> pd.DataFrame:
+        """Return one DataFrame row per sealed run matching ``filters``.
 
         ``order_by`` accepts only whitelisted simulation columns, with an
-        optional ``ASC`` or ``DESC`` direction. ``named_only=True`` drops the
-        technical rows: runs whose name was cleared on a replace collision
-        (``name IS NULL``) and effective-config snapshots (dotted names).
+        optional ``ASC`` or ``DESC`` direction.
         """
         order_by = filters.pop("order_by", None)
         query = _SIMULATIONS_VIEW_SELECT
@@ -230,9 +296,6 @@ class ReadsMixin:
             else:
                 clauses.append(f"s.{key} = ?")
             params.append(val)
-        if named_only:
-            clauses.append("s.name IS NOT NULL")
-            clauses.append("s.name NOT LIKE '.%'")
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
         clause = _order_clause(order_by)
@@ -241,6 +304,15 @@ class ReadsMixin:
         return self._backend.query(query, params)
 
     def list_tracked_files(self, sim_id: str | UUID) -> pd.DataFrame:
+        """Return the files a run recorded with their digest.
+
+        Returns
+        -------
+        pandas.DataFrame
+            One row per file: ``role``, ``category``, ``original_path``,
+            ``canonical_path``, ``sha256``, ``size_bytes`` and ``portable``
+            (whether the file travels with an exported package).
+        """
         return self._backend.query(
             """SELECT role, category, original_path, canonical_path,
                       sha256, size_bytes, portable
@@ -254,32 +326,13 @@ class ReadsMixin:
         sim_id: str | UUID,
         feature_name: str,
     ) -> gpd.GeoDataFrame:
-        """Read a per-simulation GeoParquet 1.1 feature via geopandas."""
+        """Read one vector layer of a run, the GeoParquet file of its tables directory."""
         from hydromodpy.core.io.geoparquet import read_geoparquet
 
-        row = self._backend.fetch_one(
-            "SELECT geoparquet_path, properties, crs_wkt FROM geographic_features "
-            "WHERE sim_id = ? AND feature_name = ?",
-            [str(sim_id), feature_name],
-        )
-        if row is None:
+        path = geographic_feature_files(self.tables_dir_for(sim_id)).get(feature_name)
+        if path is None:
             raise KeyError(f"Feature '{feature_name}' not found for sim '{sim_id}'")
-        parquet_path, properties_json, _crs = row
-        if not parquet_path:
-            raise KeyError(f"No Parquet payload for feature '{feature_name}'")
-        path = Path(parquet_path)
-        if not path.is_absolute():
-            path = self._workspace / path
-        if not path.is_file():
-            raise FileNotFoundError(path)
-        gdf = read_geoparquet(path)
-        if properties_json:
-            props = (
-                json.loads(properties_json) if isinstance(properties_json, str) else properties_json
-            )
-            if isinstance(props, dict) and props.get("geometry_encoding") != "WKB":
-                raise ValueError(f"Unsupported geometry encoding for feature '{feature_name}'")
-        return gdf
+        return read_geoparquet(path)
 
     def sims_with_tag(self, tag: str) -> set[str]:
         """Return the sim_ids carrying ``tag`` as a set of strings."""
@@ -289,40 +342,87 @@ class ReadsMixin:
         return {str(r[0]) for r in rows}
 
     def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
-        rows = self._backend.fetch_all(
-            "SELECT feature_name FROM geographic_features WHERE sim_id = ? ORDER BY feature_name",
-            [str(sim_id)],
-        )
-        return [r[0] for r in rows]
+        """Return the names of the vector layers a run stored, in name order.
+
+        Each name reads back with :meth:`read_geographic_feature`.
+        """
+        return sorted(geographic_feature_files(self.tables_dir_for(sim_id)))
 
     def read_geographic_metadata(self, sim_id: str | UUID) -> dict[str, str]:
-        rows = self._backend.fetch_all(
-            "SELECT key, value FROM geographic_metadata WHERE sim_id = ?",
-            [str(sim_id)],
-        )
-        return {r[0]: r[1] for r in rows}
+        """Return the catchment metadata of a run as a ``key -> value`` map.
+
+        What the run recorded about its catchment and grid: ``epsg``,
+        ``catch_area``, ``dem_res``, the outlet (``x_outlet``, ``y_outlet``
+        and their snapped values), ``nrow``, ``ncol``. Every value is text.
+
+        Examples
+        --------
+        >>> float(cat.read_geographic_metadata(run.sim_id)["catch_area"])  # doctest: +SKIP
+        """
+        from hydromodpy.results.record.label import read_sealed_manifest
+
+        manifest = read_sealed_manifest(self.run_dir_for(sim_id))
+        if manifest is None:
+            return {}
+        return {
+            str(key): None if value is None else str(value)
+            for key, value in manifest.geometry.catchment.items()
+        }
 
     @property
     def simulations(self) -> pd.DataFrame:
+        """Every sealed run of the project, newest first, as a DataFrame.
+
+        The same columns as :meth:`list_simulations`, without a filter.
+        """
         return self._backend.query(f"{_SIMULATIONS_VIEW_SELECT} ORDER BY s.created_at DESC")
+
+    @property
+    def cases(self) -> pd.DataFrame:
+        """Every result directory of the project, one row each, through ``v_cases``.
+
+        A sealed run carries its label and its headline metric; a running,
+        failed or aborted attempt carries the status its outcome says.
+        """
+        return self._backend.query("SELECT * FROM v_cases ORDER BY started_at DESC NULLS LAST")
+
+    @property
+    def sites(self) -> pd.DataFrame:
+        """The sites named by the runs and sessions of the project, with their counts."""
+        return self._backend.query("SELECT * FROM sites ORDER BY site")
+
+    def attempts(self, rel_dir: str) -> pd.DataFrame:
+        """Return every attempt of one case, by attempt number."""
+        return self._backend.query(
+            "SELECT * FROM attempts WHERE rel_dir = ? ORDER BY attempt", [rel_dir]
+        )
 
     @property
     def calibration_sessions(self) -> pd.DataFrame:
         """Return every calibration session row as a DataFrame."""
         return self._backend.query("SELECT * FROM calibration_sessions ORDER BY started_at DESC")
 
+    def calibration_phases(self, session_id: str) -> pd.DataFrame:
+        """Return the phases of one session, by rank."""
+        return self._backend.query(
+            "SELECT * FROM calibration_phases WHERE session_id = ? ORDER BY phase_index",
+            [str(session_id)],
+        )
+
     def calibration_iterations(self, session_id: str | UUID) -> pd.DataFrame:
-        """Return the iteration history for one session as a DataFrame."""
-        sid = UUID(str(session_id)) if len(str(session_id).replace("-", "")) == 32 else session_id
+        """Return the trials of one session, one row per trial and case, by trial number."""
         return self._backend.query(
             """
-            SELECT iteration, sim_id, params_hash, parameters,
-                   objective_value, metrics, status, from_cache, duration_s
-              FROM calibration_iterations
-             WHERE session_id = ?
-             ORDER BY iteration
+            SELECT i.trial, i.phase, i.restart, c.case_id, c.sim_id, c.rel_dir, c.params_hash,
+                   i.params, i.cost, c.cost AS case_cost, c.components, i.status,
+                   c.status AS case_status, i.started_at, i.ended_at
+              FROM calibration_iterations i
+              LEFT JOIN calibration_trial_cases c
+                ON c.session_id = i.session_id AND c.trial = i.trial
+             WHERE i.session_id = ?
+             ORDER BY i.trial, c.case_id
             """,
-            [sid],
+            [str(session_id)],
         )
 
     def sql(self, query: str, params: list | None = None) -> pd.DataFrame:
@@ -335,172 +435,3 @@ class ReadsMixin:
         if params:
             return self._backend.query(query, params)
         return self._backend.query(query)
-
-    def export(self, ref: str | UUID, spec: ExportSpec) -> Path:
-        """Export one artifact described by *spec* for simulation *ref*.
-
-        *ref* is resolved through :meth:`resolve` (full UUID, prefix, or a
-        unique name), so callers never need the raw catalog UUID. The output
-        format comes from ``spec.fmt`` (or is inferred from the destination
-        extension when the spec was built).
-        """
-        from hydromodpy.core.config_kit.export_spec import ExportFormat
-
-        def _single_ts(t: object) -> int:
-            if t is None or t == "last":
-                return -1
-            if t == "first":
-                return 0
-            return int(t)  # type: ignore[arg-type]
-
-        def _nc_ts(t: object) -> list[int] | None:
-            if t is None or t == "all":
-                return None
-            if t == "first":
-                return [0]
-            if t == "last":
-                return [-1]
-            if isinstance(t, list):
-                return [int(x) for x in t]
-            return [int(t)]  # type: ignore[arg-type]
-
-        sid = self.resolve(ref)
-        dest = Path(spec.dest)
-        fmt = spec.fmt
-
-        if fmt is ExportFormat.hmp:
-            return self.export_package(sid, dest)
-
-        if fmt is ExportFormat.csv:
-            from hydromodpy.results.exporters.csv import export_csv
-
-            var = None if (isinstance(spec.var, str) and spec.var == "*") else spec.var_list[0]
-            return export_csv(self._db, sid, dest, variable=var)
-
-        zarr_path = str(self.fields_path_for(sid))
-
-        if fmt is ExportFormat.netcdf:
-            from hydromodpy.results.exporters.netcdf import export_netcdf
-
-            return export_netcdf(zarr_path, sid, spec.var_list, dest, timesteps=_nc_ts(spec.time))
-
-        # Single-timestep raster / mesh formats.
-        timestep = _single_ts(spec.time)
-        variable = spec.var_list[0]
-
-        if fmt is ExportFormat.vtu:
-            from hydromodpy.results.exporters.vtu import export_vtu
-
-            return export_vtu(zarr_path, sid, variable, timestep, dest, layer=spec.layer)
-
-        if fmt is ExportFormat.geotiff:
-            from hydromodpy.results.exporters.geotiff import export_geotiff
-
-            resolution = (
-                spec.resolution if spec.resolution is not None else self._default_resolution(sid)
-            )
-            crs = spec.crs if spec.crs is not None else self._export_crs_for(sid)
-            return export_geotiff(
-                zarr_path,
-                sid,
-                variable,
-                timestep,
-                dest,
-                layer=spec.layer,
-                resolution=resolution,
-                crs=crs,
-                nodata=spec.nodata,
-            )
-
-        if fmt is ExportFormat.shapefile:
-            from hydromodpy.results.exporters.shapefile import export_shapefile
-
-            crs = spec.crs if spec.crs is not None else self._export_crs_for(sid)
-            return export_shapefile(
-                zarr_path, sid, variable, timestep, dest, layer=spec.layer, crs=crs
-            )
-
-        if fmt is ExportFormat.geopackage:
-            from hydromodpy.results.exporters.geopackage import export_geopackage
-
-            crs = spec.crs if spec.crs is not None else self._export_crs_for(sid)
-            return export_geopackage(
-                zarr_path, sid, variable, timestep, dest, layer=spec.layer, crs=crs
-            )
-
-        raise ValueError(f"Unsupported export format '{fmt}'")
-
-    def list_exports(self, ref: str | UUID) -> list[dict]:
-        """Return the artefacts recorded for *ref* in ``export_log``.
-
-        Each entry has ``kind``, ``rel_path``, ``bytes``, ``sha256`` and
-        ``created_at``. Lets ``show``/``gc`` see exports without globbing.
-        """
-        sid = self.resolve(ref)
-        rows = self._backend.fetch_all(
-            "SELECT kind, rel_path, bytes, sha256, created_at "
-            "FROM export_log WHERE sim_id = ? ORDER BY created_at",
-            [sid],
-        )
-        return [
-            {"kind": r[0], "rel_path": r[1], "bytes": r[2], "sha256": r[3], "created_at": r[4]}
-            for r in rows
-        ]
-
-    def _export_crs_for(self, sim_id: str) -> str | None:
-        row = self._backend.fetch_one(
-            "SELECT crs_epsg, crs_wkt FROM simulations WHERE sim_id = ?",
-            [sim_id],
-        )
-        if row is not None:
-            epsg, wkt = row
-            if epsg is not None:
-                return f"EPSG:{int(epsg)}"
-            if wkt:
-                return str(wkt)
-        try:
-            sz = self.open_zarr(sim_id)
-            try:
-                crs = sz.root.get("crs")
-                if crs is None:
-                    return None
-                attrs = dict(crs.attrs)
-            finally:
-                sz.close()
-        except Exception:
-            return None
-        epsg_attr = attrs.get("epsg_code")
-        if epsg_attr is not None:
-            return f"EPSG:{int(epsg_attr)}"
-        wkt_attr = attrs.get("crs_wkt")
-        return str(wkt_attr) if wkt_attr else None
-
-    def _default_resolution(self, sim_id: str) -> float | None:
-        """Native cell size for raster exports when the caller omits one.
-
-        Prefers the grid's ``cell_size`` (exact for regular grids); falls back
-        to ``sqrt(area / n_cells)`` from the catalog bbox. Returns ``None`` when
-        neither is available, leaving the exporter to raise a clear error.
-        """
-        try:
-            from hydromodpy.results.run import Run
-
-            cell_size = getattr(Run(sim_id, self).grid, "cell_size", None)
-            if cell_size:
-                return float(cell_size)
-        except Exception:
-            pass
-        row = self._backend.fetch_one(
-            "SELECT bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax, n_cells "
-            "FROM simulations WHERE sim_id = ?",
-            [sim_id],
-        )
-        if not row:
-            return None
-        xmin, ymin, xmax, ymax, n_cells = row
-        if None in (xmin, ymin, xmax, ymax) or not n_cells:
-            return None
-        area = (float(xmax) - float(xmin)) * (float(ymax) - float(ymin))
-        if area <= 0 or n_cells <= 0:
-            return None
-        return math.sqrt(area / float(n_cells))

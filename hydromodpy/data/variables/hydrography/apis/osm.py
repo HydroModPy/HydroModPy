@@ -1,26 +1,49 @@
-"""Fetch hydrography from OpenStreetMap via Overpass API."""
+"""Fetch hydrography from OpenStreetMap via Overpass API.
+
+``fetch`` serves the hydrography variable. :class:`OsmSource` puts the same
+function behind the data-source port. The third ``features`` source
+and the one that shows what the payload kind does **not** promise: Overpass
+answers with whatever contributors tagged, so two calls a year apart over one
+basin are not the same linework. The port says the shape of the answer, never
+its authority.
+
+Like :class:`~hydromodpy.data.variables.hydrography.apis.bdtopage.BdTopageSource` it builds the
+Pydantic section its provider function demands, from the one field that
+function reads. Rewriting the function to take that field directly is the
+better end state and not this phase.
+"""
 
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING, Any, ClassVar
 
-import geopandas as gpd
-from shapely.geometry import LineString
-
-from hydromodpy.core.io.http_client import get_default_client
+from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
+from hydromodpy.data.variables.hydrography.apis.features import FeatureSource
+
+if TYPE_CHECKING:
+    import geopandas as gpd
+
+    from hydromodpy.core.io.fetch import HTTPClient
+    from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 logger = get_logger(__name__)
 
 
 def fetch(
-    config: HydrographySourceConfig, bbox_wgs84: tuple[float, float, float, float]
+    config: HydrographySourceConfig,
+    bbox_wgs84: tuple[float, float, float, float],
+    *,
+    client: HTTPClient,
 ) -> gpd.GeoDataFrame:
     """Download OSM waterways inside *bbox_wgs84* ``(lon_min, lat_min, lon_max, lat_max)``.
 
     Returns a GeoDataFrame in EPSG:4326.
     """
+    import geopandas as gpd
+    from shapely.geometry import LineString
+
     minx, miny, maxx, maxy = bbox_wgs84
     waterway_types = config.waterway_types
 
@@ -34,7 +57,7 @@ def fetch(
     overpass_url = "https://overpass-api.de/api/interpreter"
     logger.info("Querying Overpass API for waterway types %s", waterway_types)
 
-    response = get_default_client().get(
+    response = client.get(
         overpass_url,
         params={"data": overpass_query},
         stream=True,
@@ -74,3 +97,48 @@ def fetch(
     gdf = gpd.GeoDataFrame(features, crs="EPSG:4326")
     logger.info("OSM: fetched %d waterway features", len(gdf))
     return gdf
+
+
+DEFAULT_WATERWAY_TYPES: tuple[str, ...] = ("river", "stream")
+"""The default ``HydrographySourceConfig`` declares for this source.
+
+Repeated here rather than imported, so constructing a source pulls in neither
+pydantic nor the config kit. ``test_the_declared_defaults_match_the_config``
+keeps the two in step.
+"""
+
+
+class OsmSource(FeatureSource):
+    """OpenStreetMap waterways, served by the Overpass API."""
+
+    source_id: ClassVar[str] = "osm"
+
+    def __init__(self, *, waterway_types: tuple[str, ...] = DEFAULT_WATERWAY_TYPES) -> None:
+        types = tuple(waterway_types)
+        if not types:
+            raise DataRequestError(
+                "OSM waterway_types is empty, and an Overpass query with no waterway "
+                "clause asks for nothing at all."
+            )
+        for waterway_type in types:
+            if not isinstance(waterway_type, str) or not waterway_type.strip():
+                raise DataRequestError(f"OSM waterway type {waterway_type!r} is empty.")
+        self.waterway_types = types
+
+    def download(
+        self, bbox: tuple[float, float, float, float], *, client: HTTPClient
+    ) -> gpd.GeoDataFrame:
+        from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
+
+        config = HydrographySourceConfig(source="osm", waterway_types=list(self.waterway_types))
+        return fetch(config, bbox, client=client)
+
+    def metadata(self) -> dict[str, Any]:
+        return {"waterway_types": list(self.waterway_types)}
+
+
+__all__ = [
+    "DEFAULT_WATERWAY_TYPES",
+    "OsmSource",
+    "fetch",
+]

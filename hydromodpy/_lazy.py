@@ -1,108 +1,208 @@
 """Lazy-import maps for the top-level ``hydromodpy`` package facade.
 
-Kept separate from ``__init__.py`` so the package init stays minimal.
+Kept separate from ``__init__.py`` so the package init stays minimal. Every
+value of ``LAZY_IMPORTS`` names ``hydromodpy.project.api``,
+``hydromodpy.project.kept_readers`` or ``hydromodpy.core.exceptions``: the root
+reads only ``core`` and ``project``.
 """
 
 from __future__ import annotations
 
-MODULE_EXPORTS: dict[str, str] = {
-    "analysis": "hydromodpy.analysis",
-    "calibration": "hydromodpy.calibration",
-    "config": "hydromodpy.config",
-    "core": "hydromodpy.core",
-    "data": "hydromodpy.data",
-    "physics": "hydromodpy.physics",
-    "results": "hydromodpy.results",
-    "simulation": "hydromodpy.simulation",
-    "solver": "hydromodpy.solver",
-    "spatial": "hydromodpy.spatial",
-    "viz": "hydromodpy.display.viz",
-    "workflow": "hydromodpy.workflow",
+from dataclasses import dataclass
+
+from hydromodpy.core.old_members import OLD_MEMBERS
+from hydromodpy.project.old_paths import LEFT_BEFORE_2_0, RETIRED_MODULES
+
+
+@dataclass(frozen=True, slots=True)
+class OldName:
+    """A name of ``hydromodpy.__all__`` that moved."""
+
+    new: str
+    """What replaces it: a name of ``hydromodpy.__all__``, the path of a refused name, or the
+    call that replaces it. The part before ``(`` resolves."""
+    since: str
+    """The version that moved it. It leaves this table two minor versions later."""
+    refused: bool = False
+    """It left before the first stable version, so it has no alias: it is refused, with
+    ``new`` in the message. An entry that is not refused warns and forwards."""
+
+
+VERBS: tuple[str, ...] = (
+    "open",
+    "run",
+    "check",
+    "calibrate",
+    "spinup",
+    "replay",
+    "stop",
+    "status",
+    "trash",
+    "compare",
+    "show",
+    "export",
+    "publish",
+    "example",
+    "doctor",
+)
+"""The fifteen verbs, in the order of ``hydromodpy.project.api.__all__``."""
+
+OBJECTS: tuple[str, ...] = ("Project", "Lab", "Run", "RunSet", "Session", "HydroModPyConfig")
+"""The six objects the verbs take and return. ``hydromodpy.project.api`` imports them."""
+
+# The frozen runs of a pre-release are read through these three names.
+KEPT_READERS: tuple[str, ...] = ("read", "index", "Catalog")
+"""The readers the top level keeps beside the verbs, from ``hydromodpy.project.kept_readers``."""
+
+KEPT_EXCEPTIONS: tuple[str, ...] = (
+    "HydroModPyError",
+    # The class each exit code of ``hmp`` is mapped from, by its category.
+    "CommandUsageError",
+    "NothingThereError",
+    "WriteConflictError",
+    "ConfigError",
+    "ConfigMissingError",
+    "DataError",
+    "CalibrationError",
+    "FailedCasesError",
+    "JobUsageError",
+    "CapabilityVersionMismatchError",
+    "SchemaVersionMismatchError",
+    "ImportConflictError",
+    "ReadOnlyError",
+    "SolverError",
+    "TerrainError",
+    "CrossProjectsError",
+    "BackupFailedError",
+    "MigrationFailedError",
+    "CatalogUnreadableError",
+    "StepError",
+    # The other categories of the hierarchy.
+    "MeshError",
+    "PipelineError",
+    "DisplayError",
+    "StorageError",
+    "ResultsError",
+    # What the facade raises for a name that left.
+    "OldNameError",
+)
+"""The exceptions ``hydromodpy.__all__`` holds, all of ``hydromodpy.core.exceptions``.
+
+A leaf stays importable from where it is defined (``hydromodpy.core.exceptions``,
+``hydromodpy.results.errors`` or its own module) and is not frozen at the top level.
+"""
+
+_LEAF_EXCEPTIONS: dict[str, str] = {
+    "BackendError": "hydromodpy.core.exceptions.BackendError",
+    "BoundsError": "hydromodpy.core.exceptions.BoundsError",
+    "CacheCorruptionError": "hydromodpy.core.exceptions.CacheCorruptionError",
+    "CheckpointError": "hydromodpy.core.exceptions.CheckpointError",
+    "ConfigValidationError": "hydromodpy.core.exceptions.ConfigValidationError",
+    "CredentialsError": "hydromodpy.core.exceptions.CredentialsError",
+    "DataCacheError": "hydromodpy.core.exceptions.DataCacheError",
+    "DataCapabilityError": "hydromodpy.core.exceptions.DataCapabilityError",
+    "DataContractViolation": "hydromodpy.core.exceptions.DataContractViolation",
+    "DataProductError": "hydromodpy.core.exceptions.DataProductError",
+    "DataRequestError": "hydromodpy.core.exceptions.DataRequestError",
+    "DataSourceError": "hydromodpy.core.exceptions.DataSourceError",
+    "EmptyCatchmentError": "hydromodpy.core.exceptions.EmptyCatchmentError",
+    "ExportError": "hydromodpy.core.exceptions.ExportError",
+    "ExtractError": "hydromodpy.core.exceptions.ExtractError",
+    "FigureNotFoundError": "hydromodpy.core.exceptions.FigureNotFoundError",
+    "FrozenConfigError": "hydromodpy.core.exceptions.FrozenConfigError",
+    "FrozenDataError": "hydromodpy.core.exceptions.FrozenDataError",
+    "ImplicitInferenceError": "hydromodpy.core.exceptions.ImplicitInferenceError",
+    "IncompatibleCapabilitiesError": "hydromodpy.core.exceptions.IncompatibleCapabilitiesError",
+    "IncompatibleMeshError": "hydromodpy.core.exceptions.IncompatibleMeshError",
+    "JobInputNotFoundError": "hydromodpy.core.exceptions.JobInputNotFoundError",
+    "JournalError": "hydromodpy.core.exceptions.JournalError",
+    "LedgerError": "hydromodpy.core.exceptions.LedgerError",
+    "MeshGenerationError": "hydromodpy.core.exceptions.MeshGenerationError",
+    "MeshRequestError": "hydromodpy.core.exceptions.MeshRequestError",
+    "MissingForcingError": "hydromodpy.core.exceptions.MissingForcingError",
+    "MixedWindowsError": "hydromodpy.results.run.sealed.MixedWindowsError",
+    "NetworkError": "hydromodpy.core.exceptions.NetworkError",
+    "ObjectiveError": "hydromodpy.core.exceptions.ObjectiveError",
+    "ObservableNotAvailableError": "hydromodpy.core.exceptions.ObservableNotAvailableError",
+    "OptimizerError": "hydromodpy.core.exceptions.OptimizerError",
+    "PointOutsideMeshError": "hydromodpy.results.run.point.PointOutsideMeshError",
+    "ProjectNotFoundError": "hydromodpy.results.errors.ProjectNotFoundError",
+    "ResumeError": "hydromodpy.core.exceptions.ResumeError",
+    "ResumeIntegrityError": "hydromodpy.core.exceptions.ResumeIntegrityError",
+    "RunNotFoundError": "hydromodpy.results.errors.RunNotFoundError",
+    "SchemaVersionTooNewError": "hydromodpy.core.exceptions.SchemaVersionTooNewError",
+    "SeveralCasesError": "hydromodpy.results.errors.SeveralCasesError",
+    "SolverBinaryError": "hydromodpy.core.exceptions.SolverBinaryError",
+    "SolverDivergedError": "hydromodpy.core.exceptions.SolverDivergedError",
+    "SolverEnvironmentError": "hydromodpy.core.exceptions.SolverEnvironmentError",
+    "SolverInputError": "hydromodpy.core.exceptions.SolverInputError",
+    "SolverMassBalanceError": "hydromodpy.core.exceptions.SolverMassBalanceError",
+    "SolverTimeoutError": "hydromodpy.core.exceptions.SolverTimeoutError",
+    "TerrainCapabilityError": "hydromodpy.core.exceptions.TerrainCapabilityError",
+    "TerrainProductError": "hydromodpy.core.exceptions.TerrainProductError",
+    "TerrainRequestError": "hydromodpy.core.exceptions.TerrainRequestError",
+    "TimeSelectionError": "hydromodpy.core.time.selection.TimeSelectionError",
+    "UncertaintyNotAvailableError": "hydromodpy.core.exceptions.UncertaintyNotAvailableError",
+    "UnitAliasConflict": "hydromodpy.core.exceptions.UnitAliasConflict",
+    "UnknownFieldError": "hydromodpy.core.exceptions.UnknownFieldError",
+    "UnrankedMetricError": "hydromodpy.results.catalog.constants.UnrankedMetricError",
+    "WorkflowDAGCycleError": "hydromodpy.core.exceptions.WorkflowDAGCycleError",
+    "WorkspaceLockedError": "hydromodpy.core.exceptions.WorkspaceLockedError",
+    "ZarrStoreError": "hydromodpy.core.exceptions.ZarrStoreError",
 }
+"""The leaves of the hierarchy refused at the top level since 2.0.0, with their path.
+
+Written as text and frozen: it only refuses names that left the top level.
+"""
+
+_LEFT_LEAVES: dict[str, str] = {
+    "AmbiguousReferenceError": "hydromodpy.results.catalog.discovery.AmbiguousReferenceError",
+    "CatalogError": "hydromodpy.core.exceptions.CatalogError",
+    "ComparisonCaseError": "hydromodpy.project.compare.ComparisonCaseError",
+    "ComparisonReferenceError": "hydromodpy.project.compare.ComparisonReferenceError",
+    "FieldNotFoundError": "hydromodpy.results.errors.FieldNotFoundError",
+    "RunNotSealedError": "hydromodpy.results.errors.RunNotSealedError",
+    "SimulationNotFoundError": "hydromodpy.results.catalog.discovery.SimulationNotFoundError",
+}
+"""The seven exceptions of ``results`` and ``project`` that left the top level in 2.0.0."""
+
+_LEFT_CALLS: dict[str, str] = {
+    "figure": "hydromodpy.show(ref, what='figure', name=...)",
+    "report": "hydromodpy.show(ref, what='report')",
+    "calibration_phases": "hydromodpy.calibrate(source, dry_run=True)",
+    "compare_pair": "hydromodpy.compare([a, b]).table",
+    "example_list": "hydromodpy.example()",
+    "example_show": "hydromodpy.example(name)",
+    "example_add": "hydromodpy.example(name, add=True)",
+    "Workspace": "hydromodpy.project.accessors.Workspace",
+}
+"""The verbs and objects that left the top level in 2.0.0, with the call that replaces them."""
+
+OLD_NAMES: dict[str, OldName] = {
+    name: OldName(path, "2.0.0", refused=True)
+    for name, path in {
+        **LEFT_BEFORE_2_0,
+        **OLD_MEMBERS,
+        **_LEAF_EXCEPTIONS,
+        **RETIRED_MODULES,
+        **_LEFT_LEAVES,
+        **_LEFT_CALLS,
+    }.items()
+}
+"""The old names ``hydromodpy.__getattr__`` answers: it refuses them or forwards them.
+
+A dotted name is a member of a public object, and that object refuses it. The table
+holds the names refused because they left before 2.0.0 or in it.
+``tools/surface_snapshot.py`` refuses a name that leaves ``__all__`` without an
+entry here, and a test fails once an entry outlives its delay. The policy is
+``docs/source/about/versions.md``.
+"""
 
 LAZY_IMPORTS: dict[str, str] = {
-    # Spatial / geographic
-    "CatchmentDelineation": "hydromodpy.spatial.geographic.catchment_delineation",
-    "GeographicConfig": "hydromodpy.spatial.geographic.geographic_config",
-    "Subbasin": "hydromodpy.spatial.geographic.subbasin",
-    "HydroMesh": "hydromodpy.spatial.mesh.model.hydro_mesh",
-    "DomainConfig": "hydromodpy.spatial.domain.domain_config",
-    # Processes (factories expose FlowConfig/TransportConfig)
-    "FlowConfig": "hydromodpy.physics.flow.flow_config",
-    "FlowProcess": "hydromodpy.physics.flow.flow:Flow",
-    "TransportConfig": "hydromodpy.physics.transport.transport_config",
-    "TransportProcess": "hydromodpy.physics.transport.transport:Transport",
-    # Flow boundary conditions
-    "DirichletBC": "hydromodpy.physics.flow.boundary_conditions",
-    "CauchyBC": "hydromodpy.physics.flow.boundary_conditions",
-    "RobinBC": "hydromodpy.physics.flow.boundary_conditions",
-    # Solvers
-    "ModflowNwt": "hydromodpy.solver.modflow_nwt",
-    "Modflow6": "hydromodpy.solver.modflow6.modflow6",
-    "Modpath": "hydromodpy.solver.modflow_nwt",
-    "Mt3dms": "hydromodpy.solver.modflow_nwt",
-    "Boussinesq": "hydromodpy.solver.boussinesq.boussinesq",
-    # Core infrastructure
-    "Workspace": "hydromodpy.core.workspace",
-    "WorkspaceConfig": "hydromodpy.core.workspace",
-    "HydroModPyConfig": "hydromodpy.config.hydromodpy_config",
-    "WorkflowConfig": "hydromodpy.config.hydromodpy_config",
-    # Simulation orchestration
-    "SimulationConfig": "hydromodpy.simulation.planning.config",
-    "SimulationTimeConfig": "hydromodpy.simulation.planning.config",
-    "SimulationProcessConfig": "hydromodpy.simulation.planning.config",
-    "FlowProcessConfig": "hydromodpy.simulation.planning.config",
-    "TransportProcessConfig": "hydromodpy.simulation.planning.config",
-    "MeshProcessConfig": "hydromodpy.simulation.planning.config",
-    # Display
-    "DisplayConfig": "hydromodpy.display.config",
-    # Data variables (public surface)
-    "DataManagersConfig": "hydromodpy.data.managers.config_schema",
-    "DemConfig": "hydromodpy.data.variables.dem.config",
-    "CustomDemSource": "hydromodpy.data.variables.dem.config",
-    "IgnGeoplateformeDemSource": "hydromodpy.data.variables.dem.config",
-    "GeologyConfig": "hydromodpy.data.variables.geology.config",
-    "CustomGeologySource": "hydromodpy.data.variables.geology.config",
-    "BrgmGeology1mSource": "hydromodpy.data.variables.geology.config",
-    "BrgmGeology50kSource": "hydromodpy.data.variables.geology.config",
-    "HydrographyConfig": "hydromodpy.data.variables.hydrography.config",
-    "HydrographySourceConfig": "hydromodpy.data.variables.hydrography.config",
-    "HydrographyManager": "hydromodpy.data.variables.hydrography.manager",
-    "HydrometryConfig": "hydromodpy.data.variables.hydrometry.config",
-    "HydrometrySourceConfig": "hydromodpy.data.variables.hydrometry.config",
-    "PiezometryConfig": "hydromodpy.data.variables.piezometry.config",
-    "PiezometrySourceConfig": "hydromodpy.data.variables.piezometry.config",
-    "IntermittencyConfig": "hydromodpy.data.variables.intermittency.config",
-    "IntermittencySourceConfig": "hydromodpy.data.variables.intermittency.config",
-    "IntermittencyManager": "hydromodpy.data.variables.intermittency.manager",
-    "OceanicConfig": "hydromodpy.data.variables.oceanic",
-    "OceanicSourceConfig": "hydromodpy.data.variables.oceanic.config",
-    "OceanicManager": "hydromodpy.data.variables.oceanic",
-    "RechargeConfig": "hydromodpy.data.variables.recharge.config",
-    "RechargeSourceConfig": "hydromodpy.data.variables.recharge.config",
-    "RunoffConfig": "hydromodpy.data.variables.runoff.config",
-    "RunoffSourceConfig": "hydromodpy.data.variables.runoff.config",
-    "EtpConfig": "hydromodpy.data.variables.etp.config",
-    "EtpSourceConfig": "hydromodpy.data.variables.etp.config",
-    "PrecipitationConfig": "hydromodpy.data.variables.precipitation.config",
-    "PrecipitationSourceConfig": "hydromodpy.data.variables.precipitation.config",
-    "TemperatureConfig": "hydromodpy.data.variables.temperature.config",
-    "TemperatureSourceConfig": "hydromodpy.data.variables.temperature.config",
-    "HumidityConfig": "hydromodpy.data.variables.humidity.config",
-    "HumiditySourceConfig": "hydromodpy.data.variables.humidity.config",
-    "WindConfig": "hydromodpy.data.variables.wind.config",
-    "WindSourceConfig": "hydromodpy.data.variables.wind.config",
-    "RadiationConfig": "hydromodpy.data.variables.radiation.config",
-    "RadiationSourceConfig": "hydromodpy.data.variables.radiation.config",
-    "SoilMoistureConfig": "hydromodpy.data.variables.soil_moisture.config",
-    "SoilMoistureSourceConfig": "hydromodpy.data.variables.soil_moisture.config",
-    "WaterQualityConfig": "hydromodpy.data.variables.water_quality.config",
-    "WaterQualitySourceConfig": "hydromodpy.data.variables.water_quality.config",
-    # Project / run API (programmatic facade)
-    "Project": "hydromodpy.project",
-    "SimulationPlan": "hydromodpy.simulation.planning.plan",
-    # Catalog API
-    "Catalog": "hydromodpy.results.catalog",
-    "RunSet": "hydromodpy.results.run.group",
-    "Run": "hydromodpy.results.run",
+    **{name: f"hydromodpy.project.api:{name}" for name in (*VERBS, *OBJECTS)},
+    **{name: f"hydromodpy.project.kept_readers:{name}" for name in KEPT_READERS},
+    **{name: f"hydromodpy.core.exceptions:{name}" for name in KEPT_EXCEPTIONS},
 }
+"""What ``hydromodpy.<name>`` loads on first use: the verbs and the objects through
+``hydromodpy.project.api``, the kept readers through ``hydromodpy.project.kept_readers``,
+the categories of the hierarchy through ``hydromodpy.core.exceptions``."""

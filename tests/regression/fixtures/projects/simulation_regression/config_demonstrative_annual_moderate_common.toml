@@ -14,7 +14,7 @@ base_config = "hydromodpy.toml"
 mode = "simulation"
 
 [simulation]
-name = "Example 12 moderate annual flow-only comparison"
+name = "example_12_moderate_annual_flow_only"
 
 [simulation.time]
 start_datetime = "2003-01-01 00:00:00"
@@ -23,14 +23,14 @@ step_value = "1 month"
 coverage_policy = "warn"
 
 [flow.sinks_sources.wells.W1.forcing]
-path_file = "../../../../../examples/data/wells/standard_wells_2003.csv"
+path_file = "inputs/wells/standard_wells_2003.csv"
 
 [flow.sinks_sources.wells.W2.location]
 x_rel = 0.70
 y_rel = 0.70
 
 [flow.sinks_sources.wells.W2.forcing]
-path_file = "../../../../../examples/data/wells/standard_wells_2003.csv"
+path_file = "inputs/wells/standard_wells_2003.csv"
 
 [flow.param.K.field]
 kind = "homogeneous"
@@ -47,7 +47,7 @@ value = "0.012 -"
 [flow.bc.drainage]
 application_domain = "top"
 value = "1.0e-5 m2/s"
-kind = "cauchy"
+kind = "drain"
 
 [data]
 types = ["recharge"]
@@ -56,10 +56,7 @@ types = ["recharge"]
 source = "synthetic"
 values = [3.4, 3.2, 2.7, 2.1, 1.5, 0.8, 0.2, 0.1, 0.2, 0.7, 1.8, 3.0]
 freq = "MS"
-runoff_ratio = 0.06
 
 [display]
 enabled = true
-show = false
-save = true
 dpi = 300

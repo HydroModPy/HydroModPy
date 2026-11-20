@@ -19,7 +19,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
 
-from ._resolvers import ensure_modflow_name_file
+from .resolvers import ensure_modflow_name_file
 
 logger = get_logger(__name__)
 
@@ -92,6 +92,11 @@ def build_modpath_model(
     return mp
 
 
+def budget_holds(cbb: Any, text: str) -> bool:
+    """Return True when the cell budget file holds the term ``text``."""
+    return any(text == name.decode().strip() for name in cbb.get_unique_record_names())
+
+
 def compute_seepage_zone(
     *,
     mf: Any,
@@ -106,18 +111,21 @@ def compute_seepage_zone(
     ibound = bas.ibound.array
 
     cbb = open_cell_budget(bud_file)  # NWT ecrit en simple, MF6 en double
-    rec_drn = cbb.get_data(kstpkper=(0, 0), text="DRAINS")
     rec_rch = cbb.get_data(kstpkper=(0, 0), text="RECHARGE")
 
-    drn = np.ones((nrow, ncol))
-    compti = 0
-    comptj = 0
-    for ii in range(0, rec_drn[0].shape[0]):
-        drn[compti, comptj] = -1 * rec_drn[0][ii][1]
-        comptj += 1
-        if comptj == ncol:
-            compti += 1
-            comptj = 0
+    # A model without drains seeps nowhere: only its prescribed heads take the water.
+    drn = np.zeros((nrow, ncol))
+    if budget_holds(cbb, "DRAINS"):
+        rec_drn = cbb.get_data(kstpkper=(0, 0), text="DRAINS")
+        drn = np.ones((nrow, ncol))
+        compti = 0
+        comptj = 0
+        for ii in range(0, rec_drn[0].shape[0]):
+            drn[compti, comptj] = -1 * rec_drn[0][ii][1]
+            comptj += 1
+            if comptj == ncol:
+                compti += 1
+                comptj = 0
     rch = rec_rch[0][1]
     b = drn / rch
     b[np.isnan(b)] = 0
@@ -160,13 +168,13 @@ def attach_starting_locations(
     # The injection mask is indexed with MODFLOW row/column indices, so it must
     # sit on the solver grid. A mask on the raw DEM grid (planar resampling on)
     # would both sample the wrong cells and over-allocate the starting-locations
-    # array, leaving unlabelled rows MODPATH 6 rejects with an end-of-file read.
+    # array, leaving unlabeled rows MODPATH 6 rejects with an end-of-file read.
     if mask_dem.shape != (nrow, ncol):
         raise ConfigError(
             f"MODPATH injection raster {zone_partic} has shape {mask_dem.shape} but the "
             f"MODFLOW grid is ({nrow}, {ncol}). Provide "
-            "transport.modpath.parameters.zone_partic as a raster aligned on the solver "
-            "grid, or drop the planar resampling in [modflownwt.sgrid.planar]."
+            "transport.modpath.zone_partic as a raster aligned on the solver "
+            "grid, or set [mesh] cell_size to the DEM resolution."
         )
 
     head_file = mp.head_file

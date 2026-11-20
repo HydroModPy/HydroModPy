@@ -1,0 +1,117 @@
+"""A killed calibration must close its session instead of leaving it running.
+
+The loop closes its session in a ``finally``: the status, the best trial, the
+duration. SIGINT reaches that block because Python turns it into
+KeyboardInterrupt, but SIGTERM does not. It ends the process where it stands, so
+the ``finally`` never runs and the session stays ``running`` in the index
+forever, with no end date and no outcome. Every scheduler stop, every container
+stop, every ``kill`` sends SIGTERM.
+
+Turning it into an exception for the duration of the run is what makes the two
+signals agree: whatever ends the process, the session is closed and says how.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import signal
+import threading
+from pathlib import Path
+
+import pytest
+
+from hydromodpy.core.runtime.interrupts import (
+    STOP_FLAG_SCHEMA,
+    StopRequested,
+    TerminationRequested,
+    raise_if_stop_requested,
+    terminate_as_interrupt,
+)
+from hydromodpy.core.state.layout import stop_flag_for
+
+
+def _current_handler():
+    return signal.getsignal(signal.SIGTERM)
+
+
+def test_termination_becomes_an_exception() -> None:
+    with pytest.raises(TerminationRequested):
+        with terminate_as_interrupt():
+            handler = _current_handler()
+            assert callable(handler)
+            handler(signal.SIGTERM, None)
+
+
+def test_termination_is_an_interruption() -> None:
+    assert issubclass(TerminationRequested, KeyboardInterrupt)
+
+
+def test_off_the_main_thread_does_nothing() -> None:
+    # signal.signal is main-thread only, and a worker must not crash on that.
+    outcome: list[str] = []
+
+    def _work() -> None:
+        try:
+            with terminate_as_interrupt():
+                outcome.append("ran")
+        except Exception as exc:  # noqa: BLE001 - the point of the test
+            outcome.append(f"raised {type(exc).__name__}")
+
+    worker = threading.Thread(target=_work)
+    worker.start()
+    worker.join()
+
+    assert outcome == ["ran"]
+
+
+def test_session_scope_installs_it() -> None:
+    # The scope installs it, not the search, because restarts side by side run the search off the main thread.
+    from hydromodpy.calibration.runners.session_scope import SessionScope, closing_session
+
+    before = _current_handler()
+    with pytest.raises(TerminationRequested):
+        with closing_session(SessionScope(cfg=None, project_root=Path("."))):
+            os.kill(os.getpid(), signal.SIGTERM)
+
+    assert _current_handler() is before
+
+
+def test_stop_is_an_interruption() -> None:
+    assert issubclass(StopRequested, KeyboardInterrupt)
+    assert not issubclass(StopRequested, TerminationRequested)
+
+
+_FLAGS = {
+    "dated": json.dumps(
+        {"schema": STOP_FLAG_SCHEMA, "at": "2026-11-10T08:00:00+00:00", "host": "box"}
+    ),
+    "undated": json.dumps({"schema": STOP_FLAG_SCHEMA}),
+    "unreadable": "{not json",
+    "not a mapping": "[1, 2]",
+}
+
+
+@pytest.mark.parametrize(
+    ("flag", "raises"),
+    [
+        (None, None),
+        ("absent", None),
+        ("dated", "stop requested at 2026-11-10T08:00:00\\+00:00"),
+        ("undated", "a flag without a date"),
+        ("unreadable", "an unreadable flag"),
+        ("not a mapping", "a flag without a date"),
+    ],
+    ids=["no flag", "absent", "dated", "undated", "unreadable", "not a mapping"],
+)
+def test_stop_flag_on_disk(tmp_path: Path, flag: str | None, raises: str | None) -> None:
+    path = None if flag is None else stop_flag_for(tmp_path)
+    if flag in _FLAGS:
+        path.parent.mkdir(parents=True)
+        path.write_text(_FLAGS[flag], encoding="utf-8")
+
+    if raises is None:
+        raise_if_stop_requested(path)
+        return
+    with pytest.raises(StopRequested, match=raises):
+        raise_if_stop_requested(path)

@@ -1,6 +1,8 @@
 # Main CI gate for pushes and pull requests.
 # Keep this workflow readable in the GitHub checks list: each job name starts
 # with the domain that failed, then the tier and Python version when relevant.
+# The test commands stay written here in clear. tools/ci/local.py replays the
+# Linux steps on a local machine by reading this file.
 
 name: CI / Main Gate
 
@@ -28,15 +30,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
 
       - name: Install ruff
-        run: pip install "ruff>=0.15"
+        run: pip install "ruff==0.17.6"
 
       - name: Check lint rules
         run: ruff check .
@@ -49,26 +51,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Run Gitleaks CLI
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
             --volume "$PWD:/repo" \
-            ghcr.io/gitleaks/gitleaks:v8.21.2 \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 \
             detect --no-banner --redact --verbose \
               --config /repo/.gitleaks.toml \
               --source /repo
 
+  # The layer matrix, the run layouts, the public surface, the code rules and
+  # the gate that plays two runs in two threads of one process. The two-thread
+  # gate uses the global backend and needs no solver binary.
   architecture:
-    name: Architecture / layer matrix
+    name: Architecture / layers, surface and two threads
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
@@ -81,6 +86,38 @@ jobs:
       - name: Run architecture contract tests
         run: python -m pytest tests/unit/architecture/ -q
 
+  characterization:
+    name: Characterization / produced run py3.13
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration]"
+
+      # The tier's one run is the synthetic Dupuit aquifer of example 00, solved
+      # with MODFLOW-NWT. Nothing here needs MODFLOW 6.
+      - name: Install the solver binary the characterization run needs
+        run: python -m hydromodpy install-binaries --subset mfnwt --quiet
+
+      # The tier runs one real pipeline and reads only what it left on disk.
+      # Its five strict xfails are the claims the code does not honor yet; a
+      # strict xfail that starts passing fails this job, which is how a repaired
+      # claim gets noticed instead of quietly staying green.
+      - name: Run characterization tier
+        run: python -m pytest tests/characterization/ --timeout=900 -q
+
   fast:
     name: Tests / fast marker py${{ matrix.python-version }}
     runs-on: ubuntu-latest
@@ -90,9 +127,9 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -103,40 +140,61 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,performance,calibration,delineation]"
+          pip install -e ".[test,performance,calibration,mesh]"
 
       - name: Install external validity_frame package
         run: pip install -e validity_frame
 
+      # Every binary, because a port test with HMP_REQUIRE_BINARIES fails when
+      # its binary is missing instead of skipping.
       - name: Install solver binaries for fast tests
-        run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet || true
+        run: python -m hydromodpy install-binaries --quiet
 
       # A single bad import aborts the whole pytest session, which silently
       # turns a tier into zero executed tests. This step fails loudly instead.
       - name: Collection gate
         run: python -m pytest tests/ --collect-only -q
 
+      # The Whitebox native binding dies when several DEM workflows share one
+      # long-lived xdist worker. tests/conftest.py marks every file that drives
+      # it with `whitebox`, so those tests run in their own serial session.
       - name: Run fast marker suite
         run: |
-          python -m pytest -m fast \
+          python -m pytest -m "fast and not whitebox" \
             -n 2 --dist loadgroup \
             --max-worker-restart=0 \
             --timeout=300 \
             -q
 
-      # tests/contract/ is the only coverage of DuckDBCacheBackend and of the
-      # catalog backend compatibility surface. It was in no workflow before.
-      - name: Run contract tests
-        run: python -m pytest tests/contract/ -q
+      - name: Run Whitebox-backed fast tests (serial)
+        run: python -m pytest -m "fast and whitebox" --timeout=300 -q
 
+      # tests/ports/ holds one file per port registry. It runs serially because
+      # tests/ports/test_terrain.py reaches Whitebox. HMP_REQUIRE_GMSH and
+      # HMP_REQUIRE_BINARIES turn a skipped engine or a missing binary into a
+      # failure: a port test proves nothing on a backend it did not run.
+      - name: Run port tests
+        env:
+          HMP_REQUIRE_GMSH: "1"
+          HMP_REQUIRE_BINARIES: "1"
+        run: python -m pytest tests/ports/ -q
+
+      - name: Run refusal tests
+        run: python -m pytest tests/refusals -q -n 2
+
+  # The unit tier and every test that feeds the coverage floors of a package:
+  # the mesh port, the mesh regression, the domain-build worker and the
+  # calibration tests. The data go to the coverage job as an artifact.
+  # --cov-append keeps the data of an earlier step in the same file, which the
+  # serial Whitebox step needs and which the local replay needs for every step.
   unit:
     name: Tests / unit py3.13
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
@@ -144,67 +202,270 @@ jobs:
       - name: Install Linux system libraries
         run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
 
-      - name: Install package and test extras
+      # tests/unit/docs and tests/unit/tools import the Sphinx extensions of
+      # docs/source/_ext, which need the docs extra. The gmsh tests skip
+      # without the mesh extra.
+      - name: Install package, test, docs and mesh extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,delineation]"
+          pip install -e ".[test,calibration,docs,mesh]"
 
       - name: Install external validity_frame package
         run: pip install -e validity_frame
 
-      # Docstring examples were never executed, so they drifted: two showed a
-      # wrong repr, one named the wrong exception class, one called an attribute
-      # that does not exist. Scoped to the modules that carry examples - a
-      # blanket --doctest-modules on hydromodpy/ would import every
-      # optional-dependency module and fail for unrelated reasons.
+      # The lab tests play MODFLOW 6 in memory through libmf6, and skip without it.
+      - name: Install the solver files the mesh, calibration and lab tests need
+        run: python -m hydromodpy install-binaries --subset mf6,libmf6 --quiet
+
+      # Every module of hydromodpy/ that carries a docstring example, found by
+      # git grep, so that no list of files drifts from the tree. The module paths
+      # hold no space, so the list is split on purpose.
       - name: Run docstring examples
         run: |
-          python -m pytest --doctest-modules -q \
-            hydromodpy/_api.py \
-            hydromodpy/core/io/proj_bootstrap.py \
-            hydromodpy/core/logging.py \
-            hydromodpy/core/state/global_index.py \
-            hydromodpy/core/units/types.py \
-            hydromodpy/display/__init__.py \
-            hydromodpy/display/viz.py \
-            hydromodpy/project/facade.py \
-            hydromodpy/results/catalog/facade.py \
-            hydromodpy/results/exporters/ \
-            hydromodpy/results/run/ \
-            hydromodpy/spatial/field/core/physical_bounds.py
+          # shellcheck disable=SC2046
+          python -m pytest --doctest-modules -q $(git grep -l -E '^\s*>>> ' -- 'hydromodpy/*.py')
 
-      # The whitebox-heavy tiers (backends, geographic, delineation) used to run
-      # outside this pass: one serial step plus one fresh process per file. They
-      # run here now that tests/conftest.py pins the Whitebox fd-level stdio
-      # redirect off in every pytest process.
       - name: Run unit tests in parallel
+        env:
+          HMP_REQUIRE_GMSH: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/unit/.coverage
         run: |
-          python -m pytest tests/unit/ \
+          python -m pytest tests/unit/ tests/processes/ \
+            tests/ports/test_mesh.py \
+            tests/regression/mesh/ \
+            tests/integration/domain/test_worker.py \
+            tests/integration/calibration \
+            tests/regression/fast/calibration \
             --ignore=tests/unit/architecture \
-            -m "not slow" \
+            -m "not slow and not whitebox" \
             -n 2 --dist loadgroup \
             --max-worker-restart=0 \
             --timeout=300 \
             --durations=25 \
             --cov=hydromodpy \
+            --cov-branch \
+            --cov-append \
             --cov-report= \
             --cov-fail-under=0 \
             -q
 
-      - name: Write unit coverage XML
-        if: always()
+      - name: Run Whitebox-backed unit tests (serial)
+        env:
+          HMP_REQUIRE_GMSH: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/unit/.coverage
         run: |
-          coverage combine || true
-          coverage xml || true
+          python -m pytest tests/unit/ tests/processes/ \
+            tests/ports/test_mesh.py \
+            tests/regression/mesh/ \
+            tests/integration/domain/test_worker.py \
+            tests/integration/calibration \
+            tests/regression/fast/calibration \
+            --ignore=tests/unit/architecture \
+            -m "whitebox and not slow" \
+            --timeout=300 \
+            --cov=hydromodpy \
+            --cov-branch \
+            --cov-append \
+            --cov-report= \
+            --cov-fail-under=0 \
+            -q
 
-      - name: Upload unit coverage to Codecov
-        if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        uses: codecov/codecov-action@v5
+      - name: Keep the unit coverage data
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-unit
+          path: ${{ runner.temp }}/coverage/unit/.coverage
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
+
+  # The scenarios are small synthetic projects played once by the real
+  # pipeline. A scenario skips when its binary is missing, so every binary is
+  # installed. Their python -m hydromodpy children write into the same coverage
+  # file through patch = ["subprocess"] of pyproject.toml.
+  scenarios:
+    name: Tests / scenarios py3.13
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      # Three scenarios stop and resume a run through the MODFLOW 6 API.
+      - name: Install package, test, calibration, mesh and mf6api extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,mesh,mf6api]"
+
+      - name: Install every solver binary
+        run: python -m hydromodpy install-binaries --quiet
+
+      # The floor table of the coverage job is the gate, so this step does not
+      # apply the fail_under of pyproject.toml to the scenarios alone.
+      - name: Run the scenarios
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/scenarios/.coverage
+        run: |
+          python -m pytest tests/scenarios \
+            -n 4 --dist loadgroup \
+            --max-worker-restart=0 \
+            --timeout=900 \
+            --cov=hydromodpy \
+            --cov-branch \
+            --cov-append \
+            --cov-report= \
+            --cov-fail-under=0 \
+            -q
+
+      - name: Keep the scenario coverage data
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-scenarios
+          path: ${{ runner.temp }}/coverage/scenarios/.coverage
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
+
+  # One floor per sub-package of hydromodpy/ and one for the modules at the
+  # top of each package, all in tools/ci/coverage_floors.toml. The floors only
+  # go up: `python tools/ci/coverage_floors.py measure tools/ci/coverage_floors.toml
+  # --write` raises each to half a point under the measure. A floor goes down
+  # only when files enter or leave its sub-package, with the reason on its line.
+  coverage:
+    name: Coverage / floors per sub-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [unit, scenarios]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install coverage
+        run: pip install "coverage[toml]>=7.10"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: coverage-unit
+          path: ${{ runner.temp }}/coverage/unit
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: coverage-scenarios
+          path: ${{ runner.temp }}/coverage/scenarios
+
+      # The two data files are named one by one: a folder given to combine
+      # reads only the files whose name carries a suffix.
+      - name: Combine the unit and scenario data
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/.coverage
+        run: |
+          coverage combine --rcfile=/dev/null --keep \
+            "$RUNNER_TEMP/coverage/unit/.coverage" \
+            "$RUNNER_TEMP/coverage/scenarios/.coverage"
+
+      - name: Check the floor of each sub-package
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/.coverage
+        run: python tools/ci/coverage_floors.py check tools/ci/coverage_floors.toml
+
+      - name: Write the coverage XML
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/.coverage
+        run: coverage xml -o "$RUNNER_TEMP/coverage.xml"
+
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.xml
+          files: ${{ runner.temp }}/coverage.xml
           flags: unit
           fail_ci_if_error: false
+
+  # A change that removes test functions must lose no covered line, branch or
+  # killed mutant of the modules those tests stood for. proof.py picks the
+  # removed functions and the tests that import their modules, then
+  # tools/ci/removal_proof.py check measures both sides on the same library
+  # code. A change that also edits hydromodpy/ is refused: remove the tests in a
+  # change of their own. A pull request is proved as one change against its
+  # base. A push is proved commit by commit against each parent, so a push that
+  # removes tests and edits hydromodpy/ in separate commits passes. Exit 0
+  # proved, 1 a loss named in proof/report.json, 2 a refusal. Almost every push
+  # removes no test and ends in under a minute.
+  proof:
+    name: Proof / tests removed lose nothing
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package, test extras and mutmut
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,mesh,mf6api]" "mutmut==3.8.0"
+
+      - name: Install external validity_frame package
+        run: pip install -e validity_frame
+
+      - name: Install solver binaries for the proof
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet
+
+      - name: Prove that the removed tests lose nothing
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT: ${{ github.event_name }}
+          TARGET: ${{ github.base_ref || github.ref_name }}
+        run: |
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "no base to compare with"
+            exit 0
+          fi
+          # main only receives dev, many commits at once with library code and
+          # tests together. Each of them was proved when it reached dev.
+          if [ "$TARGET" = "main" ]; then
+            echo "main receives dev: the proof ran when each commit reached dev"
+            exit 0
+          fi
+          if [ "$EVENT" = "pull_request" ]; then
+            python tools/ci/proof.py select --base "$BASE" --head "$GITHUB_SHA" \
+              --work "$RUNNER_TEMP/proof" --out proof/selection.json
+            python tools/ci/proof.py prove proof/selection.json \
+              --work "$RUNNER_TEMP/proof" --out proof/report.json \
+              --budget-minutes 45 --processes 4 --workers 4
+          else
+            python tools/ci/proof.py range --base "$BASE" --head "$GITHUB_SHA" \
+              --work "$RUNNER_TEMP/proof" --out proof/report.json \
+              --budget-minutes 45 --processes 4 --workers 4
+          fi
+
+      - name: Keep the selection and the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: proof
+          path: proof/
+          if-no-files-found: ignore
 
   integration:
     name: Tests / integration py3.13
@@ -212,9 +473,9 @@ jobs:
     timeout-minutes: 30
     needs: unit
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
@@ -222,13 +483,14 @@ jobs:
       - name: Install Linux system libraries
         run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
 
-      - name: Install package and test extras
+      # The gmsh tests skip without the mesh extra.
+      - name: Install package, test and mesh extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,delineation]"
+          pip install -e ".[test,calibration,mesh]"
 
       - name: Install solver binaries for integration tests
-        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
 
       - name: Run integration suite
         run: |
@@ -243,9 +505,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -256,24 +518,50 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,delineation]"
+          pip install -e ".[test,calibration]"
 
       - name: Install solver binaries for regression tests
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
 
+      # The Whitebox native binding dies when several DEM workflows share one
+      # long-lived xdist worker, so the tests marked `whitebox` run serially.
       - name: Run fast regression suite
-        run: python -m pytest tests/regression/fast/ -n 2 --dist loadgroup --max-worker-restart=0 --timeout=600 -q
+        run: |
+          python -m pytest tests/regression/fast/ \
+            -m "not whitebox" \
+            -n 2 --dist loadgroup --max-worker-restart=0 --timeout=600 -q
 
-  package-smoke:
-    name: Package / wheel smoke py3.12
+      - name: Run Whitebox-backed fast regression (serial)
+        run: python -m pytest tests/regression/fast/ -m whitebox --timeout=600 -q
+
+  example-catalog:
+    name: Package / example catalog matches the tree
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+
+      - name: Check sha256 of every file the catalog names
+        run: python tools/ci/check_example_catalog.py
+
+  package-smoke:
+    name: Package / wheel smoke py${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install Linux system libraries
@@ -287,21 +575,22 @@ jobs:
 
       - name: Install wheel into fresh venv
         run: |
-          python -m venv /tmp/hmp-smoke
-          /tmp/hmp-smoke/bin/pip install --upgrade pip
-          /tmp/hmp-smoke/bin/pip install dist/*.whl
+          python -m venv "$RUNNER_TEMP/hmp-smoke"
+          "$RUNNER_TEMP/hmp-smoke/bin/pip" install --upgrade pip
+          "$RUNNER_TEMP/hmp-smoke/bin/pip" install dist/*.whl
 
       - name: Run hmp doctor from wheel install
-        run: /tmp/hmp-smoke/bin/hmp doctor --json
+        run: |
+          "$RUNNER_TEMP/hmp-smoke/bin/hmp" doctor --format json
 
   typing:
     name: Typing / mypy baseline py3.12 (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip

@@ -1,0 +1,86 @@
+{
+  "additionalProperties": true,
+  "description": "``provenance.json``: what produced the numbers, environment included.",
+  "properties": {
+    "environment": {
+      "additionalProperties": true,
+      "description": "dependency lock, solver binaries with their digests",
+      "title": "Environment",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "git": {
+      "additionalProperties": true,
+      "description": "commit, dirty, project_commit",
+      "title": "Git",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "packages": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "key package versions",
+      "title": "Packages",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "platform": {
+      "additionalProperties": true,
+      "description": "platform, hostname, user, cpu, memory_gb",
+      "title": "Platform",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "provenance_version": {
+      "default": 2,
+      "examples": [
+        2
+      ],
+      "title": "Provenance Version",
+      "type": "integer",
+      "x-hmp-profile": "user"
+    },
+    "python": {
+      "additionalProperties": true,
+      "description": "version",
+      "title": "Python",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "sim_id": {
+      "examples": [
+        "example"
+      ],
+      "title": "Sim Id",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "solver": {
+      "additionalProperties": true,
+      "description": "name, engine, version, binary_path, binary_sha256, and options: what the adapter decided once it built the model (IMS complexity, XT3D)",
+      "title": "Solver",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "timing": {
+      "additionalProperties": true,
+      "description": "started_at, ended_at, duration_s",
+      "title": "Timing",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "tool": {
+      "additionalProperties": true,
+      "description": "name, version, code_fingerprint by layer",
+      "title": "Tool",
+      "type": "object",
+      "x-hmp-profile": "user"
+    }
+  },
+  "required": [
+    "sim_id"
+  ],
+  "title": "RunProvenance",
+  "type": "object"
+}

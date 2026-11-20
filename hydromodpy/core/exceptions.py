@@ -2,17 +2,50 @@
 
 Canonical source for every ``*Error`` raised by the package. All exceptions
 inherit from :class:`HydroModPyError`, which carries optional ``sim_id`` and
-``run_id`` context plus a ``code`` class attribute used by the CLI to map
-failures to exit codes and stable user-facing messages.
+``run_id`` context, a ``code`` class attribute for stable user-facing
+messages, and a ``category`` class attribute, a :class:`Category`, that the
+CLI maps to its exit code. A class that has two parents of different
+categories says its own.
 
-See ``architecture_cible/13_coherence_globale.md`` §1.5 for the canonical
-code assignments. Codes follow the ``HMPY.Exxx`` convention.
+Codes follow the ``HMPY.Exxx`` convention.
+
+There are sixteen categories. A new exception takes the code of its category and touches
+no table of the command line.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any
+from collections.abc import Iterable, Mapping, Sequence
+from enum import StrEnum
+from typing import Any, ClassVar, Self
+
+from hydromodpy.core.diagnostic import Diagnostic
+
+
+class Category(StrEnum):
+    """What kind of failure an exception is, as a caller acts on it.
+
+    Each class says its category once, on itself, and a subclass inherits it.
+    The command line maps a category to its exit code, so a new exception
+    takes the code of its category without touching the command line.
+    """
+
+    GENERIC = "generic"
+    USAGE = "usage"
+    NOT_FOUND = "not_found"
+    SCHEMA_MISMATCH = "schema_mismatch"
+    WRITE_CONFLICT = "write_conflict"
+    READ_ONLY = "read_only"
+    CONFIG = "config"
+    SOLVER = "solver"
+    DATA = "data"
+    CROSS_PROJECTS = "cross_projects"
+    BACKUP_FAILED = "backup_failed"
+    MIGRATION_FAILED = "migration_failed"
+    AMBIGUOUS_REFERENCE = "ambiguous_reference"
+    CALIBRATION = "calibration"
+    CATALOG_UNREADABLE = "catalog_unreadable"
+    CASES_FAILED = "cases_failed"
 
 
 class HydroModPyError(Exception):
@@ -24,11 +57,18 @@ class HydroModPyError(Exception):
         Human-readable error message.
     sim_id, run_id:
         Optional identifiers propagated by the pipeline before reraising.
+    details:
+        One record per fault of a document, each with its RFC 6901 ``pointer``.
+        Read from ``diagnostics`` when not given.
+    diagnostics:
+        Every :class:`~hydromodpy.core.diagnostic.Diagnostic` of the document
+        this error refuses, the first fault included.
     **context:
         Arbitrary key/value context kept on the exception for logging.
     """
 
     code: str = "HMPY.E000"
+    category: ClassVar[Category] = Category.GENERIC
 
     def __init__(
         self,
@@ -36,6 +76,8 @@ class HydroModPyError(Exception):
         *,
         sim_id: str | None = None,
         run_id: str | None = None,
+        details: Iterable[Mapping[str, Any]] = (),
+        diagnostics: Iterable[Diagnostic] = (),
         **context: Any,
     ) -> None:
         super().__init__(message)
@@ -43,6 +85,90 @@ class HydroModPyError(Exception):
         self.sim_id = sim_id
         self.run_id = run_id
         self.context = context
+        self.diagnostics: tuple[Diagnostic, ...] = tuple(diagnostics)
+        given = tuple(dict(entry) for entry in details)
+        self.details: tuple[dict[str, Any], ...] = given or tuple(
+            diagnostic.to_dict() for diagnostic in self.diagnostics
+        )
+
+    def carrying(self, diagnostics: Sequence[Diagnostic], *, message: str | None = None) -> Self:
+        """Give this error every diagnostic of the document it refuses, and return it.
+
+        The loader raises the error of the first fault of a document, with the
+        diagnostics of every fault. ``details`` is read again from them, and
+        *message*, when given, replaces the message so it names them all.
+        """
+        self.diagnostics = tuple(diagnostics)
+        self.details = tuple(diagnostic.to_dict() for diagnostic in self.diagnostics)
+        if message is not None:
+            self.message = message
+            self.args = (message,)
+        return self
+
+    @classmethod
+    def title(cls) -> str:
+        """Return a one-line human title for this class of failure.
+
+        The first line of the class docstring, which every class in this module
+        carries. Under ``python -OO`` docstrings are stripped and the class name
+        is returned instead: a degraded title, never a wrong one.
+        """
+        doc = cls.__doc__
+        if not doc:
+            return cls.__name__
+        return doc.strip().splitlines()[0].strip()
+
+    def to_dict(self) -> dict[str, Any]:
+        """Render the failure as a typed problem object.
+
+        The shape a caller outside this process reads: a ``urn:`` type that
+        resolves to nothing on purpose (no domain is registered), the stable
+        ``HMPY.Exxx`` code, a title from the class and the detail from the
+        instance. Subclasses add their own members by overriding and updating.
+        """
+        payload: dict[str, Any] = {
+            "type": f"urn:hmp:error:{self.code}",
+            "code": self.code,
+            "title": self.title(),
+            "detail": self.message or str(self),
+        }
+        if self.sim_id is not None:
+            payload["sim_id"] = self.sim_id
+        if self.run_id is not None:
+            payload["run_id"] = self.run_id
+        if self.details:
+            payload["details"] = [dict(entry) for entry in self.details]
+        return payload
+
+
+# -- Command line --------------------------------------------------------------
+
+
+class CommandUsageError(HydroModPyError):
+    """The command line asks for something the command cannot do as written.
+
+    A flag that does not go with another, a word the verb does not know. It maps
+    to exit 2, as an error of the parser does.
+    """
+
+    code = "HMPY.E001"
+    category = Category.USAGE
+
+
+class NothingThereError(HydroModPyError, FileNotFoundError):
+    """What the command names is not there: a file, a run, a project, an index."""
+
+    code = "HMPY.E002"
+    category = Category.NOT_FOUND
+
+
+class OldNameError(HydroModPyError, AttributeError):
+    """A public name left before the first stable version, and it has no alias.
+
+    The message names where it went. An ``AttributeError``, so ``hasattr`` stays false.
+    """
+
+    code = "HMPY.E003"
 
 
 # -- Configuration -------------------------------------------------------------
@@ -52,12 +178,47 @@ class ConfigError(HydroModPyError):
     """Configuration loading, validation, or resolution failure."""
 
     code = "HMPY.E100"
+    category = Category.CONFIG
 
 
 class ConfigValidationError(ConfigError):
-    """Pydantic validation error surfaced as a typed exception."""
+    """The configuration document failed validation."""
 
     code = "HMPY.E101"
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        details: Iterable[Mapping[str, Any]] = (),
+        diagnostics: Iterable[Diagnostic] = (),
+        source: str | None = None,
+        sim_id: str | None = None,
+        run_id: str | None = None,
+        **context: Any,
+    ) -> None:
+        super().__init__(
+            message,
+            sim_id=sim_id,
+            run_id=run_id,
+            details=details,
+            diagnostics=diagnostics,
+            **context,
+        )
+        self.source = source
+
+    def to_dict(self) -> dict[str, Any]:
+        """Add the file the document was read from, when there is one.
+
+        The per-field faults come from the base class, each with its RFC 6901
+        JSON Pointer, so a front end highlights the offending widget. When
+        validation produced no structured fault, ``details`` is absent rather
+        than an empty list pretending to be one.
+        """
+        payload = super().to_dict()
+        if self.source is not None:
+            payload["source"] = self.source
+        return payload
 
 
 class ConfigMissingError(ConfigError):
@@ -84,6 +245,35 @@ class UnitAliasConflict(ConfigError):
     code = "HMPY.E105"
 
 
+class FrozenConfigError(ConfigError):
+    """A frozen copy of a configuration was asked to change.
+
+    ``Project.config`` gives such a copy. The message says which path takes a change.
+    """
+
+    code = "HMPY.E106"
+
+
+class BoundsError(ConfigError):
+    """A call stepped outside the hosts or roots its ``Bounds`` allow.
+
+    A refusal of the settings of the call, not of the data: the message names
+    the host or the path, the list that was honoured, and the option that widens it.
+    """
+
+    code = "HMPY.E107"
+
+
+class CredentialsError(ConfigError):
+    """A credentials file is read and refuses: absent, misplaced, or carrying a bad block.
+
+    A file named and absent raises this and not :class:`FileNotFoundError`, so
+    the exit code stays the one of a configuration the caller has to fix.
+    """
+
+    code = "HMPY.E108"
+
+
 # -- Data ----------------------------------------------------------------------
 
 
@@ -91,6 +281,7 @@ class DataError(HydroModPyError):
     """Input data loading, validation, or provenance failure."""
 
     code = "HMPY.E200"
+    category = Category.DATA
 
 
 class DataContractViolation(DataError):
@@ -129,6 +320,61 @@ class MissingForcingError(DataError):
     code = "HMPY.E206"
 
 
+class DataRequestError(DataError):
+    """A fetch request is malformed, before any source is asked to serve it.
+
+    Separate from :class:`DataSourceError`, which means a source was reached
+    and refused: the caller fixes this one without the network being up.
+    """
+
+    code = "HMPY.E207"
+
+
+class DataCapabilityError(DataError):
+    """The selected data source does not serve the requested option.
+
+    A refusal, never a silent substitution: a caller asking a static reference
+    network for a time window, or a bbox source for station identifiers, is
+    told so by name rather than handed a result that ignores the argument.
+    """
+
+    code = "HMPY.E208"
+
+
+class DataProductError(DataError):
+    """What a source returned does not satisfy what it declared.
+
+    Raised when the payload of a result does not match the kind the result
+    carries, or when records claim a variable the source does not serve.
+    """
+
+    code = "HMPY.E209"
+
+
+class FrozenDataError(DataCacheError, RuntimeError):
+    """A frozen run asked the cache for something the lockfile does not pin.
+
+    Raised under ``--frozen`` when the lockfile is missing, an entry is not
+    pinned in it, the cache has no file for it, or its SHA-256 differs. A
+    :class:`DataCacheError`, so the command exits as a data failure. Still a
+    ``RuntimeError``, for the callers written when this was one.
+    """
+
+    code = "HMPY.E210"
+
+
+class JobInputNotFoundError(DataError, FileNotFoundError):
+    """A file the job request names is not on disk.
+
+    A ``FileNotFoundError`` too, so it exits with the "not found" code. Its own
+    class, because a builtin is reported under ``HMPY.E000``, the code of a bug
+    in HydroModPy, and an absent input is the caller's fault.
+    """
+
+    code = "HMPY.E211"
+    category = Category.NOT_FOUND
+
+
 # -- Mesh ----------------------------------------------------------------------
 
 
@@ -150,6 +396,86 @@ class IncompatibleMeshError(MeshError):
     code = "HMPY.E302"
 
 
+class MeshRequestError(MeshError):
+    """A mesh request or an engine name is malformed, before any engine builds it."""
+
+    code = "HMPY.E303"
+
+
+# -- Terrain -------------------------------------------------------------------
+# ``cli.exit_codes.exit_code_for`` maps the family to EXIT_SOLVER_ERROR: the
+# geospatial backend failing is what code 15 means at a process boundary.
+
+
+class TerrainError(HydroModPyError):
+    """Terrain engine failure."""
+
+    code = "HMPY.E1000"
+    category = Category.SOLVER
+
+
+class TerrainCapabilityError(TerrainError):
+    """The selected terrain engine does not implement the requested option.
+
+    A refusal, never a silent substitution: a caller asking for a conditioning
+    method or a pointer convention an engine cannot produce is told so by name.
+    """
+
+    code = "HMPY.E1001"
+
+
+class TerrainProductError(TerrainError):
+    """A terrain product does not satisfy what the member it is passed to needs.
+
+    Raised when a flow-accumulation raster is handed to a member that declares
+    it needs untransformed cell counts, and when a product comes out empty.
+    """
+
+    code = "HMPY.E1002"
+
+
+class TerrainRequestError(TerrainError):
+    """The request itself is malformed, before any engine is asked to serve it."""
+
+    code = "HMPY.E1003"
+
+
+class EmptyCatchmentError(TerrainProductError):
+    """An outlet delineated nothing at all.
+
+    Its own class and not a message, because a caller decides on it, and
+    reading that decision out of the text of an error message is how the next
+    rewording breaks it silently.
+    """
+
+    code = "HMPY.E1004"
+
+
+# -- Process boundary ----------------------------------------------------------
+# Raised when a capability is invoked as an external process, before and around
+# whatever the capability itself does. Both carry a code an orchestrator maps
+# without reading a message.
+
+
+class JobUsageError(HydroModPyError):
+    """The job directory is not usable as the caller gave it.
+
+    Its own class because it maps to exit 2: the caller got the invocation
+    wrong, which is a different fact from the job failing at its work, and a
+    shim retries one and not the other.
+    """
+
+    code = "HMPY.E1100"
+    category = Category.USAGE
+
+
+class CapabilityVersionMismatchError(HydroModPyError):
+    """The request targets a different major version of the capability."""
+
+    code = "HMPY.E1101"
+    category = Category.SCHEMA_MISMATCH
+
+
 # -- Solver --------------------------------------------------------------------
 
 
@@ -161,6 +487,7 @@ class SolverError(HydroModPyError):
     """
 
     code = "HMPY.E400"
+    category = Category.SOLVER
 
 
 class SolverDivergedError(SolverError):
@@ -276,7 +603,7 @@ class ExtractError(PipelineError):
 
 
 class ExportError(PipelineError):
-    """Exporter (NetCDF / CSV / VTU / GeoTIFF) failed to serialise results."""
+    """Exporter (NetCDF / CSV / VTU / GeoTIFF) failed to serialize results."""
 
     code = "HMPY.E506"
 
@@ -294,7 +621,7 @@ class JournalError(PipelineError):
 
 
 class ResumeIntegrityError(ResumeError):
-    """A completed-step artefact failed integrity verification on resume."""
+    """A completed-step artifact failed integrity verification on resume."""
 
     code = "HMPY.E509"
 
@@ -305,6 +632,29 @@ class WorkflowDAGCycleError(PipelineError):
     code = "HMPY.E510"
 
 
+class FailedCasesError(PipelineError):
+    """One or more cases of a launch failed; every case wrote its outcome.
+
+    Raised once all the cases ran, so a launch whose cases fail never ends as
+    a success. ``summary`` holds the counts and the paths the launcher returned.
+    """
+
+    code = "HMPY.E511"
+    category = Category.CASES_FAILED
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        summary: Mapping[str, Any] | None = None,
+        sim_id: str | None = None,
+        run_id: str | None = None,
+        **context: Any,
+    ) -> None:
+        super().__init__(message, sim_id=sim_id, run_id=run_id, **context)
+        self.summary: dict[str, Any] = dict(summary or {})
+
+
 # -- Calibration ---------------------------------------------------------------
 
 
@@ -312,6 +662,7 @@ class CalibrationError(HydroModPyError):
     """Calibration loop failure."""
 
     code = "HMPY.E600"
+    category = Category.CALIBRATION
 
 
 class ObjectiveError(CalibrationError):
@@ -324,6 +675,19 @@ class OptimizerError(CalibrationError):
     """Optimizer backend (CMA, Optuna, ...) raised an unrecoverable error."""
 
     code = "HMPY.E602"
+
+
+class UncertaintyNotAvailableError(CalibrationError):
+    """The search ran, and what it produced cannot carry the width asked for.
+
+    Typed apart from the rest of the family because it is the one calibration
+    failure that must not lose the answer: the search has already been paid
+    for, and the declaration it cannot honor is a property of the document,
+    not of the run. Its catcher reports the width as absent and returns the
+    report.
+    """
+
+    code = "HMPY.E603"
 
 
 # -- Display -------------------------------------------------------------------
@@ -366,36 +730,106 @@ class ReadOnlyError(CatalogError):
     """A write was attempted against a read-only catalog."""
 
     code = "HMPY.E803"
+    category = Category.READ_ONLY
 
 
 class WriteConflictError(CatalogError):
     """A concurrent writer holds the catalog and a write cannot proceed."""
 
     code = "HMPY.E804"
+    category = Category.WRITE_CONFLICT
 
 
 class CrossProjectsError(CatalogError):
     """An operation crossed project boundaries that must stay isolated."""
 
     code = "HMPY.E805"
+    category = Category.CROSS_PROJECTS
 
 
 class BackupFailedError(CatalogError):
     """The pre-migration catalog backup could not be written."""
 
     code = "HMPY.E806"
+    category = Category.BACKUP_FAILED
 
 
 class MigrationFailedError(CatalogError):
     """A catalog schema migration failed to apply."""
 
     code = "HMPY.E807"
+    category = Category.MIGRATION_FAILED
+
+
+# The one repair of a DuckDB index this project keeps: it is always a rebuild,
+# never a repair in place.
+_CATALOG_REPAIR_HINT = (
+    "the index is rebuildable: delete it and run 'hmp catalog reindex' - "
+    "reindex writes a fresh index next to the broken one and publishes it by "
+    "atomic replace, so it never has to reopen the file that failed"
+)
+
+
+class CatalogUnreadableError(CatalogError):
+    """The catalog index file exists but DuckDB could not open it.
+
+    Distinct from lock contention, which
+    :func:`hydromodpy.core.io.db_retry.connect_with_retry` retries
+    transparently and never raises for: this is raised once that retry has
+    ruled out a concurrent writer and the open still fails, e.g. a truncated
+    write or a torn journal replay. The message carries the index path and
+    the exact rebuild command rather than the raw DuckDB trace, since nothing
+    at this layer can repair the file in place.
+    """
+
+    code = "HMPY.E808"
+    category = Category.CATALOG_UNREADABLE
+
+    def __init__(
+        self,
+        db_path: str,
+        *,
+        sim_id: str | None = None,
+        run_id: str | None = None,
+        **context: Any,
+    ) -> None:
+        message = (
+            f"Catalog index at '{db_path}' exists but could not be opened: {_CATALOG_REPAIR_HINT}."
+        )
+        super().__init__(message, sim_id=sim_id, run_id=run_id, **context)
+        self.db_path = db_path
+
+
+class ImportConflictError(CatalogError):
+    """An imported run or project is already in the catalog.
+
+    Raised by the import of a ``.hmp`` package when its run is already
+    indexed, or when its project name is taken and no new name was given.
+    The message names the option that resolves it.
+    """
+
+    code = "HMPY.E809"
+    category = Category.WRITE_CONFLICT
 
 
 class ZarrStoreError(StorageError):
     """Zarr store read/write failure."""
 
     code = "HMPY.E802"
+
+
+class SchemaVersionMismatchError(StorageError):
+    """A stored document carries no version, or one this version does not read.
+
+    Raised by every reader of a document HydroModPy writes on disk, the index
+    included. The message names the version read, the version that wrote it
+    when known, what this code reads and what to do: upgrade HydroModPy for a
+    newer document, run again what a pre-release wrote, rebuild the index, or
+    delete a transient document.
+    """
+
+    code = "HMPY.E824"
+    category = Category.SCHEMA_MISMATCH
 
 
 # -- Results -------------------------------------------------------------------
@@ -433,7 +867,12 @@ class UnknownFieldError(ResultsError):
 
 
 __all__ = [
+    "Category",
     "HydroModPyError",
+    # Command line
+    "CommandUsageError",
+    "NothingThereError",
+    "OldNameError",
     # Config
     "ConfigError",
     "ConfigValidationError",
@@ -441,6 +880,9 @@ __all__ = [
     "ImplicitInferenceError",
     "SchemaVersionTooNewError",
     "UnitAliasConflict",
+    "FrozenConfigError",
+    "BoundsError",
+    "CredentialsError",
     # Data
     "DataError",
     "DataContractViolation",
@@ -449,10 +891,25 @@ __all__ = [
     "DataSourceError",
     "NetworkError",
     "MissingForcingError",
+    "DataRequestError",
+    "DataCapabilityError",
+    "DataProductError",
+    "FrozenDataError",
+    "JobInputNotFoundError",
     # Mesh
     "MeshError",
     "MeshGenerationError",
     "IncompatibleMeshError",
+    "MeshRequestError",
+    # Terrain
+    "TerrainError",
+    "TerrainCapabilityError",
+    "TerrainProductError",
+    "TerrainRequestError",
+    "EmptyCatchmentError",
+    # Process boundary
+    "JobUsageError",
+    "CapabilityVersionMismatchError",
     # Solver
     "SolverError",
     "SolverDivergedError",
@@ -475,10 +932,12 @@ __all__ = [
     "ExportError",
     "WorkspaceLockedError",
     "WorkflowDAGCycleError",
+    "FailedCasesError",
     # Calibration
     "CalibrationError",
     "ObjectiveError",
     "OptimizerError",
+    "UncertaintyNotAvailableError",
     # Display
     "DisplayError",
     "FigureNotFoundError",
@@ -486,11 +945,14 @@ __all__ = [
     # Storage
     "StorageError",
     "CatalogError",
+    "SchemaVersionMismatchError",
     "ReadOnlyError",
     "WriteConflictError",
     "CrossProjectsError",
     "BackupFailedError",
     "MigrationFailedError",
+    "CatalogUnreadableError",
+    "ImportConflictError",
     "ZarrStoreError",
     # Results
     "ResultsError",

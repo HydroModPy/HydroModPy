@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.tracking import InputFile
-from hydromodpy.data.managers.base_config import BaseVariableConfig
-from hydromodpy.data.variables.timeseries_variable_config import (
+from hydromodpy.core.tracking.input_file import InputFile
+from hydromodpy.data.families.base_config import BaseVariableConfig
+from hydromodpy.data.families.timeseries_config import (
     SparseStationFallbackMixin,
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    registered_section_source,
 )
 
 
@@ -25,12 +27,26 @@ class OceanicSourceConfig(
     Oceanic sources describe sea-level information for coastal boundary
     conditions. Use ``custom`` for local files, ``shom`` for tide-gauge data,
     or ``constant`` for a fixed mean sea-level value.
+
+    A ``shom`` source declares exactly one selector: ``station_ids`` names the
+    tide gauges, ``mask_path`` gives the point whose nearest gauge is read. The
+    ``nearest`` flag that used to sit here is gone -- it was read by nobody,
+    and naming a station is what turning the search off actually means.
     """
 
-    source: Annotated[Literal["custom", "shom", "constant"], Profile.USER] = Field(
+    source: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Data provider: 'custom' for user CSV/NC/TIF files, 'shom' for SHOM API, 'constant' for fixed MSL.",
+        description=(
+            "Data provider: 'custom' for user CSV/NC/TIF files, or the id of a source "
+            "registered for the oceanic section, such as 'shom' for the SHOM API and "
+            "'constant' for a fixed mean sea level."
+        ),
     )
+
+    @field_validator("source")
+    @classmethod
+    def _check_the_source_is_served_for_oceanic(cls, source: str) -> str:
+        return registered_section_source(source, "oceanic")
 
     # --- Custom source fields ---
     path: Annotated[
@@ -40,19 +56,17 @@ class OceanicSourceConfig(
     ] = Field(
         default=None,
         description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
 
     # --- Constant source fields ---
     value: Annotated[float | None, Profile.USER] = Field(
         default=None,
-        description="Constant mean sea-level value in metres.",
+        description="Constant mean sea-level value in meters.",
+        json_schema_extra={"unit": "m"},
     )
 
     # --- SHOM API fields ---
-    nearest: Annotated[bool, Profile.DEV] = Field(
-        default=True,
-        description="Use nearest tide gauge to watershed centroid.",
-    )
     require_observations: Annotated[bool, Profile.DEV] = Field(
         default=True,
         description="Raise if SHOM returns no observations.",
@@ -60,10 +74,10 @@ class OceanicSourceConfig(
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> OceanicSourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
+                    "File source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
                 )
         if self.source == "constant":
             if self.value is None:
@@ -75,8 +89,7 @@ class OceanicConfig(BaseVariableConfig):
     """Top-level oceanic configuration.
 
     The section groups sea-level sources and an optional date window. It is
-    commonly inferred when ``flow.active_bc`` contains an ocean boundary
-    condition.
+    commonly inferred when ``[flow.bc.ocean]`` is declared.
     """
 
     _TOML_SECTION = "oceanic"

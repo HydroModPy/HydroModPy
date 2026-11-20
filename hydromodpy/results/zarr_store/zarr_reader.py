@@ -1,23 +1,17 @@
 """Read-side concerns for :class:`SimulationZarr`.
 
-Owns every ``read_*`` entry point plus the root-attribute readers
-(``geographic_fingerprint``, ``resolve_geographic_dir``,
-``root_attrs_json``) and the :func:`to_xarray` view builder.
-
-All helpers take the live :class:`SimulationZarr` so the module is
-free of hidden state.
+Every ``read_*`` of :class:`SimulationZarr` is defined here once and bound
+on the class as a method, so each takes the live store as its first argument.
 """
 
 from __future__ import annotations
 
-import json
 import math
-from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.core.field_routing import DRAIN_BAND_DEPTH_ATTR, drain_band_depth
+from hydromodpy.core.budget.flux import DRAIN_BAND_DEPTH_ATTR, drain_band_depth
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 
@@ -27,6 +21,74 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 _DASK_FALLBACK_WARNED = False
+
+CONCENTRATION_FIELD = "concentration"
+"""The public name of the solute concentration, whatever its stored form."""
+
+
+def has_concentration(root: Any) -> bool:
+    """Say whether a store root holds a concentration in one of its two forms.
+
+    The stored form of today holds one solute per run, named by its ``spc_name``,
+    under ``concentration/<spc_name>``. A store written before that held the array
+    at the root of the fields, without a name. Both answer True.
+    """
+    try:
+        concentration_array(root)
+    except KeyError:
+        return False
+    return True
+
+
+def concentration_array(root: Any) -> Any:
+    """Return the stored concentration array of a run, at the path it holds.
+
+    The extractor writes one solute, named by ``spc_name``, under the
+    ``concentration`` subgroup, and a store written by a pre-release wrote the array
+    straight under ``concentration``. Every reader of the public name goes
+    through here, so both forms read the same way, and a group that carries
+    more than one solute is refused with their names, because one run holds
+    one solute.
+
+    Raises
+    ------
+    KeyError
+        When the store holds no concentration, or several named ones.
+    """
+    node = root.get(CONCENTRATION_FIELD)
+    if node is None:
+        raise KeyError("No concentration stored: a concentration field needs a transport run.")
+    if hasattr(node, "shape"):
+        return node
+    species = sorted(key for key in node.keys() if not key.startswith("."))
+    if not species:
+        raise KeyError("The group 'concentration' of the store holds no solute.")
+    if len(species) > 1:
+        raise KeyError(
+            "The store holds several solutes under concentration ("
+            f"{', '.join(species)}) and one run carries one: read concentration/<spc>."
+        )
+    return node[species[0]]
+
+
+def stored_field_array(root: Any, zarr_path: str) -> Any:
+    """Resolve a registry ``zarr_path`` to its stored array, or ``None`` when absent.
+
+    The concentration goes through :func:`concentration_array`, because its
+    path names a group of solutes and not an array. Several solutes under it
+    raise the ``KeyError`` that names them.
+    """
+    if zarr_path == CONCENTRATION_FIELD:
+        if root.get(CONCENTRATION_FIELD) is None:
+            return None
+        return concentration_array(root)
+    node = root
+    for part in zarr_path.split("/"):
+        getter = getattr(node, "get", None)
+        node = getter(part) if getter is not None else None
+        if node is None:
+            return None
+    return node
 
 
 def _optional_dask_array():
@@ -49,6 +111,21 @@ def _optional_dask_array():
             _DASK_FALLBACK_WARNED = True
         return None
     return da
+
+
+def field_array_view(arr: Any, da: Any | None) -> Any:
+    """Return a stored array as numpy (``da`` None) or lazy dask, floats in float64.
+
+    A compact store keeps its fields in float32. The cast is lazy under dask
+    and exact, so a reader gets the dtype an exact store would give it.
+    """
+    if da is None:
+        values = np.asarray(arr)
+    else:
+        values = da.from_array(arr, chunks=arr.chunks if arr.chunks else "auto")
+    if np.issubdtype(values.dtype, np.floating) and values.dtype != np.float64:
+        values = values.astype(np.float64)
+    return values
 
 
 def get_geographic_fingerprint(store_obj: SimulationZarr) -> str | None:
@@ -85,31 +162,6 @@ def set_drain_band_depth(store_obj: SimulationZarr, value: float) -> None:
     store_obj._root.attrs[DRAIN_BAND_DEPTH_ATTR] = depth
 
 
-def resolve_geographic_dir(store_obj: SimulationZarr, workspace_path: Path | str) -> Path | None:
-    """Resolve the workspace-level cache dir tied to this store's fingerprint."""
-    fp = get_geographic_fingerprint(store_obj)
-    if fp is None:
-        return None
-    from hydromodpy.results.geographic_cache import GeographicCache
-
-    return GeographicCache(workspace_path).path_for(fp)
-
-
-def _is_time_resolved(variable: str) -> bool:
-    """Return True when the registered field carries a leading time axis.
-
-    Static geometry (``topography``, ``layer_thickness``) has no time
-    dimension, so indexing it by timestep would silently return one layer or
-    raise. Unregistered variables are assumed time-resolved, which is the
-    historical behaviour for solver-specific arrays.
-    """
-    from hydromodpy.results import field_registry
-
-    if not field_registry.has(variable):
-        return True
-    return field_registry.get(variable).shape.startswith("time")
-
-
 def read_field(
     store_obj: SimulationZarr,
     variable: str,
@@ -120,28 +172,114 @@ def read_field(
 ) -> np.ndarray:
     """Read ``variable`` from ``subgroup`` (or auto), sliced at ``timestep``.
 
-    ``timestep`` is ignored for static fields (see :func:`_is_time_resolved`).
+    ``timestep`` is ignored for static fields (see :func:`~hydromodpy.results.field_registry.is_time_resolved`).
+    A float field comes back as float64 whatever precision it was stored in,
+    so a compact store and an exact one hand their readers the same dtype.
     """
-    time_resolved = _is_time_resolved(variable)
+    array = _stored_array(store_obj, variable, subgroup)
+    data = array[int(timestep)] if field_registry.is_time_resolved(variable) else array[:]
+    if layer is not None and data.ndim == 2:
+        data = data[layer]
+    return _as_float64(data)
 
-    def _select(array) -> np.ndarray:
-        return array[int(timestep)] if time_resolved else array[:]
 
+def read_field_range(
+    store_obj: SimulationZarr,
+    variable: str,
+    start: int,
+    stop: int,
+    *,
+    subgroup: str | None = None,
+    layer: int | None = None,
+) -> np.ndarray:
+    """Read ``variable`` over timesteps ``[start, stop)`` as one stack.
+
+    Row ``i`` is what :func:`read_field` returns at step ``start + i``: the
+    same lookup, the same layer selection, floats in float64. The slice is
+    read in one call, so each chunk is decoded once for the whole range. A
+    static field is repeated once per step, as a step-by-step read gives it.
+    Negative bounds count from the end of the time axis. A range that leaves
+    the axis raises ``IndexError``, as a step outside it does.
+    """
+    array = _stored_array(store_obj, variable, subgroup)
+    if not field_registry.is_time_resolved(variable):
+        row = read_field(store_obj, variable, 0, subgroup=subgroup, layer=layer)
+        return np.repeat(row[None], len(range(int(start), int(stop))), axis=0)
+    first, last = step_range_bounds(start, stop, int(array.shape[0]))
+    data = array[first:last]
+    if layer is not None and data.ndim == 3:
+        data = data[:, layer]
+    return _as_float64(data)
+
+
+def step_range_bounds(start: int, stop: int, n_steps: int) -> tuple[int, int]:
+    """Return ``[start, stop)`` on a time axis of ``n_steps``, negatives from the end.
+
+    Raises ``IndexError`` when the range leaves the axis or runs backwards,
+    where a slice would silently return fewer rows than asked.
+    """
+    first = int(start) + n_steps if int(start) < 0 else int(start)
+    last = int(stop) + n_steps if int(stop) < 0 else int(stop)
+    if not 0 <= first <= last <= n_steps:
+        raise IndexError(
+            f"timesteps [{start}, {stop}) out of bounds for a time axis of length {n_steps}"
+        )
+    return first, last
+
+
+def read_time(store_obj: SimulationZarr) -> np.ndarray | None:
+    """Return the CF ``/time`` axis as ``datetime64[ns]``, or ``None``.
+
+    This axis is the single source of truth for the simulation clock: the
+    exact stress-period timestamps the solver wrote, shared by every field
+    array. Stored as integer offsets since the CF epoch (1970-01-01), so a
+    plain numpy cast decodes it without a calendar library.
+    """
+    root = store_obj._root
+    if root is None or "time" not in root:
+        return None
+    arr = root["time"]
+    values = np.asarray(arr[:])
+    if values.size == 0:
+        return None
+    units = str(dict(arr.attrs).get("units", "seconds since 1970-01-01"))
+    if "since 1970-01-01" not in units:
+        # The decode below assumes the 1970 epoch; a different epoch would
+        # silently shift the whole clock (~30 years for a 2000 anchor).
+        raise ValueError(
+            f"SimulationZarr.read_time: time units {units!r} are not anchored to "
+            "'since 1970-01-01'; the clock cannot be decoded without an epoch offset."
+        )
+    unit_code = "s"
+    if units.startswith("days"):
+        unit_code = "D"
+    elif units.startswith("hours"):
+        unit_code = "h"
+    elif units.startswith("minutes"):
+        unit_code = "m"
+    return values.astype(f"datetime64[{unit_code}]").astype("datetime64[ns]")
+
+
+def _stored_array(store_obj: SimulationZarr, variable: str, subgroup: str | None) -> Any:
+    """Return the stored array of ``variable``, from ``subgroup`` or the first group holding it."""
     if subgroup:
         target = store_obj._root[subgroup]
         if variable not in target:
             raise KeyError(f"Variable '{variable}' not found in subgroup '{subgroup}'")
-        data = _select(target[variable])
-    else:
-        for loc_name in (None, "state", "derived", "budget", "mesh"):
-            loc = store_obj._root if loc_name is None else store_obj._root.get(loc_name)
-            if loc is not None and variable in loc:
-                data = _select(loc[variable])
-                break
-        else:
-            raise KeyError(f"Variable '{variable}' not found")
-    if layer is not None and data.ndim == 2:
-        return data[layer]
+        return target[variable]
+    if variable == CONCENTRATION_FIELD and has_concentration(store_obj._root):
+        return concentration_array(store_obj._root)
+    for loc_name in (None, "state", "derived", "budget", "mesh"):
+        loc = store_obj._root if loc_name is None else store_obj._root.get(loc_name)
+        if loc is not None and variable in loc:
+            return loc[variable]
+    raise KeyError(f"Variable '{variable}' not found")
+
+
+def _as_float64(data: np.ndarray) -> np.ndarray:
+    """Return ``data`` with a float dtype widened to float64, exactly."""
+    if np.issubdtype(data.dtype, np.floating) and data.dtype != np.float64:
+        return data.astype(np.float64)
     return data
 
 
@@ -203,19 +341,6 @@ def read_geographic_raster(store_obj: SimulationZarr, name: str) -> tuple[np.nda
     return data, meta
 
 
-def is_consolidated(store_obj: SimulationZarr) -> bool:
-    """Return True when ``.zmetadata`` consolidation is detectable on disk."""
-    path = store_obj._path
-    if path.is_dir():
-        return (path / ".zmetadata").exists() or (path / "zarr.json").exists()
-    return False
-
-
-def root_attrs_json(store_obj: SimulationZarr) -> str:
-    """Return the root attributes as a JSON string for debug / logs."""
-    return json.dumps({k: v for k, v in store_obj._root.attrs.items()}, default=str)
-
-
 def to_xarray(store_obj: SimulationZarr):
     """Return an ``xarray.Dataset`` view over the simulation fields."""
     import xarray as xr
@@ -235,7 +360,11 @@ def to_xarray(store_obj: SimulationZarr):
 
     for name, desc in field_registry.FIELD_REGISTRY.items():
         path = desc.zarr_path
-        if "/" in path:
+        if name == CONCENTRATION_FIELD:
+            if not has_concentration(store_obj._root):
+                continue
+            arr = concentration_array(store_obj._root)
+        elif "/" in path:
             group_name, var_name = path.split("/", 1)
             group = store_obj._root.get(group_name)
             if group is None or var_name not in group:
@@ -248,11 +377,7 @@ def to_xarray(store_obj: SimulationZarr):
         dims = _shape_dims(desc.shape)
         if len(dims) != arr.ndim:
             dims = tuple(f"dim_{i}" for i in range(arr.ndim))
-        values = (
-            np.asarray(arr)
-            if da is None
-            else da.from_array(arr, chunks=arr.chunks if arr.chunks else "auto")
-        )
+        values = field_array_view(arr, da)
         data_vars[name] = xr.Variable(
             dims,
             values,
@@ -279,17 +404,22 @@ def to_xarray(store_obj: SimulationZarr):
 
 
 __all__ = [
+    "CONCENTRATION_FIELD",
+    "concentration_array",
+    "field_array_view",
     "get_geographic_fingerprint",
-    "is_consolidated",
+    "get_drain_band_depth",
+    "has_concentration",
     "read_field",
+    "read_field_range",
     "lake_abacus_lakes",
     "read_forcing_timeseries",
     "read_geographic_raster",
     "read_lake_abacus",
-    "resolve_geographic_dir",
-    "get_drain_band_depth",
-    "root_attrs_json",
+    "read_time",
     "set_drain_band_depth",
     "set_geographic_fingerprint",
+    "step_range_bounds",
+    "stored_field_array",
     "to_xarray",
 ]

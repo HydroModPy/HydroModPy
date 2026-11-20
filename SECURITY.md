@@ -2,16 +2,16 @@
 
 ## Supported Versions
 
-HydroModPy follows a rolling "current minor + previous minor" policy.
-The current minor receives both bug fixes and security fixes; the
-previous minor receives security fixes only. Older minors (including
-pre-release tags) are not patched.
+Fixes land in the next patch release of 2.0. Version 1 is frozen on the
+`v1.0` branch and gets no fix. The versions and their stages are described on
+the [Versions page](https://docs.hydromodpy.fr/main/about/versions.html).
 
-| Version | Supported              |
-| ------- | ---------------------- |
-| 1.0.x   | :white_check_mark:     |
-| 0.5.x   | security fixes only    |
-| < 0.5   | :x:                    |
+| Version                       | Supported                          |
+| ----------------------------- | ---------------------------------- |
+| 2.0.x                         | :white_check_mark: fixed in the next patch release |
+| 2.0 pre-releases (2.0.0a*)    | :x: upgrade to 2.0.x               |
+| 1.0.x                         | :x: frozen                         |
+| < 1.0                         | :x:                                |
 
 ## Threat Model
 
@@ -19,8 +19,9 @@ HydroModPy targets a **trusted single-tenant scientific desktop**:
 
 - A single researcher (or a tightly coordinated team) installs the
   package in their own conda / venv environment.
-- The workspace directory (`hydromodpy.duckdb`, Zarr stores, Parquet
-  outputs, `.hmp/checkpoints/`, downloaded MODFLOW binaries) is owned
+- The workspace directory (the runs and their Zarr stores and Parquet
+  tables, the `.hmp/index.duckdb` index, the step checkpoints under
+  `runs/<run>/.hmp/checkpoints/`, the downloaded solver binaries) is owned
   and controlled by that researcher.
 - Configuration TOML files, calibration inputs, and project scripts
   under `examples/projects/` are authored or reviewed by the same
@@ -54,11 +55,10 @@ Threats explicitly **in scope**:
 Threats explicitly **out of scope**:
 
 - Attacks that require an attacker to first place a malicious file
-  inside the user's workspace (e.g., a poisoned
-  `.hmp/checkpoints/*.pkl`, a hostile `id_particles_random` MODPATH
-  pickle, a crafted Parquet/Zarr store). The workspace is trusted by
-  assumption; deserialising files under it is treated like loading a
-  local Python module.
+  inside the user's workspace (e.g., a crafted Parquet or Zarr store, a
+  tampered checkpoint or a hostile project script). The workspace is
+  trusted by assumption; reading files under it is treated like loading
+  a local Python module.
 - Attacks on multi-tenant deployments (shared HPC scratch directories,
   shared workspaces between mutually distrusting users, public web
   services that expose HydroModPy as a backend). HydroModPy is not
@@ -115,12 +115,12 @@ Even within the trusted-desktop model, we recommend:
 
 - Install HydroModPy in a dedicated conda or venv environment, never as
   root / Administrator.
-- Treat `<workspace>/.hmp/checkpoints/` and any `*.pkl` produced by
-  MODPATH as code: do not unpickle checkpoints obtained from another
-  user without inspecting them first.
-- Verify the SHA-256 of solver binaries fetched by
-  `hmp install-binaries` against the published lockfile
-  (`hydromodpy.lock`).
+- Treat a run folder obtained from another user like code: do not
+  resume its checkpoints (`runs/<run>/.hmp/checkpoints/`) or run its
+  project scripts without inspecting them first.
+- `hmp install-binaries` installs only a solver release whose SHA-256 is
+  pinned in the package, and refuses any other bytes. Do not replace a
+  binary in `~/.cache/hydromodpy/bin/` by hand.
 - Pin the HydroModPy version in your project (`pyproject.toml` or
   `requirements.txt`) and review CHANGELOG entries under `### Security`
   before upgrading.

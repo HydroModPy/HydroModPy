@@ -1,0 +1,70 @@
+/* Reference pages: Python API, command line, catalogs. Colors come from the theme tokens. */
+
+/* Chips: capabilities, exit codes, licences. Separated by a margin so they never read as one word. */
+.hmp-chips { display: inline-flex; flex-wrap: wrap; gap: .3rem .35rem; align-items: center; }
+.hmp-chip { display: inline-block; font-size: .8rem; line-height: 1.5; padding: 0 .5rem; border: 1px solid var(--pst-color-border); border-radius: 1rem; background: var(--pst-color-surface); color: var(--pst-color-text-base); white-space: nowrap; font-family: var(--pst-font-family-monospace); }
+.hmp-chip-code { font-size: .75rem; color: var(--pst-color-text-muted); }
+a.hmp-chip-exit { text-decoration: none; color: var(--pst-color-link); }
+a.hmp-chip-exit:hover { border-color: var(--pst-color-link-hover); }
+.hmp-chip-warn { color: var(--hmp-when, #b54708); border-color: currentColor; background: transparent; font-family: inherit; }
+button.hmp-chip-btn { cursor: pointer; font-family: inherit; }
+button.hmp-chip-btn[aria-pressed="true"] { background: var(--pst-color-primary); border-color: var(--pst-color-primary); color: var(--pst-color-on-background, #fff); }
+button.hmp-chip-btn[aria-pressed="true"] .hmp-muted { color: inherit; }
+button.hmp-chip-btn:focus-visible { outline: 2px solid var(--pst-color-link); outline-offset: 2px; }
+.hmp-exit-line { margin: .2rem 0 1.4rem; font-size: .88em; }
+.hmp-exit-line .hmp-chip { margin-right: .1rem; }
+
+/* Note box (stability) */
+.hmp-note { border: 1px solid var(--pst-color-border); border-left: 4px solid var(--pst-color-primary); border-radius: .35rem; padding: .5rem 1rem .1rem; margin: .5rem 0 1.4rem; background: var(--pst-color-surface); }
+
+/* Exceptions: hierarchy and table */
+ul.hmp-tree, ul.hmp-tree ul { list-style: none; padding-left: 1.1rem; margin: 0; border-left: 1px solid var(--pst-color-border); }
+ul.hmp-tree { border-left: none; padding-left: 0; }
+ul.hmp-tree li { margin: .15rem 0; padding-left: .3rem; }
+table.hmp-exc td:first-child { white-space: nowrap; }
+table.hmp-exc tr:target, table.hmp-exc td:target { background: color-mix(in srgb, var(--pst-color-primary) 14%, transparent); }
+
+/* Class page: group rows of the member table, headings of the groups */
+tr.hmp-group-row th { background: var(--pst-color-surface); font-weight: 600; text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--pst-color-border); }
+tr.hmp-group-row th .hmp-muted { font-weight: 400; margin-left: .5rem; }
+
+/* Command line */
+.hmp-cli-h { font-weight: 700; margin: 1rem 0 .2rem; }
+pre.cli-example { margin-top: 0; }
+
+/* Catalogs: filter bar, counts */
+.hmp-cat-bar { display: flex; flex-wrap: wrap; gap: .5rem .8rem; align-items: center; margin: .6rem 0 .8rem; }
+.hmp-cat-bar .hmp-filter { flex: 1 1 18rem; width: auto; margin: 0; }
+.hmp-cat-shown { color: var(--pst-color-text-muted); font-size: .85em; }
+[hidden] { display: none !important; }
+
+/* Solvers */
+table.hmp-solvers td { vertical-align: top; word-break: normal; overflow-wrap: normal; }
+table.hmp-solvers td:nth-child(1), table.hmp-solvers td:nth-child(2) { white-space: nowrap; font-family: var(--pst-font-family-monospace); font-size: .85em; }
+table.hmp-solvers td > code, table.hmp-solvers td code { white-space: nowrap; word-break: normal; overflow-wrap: normal; }
+table.hmp-solvers td:nth-child(4) a { white-space: nowrap; font-size: .8rem; }
+pre.hmp-sel { margin: .15rem 0 .5rem; padding: .3rem .5rem; font-size: .78rem; line-height: 1.4; white-space: pre; overflow-x: auto; border: 1px solid var(--pst-color-border); border-radius: .3rem; }
+ul.hmp-capnames { list-style: none; padding-left: 0; display: block; }
+ul.hmp-capnames li { display: block; margin: .35rem 0; }
+
+/* Figures: thumbnails, options */
+details.hmp-fig > summary { display: flex; align-items: center; gap: .6rem; }
+img.hmp-fig-thumb { width: 4.5rem; height: 3rem; object-fit: cover; border: 1px solid var(--pst-color-border); border-radius: .25rem; flex: none; background: var(--pst-color-surface); }
+img.hmp-fig-img { max-width: 100%; height: auto; border: 1px solid var(--pst-color-border); border-radius: .3rem; }
+table.hmp-opts td:first-child { white-space: nowrap; }
+section.hmp-fig-kind > h2 { margin-top: 1.6rem; }
+
+/* Data sources */
+details.hmp-src-more { display: inline-block; vertical-align: top; margin-left: .4rem; font-size: .85em; }
+details.hmp-src-more > summary { cursor: pointer; color: var(--pst-color-link); }
+section.hmp-provider h3 { margin-top: 1.6rem; }
+.hmp-cat td ul { margin: 0; padding-left: 1rem; }
+.hmp-cat td li { margin: .25rem 0; }
+
+@media (max-width: 760px) {
+  img.hmp-fig-thumb { width: 3.4rem; height: 2.4rem; }
+  .hmp-cat-bar .hmp-filter { flex-basis: 100%; }
+}
+
+/* The parameters of a signature too long for one line (hmp_api.fix_signature_lists). */
+.hmp-sig-params > div { margin: 0 0 0 2rem; }

@@ -30,8 +30,11 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.modflow6.extractors.lake import read_lake_meta
 from hydromodpy.solver.modflow6.extractors.obs_common import (
+    obs_rows_on_stamps,
     read_obs_csv,
     rows_matrix,
     verify_obs_time_alignment,
@@ -45,6 +48,7 @@ __all__ = [
     "build_sfr_columns",
     "read_sfr_meta",
     "routed_outflow_series",
+    "reach_number",
     "sfr_station_id",
 ]
 
@@ -75,9 +79,14 @@ _UNIT_BY_QUANTITY: dict[str, str] = {
 }
 
 
+def reach_number(reach_ifno: int) -> int:
+    """Return the number a user reads for a reach: the TOML's, 1 for the first reach."""
+    return int(reach_ifno) + 1
+
+
 def sfr_station_id(network_id: str, reach_ifno: int) -> str:
-    """Return the timeseries ``station_id`` for one reach (``sfr:<net>:<ifno>``)."""
-    return f"sfr:{network_id}:{int(reach_ifno)}"
+    """Return the ``reach_id`` of one reach, its ``station_id`` in ``timeseries``."""
+    return f"{network_id}:{reach_number(reach_ifno)}"
 
 
 @dataclass(frozen=True)
@@ -100,6 +109,8 @@ class SfrReachGeometry:
 
     ``cell2d`` is ``None`` for a reach that carries flow without exchanging with
     the aquifer. The connection threshold MODFLOW switches on is ``rtp - rbth``.
+    ``downstream`` holds the ``ifno`` of every reach this one drains into (none
+    at an outlet).
     """
 
     ifno: int
@@ -114,6 +125,7 @@ class SfrReachGeometry:
     manning: float
     strahler: int
     ustrf: float
+    downstream: tuple[int, ...]
 
     _INTS = ("ifno", "strahler")
     _NULLABLE_INTS = ("layer", "cell2d")
@@ -124,7 +136,10 @@ class SfrReachGeometry:
         values: dict[str, Any] = {}
         for name in (f.name for f in fields(cls)):
             raw = item.get(name)
-            if name in cls._NULLABLE_INTS:
+            if name == "downstream":
+                # Required: an empty tuple would read as "this reach is an outlet".
+                values[name] = tuple(int(down) for down in item["downstream"])
+            elif name in cls._NULLABLE_INTS:
                 values[name] = None if raw is None else int(raw)
             elif name in cls._INTS:
                 values[name] = int(raw)
@@ -191,6 +206,22 @@ def read_sfr_meta(meta_path: Path) -> SfrObsSpec | None:
         return None
 
 
+def _sfr_rows_on_stamps(
+    spec: SfrObsSpec,
+    rows: list[list[float]],
+    times: Sequence[float],
+    col_index: Mapping[str, int],
+) -> list[list[float]]:
+    """One obs row per stamp: rates averaged over the period, stage and depth at its end."""
+    rate_positions = [
+        pos
+        for entry in spec.entries
+        if entry.quantity in _RATE_QUANTITIES
+        and (pos := col_index.get(entry.obsname.upper())) is not None
+    ]
+    return obs_rows_on_stamps(rows, times, col_index, mean_positions=rate_positions)
+
+
 def build_sfr_columns(
     spec: SfrObsSpec,
     obs_path: Path,
@@ -201,8 +232,10 @@ def build_sfr_columns(
 ) -> tuple[dict[str, np.ndarray], list[dict[str, Any]]]:
     """Parse the SFR obs CSV into ``(timeseries_columns, budget_records)``.
 
-    ``times`` are the solver output ``totim`` values (TDIS time unit); the obs CSV
-    must align with them by row order. RATE quantities are divided by
+    ``times`` are the solver output ``totim`` values (TDIS time unit), one per
+    stress period at its end. The obs CSV holds a row per time step: each
+    stamp takes the mean of the rates over the steps it closes, weighted by
+    their length, and the stage and depth at its end. RATE quantities are divided by
     ``seconds_per_time_unit`` to reach m3/s; stage / depth stay in meters. A
     budget row per network sums the reach-aquifer exchange (stream point of view)
     so the water-balance tables carry the stream-aquifer flux.
@@ -220,6 +253,7 @@ def build_sfr_columns(
     if not rows:
         return {}, []
     col_index = {name: pos for pos, name in enumerate(header)}
+    rows = _sfr_rows_on_stamps(spec, rows, times, col_index)
 
     n_steps = min(len(rows), len(times))
     spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
@@ -257,7 +291,7 @@ def build_sfr_columns(
         timestep_parts.append(steps.astype("int64"))
         value_parts.append(values.astype("float64"))
         unit_parts.append(
-            np.full(steps.size, _UNIT_BY_QUANTITY.get(entry.quantity, "m3/s"), dtype=object)
+            np.full(steps.size, _UNIT_BY_QUANTITY.get(entry.quantity, "m3 s-1"), dtype=object)
         )
         if calendar is not None:
             time_parts.append(calendar[steps])
@@ -297,7 +331,7 @@ def build_sfr_columns(
                     "component": "sfr_gwf",
                     "flux_in": max(total, 0.0),
                     "flux_out": abs(min(total, 0.0)),
-                    "unit": "m3/s",
+                    "unit": "m3 s-1",
                 }
             )
 
@@ -312,6 +346,8 @@ def reach_flow_by_cell(
     seconds_per_time_unit: float,
 ) -> dict[int, np.ndarray] | None:
     """Streamflow leaving each reach, keyed by the mesh cell the reach sits in [m3/s].
+
+    One value per stress period: the mean over the steps of the period.
 
     Under SFR nothing has to be accumulated to know the discharge at a gauge:
     MODFLOW routed the water itself, movers included, so the reach under the
@@ -338,6 +374,7 @@ def reach_flow_by_cell(
     if not rows:
         return None
     col_index = {name: pos for pos, name in enumerate(header)}
+    rows = _sfr_rows_on_stamps(spec, rows, times, col_index)
     n_steps = min(len(rows), len(times))
     if n_steps == 0:
         return None
@@ -376,23 +413,36 @@ def routed_outflow_series(
     times: Sequence[float],
     seconds_per_time_unit: float,
 ) -> np.ndarray | None:
-    """Surface water leaving the model through the SFR network, per timestep [m3/s].
+    """Surface water leaving the model through the routed network, per stress period [m3/s].
 
-    Summed over every reach's ``ext-outflow``, sign-corrected the same way
-    :func:`build_sfr_columns` does, so the calibration scores the quantity the
-    store persists rather than a second convention.
+    Each value is the mean over the steps of the period, weighted by length.
+
+    This is the one definition of the routed discharge: the ``ext-outflow`` of
+    every reach plus the ``ext-outflow`` of every lake outlet, sign-corrected
+    the same way :func:`build_sfr_columns` does. The store sums the same two
+    terms. A network whose reaches end in a
+    lake has no reach ext-outflow: the water leaves through the lake outlet, and
+    leaving it out would score a flow of zero.
 
     This is the observable a routed network exposes. The plain DRAIN record
     cannot stand in for it: with ``route_drainage`` the in-catchment drainage
     has been moved into DRN-TO-MVR, so what is left in DRAIN is the buffer
-    drainage of the neighbouring basins.
+    drainage of the neighboring basins.
 
-    Returns ``None`` when the run carries no SFR observations, which is how the
-    caller knows to fall back to the drain sum.
+    A lake without a network routes what reaches it and leaves through its outlets,
+    so its outlet outflow is the routed series, zero included: the drains are added
+    to it by the caller, as the store does.
+
+    Returns ``None`` when the run carries no SFR observations and no lake outlet,
+    which is how the caller knows to fall back to the drain sum. Raises
+    :class:`ObservableNotAvailableError` when the series of a network is zero at
+    every stamp: a routed network that never evacuates water is not a discharge a
+    calibration can score.
     """
     spec = read_sfr_meta(output_dir / f"{model_name}.sfr.meta.json")
     if spec is None:
-        return None
+        spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
+        return _lake_outlet_outflow(output_dir, model_name, times, spt, len(times))[0]
     obs_path = output_dir / f"{model_name}.sfr.obs.csv"
     if not obs_path.is_file():
         return None
@@ -400,6 +450,7 @@ def routed_outflow_series(
     if not rows:
         return None
     col_index = {name: pos for pos, name in enumerate(header)}
+    rows = _sfr_rows_on_stamps(spec, rows, times, col_index)
     n_steps = min(len(rows), len(times))
     if n_steps == 0:
         return None
@@ -419,9 +470,59 @@ def routed_outflow_series(
         seen += 1
     if seen == 0:
         return None
+    lake_total, lake_seen = _lake_outlet_outflow(output_dir, model_name, times, spt, n_steps)
+    if lake_total is not None:
+        total[: len(lake_total)] += lake_total
+    if not np.any(total != 0.0):
+        raise ObservableNotAvailableError(
+            "The routed outflow (reach and lake-outlet ext-outflow) is zero at every "
+            f"stamp for model {model_name!r}: no water leaves the network, so there is "
+            "no discharge to score. Check that the network or its lake reaches an exit."
+        )
     logger.info(
-        "Discharge observable: routed SFR ext-outflow summed over %d reach(es); the "
-        "plain DRAIN record is buffer drainage and is not added.",
+        "Discharge observable: routed ext-outflow summed over %d reach(es) and %d lake "
+        "outlet column(s); the plain DRAIN record is buffer drainage and is not added.",
         seen,
+        lake_seen,
     )
     return total
+
+
+def _lake_outlet_outflow(
+    output_dir: Path,
+    model_name: str,
+    times: Sequence[float],
+    spt: float,
+    n_steps: int,
+) -> tuple[np.ndarray | None, int]:
+    """Sum of the lake outlets' ext-outflow [m3/s, positive], or ``(None, 0)``."""
+    spec = read_lake_meta(output_dir / f"{model_name}.lak.meta.json")
+    if spec is None:
+        return None, 0
+    obs_path = output_dir / spec.obs_csv
+    if not obs_path.is_file():
+        return None, 0
+    header, rows = read_obs_csv(obs_path)
+    if not rows:
+        return None, 0
+    col_index = {name: pos for pos, name in enumerate(header)}
+    positions = [
+        pos
+        for entry in spec.entries
+        if entry.quantity == "ext_outflow"
+        and entry.iconn is None
+        and (pos := col_index.get(entry.obsname.upper())) is not None
+    ]
+    if not positions:
+        return None, 0
+    rows = obs_rows_on_stamps(rows, times, col_index, mean_positions=positions)
+    matrix = rows_matrix(rows, min(len(rows), n_steps))
+    total = np.zeros(matrix.shape[0], dtype="float64")
+    for pos in positions:
+        if pos >= matrix.shape[1]:
+            continue
+        column = np.nan_to_num(matrix[:, pos], nan=0.0)
+        # MF6 writes 3e30 for an outlet that has no external outflow.
+        column = np.where(np.abs(column) > 1e29, 0.0, column)
+        total += -column / spt
+    return total, len(positions)

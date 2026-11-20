@@ -1,0 +1,47 @@
+base_config = "project.toml"
+[workflow]
+mode = "calibration"
+[simulation]
+name = "nancon_intermittence_mf6_by_hand"
+description = "Nancon, K from the mapped network then Sy from the gauge and the network, stages written by hand."
+[calibration]
+protocol__delete = true
+[calibration.outputs.gauged_discharge]
+support = "point"
+variable = "discharge"
+observes = "NANCON"
+x = 389285.910
+y = 6816518.749
+[[calibration.objective_blocks]]
+name = "network_extension"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["gauged_discharge"]
+warmup = 12
+[[calibration.phases]]
+name = "steady_conductivity"
+description = "Match the simulated seepage network to the mapped one by moving K, steady state over the record."
+method = "bisection"
+max_iter = 18
+tolerance = 0.01
+parameters = ["K"]
+objective_blocks = ["network_extension"]
+regime = "steady"
+freeze_on_success = true
+[calibration.phases.optimizer_kwargs]
+sweep_points = 7
+[calibration.phases.overrides]
+"display.overrides.seepage_map.timestep" = 0
+"display.overrides.cross_section.timestep" = 0
+[[calibration.phases]]
+name = "transient_storage"
+description = "Read Sy from the gauged hydrograph and the December network, K frozen, monthly transient."
+max_iter = 30
+tolerance = 0.05
+parameters = ["Sy"]
+objective_blocks = { hydrograph = 100, network_extension = 1 }
+depends_on = "steady_conductivity"
+regime = "transient"

@@ -1,5 +1,11 @@
 """Custom DEM data loaders.
 
+A file without a CRS is refused. The file is read where it lies and is no row of the cache, and
+a copy made from it goes under ``data/blobs/dem/file/``. A ``file`` or ``url`` source takes
+``state = "raw"`` or ``state = "conditioned"``. A conditioned DEM was filled or breached by
+another tool, so HydroModPy skips its own conditioning and still computes the D8 directions and
+the accumulation.
+
 Supports:
 - TIF/TIFF: GeoTIFF raster elevation files
 - ASC: Esri ASCII Grid elevation files (converted to GeoTIFF on load)
@@ -11,14 +17,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.data.common.geometry import require_declared_crs
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.provenance.derived import derived_path
 
 
 def load_custom_dem(
     source_cfg: Any,
     *,
     bbox: tuple[float, float, float, float] | None = None,
-    data_dir: Path | None = None,
+    derived_dir: Path | None = None,
 ) -> list[FieldRecord]:
     """Load custom DEM data from a user-provided path.
 
@@ -26,7 +34,9 @@ def load_custom_dem(
     ----------
     source_cfg : source config with ``path`` attribute
     bbox : optional bounding box for cropping
-    data_dir : cache directory for processed outputs
+    derived_dir : directory for the GeoTIFF converted from an ASC file.
+        It is never the user's data folder: a derived copy named like a
+        user file would be taken for one.
 
     Returns
     -------
@@ -44,7 +54,7 @@ def load_custom_dem(
     if ext in (".tif", ".tiff"):
         return _load_raster(path, bbox=bbox)
     elif ext == ".asc":
-        return _load_asc(path, bbox=bbox, data_dir=data_dir)
+        return _load_asc(path, derived_dir=derived_dir)
     elif ext == ".nc":
         return _load_netcdf(path, bbox=bbox)
     else:
@@ -55,7 +65,7 @@ def load_custom_dem(
 
 def _find_dem_file_in_dir(directory: Path) -> Path:
     """Find a single DEM file in a directory, skipping scaffold examples."""
-    from hydromodpy.data.common.io_helpers import is_scaffold_example
+    from hydromodpy.data.common.files import is_scaffold_example
 
     for ext in (".tif", ".tiff", ".asc", ".nc"):
         candidates = [p for p in sorted(directory.glob(f"*{ext}")) if not is_scaffold_example(p)]
@@ -77,13 +87,13 @@ def _load_raster(
 
     with rasterio.open(str(path)) as src:
         bounds = src.bounds
-        crs = str(src.crs) if src.crs else "EPSG:2154"
+        crs = require_declared_crs(src.crs, path=path, variable="dem")
         actual_bbox = (bounds.left, bounds.bottom, bounds.right, bounds.top)
 
     return [
         FieldRecord(
             variable="dem",
-            source="custom",
+            source="file",
             unit="m",
             data=path,
             bbox=actual_bbox,
@@ -92,23 +102,18 @@ def _load_raster(
     ]
 
 
-def _load_asc(
-    path: Path,
-    *,
-    bbox: tuple | None = None,
-    data_dir: Path | None = None,
-) -> list[FieldRecord]:
+def _load_asc(path: Path, *, derived_dir: Path | None = None) -> list[FieldRecord]:
     """Load an Esri ASCII Grid DEM and convert to GeoTIFF."""
     import rasterio
 
     with rasterio.open(str(path)) as src:
         bounds = src.bounds
-        crs = str(src.crs) if src.crs else "EPSG:2154"
+        crs = require_declared_crs(src.crs, path=path, variable="dem")
         actual_bbox = (bounds.left, bounds.bottom, bounds.right, bounds.top)
 
         # Convert to GeoTIFF for faster future reads.
-        if data_dir is not None:
-            output_path = data_dir / f"dem_custom_{path.stem}.tif"
+        if derived_dir is not None:
+            output_path = derived_path(derived_dir, path, kind="geotiff", suffix=".tif")
             output_path.parent.mkdir(parents=True, exist_ok=True)
             profile = src.profile.copy()
             profile.update(driver="GTiff", compress="deflate")
@@ -121,7 +126,7 @@ def _load_asc(
     return [
         FieldRecord(
             variable="dem",
-            source="custom",
+            source="file",
             unit="m",
             data=data,
             bbox=actual_bbox,
@@ -177,15 +182,32 @@ def _load_netcdf(
     else:
         actual_bbox = bbox or (0, 0, 0, 0)
 
-    crs = str(ds.attrs.get("crs", ds.attrs.get("proj4", "EPSG:2154")))
+    crs = require_declared_crs(_netcdf_crs(ds, elev_var), path=path, variable="dem")
 
     return [
         FieldRecord(
             variable="dem",
-            source="custom",
+            source="file",
             unit="m",
             data=path,
             bbox=actual_bbox,
             crs=crs,
         )
     ]
+
+
+def _netcdf_crs(ds, data_var: str) -> str | None:
+    """The CRS a NetCDF DEM declares: on the variable, the file or its grid mapping."""
+    for attrs in (ds[data_var].attrs, ds.attrs):
+        for key in ("crs", "crs_wkt", "spatial_ref", "proj4"):
+            value = attrs.get(key)
+            if value is not None and str(value).strip():
+                return str(value).strip()
+    grid_mapping = ds[data_var].attrs.get("grid_mapping")
+    if grid_mapping and grid_mapping in ds:
+        attrs = ds[grid_mapping].attrs
+        for key in ("crs_wkt", "spatial_ref", "crs"):
+            value = attrs.get(key)
+            if value is not None and str(value).strip():
+                return str(value).strip()
+    return None

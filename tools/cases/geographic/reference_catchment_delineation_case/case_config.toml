@@ -1,0 +1,25 @@
+# ----------------------------------------------------------------------
+# Reference geographic multi-case configuration.
+# ----------------------------------------------------------------------
+
+[site]
+name = "naizin"
+
+[geographic]
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
+kind = "from_outlet_coord"
+x_outlet = 265611.933
+y_outlet = 6784182.776
+snap_dist = 50
+buff_area = "20% of sqrt(area)"
+
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "file"
+path = "../../../../examples/data/dem/regional_dem_naizin.tif"
+

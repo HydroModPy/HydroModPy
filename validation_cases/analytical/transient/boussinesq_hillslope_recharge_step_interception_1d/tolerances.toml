@@ -1,13 +1,22 @@
 [onset]
-time_error_days = 31.0
+time_error_days = 15.0
 
 [trajectory]
 rmse_m = 9.0
-max_abs_error_m = 21.0
+max_abs_error_m = 15.0
 reversal_m = 1e-6
 
 [uniformity]
-row_spread = 1e-4
+row_spread = 1e-8
 
 [contact]
 max_positive_clearance_m = 1e-6
+
+[doc]
+reason = """
+PETSc TS VI, the boussinesq variant. The onset is read on 10-day periods and the
+contact on 10 m columns, so both errors move in steps: measured 10 days and 10
+m, one step each, and the bounds sit half a step above. The trajectory RMSE, 5.0
+m, keeps its previous bound of 9 m, 1.8 times the measurement. Reversal and
+clearance are solver-closure bounds. Row spread: 9e-16 m measured, bound 1e-8 m.
+"""

@@ -1,0 +1,19 @@
+{%- extends "!layout.html" %}
+{#- The theme loads the 1 MB search index on every page for an inline search
+    this site does not use: the search button submits to search.html, which
+    loads the index itself. The rest of the block is the theme's own. #}
+{%- block extrahead %}
+  {%- if hmp_noindex %}
+    <meta name="robots" content="noindex"/>
+  {%- endif %}
+  <meta name="color-scheme" content="light dark"/>
+  {#- The body font is on every page: ask for it before the stylesheet has
+      been parsed. A font preload needs crossorigin, even from this origin. #}
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+        href="{{ pathto('_static/fonts/inter-latin-wght.woff2', 1) }}"/>
+  <meta name="docsearch:language" content="{{ language }}"/>
+  <meta name="docsearch:version" content="{{ version }}" />
+  {%- if last_updated %}
+    <meta name="docbuild:last-update" content="{{ last_updated | e }}"/>
+  {%- endif %}
+{%- endblock extrahead %}

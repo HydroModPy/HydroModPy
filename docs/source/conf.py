@@ -11,19 +11,20 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import datetime
 import os
 import shutil
 import sys
+import tomllib
 import types
 import warnings
 from importlib.util import find_spec
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from docutils import nodes
+from cycler import cycler
 from sphinx.builders.html import StandaloneHTMLBuilder
 from sphinx.util import logging as sphinx_logging
-from sphinx.util.docutils import SphinxDirective
 
 _logger = sphinx_logging.getLogger(__name__)
 
@@ -53,15 +54,11 @@ _DOC_REQUIRED_EXTENSIONS = [
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
-    "sphinx_polyversion",
-    "sphinxcontrib.autodoc_pydantic",
-    "sphinx_codeautolink",
     "sphinxcontrib.bibtex",
-    "sphinx_autodoc_typehints",
-    "sphinxext.rediraffe",
     "sphinx_favicon",
     "sphinx_sitemap",
     "sphinxext.opengraph",
+    "sphinxext.rediraffe",
 ]
 _DOC_REQUIRED_EXTENSIONS.append("sphinx_last_updated_by_git")
 
@@ -89,47 +86,28 @@ def _ensure_required_doc_extensions() -> None:
     )
 
 
-def _resolve_vendor_graphviz_dot() -> Path | None:
-    relative = ("tools", "vendor", "graphviz", "bin", "dot.exe" if os.name == "nt" else "dot")
-    dot_path = package_path.joinpath(*relative)
-    return dot_path if dot_path.exists() else None
+def _resolve_graphviz_dot() -> Path | None:
+    """The vendored dot, else the one of the Python environment, else the PATH one.
+
+    A conda environment called by the absolute path of its Python does not put
+    its bin folder on PATH, so its dot is looked for next to the interpreter.
+    """
+    name = "dot.exe" if os.name == "nt" else "dot"
+    for candidate in (
+        package_path / "tools" / "vendor" / "graphviz" / "bin" / name,
+        Path(sys.executable).parent / name,
+    ):
+        if candidate.exists():
+            return candidate
+    found = shutil.which("dot")
+    return Path(found) if found else None
 
 
-def _resolve_plantuml_command() -> str | None:
-    env_command = os.environ.get("PLANTUML_COMMAND")
-    if env_command:
-        return env_command
-
-    vendor_jar = package_path / "tools" / "vendor" / "plantuml" / "plantuml.jar"
-    if vendor_jar.exists() and shutil.which("java"):
-        return f'java -jar "{vendor_jar}"'
-
-    return shutil.which("plantuml")
-
-
-class _MissingPlantUMLDirective(SphinxDirective):
-    optional_arguments = 1
-    has_content = True
-
-    def run(self):
-        diagram_label = self.arguments[0] if self.arguments else "inline UML block"
-        container = nodes.container(classes=["uml-diagram", "uml-diagram-unavailable"])
-        message = nodes.paragraph()
-        message += nodes.Text("PlantUML rendering skipped for ")
-        message += nodes.literal("", diagram_label)
-        message += nodes.Text(". Run ")
-        message += nodes.literal("", "python tools/setup_plantuml.py")
-        message += nodes.Text(" or set ")
-        message += nodes.literal("", "PLANTUML_COMMAND")
-        message += nodes.Text(" to restore rendered UML diagrams.")
-        container += message
-        return [container]
-
-
-_vendor_graphviz_dot = _resolve_vendor_graphviz_dot()
-if _vendor_graphviz_dot is not None:
-    os.environ.setdefault("GRAPHVIZ_DOT", str(_vendor_graphviz_dot))
-    os.environ["PATH"] = str(_vendor_graphviz_dot.parent) + os.pathsep + os.environ.get("PATH", "")
+_graphviz_dot = _resolve_graphviz_dot()
+if _graphviz_dot is not None:
+    os.environ.setdefault("GRAPHVIZ_DOT", str(_graphviz_dot))
+    os.environ["PATH"] = str(_graphviz_dot.parent) + os.pathsep + os.environ.get("PATH", "")
+    graphviz_dot = str(_graphviz_dot)
 
 # Make the editable install (or cloned repo) importable without relying on src/
 sys.path.insert(0, str(package_path))
@@ -137,21 +115,14 @@ sys.path.insert(0, str(package_path / "hydromodpy"))
 sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 _ensure_required_doc_extensions()
 
-# sphinx-polyversion exposes per-revision metadata via POLYVERSION_DATA when
-# building under `python -m sphinx_polyversion poly.py`. The plain Sphinx CLI
-# skips this block and runs as a single-version build.
-# _current_version drives the pydata version-switcher highlight. The incremental
-# Pages workflow builds one version at a time and passes its name via
-# HMP_DOC_VERSION; a local polyversion run overrides it from POLYVERSION_DATA;
+# _current_version drives the pydata version-switcher highlight. The Pages
+# workflow builds one version at a time and passes its name via HMP_DOC_VERSION;
 # a plain local build falls back to the stable trunk.
 _current_version = os.environ.get("HMP_DOC_VERSION") or "main"
-if os.environ.get("POLYVERSION_DATA"):
-    from sphinx_polyversion import load as _polyversion_load
 
-    _polyversion_load(globals())
-    _polyversion_current = globals().get("html_context", {}).get("current")
-    if getattr(_polyversion_current, "name", None):
-        _current_version = _polyversion_current.name
+# The theme reads its default color mode here; an empty value logs an error
+# in the console of every page.
+html_context = {**globals().get("html_context", {}), "default_mode": "auto"}
 
 _DOC_OPTIONAL_IMPORTS = [
     "pint",
@@ -159,9 +130,7 @@ _DOC_OPTIONAL_IMPORTS = [
     "duckdb",
     "flopy",
     "geopandas",
-    "geopy",
     "gmsh",
-    "h5py",
     "imageio",
     "meshio",
     "netCDF4",
@@ -172,18 +141,12 @@ _DOC_OPTIONAL_IMPORTS = [
     "sklearn",
     "cma",
     "optuna",
-    "ultraplot",
-    "vedo",
     "whitebox_workflows",
     "xarray",
     "dask",
-    "sqlalchemy",
     "zarr",
     "zstandard",
     "pandera",
-    "contextily",
-    "matplotlib_scalebar",
-    "colormap",
 ]
 autodoc_mock_imports = [name for name in _DOC_OPTIONAL_IMPORTS if find_spec(name) is None]
 
@@ -274,68 +237,80 @@ except Exception:
 # -- Project information -----------------------------------------------------
 
 project = "HydroModPy"
-copyright = "2021"
+copyright = f"2021-{datetime.date.today().year}, HydroModPy contributors"
 author = "A. Gauvain, R. Abhervé"
 
-# Single source of truth: pyproject.toml (read via importlib.metadata).
-# Fallback to hydromodpy.core.version when the package is not installed
-# (RTD source checkout before `pip install -e .`).
-try:
-    from importlib.metadata import PackageNotFoundError
+# Single source of truth: pyproject.toml, read from the tree being built. The
+# installed metadata comes second: an editable install keeps the version it was
+# installed with, so a local build would name an older release.
+_pyproject = package_path / "pyproject.toml"
+if _pyproject.exists():
+    release = tomllib.loads(_pyproject.read_text(encoding="utf-8"))["project"]["version"]
+else:
     from importlib.metadata import version as _pkg_version
 
-    try:
-        release = _pkg_version("hydromodpy")
-    except PackageNotFoundError:
-        from hydromodpy.core.version import __version__ as release
-except ImportError:
-    from hydromodpy.core.version import __version__ as release
+    release = _pkg_version("hydromodpy")
 
-# The short X.Y version
 version = ".".join(release.split(".")[:2])
 
-
 # -- General configuration ---------------------------------------------------
+
 StandaloneHTMLBuilder.supported_image_types = [
     "image/svg+xml",
     "image/gif",
     "image/png",
     "image/jpeg",
 ]
-# If your documentation needs a minimal Sphinx version, state it here.
-#
-# needs_sphinx = '1.0'
 
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
 extensions = [
-    "sphinx.ext.autodoc",
-    "sphinx.ext.viewcode",
-    "sphinx.ext.githubpages",
-    "sphinx.ext.autosummary",
-    "sphinx.ext.intersphinx",
-    "sphinx.ext.mathjax",
-    # Removed because nothing in docs/source used them: nbsphinx (0 .ipynb
-    # files), sphinx_gallery.load_style (0 sphx-glr classes),
-    # sphinx_togglebutton (0 `.. toggle::`), sphinx_issues (0 :issue:/:pr:/
-    # :user:/:commit: roles). sphinx_design covers the collapsible content the
-    # togglebutton used to; the capability gallery is generated by
-    # tools/doc_gallery and is unrelated to sphinx-gallery.
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
-    "sphinxcontrib.autodoc_pydantic",
-    "sphinx_codeautolink",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.graphviz",
+    "sphinx.ext.intersphinx",
     "sphinxcontrib.bibtex",
-    "sphinx_autodoc_typehints",
-    "sphinxext.rediraffe",
     "sphinx_favicon",
     "sphinx_sitemap",
     "sphinxext.opengraph",
+    "sphinx_last_updated_by_git",
+    "sphinxext.rediraffe",
+    # Local extensions under _ext/. hmp_params registers the others.
     "hmp_directives",
+    "hmp_site",
+    "hmp_params",
+    "hmp_notation",
+    "hmp_contribute",
+    "hmp_about",
+    "hmp_changes_register",
 ]
-extensions.append("sphinx_last_updated_by_git")
+
+# Theory figures are drawn at build time from the functions of the code, with
+# matplotlib's plot directive. Scripts run from the repository root, so they
+# import hydromodpy as installed in the build environment. One color cycle
+# for every figure: the Okabe-Ito palette, readable by color-blind readers.
+extensions.append("matplotlib.sphinxext.plot_directive")
+plot_working_directory = str(package_path)
+plot_include_source = False
+plot_html_show_source_link = False
+plot_html_show_formats = False
+plot_formats = [("png", 150)]
+plot_apply_rcparams = True
+plot_rcparams = {
+    "figure.figsize": (6.4, 3.6),
+    "figure.dpi": 150,
+    "font.size": 10,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "axes.grid": True,
+    "grid.alpha": 0.3,
+    "axes.prop_cycle": cycler(
+        color=["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#000000"]
+    ),
+    "savefig.bbox": "tight",
+}
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
@@ -346,182 +321,155 @@ intersphinx_mapping = {
     "xarray": ("https://docs.xarray.dev/en/stable/", None),
     "flopy": ("https://flopy.readthedocs.io/en/stable/", None),
 }
-autoclass_content = "both"
-autosummary_generate = True
-# Every public subpackage re-exports its surface from submodules and defines
-# nothing itself, so without this the package pages render a docstring and
-# nothing else. With it, the 17 subpackage pages list their __all__ and each
-# public class gets a page carrying its real members. That is 127 pages, all
-# with content, against the 1290 empty ones the recursive walk used to emit.
-autosummary_imported_members = True
-# Sphinx defaults this to True, i.e. __all__ is ignored. Combined with
-# autosummary_imported_members that documented whatever a package happened to
-# import: typing.Any and importlib.import_module each got a page. Respecting
-# __all__ is what makes "public surface" mean something here.
-autosummary_ignore_module_all = False
+
+# The Python API pages are generated by _ext/hmp_api.py with autodoc.
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+napoleon_use_rtype = False
+autodoc_member_order = "groupwise"
+autodoc_typehints = "description"
+autodoc_typehints_description_target = "documented"
+add_module_names = False
+maximum_signature_line_length = 70
+
+myst_enable_extensions = [
+    "colon_fence",
+    "deflist",
+    "dollarmath",
+    "attrs_inline",
+    "attrs_block",
+    "substitution",
+    "html_image",
+]
+myst_heading_anchors = 3
+# {{ release }} in a page is the version of the package the site is built from.
+myst_substitutions = {
+    "release": release,
+    "version_badge": (
+        f"[![version](https://img.shields.io/badge/version-{release}-f59e0b?style=flat-square)]"
+        f"(https://pypi.org/project/hydromodpy/{release}/)"
+    ),
+}
+
+# The pages that show a file of an example name it from examples/projects/.
+hmp_example_dir = str(package_path / "examples" / "projects")
 
 bibtex_bibfiles = ["theory/references.bib"]
 bibtex_default_style = "alpha"
 bibtex_reference_style = "author_year"
 
-codeautolink_concat_default = True
-codeautolink_global_preface = "import hydromodpy"
+# sphinx-design 0.8 deprecates the "+++" footer of a card. The home page keeps
+# it because the "card-footer" directive does not exist in sphinx-design 0.7.
+suppress_warnings = ["myst.header", "design.card_legacy"]
 
-# Codeautolink cannot match doctests that contain a Traceback block
-# (e.g. ``physical_bounds.validate_physical_value`` shows a ValueError
-# example). The HTML still renders correctly, only the in-block name
-# linking is skipped, so the warning is purely informative.
-# ``codeautolink.parse_block`` covers pseudo-code blocks that show contracts
-# with ellipses like ``def foo(...) -> ...: ...`` which ast cannot parse.
-suppress_warnings = [
-    "codeautolink.match_block",
-    "codeautolink.parse_block",
-    "misc.highlighting_failure",
-    # ``typehints_formatter`` has to be a function, so sphinx can never pickle
-    # it into the environment cache. The warning is unactionable and is the
-    # only thing standing between this build and -W.
-    "config.cache",
-]
-
-typehints_fully_qualified = False
-always_document_param_types = True
-typehints_document_rtype = True
-
-
-def typehints_formatter(annotation, _config):
-    if isinstance(annotation, MagicMock):
-        return ":py:obj:`typing.Any`"
-
-    module = getattr(annotation, "__module__", None)
-    qualname = getattr(annotation, "__qualname__", None)
-    if (module is not None and not isinstance(module, str)) or (
-        qualname is not None and not isinstance(qualname, str)
-    ):
-        return ":py:obj:`typing.Any`"
-
-    return None
-
-
-rediraffe_redirects = "redirects.txt"
-rediraffe_branch = "main~1"
-
-# sphinx-favicon: declare logo variants used as favicon. Files live in
-# docs/source/_static/ and are copied via html_static_path.
 favicons = [
-    {"rel": "icon", "href": "logoHydroModPy.png", "type": "image/png"},
-    {"rel": "shortcut icon", "href": "logoHydroModPy.ico", "type": "image/x-icon"},
+    {"rel": "icon", "href": "logoHydroModPy.png", "type": "image/png", "sizes": "64x64"},
+    {
+        "rel": "icon",
+        "href": "logoHydroModPy.ico",
+        "type": "image/x-icon",
+        "sizes": "16x16 32x32 48x48",
+    },
+    {"rel": "apple-touch-icon", "href": "apple-touch-icon.png", "sizes": "180x180"},
 ]
 
-# sphinx-sitemap and sphinxext-opengraph: shared base URL for the public docs.
-# The site is served at https://docs.hydromodpy.fr/ with one folder per version,
-# so the base URL carries the version being built and the canonical links, the
-# sitemap entries and the OpenGraph image all resolve to a real page.
-html_baseurl = f"https://docs.hydromodpy.fr/{_current_version}/"
+# The site is served at https://docs.hydromodpy.fr/ with one folder per version.
+# Every version names the page of main as its canonical copy, and every
+# version but main asks search engines not to index it: one copy is indexed.
+html_baseurl = "https://docs.hydromodpy.fr/main/"
+html_context["hmp_noindex"] = _current_version != "main"
 sitemap_url_scheme = "{link}"
 ogp_site_url = html_baseurl
 ogp_site_name = "HydroModPy"
-ogp_image = html_baseurl + "_static/logoHydroModPy_long.png"
+ogp_image = html_baseurl + "_static/social-card.png"
+ogp_image_alt = "HydroModPy"
 ogp_use_first_image = True
 
-# sphinx-last-updated-by-git: footer dates resolved from git history.
 git_last_updated_timezone = "Europe/Paris"
-_PLANTUML_COMMAND = _resolve_plantuml_command()
-if _PLANTUML_COMMAND is not None:
-    extensions.append("sphinxcontrib.plantuml")
-    plantuml = _PLANTUML_COMMAND
-    plantuml_output_format = "svg"
+html_last_updated_fmt = "%Y-%m-%d"
 
-# ---------------------------------------------------------------------------
-# autodoc-pydantic - configuration des modèles de paramètres
-# ---------------------------------------------------------------------------
-autodoc_pydantic_model_show_json = False
-autodoc_pydantic_model_show_config_summary = False
-autodoc_pydantic_model_show_validator_summary = False
-autodoc_pydantic_model_show_validator_members = False
-autodoc_pydantic_model_show_field_summary = False
-autodoc_pydantic_model_hide_paramlist = True
-autodoc_pydantic_model_members = True
-autodoc_pydantic_model_undoc_members = False  # Hide inherited BaseModel docstrings
-autodoc_pydantic_model_member_order = "bysource"
-autodoc_pydantic_model_signature_prefix = "class"
+# Pinned: Sphinx points at mathjax@4, which follows every 4.x release.
+mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.js"
 
-autodoc_pydantic_field_show_constraints = False
-autodoc_pydantic_field_show_default = True
-autodoc_pydantic_field_show_alias = False
-autodoc_pydantic_field_list_validators = False
-autodoc_pydantic_field_doc_policy = "description"
-autodoc_pydantic_field_signature_prefix = ""
-autodoc_typehints = "description"
-autodoc_pydantic_settings_show_config_summary = False
-autodoc_pydantic_settings_show_json = False
-
-# nitpick_ignore_regex was removed. ``nitpicky`` is never set anywhere in this
-# configuration, so the list had no effect, and half of it silenced targets
-# under api/generated/ which no longer exists. Turning nitpicky on is a
-# separate decision: it would surface every unresolved reference at once, and
-# the deploy build now runs with -W.
-
-# Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
-
-# The suffix(es) of source filenames.
 source_suffix = [".rst", ".md"]
 
-# The master toctree document.
+# Redirects from the URLs of the site published before the restructuring
+# (redirects.txt, one line per old page). The step `rediraffecheckdiff` of the
+# docs workflow compares the source tree with the base branch of a pull request
+# and fails when a page was moved or deleted without a line in redirects.txt:
+#   sphinx-build -b rediraffecheckdiff -D rediraffe_branch=origin/<base> docs/source <out>
+rediraffe_redirects = "redirects.txt"
+rediraffe_branch = "origin/main"
+rediraffe_template = "_templates/redirect.html"
 master_doc = "index"
-
-# The language for content autogenerated by Sphinx. Refer to documentation
-# for a list of supported languages.
-#
-# This is also used if you do content translation via gettext catalogs.
-# Usually you set "language" from the command line for these cases.
 language = "en"
 
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-# This pattern also affects html_static_path and html_extra_path .
 exclude_patterns = [
-    "user_guide/figures_inventory.partial.rst",
-    "architecture/layer-matrix.partial.rst",
+    "_data",
+    "contribute/architecture/layer-matrix.partial.rst",
 ]
 
-# The name of the Pygments (syntax highlighting) style to use.
-pygments_style = "sphinx"
-
+numfig = True
+smart_quotes = False
 
 # -- Options for HTML output -------------------------------------------------
 
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
 html_theme = "pydata_sphinx_theme"
-html_favicon = "images/logoHydroModPy.png"
-html_logo = "images/logoHydroModPy_long.png"
-
-# Theme options are theme-specific and customize the look and feel of a theme
-# further.  For a list of options available for each theme, see the
-# documentation.
-#
+html_title = f"HydroModPy {release}"
+html_favicon = "_static/logoHydroModPy.png"
+html_logo = "_static/logoHydroModPy_long.png"
 html_theme_options = {
     "logo": {
-        "image_light": "images/logoHydroModPy_long.png",
-        "image_dark": "images/logoHydroModPy_long.png",
+        "image_light": "_static/logoHydroModPy_long.png",
+        "image_dark": "_static/logoHydroModPy_long_dark.png",
+        "alt_text": "HydroModPy - Home",
     },
-    "announcement": "🚧 Development documentation",
     "navbar_start": ["navbar-logo"],
     "navbar_center": ["navbar-nav"],
-    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+    "navbar_end": ["theme-switcher", "version-switcher", "navbar-icon-links"],
+    # The links start at the content column, away from the logo.
+    "navbar_align": "content",
+    "header_links_before_dropdown": 7,
     "switcher": {
         "json_url": "https://docs.hydromodpy.fr/switcher.json",
         "version_match": _current_version,
     },
     "check_switcher": False,
-    "show_nav_level": 2,
-    "navigation_with_keys": True,
-    "primary_sidebar_end": ["indices.html"],
-    "secondary_sidebar_items": ["page-toc"],
+    "show_version_warning_banner": True,
+    "show_nav_level": 1,
+    "navigation_depth": 3,
+    "show_toc_level": 2,
+    # Arrow keys on a slider or a scrolling code block would change page.
+    "navigation_with_keys": False,
+    # A page that matches no pattern has no right sidebar: the generated TOML
+    # and Python reference pages need the width more than a short contents list.
+    "secondary_sidebar_items": {
+        pattern: ["page-toc"]
+        for pattern in (
+            "index",
+            "user-guide/**",
+            "understand/**",
+            "get-started/**",
+            "how-to/**",
+            "theory/**",
+            "contribute/**",
+            "about/**",
+            "reference/index",
+            "reference/changes",
+            "reference/changes-register",
+            "reference/data-sources",
+            "reference/figure-requests",
+            "reference/solvers",
+            "reference/cli/**",
+        )
+    },
+    "pygments_light_style": "a11y-high-contrast-light",
+    "pygments_dark_style": "a11y-high-contrast-dark",
     "footer_start": ["copyright"],
-    "footer_end": ["sphinx-version"],
+    "footer_center": ["last-updated"],
+    "footer_end": [],
+    "use_edit_page_button": False,
     "icon_links_label": "HydroModPy Resources",
     "icon_links": [
         {
@@ -533,121 +481,28 @@ html_theme_options = {
         {
             "name": "Issues",
             "url": "https://github.com/HydroModPy/HydroModPy/issues",
-            "icon": "fa-solid fa-circle-info",
-            "type": "fontawesome",
-        },
-        {
-            "name": "Google Group",
-            "url": "https://groups.google.com/g/hydromodpy",
-            "icon": "fa-solid fa-envelope",
+            "icon": "fa-solid fa-bug",
             "type": "fontawesome",
         },
     ],
 }
-
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
+html_sidebars = {"index": [], "**": ["sidebar-nav-bs"]}
+# Page-scoped stylesheets and scripts are added by _ext/hmp_site.py.
 html_static_path = ["_static"]
-html_css_files = [
-    "custom.css",
-    "uml-diagrams.css",
-    "api-reference.css",
-    "css/hmp-image-compare.css",
-    "css/hmp-feedback.css",
-    "css/hmp-page-badges.css",
-    "css/hmp-zoom-image.css",
-    "css/hmp-config-reference.css",
-]
-html_js_files = [
-    "uml-diagrams.js",
-    "js/hmp-image-compare.js",
-    "js/hmp-feedback.js",
-    "js/hmp-zoom-image.js",
-    "js/hmp-config-reference.js",
-    "js/hmp-config-search.js",
-]
+# Pagefind searches the built pages: the reST sources are not shipped.
+html_copy_source = False
+html_show_sourcelink = False
 copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
 copybutton_prompt_is_regexp = True
 copybutton_only_copy_prompt_lines = False
 
-# Custom sidebar templates, must be a dictionary that maps document names
-# to template names.
-#
-# The default sidebars (for documents that don't match any pattern) are
-# defined by theme itself.  Builtin themes are using these templates by
-# default: ``['localtoc.html', 'relations.html', 'sourcelink.html',
-# 'searchbox.html']``.
-#
-# html_sidebars = {}
-
-
-# -- Options for HTMLHelp output ---------------------------------------------
-
-# Output file base name for HTML help builder.
 htmlhelp_basename = "HydroModPydoc"
-
-
-# -- Options for LaTeX output ------------------------------------------------
-
-latex_elements = {
-    "extraclassoptions": "openany,oneside"
-    # The paper size ('letterpaper' or 'a4paper').
-    #
-    # 'papersize': 'letterpaper',
-    # The font size ('10pt', '11pt' or '12pt').
-    #
-    # 'pointsize': '10pt',
-    # Additional stuff for the LaTeX preamble.
-    #
-    # 'preamble': '',
-    # Latex figure (float) alignment
-    #
-    # 'figure_align': 'htbp',
-}
-
-# Grouping the document tree into LaTeX files. List of tuples
-# (source start file, target name, title,
-#  author, documentclass [howto, manual, or own class]).
-latex_documents = [
-    (master_doc, "HydroModPy.tex", "HydroModPy Documentation", author, "report"),
-]
-
-latex_logo = "images/logoHydroModPy_long.png"
-
-# -- Extension configuration -------------------------------------------------
-
-# use :numref: for references (instead of :ref:)
-numfig = True
-smart_quotes = False
-html_use_smartypants = False
-
-
-def _regenerate_config_reference(app) -> None:
-    """Regenerate docs/source/user_guide/config_reference/ before each build.
-
-    Failures used to be swallowed. They cannot be: the configuration
-    reference is the only part of the documentation a reviewer cannot check
-    by reading the source tree, so a broken generator must stop the build
-    rather than ship the pages from the previous run. The two calls below
-    also used ``app.warn``, which Sphinx removed, so the handler raised
-    ``AttributeError`` and hid the real error.
-
-    Set ``HMP_SKIP_CONFIG_REFERENCE_GEN=1`` to build without regenerating.
-    """
-    if os.environ.get("HMP_SKIP_CONFIG_REFERENCE_GEN") == "1":
-        _logger.info("[doc_config] regeneration skipped (HMP_SKIP_CONFIG_REFERENCE_GEN=1)")
-        return
-    from tools.doc_config import generate_all
-
-    generate_all()
 
 
 def _regenerate_contract_tables(app) -> None:
     """Regenerate the documentation tables owned by a declared contract.
 
-    Same contract as _regenerate_config_reference. Escape hatch:
-    ``HMP_SKIP_CONTRACT_TABLES_GEN=1``.
+    Escape hatch: ``HMP_SKIP_CONTRACT_TABLES_GEN=1``.
     """
     if os.environ.get("HMP_SKIP_CONTRACT_TABLES_GEN") == "1":
         _logger.info("[doc_contracts] regeneration skipped (HMP_SKIP_CONTRACT_TABLES_GEN=1)")
@@ -655,20 +510,6 @@ def _regenerate_contract_tables(app) -> None:
     from tools.doc_contracts import generate_all
 
     generate_all()
-
-
-def _regenerate_figures_inventory(app) -> None:
-    """Regenerate the figures inventory included by user_guide/figures.rst.
-
-    Same contract as _regenerate_config_reference. Escape hatch:
-    ``HMP_SKIP_FIGURES_INVENTORY_GEN=1``.
-    """
-    if os.environ.get("HMP_SKIP_FIGURES_INVENTORY_GEN") == "1":
-        _logger.info("[doc_figures] regeneration skipped (HMP_SKIP_FIGURES_INVENTORY_GEN=1)")
-        return
-    from tools.doc_figures import generate
-
-    generate()
 
 
 def _ensure_doctree_dir_for_late_extension_caches(app, exception) -> None:
@@ -680,13 +521,41 @@ def _ensure_doctree_dir_for_late_extension_caches(app, exception) -> None:
         Path(doctreedir).mkdir(parents=True, exist_ok=True)
 
 
+def _checker_builder():
+    """The rediraffecheckdiff builder, told which deleted files are not removed pages.
+
+    The checker asks for a redirect line per deleted `.rst` or `.md` file under
+    this folder. Two kinds of file need no line, and cannot have one: a redirect
+    from a page that still exists makes the strict build fail. A page that
+    changed its suffix is still there, and an include, a template or a static
+    note was never a page. The entries are added here, to the checker only.
+    """
+    from sphinxext.rediraffe import CheckRedirectsDiffBuilder, create_graph
+
+    class HmpCheckRedirectsDiffBuilder(CheckRedirectsDiffBuilder):
+        def init(self) -> None:
+            srcdir = Path(self.app.srcdir)
+            entries = dict(create_graph(srcdir / "redirects.txt"))
+            for page in srcdir.rglob("*"):
+                if page.suffix not in source_suffix:
+                    continue
+                relative = page.relative_to(srcdir)
+                for other in source_suffix:
+                    if other != page.suffix:
+                        entries[relative.with_suffix(other).as_posix()] = relative.as_posix()
+            not_pages = (srcdir / "redirects-not-pages.txt").read_text(encoding="utf-8")
+            for line in not_pages.splitlines():
+                if line.strip() and not line.startswith("#"):
+                    entries[line.strip()] = "index"
+            self.app.config.rediraffe_redirects = entries
+            super().init()
+
+    return HmpCheckRedirectsDiffBuilder
+
+
 def setup(app):
-    if _PLANTUML_COMMAND is None:
-        app.add_directive("uml", _MissingPlantUMLDirective, override=True)
-        app.add_directive("plantuml", _MissingPlantUMLDirective, override=True)
-    app.connect("builder-inited", _regenerate_config_reference)
+    app.add_builder(_checker_builder(), override=True)
     app.connect("builder-inited", _regenerate_contract_tables)
-    app.connect("builder-inited", _regenerate_figures_inventory)
     app.connect("build-finished", _ensure_doctree_dir_for_late_extension_caches, priority=0)
     return {
         "parallel_read_safe": True,

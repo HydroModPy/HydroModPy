@@ -22,15 +22,18 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.solver.modflow6.builders.lake import (
-    apply_lake_idomain_mask,
     build_lak_package_args,
     build_lake_connectiondata,
     build_lake_period_data,
 )
+from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from validation_cases.shared.lake_inputs import lake_inputs
+from validation_cases.shared.solver_mesh import solver_mesh_of
 
 from .geometry import PleasantTransientGeometry, load_geometry
 
@@ -90,7 +93,7 @@ def build_hmp_solver_mesh(geometry: PleasantTransientGeometry) -> SolverMesh:
     top = np.full(n_cells, geometry.top_m)
     botm = np.stack([np.full(n_cells, b) for b in geometry.botm_m])
     inactive = np.zeros((geometry.nlay, n_cells), dtype=bool)
-    return SolverMesh(planar_mesh=planar, top=top, botm=botm, inactive_mask=inactive)
+    return solver_mesh_of(planar, top=top, botm=botm, inactive_mask=inactive)
 
 
 def _abacus(geometry: PleasantTransientGeometry) -> dict[str, list[float]]:
@@ -108,7 +111,7 @@ def _lake_definition(geometry: PleasantTransientGeometry, *, period: int) -> dic
         "polygon": None,
         "bedleak": geometry.bedleak_per_s,
         "abacus": _abacus(geometry),
-        "stageinit": geometry.stage_init_m,
+        "initial_stage": geometry.stage_init_m,
         "rainfall": {"value": geometry.rainfall_m_per_s[period], "units": "m/s"},
         "evaporation": {"value": geometry.evaporation_m_per_s[period], "units": "m/s"},
         "runoff": {"value": geometry.runoff_m3_per_s[period], "units": "m3/s"},
@@ -121,10 +124,7 @@ def _hmp_model(geometry: PleasantTransientGeometry) -> SimpleNamespace:
         model_output_name=_MODEL_NAME,
         model_name=_MODEL_NAME,
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={"lakes": {_LAKE_ID: _lake_definition(geometry, period=0)}},
-        ),
+        inputs=lake_inputs({_LAKE_ID: _lake_definition(geometry, period=0)}),
     )
 
 
@@ -224,7 +224,7 @@ def build_hmp_simulation(workspace: Path, *, geometry: PleasantTransientGeometry
         gwf,
         nlay=geom.nlay,
         **masked.to_disv_kwargs(),
-        idomain=masked.idomain(),
+        idomain=masked.idomain,
         length_units="meters",
     )
     flopy.mf6.ModflowGwfnpf(
@@ -335,7 +335,7 @@ def _last_value_per_period(values: list[float], n_periods: int) -> tuple[float, 
 def run_hmp(
     workspace: Path, *, geometry: PleasantTransientGeometry | None = None
 ) -> TransientLakeRunResult:
-    """Build, run, and summarise the transient multi-layer HMP LAK build."""
+    """Build, run, and summarize the transient multi-layer HMP LAK build."""
     geom = geometry if geometry is not None else load_geometry()
     sim, gwf, connectiondata = build_hmp_simulation(workspace, geometry=geom)
     sim.write_simulation(silent=True)

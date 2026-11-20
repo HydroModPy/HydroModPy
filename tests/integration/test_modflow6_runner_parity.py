@@ -40,6 +40,7 @@ import pytest
 modflowapi = pytest.importorskip("modflowapi")
 pytest.importorskip("xmipy")
 
+from hydromodpy.core.workspace.workspace import resolve_bin_path  # noqa: E402
 from hydromodpy.solver.modflow6.api.api_runner import (  # noqa: E402
     Mf6ApiContext,
     Mf6ApiStep,
@@ -47,12 +48,14 @@ from hydromodpy.solver.modflow6.api.api_runner import (  # noqa: E402
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter  # noqa: E402
 from hydromodpy.solver.modflow6.extractors.lake import lake_station_id  # noqa: E402
 from hydromodpy.solver.modflow6.run import run_processing  # noqa: E402
-from hydromodpy.solver.modflow_common import ModflowRunOptions  # noqa: E402
 from hydromodpy.solver.modflow_common.binaries import (  # noqa: E402
     ensure_solver_binary,
     locate_solver_binary,
-    managed_bin_dir,
 )
+from hydromodpy.solver.modflow_common.options import ModflowRunOptions  # noqa: E402
+from tests._helpers.mf6_ground import leave_ground_beside  # noqa: E402
+from tests._helpers.model_factory import make_model
+from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
 # Reuse the proven single-lake DISV builder + recording store double.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -61,7 +64,7 @@ from test_modflow6_lake_extractor_e2e import (  # noqa: E402
     _RecordingStore,
 )
 
-_no_lib = locate_solver_binary(managed_bin_dir(), "libmf6") is None
+_no_lib = locate_solver_binary(Path(resolve_bin_path()), "libmf6") is None
 
 pytestmark = [
     pytest.mark.mf6,
@@ -77,22 +80,20 @@ _MODEL_NAME = "lakd"
 
 
 class _ShimModel:
-    """Minimal model double honouring the run_processing contract.
+    """Minimal model double honoring the run_processing contract.
 
     Carries the attributes ``run_processing`` reads: a loaded flopy ``sim`` for
     the subprocess leg, ``nper`` for the solve progress bar, ``full_path`` for
-    the api leg, and the api callback / lib-path hooks. ``flow_regime`` is None
-    so the steady-init branch is skipped.
+    the api leg, and the api callback / lib-path hooks. ``inputs`` is a steady
+    ``Model``, so the steady-init and spin-up branches are skipped.
     """
 
     def __init__(self, sim: Any, full_path: Path) -> None:
         self.sim = sim
         self.nper = int(sim.tdis.nper.get_data())
         self.full_path = str(full_path)
-        self.flow = None
-        self.flow_regime: str | None = None
+        self.inputs = make_model()
         self.last_flow_solve_time_seconds: float | None = None
-        self._runtime_dirty_packages: tuple[str, ...] = ()
         self._mf6_api_callback: Any = None
         self._mf6_api_lib_path: Any = None
 
@@ -102,19 +103,34 @@ def _solve(ws: Path, exe: str, runner: str, callback: Any = None) -> None:
     import flopy
 
     sim = flopy.mf6.MFSimulation.load(sim_ws=str(ws), exe_name=exe)
+    leave_ground_beside(sim.get_model())
     model = _ShimModel(sim, ws)
     model._mf6_api_callback = callback
     options = ModflowRunOptions(write_model=False, run_model=True, verbose=False, runner=runner)
     ok = run_processing(model, options)
     assert ok, f"{runner} run did not converge"
+    # Both legs time the solve alone: the adapter hands it to the run as ``solve_s``.
+    assert model.last_flow_solve_time_seconds is not None
+    assert model.last_flow_solve_time_seconds > 0.0
+
+
+class _RunFolderStore(_RecordingStore):
+    """The recording store of the lake extractor test, with the folder of the run it writes in."""
+
+    def __init__(self, run_dir: Path) -> None:
+        super().__init__()
+        self._run_dir = run_dir
+
+    def run_dir_for(self, sim_id: str) -> Path:
+        return self._run_dir
 
 
 def _extract(ws: Path) -> tuple[dict[str, list[float]], np.ndarray]:
     """Extract lake series + final heads from a solved workspace."""
     import flopy.utils.binaryfile as bf
 
-    store = _RecordingStore()
-    Modflow6OutputAdapter().extract("sim", ws, store, model_name=_MODEL_NAME)
+    store = _RunFolderStore(ws)
+    Modflow6OutputAdapter().extract(solved_run(ws), store, keep_all)
     station = lake_station_id("lac0")
     by_variable: dict[str, list[float]] = {}
     for record in store.timeseries:
@@ -226,3 +242,35 @@ def test_api_runner_developer_callback_reads_stage(tmp_path: Path) -> None:
     assert "stage" in by_variable
     # The callback's last reading matches the extracted final stage.
     assert seen[-1] == pytest.approx(by_variable["stage"][-1], rel=1e-6, abs=1e-3)
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("runner", ["subprocess", "api"])
+def test_the_extraction_leaves_the_last_state_of_the_run_in_double_precision(
+    runner: str, tmp_path: Path
+) -> None:
+    """``final_state/`` holds the last head record and the last lake stage, to the last bit."""
+    import flopy.utils.binaryfile as bf
+
+    from hydromodpy.results.storage.final_state import read_final_state
+
+    exe = str(ensure_solver_binary("mf6"))
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _build_single_lake_disv(ws, exe)
+    _solve(ws, exe, runner)
+
+    _extract(ws)
+
+    state = read_final_state(ws)
+    assert state is not None
+    head_file = bf.HeadFile(str(ws / f"{_MODEL_NAME}.hds"), precision="double")
+    last_head = np.asarray(head_file.get_data(totim=head_file.get_times()[-1]), dtype=np.float64)
+    finite = np.abs(last_head.reshape(state.head.shape)) < 1e20
+    assert state.head.dtype == np.float64
+    assert np.array_equal(state.head[finite], last_head.reshape(state.head.shape)[finite])
+    assert np.isnan(state.head[~finite]).all()
+    stage_file = bf.HeadFile(str(ws / f"{_MODEL_NAME}.lak.stage"), text="STAGE", precision="double")
+    last_stage = float(stage_file.get_data(totim=stage_file.get_times()[-1]).ravel()[0])
+    assert state.lake_stages == {"lac0": last_stage}
+    assert state.sfr_stages == {}

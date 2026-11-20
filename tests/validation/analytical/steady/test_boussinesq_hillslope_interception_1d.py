@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from tests.validation.helpers import assert_metric_below
+from tests.validation.helpers import assert_metric_below, record_comparison
 from validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.comparison import (
     run_boussinesq_hillslope_interception_comparison,
 )
@@ -15,22 +15,56 @@ from validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.com
 @pytest.mark.analytical
 @pytest.mark.steady
 @pytest.mark.fast
-def test_boussinesq_hillslope_interception_1d_matches_reference_position() -> None:
-    """Run the PETSc VI Boussinesq case and compare emergence position."""
+@pytest.mark.parametrize(
+    ("solver", "require_modflow", "require_modflow6"),
+    [
+        pytest.param("modflow_nwt", True, False, id="modflow_nwt"),
+        pytest.param("modflow6", False, True, id="modflow6"),
+        pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
+        pytest.param("modflow6_voronoi", False, True, id="modflow6_voronoi"),
+        pytest.param("boussinesq", False, False, marks=pytest.mark.petsc, id="boussinesq"),
+        pytest.param("boussinesq_local", False, False, id="boussinesq_local"),
+    ],
+)
+def test_boussinesq_hillslope_interception_1d_matches_reference_position(
+    solver: str,
+    require_modflow: bool,
+    require_modflow6: bool,
+) -> None:
+    """Run one variant and compare it to the exact seepage-face solution.
+
+    ``boussinesq`` runs the PETSc VI obstacle; ``boussinesq_local`` runs the
+    default engine with its regularized partition closure, without PETSc. The
+    MODFLOW variants drain the land surface through a DRN, so the head may stand
+    above it by about ``(R + K S^2) b / K``: the clearance bound of those
+    variants is that excess, not the closure of the obstacle.
+    """
     assert_required_executables(
-        require_modflow=False,
-        require_modflow6=False,
+        require_modflow=require_modflow,
+        require_modflow6=require_modflow6,
         require_modpath=False,
         require_mt3dms=False,
     )
 
     comparison = run_boussinesq_hillslope_interception_comparison(
         caller_file=__file__,
-        solver="boussinesq",
+        solver=solver,
     )
+    record_comparison(comparison)
     interception_tol = dict(comparison.tolerances.get("interception", {}))
+    profile_tol = dict(comparison.tolerances.get("profile", {}))
     uniformity_tol = dict(comparison.tolerances.get("uniformity", {}))
     contact_tol = dict(comparison.tolerances.get("contact", {}))
+
+    assert_metric_below(
+        "Head-profile RMSE", comparison.profile_rmse, float(profile_tol["rmse"]), unit="m"
+    )
+    assert_metric_below(
+        "Head-profile max abs error",
+        comparison.profile_max_error,
+        float(profile_tol["max_abs_error"]),
+        unit="m",
+    )
 
     assert_metric_below(
         "Interception x error",
@@ -40,7 +74,8 @@ def test_boussinesq_hillslope_interception_1d_matches_reference_position() -> No
     )
     assert_metric_below(
         "Maximum positive clearance above topography",
-        comparison.max_clearance_m,
+        # The largest head above the ground, zero when the water table stays below it.
+        max(comparison.max_clearance_m, 0.0),
         float(contact_tol["max_positive_clearance_m"]),
         unit="m",
     )

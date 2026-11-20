@@ -5,24 +5,47 @@ the ordered :class:`SfrReachRecord` list: payload accessors, the width law, the
 per-cell trace split, the mesh rectification, the Kahn topological numbering and
 the connectivity assertions.
 
-Runtime construction of :class:`SfrReachRecord` and the call to the public
-``resolve_reach_line_cells`` are done through function-local imports of
-``builders.sfr`` so the module-load graph stays a one-way DAG
+Runtime construction of :class:`SfrReachRecord` is done through function-local
+imports of ``builders.sfr`` so the module-load graph stays a one-way DAG
 (``sfr -> _sfr_network``); the dataclasses stay defined in ``builders.sfr``.
+
+The per-cell trace split shares the length of a line among the cells of the
+mesh, in order along it, with one rule per kind of mesh:
+
+* the mesh carries the cell chains of the line family (``rivers``): every chain
+  cell goes to the line nearest its center, when that line passes within one
+  cell size of it, and each line shares its length among its cells in 1D. The
+  cells are ordered by the projection of their centers on the line and the
+  cuts sit halfway between two consecutive projections, so the shares add up
+  to the line length and no length is counted twice;
+* the mesh carries no chain: the line is cut where it crosses the cell
+  boundaries and each cell receives the length of the line inside it. A piece
+  lying on a shared edge goes to the cell of smaller id.
+
+Both return, per cell, the length and the distance along the line of the middle
+of its share, ordered from the start of the line to its end.
 """
 
 from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import shapely
+from shapely.strtree import STRtree
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.solver.modflow6.builders.wells import well_cell_to_disv
 
 if TYPE_CHECKING:
+    from shapely.geometry import LineString
+
+    from hydromodpy.catchment.drainage.descent import Descent
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
     from hydromodpy.solver.modflow6.builders.sfr import SfrReachRecord
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
@@ -46,21 +69,14 @@ def _length_m(value: object) -> float:
 def _active_sfr_definitions(model) -> dict[str, dict[str, Any]]:
     """Return the active SFR network definitions keyed by network id.
 
-    A network is active when ``sfr`` is listed in ``flow.active_bc``. The
-    payloads come from ``flow.sinks_sources['sfr']`` (config objects or runtime
-    mappings carrying the binder-attached ``reach_trace``).
+    A network is active when its table is declared and not switched off, which
+    ``Model.boundaries`` says as ``sfr``. The payloads come from ``Model.sfr`` (config
+    objects or runtime mappings carrying the binder-attached ``reach_trace``).
     """
-    flow = getattr(model, "flow", None)
-    if flow is None:
+    inputs = model.inputs
+    if not inputs.boundaries.is_active("sfr") or not inputs.sfr:
         return {}
-    active_bc = {str(name).lower() for name in getattr(flow, "active_bc", []) or []}
-    if "sfr" not in active_bc:
-        return {}
-
-    sinks_sources = getattr(flow, "sinks_sources", {})
-    sfr = sinks_sources.get("sfr") if isinstance(sinks_sources, Mapping) else None
-    if not isinstance(sfr, Mapping) or not sfr:
-        return {}
+    sfr = inputs.sfr
 
     definitions: dict[str, dict[str, Any]] = {}
     for network_id, payload in sfr.items():
@@ -98,14 +114,6 @@ def _active_sfr_definitions(model) -> dict[str, dict[str, Any]]:
     return definitions
 
 
-def _first_active_layer(idomain: np.ndarray, cell_id: int, nlay: int) -> int | None:
-    """Return the first active layer of one column scanned from the top, or None."""
-    for lay in range(nlay):
-        if int(idomain[lay, cell_id]) == 1:
-            return lay
-    return None
-
-
 def _reach_width(width_cfg: object, *, strahler: int, area_km2: float, location: str) -> float:
     """Resolve one reach width [m] from the configured width law."""
     kind = str(_attr(width_cfg, "kind") or "constant")
@@ -138,6 +146,8 @@ def _rectify_network_on_mesh(
     records: list[SfrReachRecord],
     *,
     solver_mesh: SolverMesh,
+    descent: Descent,
+    face_adjacency: Sequence[set[int]],
     lake_number_of: Mapping[int, int],
     min_slope: float,
     max_stub_upstream: int,
@@ -147,32 +157,21 @@ def _rectify_network_on_mesh(
 ) -> list[SfrReachRecord]:
     """Rectify one network's reach cells on the mesh (SFD channel + stub pruning).
 
-    Builds the mesh face adjacency and the set of boundary cells (a cell touching an
-    inactive neighbour or a mesh edge, where a reach may leave the model), re-derives the
-    single-flow-direction channel, and re-numbers the resulting graph.
+    Re-derives the single-flow-direction channel on the receivers of the descent D,
+    stopped on its constant-head cells (a reach reaching one is the outlet reach),
+    prunes the stubs and tests the lake shores on ``face_adjacency`` (shared faces),
+    reads the streambed top on the solver top, and re-numbers the resulting graph.
     """
     from hydromodpy.solver.modflow6.builders.sfr_rectify import rectify_reach_graph
-    from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
 
     n_cells = int(solver_mesh.n_cells)
-    adjacency = build_planar_cell_adjacency(solver_mesh.planar_mesh, n_cells)
-    idomain = solver_mesh.idomain()
-    nlay = int(solver_mesh.nlay)
-    active0 = idomain[0] > 0
-    boundary_cells = {
-        i
-        for i in range(n_cells)
-        if active0[i] and (len(adjacency[i]) < 3 or any(not active0[j] for j in adjacency[i]))
-    }
     nodes, edges = rectify_reach_graph(
         records,
+        receiver=descent.stopping_receiver,
+        face_adjacency=face_adjacency,
         mesh_top=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
-        cell_adjacency=adjacency,
-        cell_centroids=solver_mesh.cell_centroids(),
         lake_cell_to_number=dict(lake_number_of),
-        boundary_cells=boundary_cells,
-        idomain=idomain,
-        nlay=nlay,
+        idomain=solver_mesh.idomain,
         location=location,
         max_stub_upstream=max_stub_upstream,
         min_component_cells=min_component_cells,
@@ -185,25 +184,19 @@ def _resolve_trace_network(
     *,
     definition: Mapping[str, Any],
     solver_mesh: SolverMesh,
-    vertex_grid,
     location: str,
     lake_cell2d: frozenset[int] = frozenset(),
     lake_number_of: Mapping[int, int] | None = None,
 ) -> list[SfrReachRecord]:
-    """Split one delineated trace onto the DISV mesh and re-number downstream."""
+    """Split one delineated trace onto the cell mesh and re-number downstream."""
     lake_number_of = lake_number_of or {}
-    from flopy.utils import GridIntersect
-
-    from hydromodpy.solver.modflow6.builders.sfr import resolve_reach_line_cells
-
     trace = definition["reach_trace"]
     parents = sorted(trace.reaches, key=lambda reach: int(reach.ifno))
     if not parents:
         raise ValueError(f"{location} reach_trace holds no reach.")
 
-    grid_intersect = GridIntersect(vertex_grid)
-    idomain = solver_mesh.idomain()
-    nlay = int(solver_mesh.nlay)
+    pieces_by_parent = _reach_pieces(solver_mesh, parents, location=location)
+    top_layer = solver_mesh.top_active_layer()
     connected = definition.get("connected_to_aquifer") is not False
     min_slope = float(definition.get("min_slope") or 1e-4)
     width_cfg = definition.get("width")
@@ -219,11 +212,9 @@ def _resolve_trace_network(
     last_sub: dict[int, int | None] = {}
     cut_lake_of: dict[int, int | None] = {}  # parent -> lake it was cut at (terminal)
     in_lake_lake_of: dict[int, int | None] = {}  # parent entirely inside a lake -> lake
-    for parent in parents:
+    for parent, pieces in zip(parents, pieces_by_parent, strict=True):
         ifno = int(parent.ifno)
-        segments = resolve_reach_line_cells(
-            parent.line, grid_intersect=grid_intersect, location=location
-        )
+        segments = [(piece.cell, piece.length, piece.middle) for piece in pieces]
         line_length = float(parent.line.length)
         rgrd = max(float(parent.rgrd), min_slope)
         rwid = _reach_width(
@@ -242,8 +233,8 @@ def _resolve_trace_network(
                 break
             cellid: tuple[int, int] | None = None
             if connected:
-                layer = _first_active_layer(idomain, cell2d, nlay)
-                if layer is None:
+                layer = int(top_layer[cell2d])
+                if layer < 0:
                     # The reach crosses a cell outside the active aquifer (e.g. a
                     # boundary reach when the domain is masked to the watershed).
                     # Keep it as a routing-only, aquifer-disconnected sub-reach
@@ -277,7 +268,7 @@ def _resolve_trace_network(
             )
         if len(nodes) == base:
             # No sub-reach survived: the reach starts inside a lake. Record which lake
-            # so its upstream neighbours become the shoreline terminal.
+            # so its upstream neighbors become the shoreline terminal.
             first_sub[ifno] = None
             last_sub[ifno] = None
             if cut_lake is not None:
@@ -320,6 +311,38 @@ def _resolve_trace_network(
             edges.append((last, d_first))
 
     return _number_and_freeze(nodes, edges, min_slope=min_slope, location=location)
+
+
+def _reach_pieces(
+    solver_mesh: SolverMesh, parents: Sequence[Any], *, location: str
+) -> list[list[LinePiece]]:
+    """Share each parent reach among the cells of the mesh, in order along it.
+
+    On a mesh that carries the ``rivers`` cell chains, a reach is shared among
+    the chain cells along it, its length conserved; on any other mesh, among
+    the cells it crosses.
+    """
+    cell_mesh = solver_mesh.cell_mesh
+    lines = [parent.line for parent in parents]
+    on_chains = bool(cell_mesh.chains("rivers"))
+    if on_chains:
+        pieces_by_parent = chain_pieces(cell_mesh, lines, family="rivers")
+    else:
+        pieces_by_parent = [crossing_pieces(cell_mesh, line) for line in lines]
+    for parent, pieces in zip(parents, pieces_by_parent, strict=True):
+        if pieces:
+            continue
+        if on_chains:
+            raise ValueError(
+                f"{location} reach {int(parent.ifno)} runs off the river cells of the mesh: "
+                "no cell of its rivers chains lies within one cell size of it. Mesh the "
+                "river network the reaches were delineated on."
+            )
+        raise ValueError(
+            f"{location} reach polyline does not intersect any grid cell; check the "
+            "network geometry CRS and the model extent."
+        )
+    return pieces_by_parent
 
 
 def _number_and_freeze(
@@ -423,7 +446,7 @@ def _resolve_explicit_network(
 
     rows = list(definition.get("reaches") or [])
     n = len(rows)
-    idomain = solver_mesh.idomain()
+    idomain = solver_mesh.idomain
     connected_default = definition.get("connected_to_aquifer") is not False
 
     records: list[SfrReachRecord] = []
@@ -506,7 +529,7 @@ def _explicit_reach_cellid(
     layer, cell2d = well_cell_to_disv(ncol=int(solver_mesh.ncol), lay=lay, row=row, col=col)
     if cell2d < 0 or cell2d >= int(solver_mesh.n_cells):
         raise ValueError(f"{location}.cell is outside the grid ({solver_mesh.n_cells} cells).")
-    if int(idomain[layer, cell2d]) != 1:
+    if int(idomain[layer, cell2d]) <= 0:
         raise ValueError(
             f"{location}.cell (layer {layer}, cell {cell2d}) is inactive; an SFR reach "
             "must sit on an active aquifer cell."
@@ -544,3 +567,127 @@ def _assert_reciprocal(records: Sequence[SfrReachRecord], *, location: str) -> N
                     f"{location} connectivity is not reciprocal: reach {record.ifno} "
                     f"is fed by reach {up} which does not list it downstream."
                 )
+
+
+# -- The length of a line shared among the cells of the mesh -----------------
+
+MIN_PIECE_LENGTH_M = 1.0e-6
+"""A share shorter than this [m] is a corner graze, not a reach."""
+
+
+@dataclass(frozen=True)
+class LinePiece:
+    """The share of one line held by one cell.
+
+    ``length`` [m] is the length of the share and ``middle`` [m] the distance
+    along the line of its middle.
+    """
+
+    cell: int
+    length: float
+    middle: float
+
+
+def chain_pieces(
+    cell_mesh: PlanarCellMesh, lines: Sequence[LineString], *, family: str
+) -> list[list[LinePiece]]:
+    """Share each line among the chain cells of ``family`` nearest to it.
+
+    A chain cell belongs to the nearest line within its size ``sqrt(area)``,
+    the smallest line index on a tie. A line that owns no cell takes the chain
+    cell nearest to it, when one lies within its size. A line with no chain
+    cell within one cell size gets no piece. The shares of a line add up to its
+    length; a share shorter than ``MIN_PIECE_LENGTH_M`` joins the one before it,
+    or the one after it at the start of the line.
+    """
+    chains = cell_mesh.chains(family)
+    if not chains or not lines:
+        return [[] for _ in lines]
+    cells = np.unique(np.concatenate([chain.cell_ids for chain in chains]))
+    centres = shapely.points(cell_mesh.centers[cells])
+    sizes = np.sqrt(cell_mesh.geometry.areas[cells])
+    line_array = np.asarray(lines, dtype=object)
+    (point_index, line_index), distance = STRtree(line_array).query_nearest(
+        centres, return_distance=True, all_matches=True
+    )
+    order = np.lexsort((line_index, point_index))
+    point_index, line_index, distance = point_index[order], line_index[order], distance[order]
+    first = np.ones(point_index.size, dtype=bool)
+    first[1:] = point_index[1:] != point_index[:-1]
+    near = first & (distance <= sizes[point_index])
+    owner = np.full(cells.size, -1, dtype=np.int64)
+    owner[point_index[near]] = line_index[near]
+
+    pieces: list[list[LinePiece]] = []
+    for index, line in enumerate(lines):
+        owned = np.flatnonzero(owner == index)
+        if owned.size == 0:
+            gap = shapely.distance(line, centres)
+            within = np.flatnonzero(gap <= sizes)
+            owned = within[np.argmin(gap[within])][None] if within.size else owned
+        pieces.append(_shared_along(line, cells[owned], cell_mesh.centers[cells[owned]]))
+    return pieces
+
+
+def _shared_along(line: LineString, cells: np.ndarray, centres: np.ndarray) -> list[LinePiece]:
+    """Share the line among cells cut halfway between their projections."""
+    if cells.size == 0:
+        return []
+    along = shapely.line_locate_point(line, shapely.points(centres))
+    order = np.lexsort((cells, along))
+    cells, along = cells[order], along[order]
+    length = float(line.length)
+    cuts = np.concatenate([[0.0], 0.5 * (along[1:] + along[:-1]), [length]])
+    shares = np.diff(cuts)
+    keep = shares >= MIN_PIECE_LENGTH_M
+    if not keep.any():
+        keep[np.argmax(shares)] = True
+    starts = cuts[:-1][keep]
+    starts[0] = 0.0
+    stops = np.concatenate([starts[1:], [length]])
+    return [
+        LinePiece(cell=int(cell), length=float(stop - start), middle=float(0.5 * (start + stop)))
+        for cell, start, stop in zip(cells[keep], starts, stops, strict=True)
+    ]
+
+
+def crossing_pieces(cell_mesh: PlanarCellMesh, line: LineString) -> list[LinePiece]:
+    """Cut the line at the cell boundaries and give each cell the length inside it.
+
+    The cells are ordered by the point halfway along their share; a cell whose
+    share is shorter than ``MIN_PIECE_LENGTH_M`` is left out, and so is the
+    length of the line outside the mesh.
+    """
+    polygons = cell_polygons(cell_mesh.mesh.vertices, cell_mesh.geometry.padded_connectivity)
+    candidates = np.sort(STRtree(polygons).query(line, predicate="intersects"))
+    if candidates.size == 0:
+        return []
+    length = float(line.length)
+    crossings = shapely.get_coordinates(
+        shapely.intersection(line, shapely.boundary(polygons[candidates]))
+    )
+    cuts = np.unique(
+        np.concatenate([[0.0, length], shapely.line_locate_point(line, shapely.points(crossings))])
+    )
+    middles = 0.5 * (cuts[1:] + cuts[:-1])
+    pieces = np.diff(cuts)
+    points = shapely.line_interpolate_point(line, middles)
+    point_index, candidate_index = STRtree(polygons[candidates]).query(
+        points, predicate="covered_by"
+    )
+    holder = np.full(middles.size, np.iinfo(np.int64).max, dtype=np.int64)
+    np.minimum.at(holder, point_index, candidates[candidate_index])
+    inside = holder != np.iinfo(np.int64).max
+    holder, starts, pieces = holder[inside], cuts[:-1][inside], pieces[inside]
+    out: list[LinePiece] = []
+    for cell in np.unique(holder):
+        mine = holder == cell
+        total = float(pieces[mine].sum())
+        if total < MIN_PIECE_LENGTH_M:
+            continue
+        walked = np.cumsum(pieces[mine])
+        half = int(np.searchsorted(walked, 0.5 * total))
+        middle = starts[mine][half] + 0.5 * total - (walked[half] - pieces[mine][half])
+        out.append(LinePiece(cell=int(cell), length=total, middle=float(middle)))
+    out.sort(key=lambda piece: (piece.middle, piece.cell))
+    return out

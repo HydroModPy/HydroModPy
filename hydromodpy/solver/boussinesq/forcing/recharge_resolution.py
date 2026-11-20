@@ -3,33 +3,45 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.physics.forcing.validation import ensure_non_negative_numeric_payload
-from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
-    discretize_fields_on_planar_mesh,
-    discretize_points_on_planar_mesh,
-)
+from hydromodpy.model.forcing.cells import discretize_fields_on_cells, discretize_points_on_cells
+from hydromodpy.model.forcing.steady_periods import apply_first_clim, first_clim_sets_a_deficit
+from hydromodpy.model.forcing.validation import ensure_non_negative_numeric_payload
+from hydromodpy.solver.base.registry import backends_honoring
+
+if TYPE_CHECKING:
+    from hydromodpy.model.model import Model
 
 
 class RechargeResolutionMixin:
     """Resolve recharge payloads to one scalar or cell vector per period."""
 
     mesh: object
-    flow: object
-    time_grid: object
+    inputs: Model
 
     def resolve_recharge_series(self, nper: int) -> tuple[float | np.ndarray, ...]:
         """Resolve one recharge payload per stress period."""
-        active = tuple(getattr(self.flow, "active_sinks_sources", ()) or ())
-        if "recharge" not in active:
+        if "recharge" not in self.inputs.active_sinks_sources:
             return tuple(0.0 for _ in range(int(nper)))
 
         recharge_cfg = self.recharge_config()
         if recharge_cfg is None:
             return tuple(0.0 for _ in range(int(nper)))
+
+        first_clim = getattr(recharge_cfg, "first_clim", "mean")
+        if first_clim_sets_a_deficit(first_clim, self.boussinesq_steady_flags(int(nper))):
+            honoring = backends_honoring("etp")
+            raise ValueError(
+                f"flow.sinks_sources.recharge.first_clim = {first_clim} is a negative rate, "
+                "and the Boussinesq solver has no EVT to route a deficit to: give a rate "
+                "of zero or more, or run the deficit under a backend with an "
+                "evapotranspiration, this installation serves: "
+                + (", ".join(honoring) or "none")
+                + "."
+            )
 
         heterogeneous_source = getattr(recharge_cfg, "heterogeneous_source", None)
         if heterogeneous_source is not None:
@@ -61,25 +73,30 @@ class RechargeResolutionMixin:
         interpolation_method: str,
     ) -> tuple[np.ndarray, ...]:
         """Discretize heterogeneous recharge onto the current Gmsh cell set."""
-        solver_mesh = self.planar_mesh_for_forcing()
+        planar_mesh = self.planar_mesh_for_forcing()
+        centers = np.column_stack(planar_mesh.cell_centroids())
         simulation_window = (
             getattr(self.time_grid, "window", None) if self.time_grid is not None else None
         )
         if getattr(heterogeneous_source, "has_fields", False):
-            raw_arrays = discretize_fields_on_planar_mesh(
+            raw_arrays = discretize_fields_on_cells(
                 load_result=heterogeneous_source,
-                planar_mesh=solver_mesh,
+                centers=centers,
                 nper=int(nper),
                 simulation_window=simulation_window,
                 method=str(interpolation_method),
+                mesh=planar_mesh,
+                mesh_crs=self.mesh.cell_mesh.crs_wkt,
             )
         elif getattr(heterogeneous_source, "has_points", False):
-            raw_arrays = discretize_points_on_planar_mesh(
+            raw_arrays = discretize_points_on_cells(
                 load_result=heterogeneous_source,
-                planar_mesh=solver_mesh,
+                centers=centers,
                 nper=int(nper),
                 simulation_window=simulation_window,
                 method=str(interpolation_method),
+                source_unit="mm/day",
+                mesh_crs=self.mesh.cell_mesh.crs_wkt,
             )
         else:
             raw_arrays = {
@@ -99,7 +116,7 @@ class RechargeResolutionMixin:
         nper: int,
         first_clim: object,
     ) -> tuple[np.ndarray, ...]:
-        """Apply the historical `first_clim` convention to cellwise recharge."""
+        """Give every steady period the ``first_clim`` array, keep the transient ones."""
         if nper <= 0:
             return ()
 
@@ -115,32 +132,19 @@ class RechargeResolutionMixin:
                     f"Boussinesq cell; period {kper} has {values.size}, "
                     f"expected {int(self.mesh.n_cells)}."
                 )
-        if not arrays:
-            return tuple(np.zeros(self.mesh.n_cells, dtype=float) for _ in range(nper))
-
-        stacked = np.stack(tuple(arrays.values()), axis=0)
-        flow_regime = normalize_flow_regime(getattr(self.flow, "flow_regime", "transient"))
-        if flow_regime == "steady" or nper <= 1:
-            mean_array = np.mean(stacked, axis=0)
-            return (np.asarray(mean_array, dtype=float).reshape(-1),)
 
         result = {
             kper: arrays.get(kper, np.zeros(self.mesh.n_cells, dtype=float)).copy()
             for kper in range(nper)
         }
-        if first_clim == "mean":
-            result[0] = np.mean(stacked, axis=0)
-        elif first_clim == "first":
-            pass
-        elif self.is_scalar_number(first_clim):
-            result[0] = np.full(self.mesh.n_cells, float(first_clim), dtype=float)
-        else:
-            raise ValueError(
-                "flow.sinks_sources.recharge.first_clim must be 'mean', 'first', "
-                "or a numeric value."
-            )
+        ruled = apply_first_clim(
+            result,
+            steady=self.boussinesq_steady_flags(nper),
+            first_clim=first_clim,
+            durations=self.period_durations(nper),
+        )
         return tuple(
-            np.asarray(result[kper], dtype=float).reshape(-1).copy() for kper in range(nper)
+            np.asarray(ruled[kper], dtype=float).reshape(-1).copy() for kper in range(nper)
         )
 
 

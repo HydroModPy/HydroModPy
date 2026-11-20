@@ -60,7 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--resolution",
         type=float,
         default=None,
-        help="Requested raster resolution in metres, e.g. 25 for BD ALTI.",
+        help="Requested raster resolution in meters, e.g. 25 for BD ALTI.",
     )
     parser.add_argument(
         "--format",
@@ -166,7 +166,7 @@ def _resolve_departments(
     if departments:
         return [normalize_department_code(value) for value in departments]
     if regions:
-        from hydromodpy.data.common.administrative.france import find_departments_in_regions
+        from hydromodpy.catchment.administrative.france import find_departments_in_regions
 
         return [normalize_department_code(value) for value in find_departments_in_regions(regions)]
     raise ValueError("Either departments or regions must be provided.")

@@ -7,6 +7,7 @@ import pytest
 from tests.regression.golden_utils import assert_required_executables
 from tests.validation.helpers import (
     assert_metric_below,
+    record_comparison,
 )
 from validation_cases.analytical.steady.dupuit_uniform_recharge_1d.comparison import (
     run_dupuit_uniform_recharge_comparison,
@@ -23,13 +24,19 @@ from validation_cases.analytical.steady.dupuit_uniform_recharge_1d.comparison im
         pytest.param("modflow_nwt", True, False, id="modflow_nwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
         pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
+        pytest.param("modflow6_voronoi", False, True, id="modflow6_voronoi"),
         pytest.param("boussinesq", False, False, id="boussinesq"),
+        pytest.param("boussinesq_local", False, False, id="boussinesq_local"),
     ],
 )
 def test_dupuit_uniform_recharge_1d_matches_reference_profile(
     solver: str, require_modflow: bool, require_modflow6: bool
 ) -> None:
-    """Run the launcher case and compare the final head profile to Dupuit."""
+    """Run the case on each grid and compare the final head profile to Dupuit.
+
+    The grids are the structured MODFLOW grid, the triangle strip, its Voronoi
+    dual and the two Boussinesq strips.
+    """
     assert_required_executables(
         require_modflow=require_modflow,
         require_modflow6=require_modflow6,
@@ -38,6 +45,7 @@ def test_dupuit_uniform_recharge_1d_matches_reference_profile(
     )
 
     comparison = run_dupuit_uniform_recharge_comparison(caller_file=__file__, solver=solver)
+    record_comparison(comparison)
     profile_tol = dict(comparison.tolerances.get("head_profile", {}))
 
     assert_metric_below(

@@ -1,0 +1,26 @@
+
+[workflow]
+mode = "simulation"
+
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+
+[modflow6.process_specific]
+vka = 1.0
+
+[mesh]
+engine = "voronoi"
+
+[mesh.triangle]
+path = "../../../shared/mesh_bundles/linearized_unconfined_tide_irregular_tri_100x10/mesh_2d.msh"
+
+[mesh.voronoi]
+seeds = "triangulation"
+
+[domain.layers]
+nlay = 1
+

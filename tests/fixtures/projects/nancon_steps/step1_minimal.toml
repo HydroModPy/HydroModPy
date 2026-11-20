@@ -1,0 +1,111 @@
+# Step 1: the shortest file that runs. Nancon, steady state on the local DEM,
+# one K, one recharge rate, seepage at the ground surface. 21406 cells of 75 m.
+#
+#   hmp run step1_minimal.toml
+
+[site]
+name = "nancon"
+
+[workflow]
+mode = "simulation"
+# verbosity = "quiet" | "normal" (default) | "verbose" | "debug".
+# `hmp run -q | -v | --debug` wins over the key.
+
+[simulation]
+name = "nancon_step1_minimal"
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow6"]
+
+[geographic]
+# Places the delineated watershed on the mesh.
+crs_project = "EPSG:2154"
+
+# The catchment is cut out of a regional DEM, upslope of the outlet point.
+# buff_area widens the model domain by 10 % of the catchment area.
+[geographic.catchment]
+kind = "from_outlet_coord"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+
+# 30 m of regolith and fissured bedrock, against the 50 m default.
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "file"
+path = "../../data/dem/DEM_armorican_massif.tif"
+
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+
+[flow]
+# The default is transient; step 4 brings the time window and the forcing.
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+
+# Any cell drains at the ground surface: the excess leaves as seepage.
+[flow.bc.drainage]
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+# A steady solve never reads Sy; it is declared once here for step 4.
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+# mm/d, the 2000-2002 mean of the observed recharge.
+[flow.sinks_sources.recharge]
+values = 0.78
+
+# The catchment, the depth to the water table and where it reaches the
+# surface, a section through the outlet, and what enters and leaves.
+[display]
+on_error = "raise"
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
+
+# South to north through the outlet, so the section cuts the tributaries
+# across. The west-east default crosses the valley once, at the southern edge.
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+# orientation = "sn" has no equivalent: the line runs from the outlet
+
+[[display.figure]]
+preset = "water_budget"
+
+# What the run writes to runs/nancon_step1_minimal/exports/. A block says what
+# (variables) and when (time); the format follows the data. The next steps
+# inherit these three blocks.
+
+# The catchment outline: GeoPackage.
+[[export]]
+variable = "watershed"
+
+# The water table and the seepage cells: one GeoTIFF each. "last" is the one
+# state of a steady run, and the last month of a transient one.
+[[export]]
+variable = ["watertable_depth", "seepage_mask"]
+time = "last"
+
+# The water budget: CSV.
+[[export]]
+variable = "budget"

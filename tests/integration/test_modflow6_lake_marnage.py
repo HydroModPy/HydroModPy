@@ -5,7 +5,7 @@ top set to the bathymetric bed and one VERTICAL LAK connection each. MODFLOW 6
 then sets ``ibound=IWETLAKE`` on a cell while the lake stage is above its bed
 (recharge/ET zeroed, lake exchange computed) and resets it to active when the
 shoreline recedes below the bed (recharge resumes). This is the documented
-"Drying and Rewetting of Sections of a Lake" behaviour (TM 6-A55) and the no
+"Drying and Rewetting of Sections of a Lake" behavior (TM 6-A55) and the no
 double-count guidance of lak.tex.
 
 This test builds a tiny model with a graded bed and a CONSTANT-stage lake that is

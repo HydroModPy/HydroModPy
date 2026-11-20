@@ -9,22 +9,24 @@ built from the scoring kernels rather than beside them: a kernel added to
 from __future__ import annotations
 
 from hydromodpy.calibration.criteria.base import Criterion
-from hydromodpy.calibration.criteria.network import NetworkCriterion
-from hydromodpy.calibration.criteria.series import SeriesCriterion
+from hydromodpy.calibration.criteria.hydrographic_network_distance import (
+    HydrographicNetworkDistance,
+)
+from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
+from hydromodpy.core.scoring.metric_table import NETWORK_METRIC_NAMES
 
-NETWORK_ESTIMATORS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
-"""Names the network criterion answers to, rather than a series kernel."""
+NETWORK_ESTIMATORS: frozenset[str] = frozenset(NETWORK_METRIC_NAMES)
+"""The two estimators :class:`HydrographicNetworkDistance` answers to, read off the metric table.
 
-
-def _kernels() -> dict[str, object]:
-    from hydromodpy.calibration.optim.objective import METRICS
-
-    return dict(METRICS)
+A file writes an estimator, not the criterion: Eq. 1 and Eq. 2 are two ways of
+reading the same pair of distances and a calibration picks one. The names stay
+as published.
+"""
 
 
 def available_criteria() -> tuple[str, ...]:
     """Return every criterion name a TOML may write, sorted."""
-    return tuple(sorted(_kernels()))
+    return tuple(sorted(METRICS))
 
 
 def criterion_for(name: str) -> Criterion:
@@ -36,11 +38,10 @@ def criterion_for(name: str) -> Criterion:
     """
     key = str(name).strip().lower()
     if key in NETWORK_ESTIMATORS:
-        return NetworkCriterion(key)  # type: ignore[arg-type]
-    kernels = _kernels()
-    kernel = kernels.get(key)
+        return HydrographicNetworkDistance(key)  # type: ignore[arg-type]
+    kernel = METRICS.get(key)
     if kernel is None:
-        joined = ", ".join(sorted(kernels))
+        joined = ", ".join(sorted(METRICS))
         raise ValueError(f"Unknown criterion {name!r}. Registered: {joined}.")
     return SeriesCriterion(key, kernel)
 

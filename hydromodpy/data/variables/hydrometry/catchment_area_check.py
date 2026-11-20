@@ -4,8 +4,8 @@ A gauge closes a catchment, and Hub'Eau publishes the area that catchment has:
 ``surface_bv`` on ``/referentiel/sites``, in km2. Comparing it to the area the
 run delineated is the only cheap check that catches an outlet placed on the
 wrong branch of a confluence, which is the failure a distance criterion cannot
-see. Two points forty metres apart can sit on two different streams, and their
-catchments then differ by an order of magnitude, not by forty metres.
+see. Two points forty meters apart can sit on two different streams, and their
+catchments then differ by an order of magnitude, not by forty meters.
 
 The endpoint the rest of the hydrometry code calls is ``referentiel/stations``,
 which carries no area at all. The area lives one level up, on the SITE a station
@@ -17,13 +17,28 @@ Measured on the Nancon, site ``J0014010``: ``surface_bv`` is 64.45 km2 against
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from hydromodpy.core.logging import get_logger
+
+if TYPE_CHECKING:
+    from hydromodpy.core.io.fetch import HTTPClient
 
 logger = get_logger(__name__)
 
 API_BASE = "https://hubeau.eaufrance.fr/api/v2/hydrometrie"
+
+DEFAULT_WARN_RELATIVE_GAP = 0.20
+"""Relative gap beyond which the area disagreement is a WARNING.
+
+Measured: a fill on a DEM cut without margin annexed a neighboring valley and
+gave 96.5 km2 for a 64.5 km2 catchment, +50 per cent. A D8 delineation on a coarse
+DEM stays within a few per cent of the published area.
+"""
+
+_HUBEAU_STATION_CODE = re.compile(r"^[A-Z]\d{7}(\d{2})?$")
 
 
 @dataclass(frozen=True)
@@ -57,7 +72,11 @@ def site_id_of_station(station_id: str) -> str:
     return cleaned[:-2] if len(cleaned) > 8 else cleaned
 
 
-def published_catchment_area_km2(station_id: str) -> float | None:
+def published_catchment_area_km2(
+    station_id: str,
+    *,
+    client: HTTPClient,
+) -> float | None:
     """Return the drainage area Hub'Eau publishes for a station's site, in km2.
 
     ``None`` when the site is unknown, carries no area, or the service cannot be
@@ -68,6 +87,7 @@ def published_catchment_area_km2(station_id: str) -> float | None:
     site_id = site_id_of_station(station_id)
     try:
         payload = get_json(
+            client,
             f"{API_BASE}/referentiel/sites",
             params={"code_site": site_id, "size": 1, "format": "json"},
         )
@@ -91,7 +111,8 @@ def compare_catchment_area(
     station_id: str,
     delineated_km2: float,
     *,
-    warn_relative_gap: float = 0.10,
+    warn_relative_gap: float = DEFAULT_WARN_RELATIVE_GAP,
+    client: HTTPClient,
 ) -> CatchmentAreaComparison | None:
     """Compare a delineated catchment to its gauge's published area, and warn.
 
@@ -102,7 +123,7 @@ def compare_catchment_area(
     """
     if delineated_km2 <= 0.0:
         raise ValueError(f"a delineated catchment area must be positive, got {delineated_km2}.")
-    published = published_catchment_area_km2(station_id)
+    published = published_catchment_area_km2(station_id, client=client)
     if published is None:
         return None
 
@@ -115,7 +136,7 @@ def compare_catchment_area(
         logger.warning(
             "Catchment area disagrees with the gauge: %s. An outlet on the wrong branch of a "
             "confluence looks like this, and a distance to the station cannot show it. Check "
-            "geographic.x_outlet / y_outlet and snap_dist against the station position.",
+            "geographic.catchment.x_outlet / y_outlet and snap_dist against the station position.",
             comparison,
         )
     else:
@@ -123,8 +144,34 @@ def compare_catchment_area(
     return comparison
 
 
+def check_gauge_area(
+    gauge: str | None,
+    catchment_area_km2: float | None,
+    *,
+    client: HTTPClient,
+) -> CatchmentAreaComparison | None:
+    """Run the area guard on the gauge of a run, when it has a Hub'Eau one.
+
+    ``gauge`` is the station of the run (``gauge_of_run``), or None. A gauge that
+    is not a Hub'Eau code is left alone, and so is a run without an area. Never
+    raises, since the guard is only a cross-check.
+    """
+    if gauge is None or not catchment_area_km2 or catchment_area_km2 <= 0.0:
+        return None
+    station_id = str(gauge).strip().upper()
+    if not _HUBEAU_STATION_CODE.match(station_id):
+        return None
+    try:
+        return compare_catchment_area(station_id, float(catchment_area_km2), client=client)
+    except Exception:
+        logger.debug("Catchment area guard failed for %s", station_id, exc_info=True)
+        return None
+
+
 __all__ = [
+    "DEFAULT_WARN_RELATIVE_GAP",
     "CatchmentAreaComparison",
+    "check_gauge_area",
     "compare_catchment_area",
     "published_catchment_area_km2",
     "site_id_of_station",

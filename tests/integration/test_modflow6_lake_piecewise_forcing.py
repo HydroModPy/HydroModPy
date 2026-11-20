@@ -1,7 +1,7 @@
 """MF6 LAK driven by a piecewise (csv-then-constant) lake forcing.
 
 A tiny single-lake DISV model is run over a four-period daily transient. The
-lake inflow is declared as a :class:`FlowWellForcingPiecewiseConfig` whose first
+lake inflow is declared as a :class:`PiecewiseForcing` whose first
 segment reads a csv chronicle (days 1-2) and whose second segment is a constant
 (days 3-4). The production lake builder ``build_lake_period_data`` resolves it to
 a TS6 STEPWISE series; this test asserts the series the builder emits matches the
@@ -16,15 +16,17 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.time import (
+from hydromodpy.core.time.window import (
     ResolvedSimulationTimeWindow,
     build_simulation_time_boundaries,
 )
-from hydromodpy.physics.flow.sinks_sources.wells import FlowWellForcingPiecewiseConfig
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.model.forcing.dated_forcing import PiecewiseForcing
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.model.model import ModelTime
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
 from hydromodpy.solver.modflow6.support.time_series import attach_time_series
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
+from tests._helpers.model_factory import make_model
 
 # Four daily stress periods: 2000-01-01 .. 2000-01-04.
 _CSV_INFLOW = (5.0, 9.0)
@@ -59,14 +61,18 @@ class _FakeConfig:
 
 class _FakeModel:
     def __init__(self, window: ResolvedSimulationTimeWindow, perlen: np.ndarray) -> None:
-        self.time_grid = _FakeTimeGrid(window)
+        self.inputs = make_model(
+            time=ModelTime(
+                grid=_FakeTimeGrid(window), regime="transient", first_period_steady=False
+            )
+        )
         self.nper = int(len(perlen))
         self.perlen = perlen
         self.modflow_config = _FakeConfig(mode="ts6", min_periods=0)
 
 
-def _piecewise_forcing(csv_path: Path) -> FlowWellForcingPiecewiseConfig:
-    return FlowWellForcingPiecewiseConfig(
+def _piecewise_forcing(csv_path: Path) -> PiecewiseForcing:
+    return PiecewiseForcing(
         segments=[
             {
                 "start": "2000-01-01",

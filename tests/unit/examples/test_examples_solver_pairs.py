@@ -1,0 +1,78 @@
+"""Every solver an example config names resolves in the adapter registry.
+
+A config that names a pair the registry does not hold fails at the plan, before
+any work. A PRT example once kept ``modflow6prt`` after the pair was renamed
+``modflow6_prt`` and failed that way for months, unseen: no test read the
+``solvers`` lists of the examples.
+"""
+
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.solver.base.registry import solvers
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+EXAMPLES_PROJECTS = Path("examples/projects")
+
+requires_git = pytest.mark.skipif(
+    not (REPO_ROOT / ".git").exists(),
+    reason="example configs are discovered through git ls-files",
+)
+
+
+def _tracked_toml_files() -> list[Path]:
+    """Return the tracked TOML files under ``examples/projects`` still on disk."""
+    if not (REPO_ROOT / ".git").exists():
+        return []
+    completed = subprocess.run(
+        ["git", "ls-files", "-z", "--", EXAMPLES_PROJECTS.as_posix()],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    paths = (REPO_ROOT / entry for entry in completed.stdout.split("\0") if entry.endswith(".toml"))
+    return sorted(path for path in paths if path.is_file())
+
+
+def _declared_pairs(toml_file: Path) -> list[tuple[str, str]]:
+    """Return the ``(kind, solver)`` pairs the merged ``[[simulation.process]]`` declare."""
+    payload = load_toml_with_base_config(toml_file, root=ROOT_CONFIG)
+    simulation = payload.get("simulation") or {}
+    pairs: list[tuple[str, str]] = []
+    for process in simulation.get("process") or []:
+        for solver in process.get("solvers") or []:
+            pairs.append((str(process.get("kind")), str(solver)))
+    return pairs
+
+
+def _identifier(toml_file: Path) -> str:
+    return toml_file.relative_to(REPO_ROOT).as_posix()
+
+
+_CONFIGS_WITH_PROCESSES = [path for path in _tracked_toml_files() if _declared_pairs(path)]
+
+
+def test_the_prt_parameter_table_name_is_not_a_solver_name() -> None:
+    """``modflow6prt`` names the parameter table, never the pair."""
+    assert "modflow6prt" not in solvers.names("transport")
+    with pytest.raises(SolverInputError, match="transport_modflow6prt"):
+        solvers.get("transport", "modflow6prt")
+
+
+@requires_git
+@pytest.mark.parametrize("config_file", _CONFIGS_WITH_PROCESSES, ids=_identifier)
+def test_example_solvers_resolve(config_file: Path) -> None:
+    unresolved = [
+        f"{process_type}/{solver}"
+        for process_type, solver in _declared_pairs(config_file)
+        if solver not in solvers.names(process_type)
+    ]
+    assert not unresolved, f"unregistered solver pairs: {unresolved}"

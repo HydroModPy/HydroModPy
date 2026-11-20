@@ -1,0 +1,76 @@
+"""The rule of a run: its station, its window, its periods and its version."""
+
+from __future__ import annotations
+
+from datetime import date
+
+import pytest
+from pydantic import ValidationError
+
+from hydromodpy.results.metric_rule import (
+    CALIBRATION_ROLE,
+    EVALUATION_ROLE,
+    HEADLINE_WINDOW,
+    METRIC_RULE_VERSION,
+    DateWindow,
+    MetricRule,
+    MetricScore,
+    PeriodWindow,
+    calibration_extent,
+)
+from hydromodpy.results.storage.parquet_schemas import SIMULATION_SCHEMA
+
+WINDOW = DateWindow(start=date(2016, 1, 1), end=date(2016, 12, 31))
+RULE = MetricRule(station="J0014010", window=WINDOW)
+
+
+def test_window_order_and_unknown_keys():
+    with pytest.raises(ValidationError, match="before it starts"):
+        DateWindow(start=date(2020, 1, 1), end=date(2016, 1, 1))
+    with pytest.raises(ValidationError, match="stations"):
+        MetricRule.model_validate({"stations": ["J0014010"]})
+    assert WINDOW.contains(date(2016, 6, 1)) and not WINDOW.contains(date(2015, 12, 31))
+
+
+def test_score_columns():
+    # The table of a run keeps the one headline period: its name and role are constants.
+    columns = set(MetricScore.model_fields) - {"metric", "value", "window_name", "window_role"}
+    assert columns == {
+        "station",
+        "variable",
+        "window_start",
+        "window_end",
+        "n_samples",
+        "n_clipped",
+        "metric_rule_version",
+    }
+    carried = {"score_station", "score_variable", "score_window_start", "score_window_end"}
+    assert carried | {"n_samples", "metric_rule_version"} <= set(SIMULATION_SCHEMA.names)
+    assert not {"window_name", "n_clipped"} & set(SIMULATION_SCHEMA.names)
+
+
+def test_period_window():
+    own = DateWindow(start=date(2010, 1, 1), end=date(2012, 12, 31))
+    period = PeriodWindow(
+        role=CALIBRATION_ROLE, start=date(2010, 1, 1), end=date(2014, 12, 31), by_case={"a": own}
+    )
+    other = PeriodWindow(role="validation", start=date(2000, 1, 1), end=date(2001, 12, 31))
+
+    assert period.of("a") == own
+    assert period.of("b") == DateWindow(start=period.start, end=period.end)
+    assert calibration_extent({"calibration": period, "check": other}) == DateWindow(
+        start=period.start, end=period.end
+    )
+    assert calibration_extent({"check": other}) is None
+    assert calibration_extent({}) is None
+    with pytest.raises(ValidationError, match="before it starts"):
+        PeriodWindow(role=CALIBRATION_ROLE, start=date(2014, 1, 1), end=date(2010, 1, 1))
+
+
+def test_headline_rule():
+    assert (RULE.version, RULE.window_name, RULE.window_role) == (
+        METRIC_RULE_VERSION,
+        HEADLINE_WINDOW,
+        EVALUATION_ROLE,
+    )
+    assert METRIC_RULE_VERSION == "2"

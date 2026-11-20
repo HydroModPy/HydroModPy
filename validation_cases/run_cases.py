@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timezone
 from pathlib import Path
 
+from validation_cases.shared.case_records import SOLVER_ORDER
 from validation_cases.shared.loaders import load_case_metadata
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -125,7 +126,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--solver",
-        choices=("modflow_nwt", "modflow6", "modflow6_irregular_tri", "boussinesq"),
+        choices=SOLVER_ORDER,
         required=True,
         help="Solver variant to pass to each compatible validation case.",
     )

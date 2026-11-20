@@ -1,6 +1,6 @@
 """Custom lake-geometry data loader.
 
-Normalises a user-provided vector file (SHP/GPKG/GeoJSON) into the internal
+Normalizes a user-provided vector file (SHP/GPKG/GeoJSON) into the internal
 GeoParquet pivot and returns a :class:`FieldRecord` pointing at it.
 """
 
@@ -10,8 +10,10 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.adapters import convert_vector_to_geoparquet
+from hydromodpy.data.common.geometry import crs_of_a_user_file
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.ingest.vector import convert_vector_to_geoparquet
+from hydromodpy.data.provenance.derived import derived_path
 
 logger = get_logger(__name__)
 
@@ -19,14 +21,16 @@ logger = get_logger(__name__)
 def load_custom_lake_geometry(
     source_cfg: Any,
     *,
-    data_dir: Path | None = None,
+    derived_dir: Path | None = None,
 ) -> list[FieldRecord]:
     """Load a custom lake-geometry vector file as a :class:`FieldRecord`.
 
     Parameters
     ----------
     source_cfg : source config with a ``path`` attribute
-    data_dir : cache directory for the GeoParquet pivot output
+    derived_dir : directory for the GeoParquet pivot.
+        It is never the user's data folder: a derived copy named like a
+        user file would be taken for one.
 
     Returns
     -------
@@ -42,20 +46,11 @@ def load_custom_lake_geometry(
     if gdf.empty:
         raise ValueError(f"Custom lake-geometry file is empty: {path}")
 
-    if gdf.crs:
-        crs = str(gdf.crs)
-    else:
-        crs = str(getattr(source_cfg, "default_crs", "EPSG:2154"))
-        logger.warning(
-            "Custom lake-geometry file %s carries no CRS; using default_crs=%s. Set "
-            "data.lake_geometry.sources[].default_crs for a non-French site.",
-            path,
-            crs,
-        )
+    crs = crs_of_a_user_file(gdf.crs, source_cfg, path=path, variable="lake_geometry")
     bbox = tuple(gdf.total_bounds)
 
-    if data_dir is not None:
-        output_path = data_dir / f"lake_geometry_custom_{path.stem}.parquet"
+    if derived_dir is not None:
+        output_path = derived_path(derived_dir, path, kind="geoparquet", suffix=".parquet")
         convert_vector_to_geoparquet(path, output_path)
         data: Path = output_path
     else:
@@ -64,7 +59,7 @@ def load_custom_lake_geometry(
     return [
         FieldRecord(
             variable="lake_geometry",
-            source="custom",
+            source="file",
             unit="-",
             data=data,
             bbox=bbox,

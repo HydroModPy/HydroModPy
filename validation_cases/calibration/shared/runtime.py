@@ -14,7 +14,16 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.state.paths import internal_dir, runs_dir_for, share_dir_for
+from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.core.state.layout import (
+    PROJECT_MARKER_FILENAME,
+    internal_dir,
+    runs_dir_for,
+    sessions_dir_for,
+)
+from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+from hydromodpy.results.spatial_index import point_in_cell
+from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
 from hydromodpy.solver.modflow_common.budget_components import canonical_budget_component
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
@@ -29,10 +38,19 @@ from validation_cases.shared.runtime import _dump_toml, resolve_validation_resul
 # Budget components that carry the outlet discharge, most specific first.
 # Both extraction paths speak the canonical vocabulary of
 # ``hydromodpy.solver.modflow_common.budget_components``: the catalog stores
-# canonical names, and raw solver record names are canonicalised before the
+# canonical names, and raw solver record names are canonicalized before the
 # lookup, so a Run and its solver output directory always resolve the same
 # component.
 OUTLET_BUDGET_COMPONENTS: tuple[str, ...] = ("drain", "constant_head")
+
+CALIBRATION_PROJECT_DIRNAME = "project"
+"""Project folder of the searches, under the benchmark root."""
+
+TRUTH_PROJECT_DIRNAME = "project_truth"
+"""Project folder of the truth run, kept apart from the searches."""
+
+BOUSSINESQ_STATE_HISTORY = "_boussinesq_state_history.npz"
+"""File a Boussinesq trial leaves in its solver folder, in place of MODFLOW files."""
 
 
 def _write_toml(path: Path, payload: dict[str, Any]) -> None:
@@ -118,6 +136,21 @@ def _resolve_twin_benchmark_root(
     )
 
 
+def _open_project_folder(benchmark_root: Path, name: str) -> Path:
+    """Create one project folder under the benchmark root and return it.
+
+    The folder holds an empty ``project.toml``. Every config written in it
+    then resolves its project root there, so runs, sessions and the index
+    of that project land beside it.
+    """
+    project_root = benchmark_root / name
+    project_root.mkdir(parents=True, exist_ok=True)
+    marker = project_root / PROJECT_MARKER_FILENAME
+    if not marker.is_file():
+        marker.write_text("", encoding="utf-8")
+    return project_root
+
+
 def _remove_artifact_path(path: Path, *, removed: list[str]) -> None:
     """Remove one heavy artifact path when it exists."""
     try:
@@ -145,25 +178,19 @@ def _prune_benchmark_artifacts(
 
     removed: list[str] = []
     data_root = benchmark_root / "data"
-    for data_artifact in (
-        data_root / "cache.duckdb",
-        data_root / "cache.duckdb.wal",
-    ):
-        _remove_artifact_path(data_artifact, removed=removed)
     if data_root.is_dir() and not any(data_root.iterdir()):
         _remove_artifact_path(data_root, removed=removed)
 
-    for project_name in ("project", "project_truth"):
+    for project_name in (CALIBRATION_PROJECT_DIRNAME, TRUTH_PROJECT_DIRNAME):
         project_root = benchmark_root / project_name
         # Everything a run produces lives inside the project: runs/ holds the
-        # run directories, share/ the published exports, .hmp/ the rebuildable
-        # index plus the solver scratch and the trash.
+        # run directories and their exports, sessions/ the calibration sessions
+        # and their kept trials, .hmp/ the rebuildable index.
         for project_artifact in (
             runs_dir_for(project_root),
-            share_dir_for(project_root),
+            sessions_dir_for(project_root),
             internal_dir(project_root),
             project_root / "results_stable",
-            project_root / "hydromodpy_debug.log",
         ):
             _remove_artifact_path(project_artifact, removed=removed)
         calibration_roots = project_root / "calibrations"
@@ -362,16 +389,15 @@ def _apply_evaluation_budget(
         points_per_dim = max(1, int(budget ** (1.0 / max(1, n_parameters))))
         kwargs["points_per_dim"] = int(points_per_dim)
     elif method == "random_search":
-        kwargs["max_iter"] = int(budget)
+        kwargs["max_trials"] = int(budget)
     elif method == "optuna":
-        kwargs["max_iter"] = int(budget)
+        kwargs["max_trials"] = int(budget)
     elif method == "cma_es":
-        kwargs["max_evaluations"] = int(budget)
+        kwargs["max_trials"] = int(budget)
         if "popsize" in kwargs:
             kwargs["popsize"] = max(4, min(int(kwargs["popsize"]), int(budget)))
     elif method == "scipy_nelder_mead":
-        kwargs["maxiter"] = int(budget)
-        kwargs["maxfev"] = int(budget)
+        kwargs["max_trials"] = int(budget)
     elif method == "gp_mapping":
         batch_size = max(1, int(kwargs.get("batch_size", 1)))
         n_init_default = max(1, int(kwargs.get("n_init", batch_size)))
@@ -383,14 +409,16 @@ def _apply_evaluation_budget(
         base_init = max(2, int(kwargs.get("n_init", max(2, budget // 3))))
         n_init = min(base_init, max(2, int(budget) // 3))
         kwargs["n_init"] = int(n_init)
-        kwargs["max_iter"] = max(1, int(budget) - int(n_init))
+        kwargs["chain_length"] = max(1, int(budget) - int(n_init))
         burn_in = kwargs.get("burn_in")
         if burn_in is not None:
-            base_iter = max(1, int(profile.method_kwargs.get("max_iter", kwargs["max_iter"])))
+            base_iter = max(
+                1, int(profile.method_kwargs.get("chain_length", kwargs["chain_length"]))
+            )
             burn_fraction = max(0.0, min(0.8, float(burn_in) / float(base_iter)))
             kwargs["burn_in"] = min(
-                int(round(int(kwargs["max_iter"]) * burn_fraction)),
-                max(0, int(kwargs["max_iter"]) - 1),
+                int(round(int(kwargs["chain_length"]) * burn_fraction)),
+                max(0, int(kwargs["chain_length"]) - 1),
             )
     else:
         raise ValueError(f"Unsupported evaluation-budget adaptation for method '{profile.name}'.")
@@ -538,13 +566,13 @@ def extract_outputs(
     Parameters
     ----------
     run
-        Catalog :class:`hydromodpy.results.run.Run` for the candidate.
+        Catalog :class:`hydromodpy.results.run.view.Run` for the candidate.
     outputs_cfg
         Iterable of output declarations or mapping ``{name: decl}``.
         Each declaration must expose ``variable``, ``support``, and the
         usual point/boundary/cell coordinates.
     """
-    # Normalise the configuration object to an iterable of (name, decl).
+    # Normalize the configuration object to an iterable of (name, decl).
     if hasattr(outputs_cfg, "items") and not hasattr(outputs_cfg, "support"):
         items = list(outputs_cfg.items())
     else:
@@ -570,6 +598,7 @@ def extract_outputs(
                     run,
                     x=float(_quantity_magnitude(getattr(decl, "x", None)) or 0.0),
                     y=float(_quantity_magnitude(getattr(decl, "y", None)) or 0.0),
+                    variable=variable,
                 )
         except Exception:
             values = None
@@ -596,12 +625,37 @@ def _quantity_magnitude(value: Any) -> float | None:
 
 
 def _extract_outlet_discharge_from_run(run: Any) -> np.ndarray | None:
-    """Sum boundary flux per timestep from ``run.budget()``."""
+    """Sum boundary flux per timestep from the domain rows of ``run.budget()``.
+
+    A run that carries a basin of D also writes a ``catchment`` row for each
+    component, over the cells of that basin. Those cells lie inside the domain,
+    so adding the row counts their water twice, while the trial reads the
+    budget file of the whole model.
+    """
     bud = run.budget()
     if bud is None or bud.empty:
         return None
+    bud = bud[bud["zone_id"].astype(str) != CATCHMENT]
+    if bud.empty:
+        return None
     available = {str(c).strip().lower() for c in bud["component"].unique() if c is not None}
-    resolved = next((key for key in OUTLET_BUDGET_COMPONENTS if key in available), None)
+    carrying = {
+        key
+        for key in OUTLET_BUDGET_COMPONENTS
+        if key in available
+        and float(
+            bud.loc[bud["component"].astype(str).str.strip().str.lower() == key, "flux_out"]
+            .abs()
+            .max()
+        )
+        > 0.0
+    }
+    # The Boussinesq budget lists a drain row of zeros when the case has no
+    # drain, so a component counts only when it carries a flux.
+    resolved = next(
+        (key for key in OUTLET_BUDGET_COMPONENTS if key in carrying),
+        next((key for key in OUTLET_BUDGET_COMPONENTS if key in available), None),
+    )
     if resolved is None:
         return None
     subset = bud[bud["component"].astype(str).str.strip().str.lower() == resolved]
@@ -612,48 +666,114 @@ def _extract_outlet_discharge_from_run(run: Any) -> np.ndarray | None:
     return flux.to_numpy(dtype=float)
 
 
-def _extract_head_at_point_from_run(run: Any, *, x: float, y: float) -> np.ndarray | None:
-    """Read a head time series at the cell closest to ``(x, y)`` from a Run."""
-    flat_index: int | None = None
+def _padded_connectivity(connectivity: Any) -> np.ndarray:
+    """Return a ``(n_cells, max_vertices)`` array padded with ``-1``.
+
+    Accepts a rectangular array or a ragged sequence of index arrays, the two
+    forms a Voronoi or hybrid mesh takes in the catalog and in the solver.
+    """
+    if isinstance(connectivity, np.ndarray) and connectivity.ndim == 2:
+        return np.asarray(connectivity, dtype=int)
+    rows = [np.asarray(row, dtype=int).ravel() for row in connectivity]
+    width = max((row.size for row in rows), default=0)
+    padded = np.full((len(rows), width), -1, dtype=int)
+    for index, row in enumerate(rows):
+        padded[index, : row.size] = row
+    return padded
+
+
+def locate_cell_in_polygons(
+    vertices: Any,
+    connectivity: Any,
+    *,
+    x: float,
+    y: float,
+) -> int | None:
+    """Return the index of the polygon cell that contains ``(x, y)``.
+
+    Truth observations (read from the catalog Run) and trial costs (read from
+    the solver output) both locate an observation point with this function on
+    the mesh polygons, so a point resolves to the same cell on both routes
+    whatever the mesh: triangles, Voronoi polygons or any other DISV cell. The
+    lookup is the library's own point-in-cell resolver. A point on a cell edge
+    or outside the mesh returns the cell whose vertex mean is nearest.
+    """
+    verts = np.asarray(vertices, dtype=float)[:, :2]
+    faces = _padded_connectivity(connectivity)
+    if faces.size == 0:
+        return None
+    found = point_in_cell(
+        verts,
+        faces,
+        {"point": (float(x), float(y))},
+        warn_outside=False,
+    )["point"]
+    if found is not None:
+        return int(found)
+    valid = faces >= 0
+    gathered = np.where(valid[..., None], verts[np.where(valid, faces, 0)], np.nan)
+    centroids = np.nanmean(gathered, axis=1)
+    return int(np.argmin(np.hypot(centroids[:, 0] - float(x), centroids[:, 1] - float(y))))
+
+
+def _structured_flat_index_from_grid(grid: Any, *, x: float, y: float) -> int | None:
+    """Return the row-major flat index of the structured cell holding ``(x, y)``."""
+    if grid is None or not getattr(grid, "cell_size", None) or not getattr(grid, "extent", None):
+        return None
+    try:
+        cell_size = float(grid.cell_size)
+        x_min, _, y_min, _ = (float(v) for v in grid.extent)
+        n_rows, n_cols = (int(v) for v in grid.shape)
+        col = int(round((float(x) - x_min) / cell_size - 0.5))
+        row_from_bottom = int(round((float(y) - y_min) / cell_size - 0.5))
+    except (TypeError, ValueError):
+        return None
+    col = max(0, min(n_cols - 1, col))
+    row_from_bottom = max(0, min(n_rows - 1, row_from_bottom))
+    return int((n_rows - 1 - row_from_bottom) * n_cols + col)
+
+
+def _run_flat_index(run: Any, *, x: float, y: float) -> int | None:
+    """Return the cell of ``(x, y)`` in a Run.
+
+    The point is located on the polygons of the stored mesh, a regular grid
+    included, with the resolver the trial route applies to the solver mesh. A
+    point on the edge between two cells then lands in the same cell on both
+    routes, where a rounding rule on one route and the polygons on the other
+    each picked a different neighbor. The raster ``grid`` serves only a Run
+    that stored no mesh.
+    """
+    try:
+        mesh_payload = run.mesh
+    except Exception:
+        mesh_payload = None
+    if mesh_payload is not None:
+        connectivity = mesh_payload.face_node_connectivity
+        if np.asarray(mesh_payload.vertices).size >= 2:
+            located = locate_cell_in_polygons(mesh_payload.vertices, connectivity, x=x, y=y)
+            if located is not None:
+                return located
     try:
         grid = run.grid
     except Exception:
         grid = None
-    if grid is not None and getattr(grid, "cell_size", None) and getattr(grid, "extent", None):
-        try:
-            cell_size = float(grid.cell_size)
-            x_min, _, y_min, _ = (float(v) for v in grid.extent)
-            n_rows, n_cols = (int(v) for v in grid.shape)
-            col = int(round((float(x) - x_min) / cell_size - 0.5))
-            row_from_bottom = int(round((float(y) - y_min) / cell_size - 0.5))
-            col = max(0, min(n_cols - 1, col))
-            row_from_bottom = max(0, min(n_rows - 1, row_from_bottom))
-            row = n_rows - 1 - row_from_bottom
-            flat_index = int(row * n_cols + col)
-        except Exception:
-            flat_index = None
-    if flat_index is None:
-        try:
-            mesh_payload = run.mesh
-        except Exception:
-            mesh_payload = None
-        if mesh_payload is not None:
-            vertices = np.asarray(mesh_payload.vertices, dtype=float)
-            connectivity = np.asarray(mesh_payload.face_node_connectivity, dtype=int)
-            if connectivity.size and vertices.size >= 2:
-                valid = connectivity >= 0
-                gathered = np.where(
-                    valid[..., None],
-                    vertices[np.where(valid, connectivity, 0)],
-                    np.nan,
-                )
-                centroids = np.nanmean(gathered, axis=1)[:, :2]
-                if centroids.size:
-                    distances = np.hypot(
-                        centroids[:, 0] - float(x),
-                        centroids[:, 1] - float(y),
-                    )
-                    flat_index = int(np.argmin(distances))
+    return _structured_flat_index_from_grid(grid, x=x, y=y)
+
+
+def _extract_head_at_point_from_run(
+    run: Any,
+    *,
+    x: float,
+    y: float,
+    variable: str = "watertable_elevation",
+) -> np.ndarray | None:
+    """Read a head time series at the cell holding ``(x, y)`` from a Run.
+
+    ``variable`` is the declared observable. The matching field is read first,
+    so a watertable observation is clipped to the surface like the trial route
+    clips it, and the other head field is the fallback.
+    """
+    flat_index = _run_flat_index(run, x=x, y=y)
     if flat_index is None:
         return None
 
@@ -666,12 +786,15 @@ def _extract_head_at_point_from_run(run: Any, *, x: float, y: float) -> np.ndarr
     except Exception:
         n_ts = 1
 
-    for variable in ("head", "watertable_elevation"):
+    names = ("head", "watertable_elevation")
+    if variable == "watertable_elevation":
+        names = names[::-1]
+    for name in names:
         values: list[float] = []
         ok = True
         for t in range(n_ts):
             try:
-                frame = run.field(variable, timestep=t)
+                frame = run.field(name, time=t)
             except Exception:
                 ok = False
                 break
@@ -694,11 +817,11 @@ def _build_twin_metric_fn(
 ):
     """Build a custom ``metric_fn`` that uses filesystem-based extraction.
 
-    The default :func:`hydromodpy.calibration.metrics.build_metric_extractor`
+    The default :func:`hydromodpy.calibration.metrics.composite.build_metric_extractor`
     is MODFLOW-NWT specific; the twin benchmarks target MODFLOW 6 in
     lightweight trial mode (no catalog ingest), so we read the CBC
-    budget and head-save (HDS) files directly from the trial's
-    ``output_dirs_by_run_id`` and assemble the composite via
+    budget and head-save (HDS) files directly from the output folder of the
+    trial's flow run in ``execution.solver_runs`` and assemble the composite via
     :class:`ConfigBlockObjective`.
     """
     from hydromodpy.calibration.optim.objective import ConfigBlockObjective
@@ -720,7 +843,7 @@ def _build_twin_metric_fn(
                 uses_outputs=tuple(block.uses_outputs),
                 observed_by_output=observed_by_output,
                 normalize_cost=bool(block.normalize_cost),
-                transform=str(getattr(block, "transform", "identity")),
+                cost_transform=str(getattr(block, "cost_transform", "identity")),
             )
         )
         raw_weights.append(float(block.weight))
@@ -766,8 +889,12 @@ def _extract_outputs_from_trial_ctx(
 ) -> dict[str, list[float]]:
     """Read configured outputs from the trial's solver output directory."""
     registry = getattr(trial_ctx, "execution", None)
-    output_dirs = getattr(registry, "output_dirs_by_run_id", None) or {}
-    models = getattr(registry, "models_by_run_id", None) or {}
+    solver_runs = getattr(registry, "solver_runs", None) or {}
+    output_dirs = {
+        run_id: solver_run.output_dir
+        for run_id, solver_run in solver_runs.items()
+        if solver_run.output_dir is not None
+    }
     plan = getattr(registry, "simulation_plan", None)
     flow_run_id: str | None = None
     if plan is not None:
@@ -785,11 +912,13 @@ def _extract_outputs_from_trial_ctx(
             out[str(name)] = [float("nan")] * length
         return out
     output_dir = Path(output_dirs[flow_run_id])
-    model = models.get(flow_run_id)
+    model = solver_runs[flow_run_id].solver_model
+    if (output_dir / BOUSSINESQ_STATE_HISTORY).is_file():
+        return _extract_outputs_from_boussinesq_dir(output_dir, model, output_decls)
     model_name = (
         getattr(model, "model_name", None) or getattr(model, "name", None) if model else None
     )
-    mesh_planar = getattr(getattr(trial_ctx, "setup", None), "mesh_planar", None)
+    cell_mesh = getattr(getattr(trial_ctx, "setup", None), "cell_mesh", None)
 
     selected: dict[str, list[float]] = {}
     for name, decl in output_decls:
@@ -812,11 +941,69 @@ def _extract_outputs_from_trial_ctx(
                         x=float(_quantity_magnitude(getattr(decl, "x", None)) or 0.0),
                         y=float(_quantity_magnitude(getattr(decl, "y", None)) or 0.0),
                         model=model,
-                        mesh_planar=mesh_planar,
+                        cell_mesh=cell_mesh,
                     )
             except Exception:
                 values = None
         if values is None or values.size == 0:
+            values = np.full(expected_len, np.nan, dtype=float)
+        selected[str(name)] = [float(v) for v in np.asarray(values).ravel()]
+    return selected
+
+
+def _extract_outputs_from_boussinesq_dir(
+    output_dir: Path,
+    model: Any,
+    output_decls: tuple[tuple[str, Any], ...],
+) -> dict[str, list[float]]:
+    """Read configured outputs from the state history of a Boussinesq trial.
+
+    The Boussinesq solver writes no MODFLOW files. It writes one
+    ``_boussinesq_state_history.npz`` with a row per stress period, the first
+    row being the initial state of a transient run. The outlet discharge and
+    the head follow the rules of the catalog route: the first outlet component
+    that carries a flux, the head clipped to the cell top.
+    """
+    with np.load(output_dir / BOUSSINESQ_STATE_HISTORY) as payload:
+        arrays = {key: np.asarray(payload[key]) for key in payload.files}
+    head_history = arrays.get("head_history_m")
+    if head_history is None:
+        head_history = np.asarray(arrays["final_head_m"], dtype=float)
+    head_history = np.atleast_2d(np.asarray(head_history, dtype=float))
+    first = first_period_snapshot(arrays, n_snapshots=head_history.shape[0])
+    head_history = head_history[first:]
+    mesh = model.mesh
+    top = np.asarray(mesh.z_top_m, dtype=float)
+
+    discharge: np.ndarray | None = None
+    for key in ("drainage_flux_history_m3_s", "prescribed_head_flux_history_m3_s"):
+        history = arrays.get(key)
+        if history is None:
+            continue
+        history = np.atleast_2d(np.asarray(history, dtype=float))[first:]
+        # Both histories are signed positive when the water leaves the aquifer.
+        outflow = np.maximum(history, 0.0).sum(axis=1)
+        if discharge is None or (not np.any(discharge) and np.any(outflow)):
+            discharge = outflow
+
+    selected: dict[str, list[float]] = {}
+    for name, decl in output_decls:
+        variable = str(getattr(decl, "variable", "")).strip().lower()
+        support = str(getattr(decl, "support", "point")).strip().lower()
+        observed = getattr(decl, "observed_values", None)
+        expected_len = len(observed) if observed is not None else 1
+        values: np.ndarray | None = None
+        if variable == "outlet_discharge" or support == "boundary":
+            values = discharge
+        elif variable in {"watertable_elevation", "head"} and support == "point":
+            x = float(_quantity_magnitude(getattr(decl, "x", None)) or 0.0)
+            y = float(_quantity_magnitude(getattr(decl, "y", None)) or 0.0)
+            # The cell that holds the point, like the catalog route resolves it.
+            cell = int(mesh.locate_cell_index_for_point(x, y))
+            values = head_history[:, cell]
+            if variable == "watertable_elevation":
+                values = np.minimum(values, top[cell])
+        if values is None or np.asarray(values).size == 0:
             values = np.full(expected_len, np.nan, dtype=float)
         selected[str(name)] = [float(v) for v in np.asarray(values).ravel()]
     return selected
@@ -879,7 +1066,7 @@ def _extract_head_at_point_from_dir(
     x: float,
     y: float,
     model: Any = None,
-    mesh_planar: Any = None,
+    cell_mesh: Any = None,
 ) -> np.ndarray | None:
     """Read a head time series at the cell closest to ``(x, y)`` from an HDS file.
 
@@ -890,10 +1077,9 @@ def _extract_head_at_point_from_dir(
     the ground surface.
 
     Resolves the cell index from the solver model's mesh first. The v1
-    lightweight trial path may not populate ``setup.mesh_planar`` for ``sgrid``
-    simulations, so the registered solver model is the canonical source for
-    the grid layout at trial time. Falls back to ``mesh_planar`` for
-    catchment-scale runs.
+    lightweight trial path may not populate ``setup.cell_mesh``, so the
+    registered solver model is the canonical source for the grid layout at
+    trial time. Falls back to ``cell_mesh`` when the model exposes none.
 
     Indexes the head array by inspecting its shape: structured DIS arrays
     are ``(nlay, nrow, ncol)`` while DISV arrays come back as
@@ -909,7 +1095,7 @@ def _extract_head_at_point_from_dir(
         return None
     cell_index = _resolve_cell_index_from_model(model, x=x, y=y)
     if cell_index is None:
-        cell_index = _resolve_cell_index_from_mesh_planar(mesh_planar, x=x, y=y)
+        cell_index = _resolve_cell_index_from_cell_mesh(cell_mesh, x=x, y=y)
     if cell_index is None:
         return None
     k, i, j, flat = cell_index
@@ -1008,49 +1194,67 @@ def _resolve_cell_index_from_model(
 ) -> tuple[int, int, int, int] | None:
     """Return ``(layer, row, col, flat_index)`` for a registered solver model.
 
-    Reads the structured layout (``nrow`` / ``ncol``) and the cell centroids
-    from the solver model registered in ``execution.models_by_run_id``. Works
-    for MODFLOW 6 (``solver_mesh.cell_centroids()``) and MODFLOW-NWT
-    (``runtime_mesh_planar`` / direct ``cell_centroids``). The ``flat_index``
-    is the cell rank in ``cell_centroids`` and is the right axis-2 offset for
-    DISV heads.
+    The point is located on the polygons of the solver mesh, like the truth
+    route locates it on the stored mesh (see ``_run_flat_index``). A model with
+    no polygon geometry takes the nearest cell center. ``flat_index`` is the
+    cell rank in the mesh, the axis-2 offset of DISV heads, and ``(row, col)``
+    splits it for the DIS heads of a structured model.
     """
     if model is None:
         return None
-    centroids = _model_cell_centroids(model)
-    if centroids is None:
-        return None
-    arr = np.asarray(centroids, dtype=float).reshape(-1, 2)
-    if arr.size == 0:
-        return None
-    nrow = int(getattr(model, "nrow", 0) or 0)
-    ncol = int(getattr(model, "ncol", 0) or 0)
-    if nrow > 0 and ncol > 0 and arr.shape[0] == nrow * ncol:
-        x_unique = np.unique(arr[:, 0])
-        y_unique = np.unique(arr[:, 1])
-        if x_unique.size == ncol and y_unique.size == nrow:
-            cell_dx = float(x_unique[1] - x_unique[0]) if ncol > 1 else 1.0
-            cell_dy = float(y_unique[1] - y_unique[0]) if nrow > 1 else 1.0
-            x_min = float(x_unique[0] - cell_dx / 2.0)
-            y_min = float(y_unique[0] - cell_dy / 2.0)
-            col = int(round((float(x) - x_min) / cell_dx - 0.5))
-            row = int(round((float(y) - y_min) / cell_dy - 0.5))
-            col = max(0, min(ncol - 1, col))
-            row = max(0, min(nrow - 1, row))
-            flat = row * ncol + col
-            return (0, row, col, flat)
-    distances = np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))
-    flat_index = int(np.argmin(distances))
+    nrow, ncol = _model_structured_shape(model)
+    flat_index = _model_polygon_cell(model, x=x, y=y)
+    if flat_index is None:
+        centroids = _model_cell_centroids(model)
+        if centroids is None:
+            return None
+        arr = np.asarray(centroids, dtype=float).reshape(-1, 2)
+        if arr.size == 0:
+            return None
+        flat_index = int(np.argmin(np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))))
     if nrow > 0 and ncol > 0 and flat_index < nrow * ncol:
         return (0, flat_index // ncol, flat_index % ncol, flat_index)
     return (0, 0, flat_index, flat_index)
+
+
+def _model_structured_shape(model: Any) -> tuple[int, int]:
+    """Return ``(nrow, ncol)`` of a structured solver model, ``(0, 0)`` otherwise.
+
+    A MODFLOW-NWT model carries the two counts. A MODFLOW 6 model keeps them on
+    its solver mesh only.
+    """
+    nrow = int(getattr(model, "nrow", 0) or 0)
+    ncol = int(getattr(model, "ncol", 0) or 0)
+    if nrow > 0 and ncol > 0:
+        return nrow, ncol
+    shape = getattr(getattr(model, "solver_mesh", None), "structured_shape", None)
+    if shape is None:
+        return 0, 0
+    return int(shape[0]), int(shape[1])
+
+
+def _model_polygon_cell(model: Any, *, x: float, y: float) -> int | None:
+    """Return the polygon cell of ``(x, y)`` on the planar mesh of a solver model."""
+    planar = getattr(getattr(model, "solver_mesh", None), "planar_mesh", None)
+    if planar is None:
+        return None
+    try:
+        return locate_cell_in_polygons(
+            planar.vertices,
+            planar.flat_connectivity,
+            x=x,
+            y=y,
+        )
+    except Exception:
+        # No polygon geometry on this model: the caller keeps the nearest center.
+        return None
 
 
 def _model_cell_centroids(model: Any) -> np.ndarray | None:
     """Return cell centroids ``(n_cells, 2)`` from a solver model, if exposed."""
     solver_mesh = getattr(model, "solver_mesh", None)
     if solver_mesh is not None:
-        accessor = getattr(solver_mesh, "cell_centroids", None)
+        accessor = getattr(solver_mesh, "cell_centers", None)
         if callable(accessor):
             try:
                 return np.asarray(accessor(), dtype=float)
@@ -1061,46 +1265,38 @@ def _model_cell_centroids(model: Any) -> np.ndarray | None:
                 return np.asarray(accessor, dtype=float)
             except Exception:
                 return None
-    runtime_planar = getattr(model, "runtime_mesh_planar", None)
-    if runtime_planar is not None:
-        centroids = getattr(runtime_planar, "cell_centroids", None)
-        if centroids is None:
-            centroids = getattr(runtime_planar, "centroids", None)
-        if centroids is not None:
-            try:
-                return np.asarray(centroids, dtype=float)
-            except Exception:
-                return None
+    cell_mesh = getattr(model, "cell_mesh", None)
+    centers = getattr(cell_mesh, "centers", None)
+    if centers is not None:
+        try:
+            return np.asarray(centers, dtype=float)
+        except Exception:
+            return None
     return None
 
 
-def _resolve_cell_index_from_mesh_planar(
-    mesh: Any,
+def _resolve_cell_index_from_cell_mesh(
+    cell_mesh: Any,
     *,
     x: float,
     y: float,
 ) -> tuple[int, int, int, int] | None:
     """Return ``(layer, row, col, flat_index)`` of the cell closest to ``(x, y)``."""
-    if mesh is None:
+    if cell_mesh is None:
         return None
-    centroids = getattr(mesh, "cell_centroids", None)
-    if centroids is None:
-        centroids = getattr(mesh, "centroids", None)
-    if centroids is None:
+    centers = getattr(cell_mesh, "centers", None)
+    if centers is None:
         return None
-    arr = np.asarray(centroids, dtype=float)
+    arr = np.asarray(centers, dtype=float)
     if arr.ndim != 2 or arr.shape[1] < 2:
         return None
     distances = np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))
     flat_index = int(np.argmin(distances))
-    shape = getattr(mesh, "shape", None)
-    if shape is None or len(shape) < 2:
+    shape = getattr(cell_mesh, "structured_shape", None)
+    if shape is None:
         return (0, 0, flat_index, flat_index)
-    _, n_rows, n_cols = shape if len(shape) == 3 else (1, *shape)
-    layer = 0
-    row = flat_index // n_cols
-    col = flat_index % n_cols
-    return (layer, int(row), int(col), flat_index)
+    n_rows, n_cols = shape
+    return (0, int(flat_index // n_cols), int(flat_index % n_cols), flat_index)
 
 
 def _normalise_outputs_for_extraction(
@@ -1140,17 +1336,16 @@ def _normalise_outputs_for_extraction(
 
 def _write_calibration_toml_for_project(
     *,
-    benchmark_root: Path,
+    project_root: Path,
     method_instance_name: str,
     payload: dict[str, Any],
     simulation_config_name: str,
-    workspace_root: Path,
 ) -> Path:
-    """Materialise the calibration TOML on disk next to the simulation."""
-    calibration_path = benchmark_root / f"calibration_case_{method_instance_name}.toml"
+    """Materialize the calibration TOML in the project, next to the simulation."""
+    calibration_path = project_root / f"calibration_case_{method_instance_name}.toml"
     rendered: dict[str, Any] = {
         "base_config": str(simulation_config_name),
-        "workspace": {"root": str(workspace_root)},
+        "workspace": {"root": str(project_root)},
         "calibration": payload["calibration"],
     }
     _write_toml(calibration_path, rendered)
@@ -1186,14 +1381,14 @@ def _assess_method_result_from_report(
     completed_df = iterations_df[completed_mask]
     cost_best = (
         None
-        if report.best_objective is None or not math.isfinite(float(report.best_objective))
-        else float(report.best_objective)
+        if report.best_cost is None or not math.isfinite(float(report.best_cost))
+        else float(report.best_cost)
     )
     params_best: dict[str, float] = {}
     if not completed_df.empty:
-        best_idx = completed_df["objective_value"].astype(float).idxmin()
+        best_idx = completed_df["cost"].astype(float).idxmin()
         best_row = iterations_df.loc[best_idx]
-        params_best = _normalize_parameter_payload(best_row.get("parameters"))
+        params_best = _normalize_parameter_payload(best_row.get("params"))
     param_abs_error = _param_abs_error(
         truth_params=truth_params,
         params_best=params_best,
@@ -1239,8 +1434,8 @@ def _assess_method_result_from_report(
     block_reference_scale: dict[str, float] = {}
     block_n_values: dict[str, int] = {}
     if not completed_df.empty:
-        best_idx = completed_df["objective_value"].astype(float).idxmin()
-        metrics_payload = iterations_df.loc[best_idx].get("metrics")
+        best_idx = completed_df["cost"].astype(float).idxmin()
+        metrics_payload = iterations_df.loc[best_idx].get("components")
         if isinstance(metrics_payload, str):
             try:
                 metrics_payload = json.loads(metrics_payload)
@@ -1266,16 +1461,15 @@ def _assess_method_result_from_report(
     if method_profile.persist_model_distribution and not completed_df.empty:
         samples: list[dict[str, Any]] = []
         for _, row in completed_df.iterrows():
-            params_named = _normalize_parameter_payload(row.get("parameters"))
+            params_named = _normalize_parameter_payload(row.get("params"))
             samples.append(
                 {
-                    "sample_id": f"iter_{int(row['iteration']):04d}",
+                    "sample_id": f"iter_{int(row['trial']):04d}",
                     "params_named": params_named,
                     "objective_total": (
                         None
-                        if row["objective_value"] is None
-                        or not math.isfinite(float(row["objective_value"]))
-                        else float(row["objective_value"])
+                        if row["cost"] is None or not math.isfinite(float(row["cost"]))
+                        else float(row["cost"])
                     ),
                 }
             )
@@ -1408,17 +1602,47 @@ def _summarize_candidate_timings_for_report(
     return summary
 
 
+def _journal_frame(session_dir: Path) -> Any:
+    """Return the trials of a session of one case as one row per line of its journal."""
+    import pandas as pd
+
+    from hydromodpy.results.session.journal import read_trials
+
+    return pd.DataFrame(
+        [
+            {
+                "trial": line.trial,
+                "status": line.status,
+                "cost": line.cost,
+                "params": {
+                    name: param.model_dump(exclude_defaults=True)
+                    for name, param in line.params.items()
+                },
+                "components": {} if line.only_case is None else dict(line.only_case.components),
+                "started_at": line.started_at,
+                "ended_at": line.ended_at,
+            }
+            for line in read_trials(session_dir)
+        ]
+    )
+
+
 def _candidate_timing_values_from_iterations(iterations_df: Any) -> list[dict[str, float]]:
-    """Build candidate timing summaries from persisted iteration durations."""
+    """Build candidate timing summaries from the trial journal.
+
+    A journal line stores when the trial started and ended; the duration is
+    their difference.
+    """
+    import pandas as pd
+
     columns = getattr(iterations_df, "columns", ())
-    if "duration_s" not in columns:
+    if "started_at" not in columns or "ended_at" not in columns:
         return []
+    started = pd.to_datetime(iterations_df["started_at"], utc=True, errors="coerce")
+    ended = pd.to_datetime(iterations_df["ended_at"], utc=True, errors="coerce")
     values: list[dict[str, float]] = []
-    for raw_value in iterations_df["duration_s"].tolist():
-        try:
-            duration = float(raw_value)
-        except (TypeError, ValueError):
-            continue
+    for raw_value in (ended - started).dt.total_seconds().tolist():
+        duration = float(raw_value)
         if not math.isfinite(duration):
             continue
         values.append(
@@ -1440,14 +1664,14 @@ def _write_iteration_history_jsonl(
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as stream:
         for _, row in iterations_df.iterrows():
-            params_named = _normalize_parameter_payload(row.get("parameters"))
-            metrics_payload = row.get("metrics") or {}
+            params_named = _normalize_parameter_payload(row.get("params"))
+            metrics_payload = row.get("components") or {}
             if isinstance(metrics_payload, str):
                 try:
                     metrics_payload = json.loads(metrics_payload)
                 except json.JSONDecodeError:
                     metrics_payload = {}
-            obj = row.get("objective_value")
+            obj = row.get("cost")
             try:
                 obj_value = None if obj is None or not math.isfinite(float(obj)) else float(obj)
             except (TypeError, ValueError):
@@ -1460,7 +1684,7 @@ def _write_iteration_history_jsonl(
             stream.write(
                 json.dumps(
                     {
-                        "iteration_id": f"iter_{int(row['iteration']):04d}",
+                        "iteration_id": f"iter_{int(row['trial']):04d}",
                         "params_named": params_named,
                         "params_vector": [float(v) for v in params_named.values()],
                         "objective_total": obj_value,
@@ -1491,8 +1715,11 @@ def synthesize_truth_observations_via_project_api(
     """
     from hydromodpy.calibration.optim.parameters import ParameterSpace
     from hydromodpy.calibration.runners.materialize import materialize_candidate
-    from hydromodpy.project import Project as _Project
+    from hydromodpy.project.facade import Project as _Project
 
+    # This path materializes a candidate without going through project, so it
+    # installs the trial pipeline itself, as project/calibrate.py does.
+    fill_trial_pipeline()
     if definition.parameter_targets is None:
         raise ValueError(
             f"synthesize_truth_observations_via_project_api requires "
@@ -1512,12 +1739,14 @@ def synthesize_truth_observations_via_project_api(
             "target": str(target.target),
             "mode": str(target.mode),
         }
-        if target.transform is not None:
-            decl["transform"] = str(target.transform)
+        if target.search_space is not None:
+            decl["search_space"] = str(target.search_space)
         declarations[str(name)] = decl
     space = ParameterSpace.from_toml_mapping(declarations)
 
-    truth_root = benchmark_root / "truth_candidate"
+    # The overlay sits in the truth project, so its run lands there.
+    truth_project_root = _open_project_folder(benchmark_root, TRUTH_PROJECT_DIRNAME)
+    truth_root = truth_project_root / "truth_candidate"
     truth_root.mkdir(parents=True, exist_ok=True)
     overlay_path = materialize_candidate(
         truth_simulation_config_path,
@@ -1525,9 +1754,9 @@ def synthesize_truth_observations_via_project_api(
         space,
         truth_root,
         candidate_label="truth",
-        workspace_root=benchmark_root / "project_truth",
+        workspace_root=truth_project_root,
         extra_sections={
-            "display": {"enabled": False, "show": False, "save": False},
+            "display": {"enabled": False},
             "simulation": {"name": "twin_truth"},
         },
     )
@@ -1595,6 +1824,8 @@ def run_twin_benchmark_case(
     so :func:`build_payload` can emit the enriched TOML.
     """
     del caller_file
+    # A case also runs outside pytest, so it installs the trial pipeline itself.
+    fill_trial_pipeline()
     if definition.build_simulation_config is None:
         raise ValueError("Twin calibration case is missing build_simulation_config")
     if definition.parameter_targets is None or definition.output_specs is None:
@@ -1609,20 +1840,16 @@ def run_twin_benchmark_case(
 
     benchmark_root = _resolve_twin_benchmark_root(definition)
     benchmark_root.mkdir(parents=True, exist_ok=True)
-    simulation_config_path = benchmark_root / "simulation.toml"
-    definition.build_simulation_config(
-        simulation_config_path,
-        benchmark_root / "project",
-    )
+    project_root = _open_project_folder(benchmark_root, CALIBRATION_PROJECT_DIRNAME)
+    simulation_config_path = project_root / "simulation.toml"
+    definition.build_simulation_config(simulation_config_path)
     truth_builder = definition.build_truth_simulation_config
     if truth_builder is None:
         truth_simulation_config_path = simulation_config_path
     else:
-        truth_simulation_config_path = benchmark_root / "truth_simulation.toml"
-        truth_builder(
-            truth_simulation_config_path,
-            benchmark_root / "project_truth",
-        )
+        truth_project_root = _open_project_folder(benchmark_root, TRUTH_PROJECT_DIRNAME)
+        truth_simulation_config_path = truth_project_root / "truth_simulation.toml"
+        truth_builder(truth_simulation_config_path)
 
     synthesized_observations = synthesize_truth_observations_via_project_api(
         definition=definition,
@@ -1680,11 +1907,10 @@ def run_twin_benchmark_case(
             method_profile=effective_profile,
         )
         calibration_path = _write_calibration_toml_for_project(
-            benchmark_root=benchmark_root,
+            project_root=project_root,
             method_instance_name=method_instance_name,
             payload=payload,
             simulation_config_name=simulation_config_path.name,
-            workspace_root=benchmark_root / "project",
         )
 
         output_decls = _normalise_outputs_for_extraction(
@@ -1702,16 +1928,14 @@ def run_twin_benchmark_case(
         report = run_calibration_cli(
             calibration_path,
             metric_fn=custom_metric_fn,
-            workspace=benchmark_root / "project",
+            workspace=project_root,
             project=str(definition.case_id),
-            return_report=True,
         )
         session_prepare_time_seconds = float(time.perf_counter() - session_prepare_t0)
 
-        from hydromodpy.results.catalog import Catalog
-
-        with Catalog(benchmark_root / "project") as catalog:
-            iterations_df = catalog.calibration_iterations(report.session_id)
+        # The trials are read from the session journal on disk: a calibration
+        # never writes the index.
+        iterations_df = _journal_frame(report.session_dir)
         candidate_timing_values = _candidate_timing_values_from_iterations(iterations_df)
 
         assessed_result = _assess_method_result_from_report(

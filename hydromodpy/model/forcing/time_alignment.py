@@ -1,0 +1,67 @@
+"""Temporal alignment helpers for forcing series.
+
+Each monthly or yearly sample is weighed by its length. The module reads only ``core.time``.
+
+Provides stress-period aggregation for any datetime-indexed series
+against a simulation time window.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import replace
+from typing import TYPE_CHECKING
+
+import pandas as pd
+
+if TYPE_CHECKING:
+    from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
+
+
+def align_forcing_series_to_simulation_window(
+    series: pd.Series,
+    *,
+    simulation_window: ResolvedSimulationTimeWindow,
+    label: str = "forcing",
+    checked_periods: Sequence[bool] | None = None,
+) -> pd.Series:
+    """Aggregate one datetime-indexed series to simulation stress periods.
+
+    A period takes the mean of the samples stamped in ``[start, end)``, each sample
+    of a monthly or yearly record by the length of its month or year. A period
+    with none takes the sample in force, and a period the record does not cover
+    follows ``simulation.time.coverage_policy``
+    (:mod:`hydromodpy.core.time.coverage`). ``checked_periods`` limits that
+    check to the periods flagged True, the ones a caller keeps; None checks all.
+    """
+    from hydromodpy.core.time.coverage import enforce_coverage, samples_by_period
+    from hydromodpy.core.time.window import build_simulation_time_boundaries
+
+    if series.empty:
+        raise ValueError(f"{label} series is empty and cannot be aligned to simulation.time.")
+
+    data = series.copy()
+    if not isinstance(data.index, pd.DatetimeIndex):
+        data.index = pd.to_datetime(data.index)
+    data = data.sort_index()
+
+    boundaries = build_simulation_time_boundaries(simulation_window)
+    starts = pd.DatetimeIndex(boundaries[:-1])
+    periods = samples_by_period(data.index, boundaries)
+    checked = periods
+    if checked_periods is not None:
+        flags = [bool(flag) for flag in checked_periods]
+        if len(flags) != len(starts):
+            raise ValueError(
+                f"{label}: checked_periods has {len(flags)} flags for {len(starts)} periods."
+            )
+        checked = replace(periods, uncovered=tuple(i for i in periods.uncovered if flags[i]))
+    enforce_coverage(
+        checked,
+        boundaries,
+        policy=str(getattr(simulation_window, "coverage_policy", "error")),
+        label=label,
+    )
+    samples = data.to_numpy(dtype=float)
+    values = [float(periods.value_of(samples, kper)) for kper in range(len(starts))]
+    return pd.Series(values, index=starts, dtype=float)

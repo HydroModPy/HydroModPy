@@ -6,10 +6,11 @@ arguments: PACKAGEDATA, signed CONNECTIONDATA, DIVERSIONS, PERIOD forcings and
 the OBS6 spec the extractor re-keys per reach.
 
 A trace reach is a LineString that generally spans several DISV cells, so it is
-split into per-cell sub-reaches (order-preserving along the line), then the
-post-split DAG is re-numbered by a Kahn topological sort so the final ``ifno``
-is strictly downstream-increasing (lets MF6 run with
-``maximum_picard_iterations = 1``).
+split into per-cell sub-reaches (order-preserving along the line): on a mesh that
+carries the ``rivers`` cell chains, its length is shared among the chain cells
+along it; on any other mesh, among the cells it crosses. The post-split DAG is
+then re-numbered by a Kahn topological sort so the final ``ifno`` is strictly
+downstream-increasing (lets MF6 run with ``maximum_picard_iterations = 1``).
 
 SFR is lake-independent by construction: this module never imports
 ``builders.lake``. The optional coupling to a lake is data, one
@@ -23,27 +24,34 @@ DRN-drainage and PERIOD/OBS internals live in the sibling ``_sfr_network`` /
 ``_sfr_drainage`` / ``_sfr_period`` modules; the two shared dataclasses stay
 defined here so their dotted paths (``builders.sfr.SfrReachRecord`` /
 ``ResolvedSfrNetwork``) are stable.
+
+The ``_sfr_*`` modules hold the network, the bed, the period data and the drains under a
+reach.
 """
 
 from __future__ import annotations
 
 import dataclasses
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import flopy
 import numpy as np
 
+from hydromodpy.catchment.drainage.descent import DescentBasin
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
+from hydromodpy.core.units.quantities import parse_to_m_per_s
+from hydromodpy.model.initial.state import PriorState
 from hydromodpy.solver.modflow6.builders._sfr_bed import solve_reach_bed_profile
 from hydromodpy.solver.modflow6.builders._sfr_drainage import (
     _LAK_PACKAGE_NAME,
     _SFR_PACKAGE_NAME,
     build_drainage_mover_records,
+    mover_rows_reach_lake,
     remove_drain_cells,
     sfr_drain_cells_to_drop,
     sfr_routes_drainage,
-    watershed_drainage_cell_mask,
 )
 from hydromodpy.solver.modflow6.builders._sfr_network import (
     _active_sfr_definitions,
@@ -58,15 +66,20 @@ from hydromodpy.solver.modflow6.builders._sfr_period import (
     build_sfr_obs_spec,
     build_sfr_period_data,
 )
-from hydromodpy.solver.modflow6.builders.mvr import MoverRecord
+from hydromodpy.solver.modflow6.builders.boundary_conditions import (
+    build_drain_stress_period_data,
+    resolve_drainage_conductance_series,
+)
+from hydromodpy.solver.modflow6.builders.mvr import MoverRecord, build_mvr_period_records
 from hydromodpy.solver.modflow6.builders.period_forcing import (
     constant_forcing_value,
     forcing_to_si,
-    package_unit_conversions,
 )
-from hydromodpy.solver.modflow6.builders.vertex_grid import build_vertex_grid_for_intersection
+from hydromodpy.solver.modflow6.builders.sidecar import write_sidecar
+from hydromodpy.solver.modflow6.support.time_series import attach_time_series
 
 if TYPE_CHECKING:
+    from hydromodpy.catchment.drainage.descent import Descent
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 logger = get_logger(__name__)
@@ -74,9 +87,6 @@ logger = get_logger(__name__)
 # FloPy cellid for a reach not connected to the aquifer: (-1, -1) is written as
 # the MF6-recommended "0 0" unconnected encoding ("none" is deprecated in 6.4.3+).
 _UNCONNECTED_CELLID = (-1, -1)
-
-# Segments shorter than this [m] are GridIntersect corner grazes, not reaches.
-_MIN_SEGMENT_LENGTH = 1e-6
 
 
 @dataclasses.dataclass(frozen=True)
@@ -118,35 +128,27 @@ class ResolvedSfrNetwork:
         return all(d > reach.ifno for reach in self.reaches for d in reach.downstream)
 
 
-def resolve_reach_line_cells(
-    line,
-    *,
-    grid_intersect,
-    location: str,
-) -> list[tuple[int, float, float]]:
-    """Intersect one reach LineString with the grid, preserving along-line order.
+def sfr_networks_walk_the_descent(model) -> bool:
+    """Return whether an active network walks the descent D during the build.
 
-    Returns ``[(cell2d, segment_length_m, midpoint_distance_m), ...]`` ordered by
-    the projected position of each within-cell segment along the line (head ->
-    outlet). This deliberately does NOT reuse the lake's ``resolve_lake_cells``,
-    which sorts and de-duplicates cell ids and would destroy the reach order.
+    ``rectify_on_mesh`` traces the channel on D and ``route_drainage`` routes the
+    hillslope down it. An auxiliary model builds D only for them.
     """
-    result = grid_intersect.intersect(line, geo_dataframe=False)
-    segments: list[tuple[float, int, float]] = []
-    for row in result:
-        seg_length = float(row["lengths"])
-        if seg_length < _MIN_SEGMENT_LENGTH:
-            continue
-        shape = row["ixshapes"]
-        midpoint = shape.interpolate(0.5, normalized=True)
-        segments.append((float(line.project(midpoint)), int(row["cellids"]), seg_length))
-    if not segments:
-        raise ValueError(
-            f"{location} reach polyline does not intersect any grid cell; check the "
-            "network geometry CRS and the model extent."
-        )
-    segments.sort(key=lambda item: item[0])
-    return [(cell2d, seg_length, mid) for mid, cell2d, seg_length in segments]
+    return any(
+        bool(definition.get("rectify_on_mesh")) or bool(definition.get("route_drainage"))
+        for definition in _active_sfr_definitions(model).values()
+    )
+
+
+def sfr_networks_lie_on_the_river_network(model) -> bool:
+    """Return whether an active network was delineated from the generated river network.
+
+    Such a network carries a ``reach_trace``; an explicit ``reaches`` table does not.
+    """
+    return any(
+        definition.get("reach_trace") is not None
+        for definition in _active_sfr_definitions(model).values()
+    )
 
 
 def resolve_sfr_networks(
@@ -155,15 +157,18 @@ def resolve_sfr_networks(
     solver_mesh: SolverMesh,
     lake_cells_by_number: Mapping[int, Sequence[int]] | None = None,
     spillway_seeds: set[int] = frozenset(),
+    descent: Descent | None = None,
 ) -> dict[str, ResolvedSfrNetwork]:
     """Resolve every active SFR network to its ordered reach records.
 
     Returns ``{}`` when no SFR boundary is active, which keeps the SFR wiring in
     ``build.py`` a no-op for models without a stream network. Reach cells come
     either from the explicit ``reaches`` table or from the binder-attached
-    ``reach_trace`` intersected with the DISV mesh. ``lake_cells_by_number`` (0-based
+    ``reach_trace`` shared among the cells of the mesh. ``lake_cells_by_number`` (0-based
     LAK numbers) truncates trace reaches at the lake footprint so none sits on a lake
     cell (needed once the DEM is hydro-conditioned to route streams through a lake).
+    ``descent`` is the descent D, a filled copy of the solver top; a network with
+    ``rectify_on_mesh`` traces its channel on it and raises ``ValueError`` without it.
     """
     definitions = _active_sfr_definitions(model)
     if not definitions:
@@ -178,7 +183,7 @@ def resolve_sfr_networks(
         lake_cell2d = frozenset(lake_number_of)
 
     networks: dict[str, ResolvedSfrNetwork] = {}
-    vertex_grid = None
+    face_adjacency: list[set[int]] | None = None
     for network_id, definition in definitions.items():
         location = f"flow.sinks_sources.sfr.{network_id}"
         if definition.get("reaches"):
@@ -186,12 +191,9 @@ def resolve_sfr_networks(
                 definition=definition, solver_mesh=solver_mesh, location=location
             )
         elif definition.get("reach_trace") is not None:
-            if vertex_grid is None:
-                vertex_grid = build_vertex_grid_for_intersection(solver_mesh)
             records = _resolve_trace_network(
                 definition=definition,
                 solver_mesh=solver_mesh,
-                vertex_grid=vertex_grid,
                 location=location,
                 lake_cell2d=lake_cell2d,
                 lake_number_of=lake_number_of,
@@ -203,11 +205,20 @@ def resolve_sfr_networks(
                 "pre-processing (geographic.river_network.enabled = true)."
             )
         if definition.get("rectify_on_mesh"):
+            if descent is None:
+                raise ValueError(
+                    f"{location}.rectify_on_mesh traces the channel on the descent of the "
+                    "model top, but no descent was given to resolve_sfr_networks."
+                )
             stub_max = definition.get("rectify_stub_max_upstream")
             min_comp = definition.get("rectify_min_component_cells")
+            if face_adjacency is None:
+                face_adjacency = solver_mesh.face_adjacency()
             records = _rectify_network_on_mesh(
                 records,
                 solver_mesh=solver_mesh,
+                descent=descent,
+                face_adjacency=face_adjacency,
                 lake_number_of=lake_number_of,
                 min_slope=float(definition.get("min_slope") or 1e-4),
                 max_stub_upstream=int(stub_max) if stub_max is not None else 2,
@@ -220,22 +231,6 @@ def resolve_sfr_networks(
             network_id=network_id, reaches=tuple(records), definition=definition
         )
     return networks
-
-
-def sfr_networks_needing_conditioned_top(model) -> tuple[str, ...]:
-    """Ids of the active SFR networks that REQUIRE a conditioned mesh top.
-
-    Only ``rectify_on_mesh`` requires it: it traces the steepest descent of the
-    mesh top, so an unconditioned top leaves the projection pits and the traced
-    channel leaves the thalweg. ``route_drainage`` merely benefits from it; a
-    cell whose descent dead-ends simply stays a plain DRN, which
-    ``_sfr_drainage`` documents and handles, so it must not gate the build.
-    """
-    return tuple(
-        network_id
-        for network_id, definition in _active_sfr_definitions(model).items()
-        if definition.get("rectify_on_mesh")
-    )
 
 
 # --------------------------------------------------------------------------- #
@@ -352,9 +347,8 @@ def build_sfr_mover_records(
                     "%s: %d dead-end reach(es) stop short of every shoreline and stay "
                     "unrouted, so their flow leaves the model by EXT-OUTFLOW instead of "
                     "feeding the lake (nearest is reach %d, %.0f m from the shore, for a "
-                    "lake_feeder_snap of %.0f m). Carve the channel to the shore with "
-                    "geographic.enforce_lakes.capture_radius_m, or raise lake_feeder_snap "
-                    "above %.0f m to snap them.",
+                    "lake_feeder_snap of %.0f m). Raise lake_feeder_snap above %.0f m "
+                    "to snap them.",
                     location,
                     len(unsnapped),
                     closest[0],
@@ -416,6 +410,10 @@ def _terminal_reaches(network: ResolvedSfrNetwork, *, location: str) -> list[Sfr
 # --------------------------------------------------------------------------- #
 # Package args.
 # --------------------------------------------------------------------------- #
+
+
+SFR_STAGE_SUFFIX = ".sfr.stage"
+"""The end of the binary file MODFLOW 6 writes the stage of each reach in, at every time step."""
 
 
 def build_sfr_package_args(
@@ -536,6 +534,7 @@ def build_sfr_package_args(
                 "manning": float(manning),
                 "strahler": int(record.strahler),
                 "ustrf": float(record.ustrf),
+                "downstream": [int(down) for down in record.downstream],
             }
         )
         row: list[Any] = [int(record.ifno)]
@@ -547,7 +546,6 @@ def build_sfr_package_args(
     for kper, rows in diversion_period_rows.items():
         perioddata.setdefault(kper, []).extend(rows)
 
-    time_conversion, length_conversion = package_unit_conversions(model)
     stem = _sfr_output_stem(model)
     obs_continuous, sfr_obs_meta = build_sfr_obs_spec(
         stem=stem, network=network, has_mover=has_mover_records or external_mover
@@ -557,8 +555,8 @@ def build_sfr_package_args(
         "nreaches": len(reaches),
         "packagedata": packagedata,
         "connectiondata": connectiondata,
-        "time_conversion": time_conversion,
-        "length_conversion": length_conversion,
+        "time_conversion": 1.0,
+        "length_conversion": 1.0,
         "save_flows": True,
         "print_flows": False,
         "budget_filerecord": f"{stem}.sfr.cbc",
@@ -583,6 +581,13 @@ def build_sfr_package_args(
         args["perioddata"] = perioddata
     if definition.get("storage"):
         args["storage"] = True
+        # The stage of every reach at every time step, in double precision: the
+        # extractor takes the last one for ``final_state/``, which a later run or
+        # window hands back as INITIALSTAGES.
+        args["stage_filerecord"] = f"{stem}{SFR_STAGE_SUFFIX}"
+        initial_stages = _initial_stages(model, reaches, location=location)
+        if initial_stages:
+            args["initialstages"] = initial_stages
     if has_mover_records or external_mover:
         args["mover"] = True
     if ts_series:
@@ -591,6 +596,57 @@ def build_sfr_package_args(
     sfr_obs_meta["reaches"] = reach_geometry
     args["sfr_obs_meta"] = sfr_obs_meta
     return args
+
+
+def read_final_sfr_stages(stage_path: Path) -> dict[int, float]:
+    """Return the stage of each reach at the last time step, from an SFR stage file.
+
+    ``stage_path`` is the binary file ``stage_filerecord`` names, written in
+    double precision at every time step, one record per reach in ``ifno``
+    order. The stages come back with every digit MODFLOW 6 computed, keyed by
+    the reach number from 0. ``{}`` when the file does not exist, which is a
+    routing without storage.
+    """
+    if not Path(stage_path).is_file():
+        return {}
+    import flopy.utils.binaryfile as bf
+
+    stage_file = bf.HeadFile(str(stage_path), text="STAGE", precision="double")
+    try:
+        times = stage_file.get_times()
+        if not times:
+            return {}
+        last = np.asarray(stage_file.get_data(totim=times[-1]), dtype=np.float64).reshape(-1)
+    finally:
+        stage_file.close()
+    return {index: float(stage) for index, stage in enumerate(last)}
+
+
+def _initial_stages(model, reaches: Sequence[SfrReachRecord], *, location: str) -> list[list[Any]]:
+    """Return the INITIALSTAGES rows a restart gives the routing with storage, or ``[]``.
+
+    A ``PriorState`` that holds reach stages gives each reach the stage it ended
+    on. MODFLOW 6 keeps an internal state beyond the stage, so a chain is not
+    exact to the bit under SFR storage, but without the stages the second
+    window is 1e-4 m off in head and with them 6e-10 m. A stage is written with
+    all its digits, as the lake stages are. A prior state without reach stages,
+    a run that had no storage or no stream, gives none, and the reaches start
+    as the package says. Stages for another set of reaches are refused: they
+    would start each reach from the stage of another one.
+    """
+    initial = model.inputs.initial
+    if not isinstance(initial, PriorState) or not initial.sfr_stages:
+        return []
+    wanted = sorted(int(record.ifno) for record in reaches)
+    held = sorted(initial.sfr_stages)
+    if wanted != held:
+        raise ValueError(
+            f"{location} has {len(wanted)} reach(es) and the state to restart from holds the "
+            f"stage of {len(held)} reach(es), {held[:5]}{'...' if len(held) > 5 else ''}, "
+            f"where the network has {wanted[:5]}{'...' if len(wanted) > 5 else ''}. "
+            "Restart from a run of the same network."
+        )
+    return [[ifno, repr(float(initial.sfr_stages[ifno]))] for ifno in wanted]
 
 
 def _build_diversions(
@@ -656,6 +712,7 @@ def _sfr_output_stem(model) -> str:
 
 
 __all__ = [
+    "SFR_STAGE_SUFFIX",
     "ResolvedSfrNetwork",
     "SfrReachRecord",
     "build_drainage_mover_records",
@@ -663,11 +720,163 @@ __all__ = [
     "build_sfr_obs_spec",
     "build_sfr_package_args",
     "build_sfr_period_data",
+    "mover_rows_reach_lake",
     "remove_drain_cells",
-    "resolve_reach_line_cells",
     "resolve_sfr_networks",
     "sfr_drain_cells_to_drop",
-    "sfr_networks_needing_conditioned_top",
+    "sfr_networks_lie_on_the_river_network",
+    "sfr_networks_walk_the_descent",
     "sfr_routes_drainage",
-    "watershed_drainage_cell_mask",
 ]
+
+
+def build_sfr(
+    model,
+    solver_mesh: SolverMesh,
+    sfr_networks,
+    sfr_mover_records,
+    all_mover_rows,
+    n_lakes_built,
+):
+    """SFR, its observations and sidecar; adds its movers to ``all_mover_rows``."""
+    # SFR (streamflow routing) package. Built after LAK so the SFR -> LAK mover
+    # seam can reference an existing lake, and before OC / MVR.
+    if sfr_networks:
+        if sfr_mover_records and getattr(model, "lak", None) is None:
+            raise ValueError(
+                "flow.sinks_sources.sfr declares outflow_to_lake but no lake is "
+                "active; enable the lake boundary or drop the coupling."
+            )
+        for record in sfr_mover_records:
+            if record.receiver == "LAK" and record.receiver_id >= n_lakes_built:
+                raise ValueError(
+                    f"flow.sinks_sources.sfr outflow_to_lake={record.receiver_id + 1} "
+                    f"has no matching lake ({n_lakes_built} lakes declared)."
+                )
+        # A LAK -> SFR spillway or a DRN -> SFR drainage routing makes SFR an MVR
+        # receiver: the package advertises MOVER and the per-reach to/from-mvr
+        # series are observed even with no SFR-owned mover record.
+        sfr_args = build_sfr_package_args(
+            model,
+            networks=sfr_networks,
+            external_mover=any(str(row[2]) == "SFR" for row in all_mover_rows),
+            has_mover_records=bool(sfr_mover_records),
+            solver_mesh=solver_mesh,
+        )
+        if sfr_args is not None:
+            sfr_obs_continuous = sfr_args.pop("obs_continuous", None)
+            sfr_obs_meta = sfr_args.pop("sfr_obs_meta", None)
+            sfr_ts_specs = sfr_args.pop("ts_specs", None)
+            sfr = flopy.mf6.ModflowGwfsfr(model.gwf, pname="SFR", **sfr_args)
+            if sfr_ts_specs:
+                attach_time_series(sfr, sfr_ts_specs, filename=f"{model.model_output_name}.sfr.ts")
+            if sfr_obs_continuous:
+                sfr.obs.initialize(
+                    filename=f"{model.model_output_name}.sfr.obs",
+                    digits=10,
+                    print_input=False,
+                    continuous=sfr_obs_continuous,
+                )
+            if sfr_obs_meta is not None:
+                write_sidecar(model, ".sfr.meta.json", sfr_obs_meta)
+            model.sfr = sfr
+            if sfr_mover_records:
+                all_mover_rows.extend(build_mvr_period_records(sfr_mover_records))
+
+
+def _drainage_basin_mask(basin: DescentBasin | None) -> np.ndarray:
+    """The DRN cells routed to the streams: the basin of D the build computed.
+
+    A run with neither outlet nor watershed polygon routes the largest basin of
+    the descent, which is an anomaly for a catchment model: a warning.
+    """
+    if basin is None:
+        raise ValueError("drainage routing walks the descent D, and this build has none.")
+    if not basin.is_catchment:
+        logger.warning(
+            "Drainage routing: no outlet and no watershed polygon for this run. The "
+            "hillslope DRN of the largest basin of the descent is routed to the streams."
+        )
+    return basin.mask
+
+
+def build_drains(
+    model,
+    solver_mesh: SolverMesh,
+    ocean_support_mask,
+    stream_support_mask,
+    sfr_networks,
+    descent,
+    basin,
+    lake_cells_by_number,
+):
+    """DRN, and the movers that route the hillslope drainage to the streams."""
+    drainage_cond_series = resolve_drainage_conductance_series(model)
+    model._drainage_cond_series = (
+        None
+        if drainage_cond_series is None
+        else np.asarray(drainage_cond_series, dtype=float).copy()
+    )
+    model._drainage_uses_hk = bool(
+        drainage_cond_series is not None
+        and np.any(np.asarray(drainage_cond_series, dtype=float) <= 0.0)
+    )
+    drainage_mover_rows: list[list[object]] = []
+    # The cells whose drain row is dropped, kept so that a rerun drops the same.
+    model._drain_dropped_cells = frozenset()
+    if drainage_cond_series is not None:
+        drn_spd = build_drain_stress_period_data(
+            model,
+            solver_mesh=solver_mesh,
+            drainage_cond_series=np.asarray(drainage_cond_series, dtype=float),
+            ocean_support_mask=np.asarray(ocean_support_mask, dtype=bool),
+            stream_support_mask=np.asarray(stream_support_mask, dtype=bool),
+        )
+        # Marnage lakebed cells stay active (they carry the LAK connection), but they
+        # are not hillslope: a route_drainage DRN on them would drain the lake's own
+        # leakage straight back to the streams (LAK -> aquifer -> DRN-to-MVR -> SFR ->
+        # lake), an artificial recirculation that inflates the lake-aquifer exchange.
+        # Drop their DRN rows so the under-lake aquifer equilibrates with the stage.
+        marnage_cells = getattr(model, "_marnage_lake_cells", None)
+        dropped: set[int] = set()
+        if marnage_cells:
+            dropped |= {int(cid) for cells in marnage_cells.values() for cid in cells}
+        if sfr_networks:
+            dropped |= {int(cid) for cid in sfr_drain_cells_to_drop(sfr_networks)}
+        drn_spd = remove_drain_cells(drn_spd, cells=dropped)
+        model._drain_dropped_cells = frozenset(dropped)
+        if sfr_networks:
+            # route_drainage: every DRN cell of the basin of D follows the receivers
+            # of D to the FIRST reach or lake it reaches, so the hillslope drainage
+            # joins the water body it physically drains to. Cells outside that basin
+            # drain to a neighboring one and stay plain DRN. The provider ids index
+            # the period-0 rows, hence the static-DRN requirement.
+            drainage_movers = []
+            if sfr_routes_drainage(sfr_networks):
+                drainage_movers = build_drainage_mover_records(
+                    sfr_networks,
+                    drn_spd=drn_spd,
+                    receiver=descent.stopping_receiver,
+                    basin_cell_mask=_drainage_basin_mask(basin),
+                    face_adjacency=solver_mesh.face_adjacency(),
+                    mesh_top=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
+                    lake_cells_by_number=lake_cells_by_number,
+                )
+            if drainage_movers:
+                drainage_mover_rows = build_mvr_period_records(drainage_movers)
+        model.drn = flopy.mf6.ModflowGwfdrn(
+            model.gwf,
+            pname="DRN",
+            stress_period_data=drn_spd,
+            save_flows=True,
+            mover=bool(drainage_mover_rows),
+        )
+
+    # The SFR walks are done: the model keeps D without its adjacency sets, all
+    # the per-cell discharge needs. An auxiliary model keeps none.
+    model.descent = (
+        None
+        if descent is None or getattr(model, "auxiliary", False)
+        else descent.without_adjacency()
+    )
+    return drainage_mover_rows

@@ -1,227 +1,493 @@
-"""``hmp calibrate`` - run a calibration workflow from a TOML file.
+"""``hmp calibrate`` - run a calibration from a TOML file.
 
-Thin wrapper around :func:`hydromodpy.calibrate`. The TOML must declare
-``[workflow] mode = "calibration"`` (resolved by the workflow dispatcher).
+Thin wrapper around :func:`hydromodpy.calibrate`. A file declaring
+``[calibration]`` calibrates; ``[workflow] mode`` may say so or be left out.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
-from hydromodpy.cli._conventions import profile_parser
-from hydromodpy.cli.helpers import (
+from hydromodpy.cli.conventions import (
+    add_override_arguments,
+    apply_verbosity,
+    changes_of_args,
+    format_parser,
+    profile_parser,
+    verbosity_parser,
+    with_changes,
+    workspace_parser,
+)
+from hydromodpy.cli.environment import add_environment_arguments, environment_from_args
+from hydromodpy.cli.exit_codes import (
     EXIT_CALIBRATION,
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
-    EXIT_SIGINT,
-    profile_arg_from_toml,
-    profile_run,
-    resolve_profile_output,
+    EXIT_USAGE,
+    exit_if_session_unfinished,
+    refuse,
 )
+from hydromodpy.cli.output import emit
+from hydromodpy.cli.profiling import profile_output_of, profile_run
+from hydromodpy.cli.refs import base_named_by_w, toml_target
 from hydromodpy.core.exceptions import CalibrationError, ConfigError
 
 NAME: str = "calibrate"
-HELP: str = "Run a calibration workflow from a TOML config"
+HELP: str = "Run a calibration from a TOML config"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[
+            workspace_parser(),
+            format_parser(),
+            profile_parser(),
+            verbosity_parser(),
+        ],
+        epilog=(
+            "Examples:\n  hmp calibrate calibration.toml\n"
+            "  hmp calibrate calibration.toml --dry-run\n"
+            "  hmp calibrate calibration.toml --resume\n"
+            "  hmp calibrate calibration.toml --list-phases\n"
+            "  hmp calibrate calibration.toml --resume --phase phase_name\n"
+            "  hmp calibrate calibration.toml --expand\n"
+            "  hmp calibrate calibration.toml --set calibration.seed=7\n"
+            "  hmp calibrate calibration.toml --overlay daily.toml --case calage_daily\n"
+            "  hmp calibrate calibration.toml --format json\n"
+            "Every launch, --dry-run included, runs the checks of\n"
+            "hmp check calibration.toml before anything is prepared.\n"
+            "--format json prints the result, the phases or the plan once the command is over,\n"
+            "as the page on what a program reads describes them."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("config", type=Path, help="Path to a calibration TOML file")
     parser.add_argument(
         "--phase",
         default=None,
-        help="Run only this phase of a staged calibration. Its dependency must have "
-        "run, otherwise the phase would calibrate against un-frozen parameters.",
+        help="Run only this phase of a staged calibration, in the session of the case. "
+        "Its dependency must have completed there, otherwise the phase would "
+        "calibrate against un-frozen parameters.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Reopen the latest session of the case: the phases that completed with the "
+        "same fingerprint are read back, the cut phase is solved again with its "
+        "trials preloading the cache.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Say which case, which session folder and which phases would run, and write nothing.",
+    )
+    parser.add_argument(
+        "--no-report",
+        action="store_true",
+        help="Do not write the report of each session once the search is over. "
+        "hmp show SESSION --report writes it later.",
     )
     parser.add_argument(
         "--list-phases",
         action="store_true",
-        help="List the declared phases and exit without running anything.",
+        help="List the declared phases and exit without running anything. A file "
+        "without phases gets one line for its single search.",
     )
     parser.add_argument(
-        "--check",
+        "--expand",
         action="store_true",
-        help="Check everything the search needs and exit without solving. Reports every "
-        "problem at once rather than the first.",
+        help="Print the [calibration] section a protocol writes, as TOML, and exit "
+        "without running anything. A file naming no protocol prints its own section. "
+        "Refused together with --phase, --list-phases, --resume or --dry-run.",
     )
+    parser.add_argument(
+        "--case",
+        default=None,
+        metavar="NAME",
+        help=(
+            "Name of the case: its session is sessions/<name>. Defaults to [simulation] "
+            "name, else the stem of the TOML. A calibration launched with --set or "
+            "--overlay keeps that name; use --case to name the variant."
+        ),
+    )
+    add_override_arguments(parser)
     parser.set_defaults(_handler=run)
+    add_environment_arguments(parser)
     return parser
 
 
-def _check_only(target: Path) -> None:
-    """Report everything wrong with the calibration in ``target`` and exit.
+def _expand_only(args: argparse.Namespace, source: Any, *, shown_as: str) -> None:
+    """Print the ``[calibration]`` section a protocol unfolds into, as TOML, and exit.
 
-    Nothing solves, so this costs a second whatever the model. Every check runs,
-    so a file with three mistakes takes one pass to fix rather than three
-    overnight runs.
+    Formatting only: ``calibrate(dry_run=True)`` does the unfolding and
+    returns the whole section, pasteable in place of the protocol. A file
+    naming no protocol gets a header saying so instead of a protocol line, and
+    its own section is printed unchanged. The ``protocol__delete`` hint is
+    printed only when the protocol comes from the ``base_config``: that is the
+    one case where a file pasting the section under the same base has an
+    inherited protocol to drop.
     """
-    from hydromodpy.calibration.preflight import PreflightFinding, preflight_calibration
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.project.api import calibrate
 
     try:
-        cfg = HydroModPyConfig.from_toml(target)
-    except Exception as exc:
-        # A file that will not load has nothing else to check: every other
-        # finding would be about a configuration that does not exist.
-        findings = [PreflightFinding("error", target.name, f"the file does not load: {exc}")]
+        expanded = calibrate(source, dry_run=True, preflight=False).to_dict()
+    except ConfigError as exc:
+        refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
+    emit(args, "calibrate phases", expanded, table=lambda: _print_expanded(expanded, shown_as))
+
+
+def _print_expanded(expanded: Mapping[str, Any], shown_as: str) -> None:
+    import io
+
+    from hydromodpy.core.toml_io.writer import dump
+
+    protocol = expanded["protocol"]
+    if protocol is None:
+        print(f"# {shown_as} declares no protocol: this is its [calibration] section as declared.")
     else:
-        _announce_the_protocol(cfg)
-        findings = preflight_calibration(cfg, source=target)
-    if not findings:
-        print(f"{target.name}: ready to run.", file=sys.stderr)
-        return
-    for finding in findings:
-        print(finding.line(), file=sys.stderr)
-    errors = sum(1 for finding in findings if finding.severity == "error")
-    print(
-        f"{target.name}: {errors} error(s), {len(findings) - errors} warning(s).",
-        file=sys.stderr,
-    )
-    if errors:
-        sys.exit(EXIT_CONFIG)
+        print(f"# Expanded from protocol {protocol['name']}, version {protocol['version']}")
+        if protocol["citation"]:
+            print(f"# ({protocol['citation']}).")
+        print("# The whole [calibration] section: pasted in place of the protocol, it runs")
+        print("# the same stages.")
+        if protocol.get("inherited"):
+            print("# The protocol comes from the base_config, so a file pasting this under")
+            print("# the same base_config also writes, under [calibration]:")
+            print("# protocol__delete = true")
+
+    buffer = io.BytesIO()
+    dump({"calibration": expanded["calibration"]}, buffer)
+    print(buffer.getvalue().decode(), end="")
 
 
-def _announce_the_protocol(cfg) -> None:
-    """Say which published method this file runs, and what it rests on.
+def phase_line(index: int, phase: dict[str, Any]) -> str:
+    """Return the ``--list-phases`` line of one phase.
 
-    A calibrated value that came out of a named method carries the method with
-    it. Printing it here is where the reader is already looking, before an
-    overnight run rather than after.
+    A method the phase does not name was chosen from its criteria, and the
+    reason follows it. After the description, the width the phase reads its
+    interval with and where it comes from, then the bounds the phase narrows its
+    parameters to, when it writes any. A column names what the phase takes
+    from ``[calibration]`` among its budget, precision and options, when it takes
+    any. Another is added only for a phase that moves again what an earlier phase
+    passed on: which parameters, from which phase, and whether the search starts
+    there.
     """
-    declared = getattr(getattr(cfg, "calibration", None), "protocol", None)
-    if declared is None:
-        return
-    from hydromodpy.calibration.protocols import protocol_record
-
-    record = protocol_record(declared.name, declared)
-    print(
-        f"protocol: {record['name']}@{record['version']} - {record['title']}",
-        file=sys.stderr,
+    method = phase["method"]
+    search = phase.get("search", {})
+    if phase.get("method_reason"):
+        method = f"{method} ({phase['method_reason']})"
+    elif search.get("method", {}).get("source") == "section":
+        method = f"{method} (from [calibration])"
+    line = f"{index}\t{phase['name']}\t{method}\t{phase['description']}"
+    if phase.get("interval_width"):
+        line = f"{line}\t{_width_text(phase['interval_width'])}"
+    if phase.get("bounds"):
+        narrowed = ", ".join(f"{name} {interval}" for name, interval in phase["bounds"].items())
+        line = f"{line}\tbounds {narrowed}"
+    taken = [
+        f"{key} {search[key]['value']}"
+        for key in ("max_trials", "precision", "method_options")
+        if search.get(key, {}).get("source") == "section"
+    ]
+    if taken:
+        line = f"{line}\ttakes from [calibration]: {', '.join(taken)}"
+    reopens = phase.get("reopens")
+    if not reopens:
+        return line
+    moved = ", ".join(f"{item['parameter']}<-{item['from_phase']}" for item in reopens)
+    start = (
+        "starts there"
+        if phase["starts_from_passed_values"]
+        else f"{phase['method']} takes no start point and keeps its own"
     )
-    for index, stage in enumerate(record["stages"], start=1):
-        print(f"  stage {index}: {stage}", file=sys.stderr)
-    for reference in record["references"]:
-        print(f"  cite: {reference}", file=sys.stderr)
-    # Where this run departs from the publication it cites. A reader comparing a
-    # result to the literature needs this before the run, not after.
-    chosen = _values_this_file_set(cfg, [item["key"] for item in record["deviations"]])
-    for deviation in record["deviations"]:
-        line = (
-            f"  differs from the paper on {deviation['key']}: {deviation['here']} "
-            f"(paper: {deviation['paper']})"
+    return f"{line}\tre-opens {moved}, {start}"
+
+
+def _print_single_search(target: Path, calibration: Any = None) -> None:
+    """Print the ``--list-phases`` line of a file without phases, and what it compares.
+
+    The file still runs one search. Its line names the method, and why when the
+    file leaves it to be chosen, under ``[calibration]`` where a phase line has
+    its index and name. *calibration* is the section of a document changed on its
+    way in, read from the file when it is not given.
+    """
+    from hydromodpy.calibration.preflight_report import comparison_line
+    from hydromodpy.calibration.runners.document import (
+        declared_window_text,
+        load_toml_calibration,
+        resolve_stream_geometry_paths,
+    )
+    from hydromodpy.calibration.runners.staged_report import objective_comparison_table
+
+    if calibration is None:
+        calibration, _raw = load_toml_calibration(target)
+    method, reason = calibration.method_for()
+    print(f"[calibration]\t{method} ({reason})" if reason else f"[calibration]\t{method}")
+    resolve_stream_geometry_paths(calibration, target)
+    for row in objective_comparison_table(calibration, None):
+        print(f"    {comparison_line(row)}")
+    print(f"    scores on: {declared_window_text(calibration)}")
+
+
+_WRITTEN_IN = {"phase": "written in the phase", "section": "written in [calibration.uncertainty]"}
+
+
+def _width_text(width: dict[str, Any]) -> str:
+    """Return the width a phase reads its interval with, and where it comes from."""
+    source = width["source"]
+    if source == "default":
+        value = width["rule"]
+        origin = (
+            "default, measured on the mesh when the phase runs"
+            if width["margin"] is None
+            else "default"
         )
-        if deviation["key"] in chosen:
-            line += f" - this file sets {_rendered(chosen[deviation['key']])}"
-        print(line, file=sys.stderr)
-    # An option moved off the recipe keeps the method but changes what the number
-    # rests on, and only the file knows it moved.
-    for option in record.get("options_away_from_the_recipe", ()):
+    else:
+        margin = float(width["margin"])
+        value = (
+            f"{margin * 100:g} % of the best cost"
+            if width["kind"] == "relative"
+            else f"{margin:g} m"
+        )
+        origin = _WRITTEN_IN[source]
+    return f"width {value} ({origin})"
+
+
+def _print_dry_run(plan: Mapping[str, Any]) -> None:
+    """Print what a calibration would do, one line per fact."""
+    print(f"case: {plan['case']}", file=sys.stderr)
+    print(f"session: {plan['session_dir']}", file=sys.stderr)
+    print(f"calibrated run: {plan['run_dir']} (save_runs = {plan['save_runs']})", file=sys.stderr)
+    for phase in plan["phases"]:
         print(
-            f"  option away from the recipe: {option['key']} = "
-            f"{_rendered(option['here'])} (recipe: {_rendered(option['recipe'])})",
+            f"  phase {phase['name']}: {', '.join(phase['parameters'])}, {phase['max_trials']} "
+            f"trials, scores on {phase['window']}",
             file=sys.stderr,
         )
-    backend = getattr(getattr(cfg, "solver", None), "backend_name", None)
-    backend = str(getattr(backend, "value", backend) or "")
-    verdict = record["support"].get(backend)
-    if verdict is not None and verdict != "tested":
-        print(
-            f"  on {backend}: {verdict.replace('_', ' ')} - no case in this repository "
-            "runs the protocol on that backend.",
-            file=sys.stderr,
-        )
-
-
-def _rendered(value: object) -> str:
-    """Return a value as a reader of a terminal would want to see it.
-
-    A quantity reprs as ``<Quantity(50, 'meter')>``, which is the object and not
-    the number the file wrote.
-    """
-    if hasattr(value, "magnitude") and hasattr(value, "units"):
-        return f"'{value:~P}'"
-    return repr(value)
-
-
-def _values_this_file_set(cfg, keys: list[str]) -> dict[str, object]:
-    """Return, for the keys a protocol departs on, what this file actually wrote.
-
-    The deviation table describes the recipe's defaults. What a reader comparing
-    to the publication needs is the value in front of them, which may be the
-    paper's or may be the departure.
-    """
-    calibration = getattr(cfg, "calibration", None)
-    outputs = getattr(calibration, "outputs", None) or {}
-    found: dict[str, object] = {}
-    for key in keys:
-        for output in outputs.values():
-            value = getattr(output, key, None)
-            if value is not None:
-                found[key] = value
-                break
-    return found
+    print(f"solves in parallel: {plan['solves_in_parallel']}", file=sys.stderr)
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    expand = getattr(args, "expand", False)
+    resume = getattr(args, "resume", False)
+    dry_run = getattr(args, "dry_run", False)
+    if expand and (args.list_phases or args.phase is not None or resume or dry_run):
+        refuse(
+            "--expand cannot be combined with --list-phases, --phase, --resume or "
+            "--dry-run: it prints what a protocol writes, it runs nothing.",
+            EXIT_USAGE,
+        )
 
-    target = Path(args.config).expanduser().resolve()
-    if not target.is_file():
-        print(f"File not found: {target}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    if target.suffix != ".toml":
-        print(f"Expected a .toml file, got: {target.suffix}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+    target = toml_target(args.config)
+    base = base_named_by_w(getattr(args, "workspace", None))
+    try:
+        changes = changes_of_args(args, os.environ)
+    except ValueError as exc:
+        refuse(f"Invalid override: {exc}", EXIT_CONFIG, cause=exc)
+    _run_named(args, target, base=base, changes=changes)
 
-    profile_arg = getattr(args, "profile", None)
-    if profile_arg is None:
-        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
-        try:
-            profile_arg = profile_arg_from_toml(load_toml_with_base_config(target))
-        except Exception:
-            profile_arg = None
-    if getattr(args, "check", False):
-        _check_only(target)
+def _read(args: argparse.Namespace, target: Path) -> dict[str, Any]:
+    """Return the document of ``target`` and its overlays, as the verbs look at it."""
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+    from hydromodpy.config.loading import read_document
+
+    try:
+        document = read_document(
+            target, overlays=getattr(args, "overlay", None) or (), root=ROOT_CONFIG
+        )
+    except ConfigError as exc:
+        refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
+    except FileNotFoundError as exc:
+        refuse(f"Missing file: {exc}", EXIT_NOT_FOUND, cause=exc)
+    except ValueError as exc:
+        refuse(f"Invalid override: {exc}", EXIT_CONFIG, cause=exc)
+    return document
+
+
+def _run_named(
+    args: argparse.Namespace, target: Path, *, base: Path | None, changes: Mapping[str, Any]
+) -> None:
+    """Run the verb on ``target``, in the project ``-w`` names.
+
+    A file read as it is written goes to the runners by its path. When
+    ``--set``, ``--overlay`` or ``--case`` change it, no copy of the file is
+    written. ``--list-phases`` and ``--expand`` read the ``[calibration]``
+    section of the changed document, as they read the one of the file. A
+    calibration that runs, and ``--dry-run`` that checks it, validate the
+    changed document against its base and hold it in memory: the preflight
+    resolves each parameter against the flow it calibrates.
+    """
+    document = _read(args, target)
+    case = getattr(args, "case", None)
+    varied = bool(getattr(args, "overlay", None) or changes or case)
+    merged = with_changes(document, changes)
+    source: Any = target
+    if varied and _reads_only(args) and not getattr(args, "dry_run", False):
+        source = _section_of(target, merged)
+    elif varied:
+        source = _held_in_memory(target, document, base=base, changes=changes)
+    _calibrate(args, target, source, merged, base=base, case=case)
+
+
+def _reads_only(args: argparse.Namespace) -> bool:
+    """Whether the verb reads the calibration and runs nothing."""
+    return bool(
+        getattr(args, "dry_run", False)
+        or getattr(args, "list_phases", False)
+        or getattr(args, "expand", False)
+    )
+
+
+def _section_of(target: Path, document: Mapping[str, Any]) -> Any:
+    """Return the ``[calibration]`` section of ``document``, read as the one of ``target``."""
+    from types import SimpleNamespace
+
+    from hydromodpy.calibration.runners.document import load_toml_calibration
+
+    try:
+        section, _raw = load_toml_calibration(target, document=document)
+    except (ConfigError, ValueError) as exc:
+        refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
+    return SimpleNamespace(calibration=section)
+
+
+def _held_in_memory(
+    target: Path, document: Mapping[str, Any], *, base: Path | None, changes: Mapping[str, Any]
+) -> Any:
+    """Return the configuration of ``document`` and ``changes``, validated against its base."""
+    from hydromodpy.config.loading import load
+    from hydromodpy.project.request import base_of
+
+    try:
+        return load(
+            document,
+            base if base is not None else base_of(target),
+            changes=changes,
+            source_path=target,
+        )
+    except ConfigError as exc:
+        refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
+    except ValidationError as exc:
+        refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
+
+
+def _calibrate(
+    args: argparse.Namespace,
+    target: Path,
+    source: Any,
+    raw_toml: Mapping[str, Any],
+    *,
+    base: Path | None,
+    case: str | None,
+) -> None:
+    """Run, list or expand the calibration of ``source``, the file or the configuration it became.
+
+    ``target`` is the file the user named: messages say its name.
+    """
+    from hydromodpy.project.api import calibrate
+    from hydromodpy.project.calibrate import calibration_plan
+
+    expand = getattr(args, "expand", False)
+    resume = getattr(args, "resume", False)
+    dry_run = getattr(args, "dry_run", False)
+    apply_verbosity(args, raw_toml)
+
+    from hydromodpy.config.sites import is_sites_project
+
+    if is_sites_project(raw_toml):
+        refuse(
+            f"{target.name} belongs to a [sites] project: hmp run {target.name} runs this "
+            "recipe on every site.",
+            EXIT_CONFIG,
+        )
+
+    if expand:
+        _expand_only(args, source, shown_as=target.name)
         return
     if args.list_phases:
         try:
-            phases = hmp.calibrate(target, list_phases=True)
+            expanded = calibrate(source, dry_run=True, preflight=False).to_dict()
         except ConfigError as exc:
-            print(f"Config invalid: {exc}", file=sys.stderr)
-            sys.exit(EXIT_CONFIG)
-        if not phases:
-            print(f"{target.name} declares no phases.", file=sys.stderr)
-            return
-        for index, phase in enumerate(phases):
-            print(f"{index}\t{phase['name']}\t{phase['method']}\t{phase['description']}")
+            refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
+        emit(
+            args,
+            "calibrate phases",
+            expanded,
+            table=lambda: _print_phases(expanded["phases"], target, source),
+        )
         return
 
-    profile_output = resolve_profile_output(profile_arg, target)
+    profile_output = profile_output_of(args, raw_toml, target)
     try:
+        if dry_run:
+            # A file is planned as it is written. A calibration held in memory is planned
+            # on its own section, anchored to the file the user named, under the case given.
+            from_file = isinstance(source, Path)
+            plan = calibration_plan(
+                source,
+                workspace=base,
+                check=from_file,
+                source=None if from_file else target,
+                case=None if from_file else case,
+            ).plan
+            declared = [item["name"] for item in plan["phases"]]
+            if args.phase is not None and args.phase not in declared:
+                raise CalibrationError(
+                    f"unknown phase {args.phase!r}; the calibration declares {declared}."
+                )
+            emit(args, "calibrate plan", plan, table=lambda: _print_dry_run(plan))
+            return
         with profile_run(profile_output, description=f"hmp calibrate {target.name}"):
-            result = hmp.calibrate(target, phase=args.phase)
-    except KeyboardInterrupt:
-        print("Aborted by user.", file=sys.stderr)
-        sys.exit(EXIT_SIGINT)
+            options: dict[str, Any] = {"phase": args.phase, "resume": resume}
+            if base is not None and isinstance(source, Path):
+                options["base"] = base
+            if case is not None:
+                options["case"] = case
+            if getattr(args, "no_report", False):
+                options["report"] = False
+            result = calibrate(source, environment=environment_from_args(args), **options)
     except (ConfigError, ValidationError) as exc:
-        print(f"Config invalid: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except FileNotFoundError as exc:
-        print(f"Missing file: {exc}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(f"Missing file: {exc}", EXIT_NOT_FOUND, cause=exc)
     except CalibrationError as exc:
-        print(f"Calibration failed: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CALIBRATION)
+        refuse(f"Calibration failed: {exc}", EXIT_CALIBRATION, cause=exc)
 
-    print(f"Calibration finished: {target.name}", file=sys.stderr)
-    if result is None:
+    def table() -> None:
+        from hydromodpy.calibration.runners.recap import result_lines, staged_result_lines
+
+        print(f"Calibration finished: {target.name}", file=sys.stderr)
+        lines = (
+            staged_result_lines(result) if getattr(result, "phases", None) else result_lines(result)
+        )
+        for line in lines:
+            print(line, file=sys.stderr)
+
+    emit(args, "calibrate", result.to_dict(), table=table)
+    exit_if_session_unfinished(result)
+
+
+def _print_phases(phases: list[dict[str, Any]], target: Path, source: Any) -> None:
+    """Print the ``--list-phases`` page: one line per phase, what it compares and scores on."""
+    from hydromodpy.calibration.preflight_report import comparison_line
+
+    if not phases:
+        print(f"{target.name} declares no phases; it runs one search.", file=sys.stderr)
+        _print_single_search(target, None if isinstance(source, Path) else source.calibration)
         return
-    summary = getattr(result, "summary", None)
-    if isinstance(summary, dict):
-        for key, value in summary.items():
-            print(f"  {key}: {value}", file=sys.stderr)
+    for index, phase in enumerate(phases):
+        print(phase_line(index, phase))
+        for row in phase.get("comparisons", []):
+            print(f"    {comparison_line(row)}")
+        if phase.get("window"):
+            print(f"    scores on: {phase['window']}")

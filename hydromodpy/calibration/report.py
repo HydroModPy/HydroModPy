@@ -1,32 +1,44 @@
-"""Calibration session data structures and loaders.
+"""What a calibration returns, and the words about it.
 
-Two concerns live here, both purely data-side:
-
-1. :class:`CalibrationReport` - structured return type of
-   ``run_calibration_cli`` and ``Project.calibrate``. Exposes session metadata plus
-   lazy accessors for the iteration history and the best :class:`Run`.
-2. :class:`SessionReportData` + :func:`load_session_report_data` - read
-   one calibration session out of the workspace catalog and return a
-   plain dataclass ready to be handed to the display layer for HTML
-   rendering. The rendering itself lives in
-   :mod:`hydromodpy.reporting.calibration_report`; this module never
-   imports ``hydromodpy.display`` or ``hydromodpy.reporting``.
+:class:`CalibrationReport` is what ``hmp.calibrate`` and ``Project.calibrate``
+always return, with or without phases. Its names read the stored documents, and
+its ``best`` and ``trials`` read the session on disk. The session page is written
+by :mod:`hydromodpy.project.report`, from the rows of
+:mod:`hydromodpy.results.session.summary`.
 """
 
 from __future__ import annotations
 
-import json
-from collections.abc import Callable
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.errors import SeveralCasesError
+from hydromodpy.results.metric_rule import CALIBRATION_ROLE, PeriodWindow
+from hydromodpy.results.session.descriptor import (
+    BestCase,
+    ScoredSamples,
+    read_session,
+    scored_samples_text,
+    session_descriptor_path,
+)
+from hydromodpy.results.session.view import TRIAL_COLUMNS, Session
 
 if TYPE_CHECKING:
     import pandas as pd
 
+    from hydromodpy.calibration.optim.parameters import CalibParameter
+    from hydromodpy.results.run.view import Run
+
 logger = get_logger(__name__)
+
+
+NO_OTHER_TRIAL = "no other trial within the cost margin"
+"""What a recap says in place of an interval that only holds the best trial."""
 
 
 # ---------------------------------------------------------------------------
@@ -34,567 +46,480 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
+@dataclass(frozen=True, slots=True)
+class FrozenParameter:
+    """One parameter a phase calibrated and held fixed for the phases after it.
+
+    The declaration is the one the parent configuration carries, so the dotted
+    path and the mode (``replace`` / ``scale``) are honored exactly as during
+    the phase that calibrated the value.
+    """
+
+    parameter: CalibParameter
+    value: float
+    phase: str
+
+    @property
+    def name(self) -> str:
+        """Calibration name of the frozen parameter."""
+        return self.parameter.name
+
+    @property
+    def path(self) -> str | None:
+        """Dotted path in the configuration the value is written to."""
+        return self.parameter.effective_path
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-friendly view of the frozen value."""
+        return {
+            "name": self.name,
+            "path": self.path,
+            "value": float(self.value),
+            "mode": self.parameter.mode,
+            "phase": self.phase,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PhaseRun:
+    """One phase of a staged calibration: its report, its freeze, its status."""
+
+    name: str
+    index: int
+    session_id: str
+    report: CalibrationReport
+    frozen: tuple[FrozenParameter, ...]
+    reopened: tuple[FrozenParameter, ...] = ()
+    """The passed values this phase moved again, each with the phase that found it."""
+    status: str = "completed"
+    """What the phase descriptor says of the search: completed, partial or failed."""
+    stop_note: str | None = None
+    """``FROZE_BUDGET_ONLY`` for the best of a budget-only search, or a root out of bounds."""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-friendly view of the phase, report included."""
+        summary: dict[str, Any] = {
+            "phase": self.name,
+            "index": self.index,
+            "session_id": self.session_id,
+            "status": self.status,
+            "frozen": [item.to_dict() for item in self.frozen],
+        }
+        if self.stop_note:
+            summary["stop_note"] = self.stop_note
+        if self.reopened:
+            summary["reopened"] = [item.to_dict() for item in self.reopened]
+        summary["report"] = self.report.to_dict()
+        return summary
+
+
 @dataclass(frozen=True)
 class CalibrationReport:
-    """Structured summary of one calibration session.
+    """What one calibration found, with or without phases.
 
-    Returned by ``Project.calibrate`` and by the ``run_calibration_cli`` helper (both keep a
-    ``to_dict`` shim so
-    existing callers keep working).
+    ``hmp.calibrate`` and ``Project.calibrate`` return this class, and with
+    ``dry_run`` a plan that runs nothing. A calibration in phases fills
+    ``phases``, each with its own report, and
+    ``frozen``, and its best values are those of the calibrated run. ``to_dict``
+    gives the same summary as a JSON-friendly mapping.
 
-    Attributes
-    ----------
-    session_id
-        UUID (hex) of the calibration session in the catalog.
-    method
-        Optimizer method name (e.g. ``"optuna"``).
-    n_iterations
-        Number of iterations actually run (could be < ``max_iter`` if
-        the optimizer converged).
-    best_objective
-        Best (minimum) objective value achieved.
-    best_sim_id
-        UUID of the promoted best run when ``save_runs != "none"``,
-        otherwise ``None``.
-    best_parameters
-        Physical values of the best candidate, keyed by calibrated parameter
-        name. ``None`` when no candidate was evaluated. A staged calibration
-        reads it to freeze what a phase calibrated.
-    duration_s
-        Wall-clock duration of the calibration loop in seconds.
-    save_runs
-        The ``save_runs`` mode used (``"none"``, ``"best_n"`` or ``"all"``).
-    promoted
-        Count of iterations promoted to full simulations after the loop.
-    workspace
-        Workspace root the session was written to.
-    extra
-        Free-form metadata (callers may attach anything extra here).
+    The shape of this report and the ``[calibration]`` section are experimental
+    until the rework of the calibration is published.
     """
 
     session_id: str
+    """Id of the session the search belongs to."""
+
     method: str
-    n_iterations: int
-    best_objective: float | None
-    best_sim_id: str | None
+    """Optimizer method name (e.g. ``"optuna"``)."""
+
+    n_trials: int
+    """Number of trials actually run (could be < ``max_trials`` if the optimizer converged)."""
+
+    best_cost: float | None
+    """Lowest cost reached, ``None`` when no trial completed."""
+
     duration_s: float
+    """Wall-clock duration of the search in seconds."""
+
     save_runs: str
+    """The ``save_runs`` mode used (``"none"``, ``"best_n"`` or ``"all"``)."""
+
     promoted: int
+    """Count of trials promoted to runs after the search."""
+
+    status: str = "completed"
+    """How the session closed: completed, partial, aborted or failed."""
+
+    cost_name: str | None = None
+    """Name of the cost the search minimized."""
+
+    cost_label: str | None = None
+    """What the cost reads as, such as ``1 - nse_log``."""
+
+    best_trial: int | None = None
+    """Number of the best trial in ``trials.jsonl``, unique in the session."""
+
     best_parameters: dict[str, float] | None = None
+    """Physical values of the best candidate, keyed by calibrated parameter name.
+
+    The whole set of the calibrated run: in a calibration in phases, the values
+    an earlier phase froze come with those of the last phase. ``None`` when no
+    candidate was evaluated."""
+
+    best_cases: dict[str, BestCase] = field(default_factory=dict)
+    """What the best trial gave in each case: its run and its cost, by case id."""
+
+    windows: dict[str, PeriodWindow] = field(default_factory=dict)
+    """The periods the best trial was scored on, by name."""
+
     parameter_uncertainty: tuple[Any, ...] = ()
     """Width beside each calibrated value, when the file asked for one.
 
     Empty unless ``[calibration.uncertainty]`` declared a method that produces it.
     The values themselves are in ``best_parameters`` and are never touched by it."""
-    workspace: Path | None = None
-    extra: dict[str, Any] = field(default_factory=dict)
-    store_factory: Callable[[Path], Any] | None = field(
-        default=None,
-        repr=False,
-        compare=False,
-    )
 
-    # ------------------------------------------------------------------
-    # Lazy accessors
-    # ------------------------------------------------------------------
+    cost_block_fractions: dict[str, Any] | None = None
+    """Fraction of the cost each block actually took.
+
+    ``"mean"`` averages the fraction over the finished trials (each a mapping of
+    block name to its fraction, 0 to 1, of the cost), ``"mean_n_trials"`` is how
+    many of them entered that average, and ``"best"`` reads the fraction at the
+    reported candidate. ``None`` when the phase scores through a single
+    metric with no declared ``[[calibration.objective_blocks]]``, or, for a
+    phase reused from a previous run (see ``extra["cost_block_fractions_absent_note"]``
+    when that is why), when its journaled trials carry nothing to recompute it
+    from. See :func:`hydromodpy.calibration.optim.objective.cost_block_fractions`
+    for how a fraction is defined."""
+
+    workspace: Path | None = None
+    """Project root the session was written to."""
+
+    session_dir: Path | None = None
+    """Folder the session journalled its trials in, ``sessions/<case>``."""
+
+    phases: tuple[PhaseRun, ...] = ()
+    """The phases of a staged calibration in the order they ran; empty without phases.
+
+    The report of a phase has no phases of its own."""
+
+    frozen: tuple[FrozenParameter, ...] = ()
+    """Every value a settled phase declared frozen, in order, with the path it is written to.
+
+    A parameter two phases froze appears twice; the later value is the one the
+    phases after both of them hold."""
+
+    reused_from_disk: tuple[str, ...] = ()
+    """Names of the phases read back from the reopened session instead of solved.
+
+    Only non-empty under ``hmp calibrate --resume``: a phase is reused when it
+    completed in the session and its recorded fingerprint matches this run's
+    own model, mesh and input files."""
+
+    restart_spreads: tuple[Any, ...] = ()
+    """Where the restarts of each phase landed, when the file asked for restarts.
+
+    The calibrated value is untouched: it is the best of them. This says how far
+    apart the others finished, which is the one thing a single search cannot
+    report about itself."""
+
+    steady_window: dict[str, Any] | None = None
+    """The span a ``regime = "steady"`` phase actually averaged its recharge
+    over: ``start``, ``end``, ``days``, and ``mean_recharge_m_s`` when the
+    steady phase's calibrated conductivity is known. ``None`` when no phase
+    declares a steady regime. Read back from the same translation the run
+    itself used (:func:`hydromodpy.calibration.runners.phase_regime.regime_overrides`),
+    never recomputed by a second reading of the file that could drift from it."""
+
+    protocol: dict[str, Any] | None = None
+    """The published method that wrote these stages, when one did."""
+
+    methods_paragraph: str | None = None
+    """The prose this run writes about itself, conditioned on the stages that
+    completed. It is the only object by which someone who did not produce the
+    number can know what it rests on without reading Python."""
+
+    methods_path: Path | None = None
+    """The ``methods.md`` file the paragraph was written to, in the session folder.
+    ``None`` when there is no paragraph or no session folder."""
+
+    extra: dict[str, Any] = field(default_factory=dict)
+    """Free-form metadata (callers may attach anything extra here)."""
 
     @property
-    def iterations(self):
-        """Return the iteration history as a :class:`pandas.DataFrame`.
+    def session(self) -> Session | None:
+        """The session on disk, ``None`` when the report names no session folder."""
+        return None if self.session_dir is None else Session(self.session_dir)
 
-        Loads lazily through the configured calibration store.
-        """
+    @property
+    def best_by_case(self) -> dict[str, Run | None]:
+        """The run of the best trial in each case (:attr:`Session.best_by_case`)."""
+        session = self.session
+        return {} if session is None else session.best_by_case
+
+    @property
+    def best(self) -> Run | None:
+        """The run of the one case (:attr:`Session.best`), ``None`` without a run."""
+        session = self.session
+        return None if session is None else session.best
+
+    @property
+    def trials(self) -> pd.DataFrame:
+        """Every trial of the session, one row per trial and case (:attr:`Session.trials`)."""
         import pandas as pd
 
-        if self.workspace is None:
-            return pd.DataFrame()
-        from hydromodpy.calibration.persistence import CalibrationPersistence
+        session = self.session
+        return pd.DataFrame(columns=list(TRIAL_COLUMNS)) if session is None else session.trials
 
-        with self._open_store() as catalog:
-            rows = CalibrationPersistence(catalog).load_iterations(self.session_id)
-        return pd.DataFrame(rows)
+    def _only_case(self) -> BestCase | None:
+        """Return the one case the best trial names; refuse a report of several cases."""
+        if len(self.best_cases) > 1:
+            raise SeveralCasesError(
+                f"session {self.session_id} holds one run per case "
+                f"({', '.join(self.best_cases)}): read best_cases."
+            )
+        return next(iter(self.best_cases.values()), None)
 
     @property
-    def best(self):
-        """Return the best promoted :class:`Run` or ``None``."""
-        if self.best_sim_id is None or self.workspace is None:
-            return None
+    def best_sim_id(self) -> str | None:
+        """Id of the run of the one case, ``None`` when none was written."""
+        case = self._only_case()
+        return None if case is None else case.sim_id
 
-        with self._open_store() as catalog:
-            return catalog[self.best_sim_id]
-
-    def _open_store(self):
-        """Open the report store using the injected factory or default catalog."""
-        if self.workspace is None:
-            raise ValueError("CalibrationReport has no workspace")
-        if self.store_factory is not None:
-            return self.store_factory(self.workspace)
-        from hydromodpy.calibration.runners.state import default_store_factory
-
-        return default_store_factory(self.workspace, None)
+    @property
+    def best_rel_dir(self) -> str | None:
+        """Directory of the run of the one case, relative to the project root."""
+        case = self._only_case()
+        return None if case is None else case.rel_dir
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-friendly summary matching the legacy CLI output."""
+        """Return a JSON-friendly summary."""
         payload: dict[str, Any] = {
             "session_id": self.session_id,
             "method": self.method,
-            "n_iterations": int(self.n_iterations),
-            "best_objective": self.best_objective,
-            "best_sim_id": self.best_sim_id,
+            "status": self.status,
+            "n_trials": int(self.n_trials),
+            "best_cost": self.best_cost,
             "duration_s": round(float(self.duration_s), 3),
             "save_runs": self.save_runs,
             "promoted": int(self.promoted),
+            "best_cases": {
+                case_id: case.model_dump(mode="json") for case_id, case in self.best_cases.items()
+            },
         }
+        if len(self.best_cases) <= 1:
+            payload["best_sim_id"] = self.best_sim_id
+            payload["best_rel_dir"] = self.best_rel_dir
+        if self.cost_name is not None:
+            payload["cost_name"] = self.cost_name
+        if self.cost_label is not None:
+            payload["cost_label"] = self.cost_label
+        if self.best_trial is not None:
+            payload["best_trial"] = int(self.best_trial)
         if self.best_parameters is not None:
             payload["best_parameters"] = dict(self.best_parameters)
+        if self.windows:
+            payload["windows"] = {
+                name: window.model_dump(mode="json") for name, window in self.windows.items()
+            }
         if self.parameter_uncertainty:
             payload["parameter_uncertainty"] = [
                 item.to_dict() for item in self.parameter_uncertainty
             ]
+        if self.cost_block_fractions:
+            payload["cost_block_fractions"] = {
+                key: (dict(value) if isinstance(value, Mapping) else value)
+                for key, value in self.cost_block_fractions.items()
+            }
         if self.workspace is not None:
             payload["workspace"] = str(self.workspace)
+        if self.session_dir is not None:
+            payload["session_dir"] = str(self.session_dir)
+        if self.phases:
+            payload["phases"] = [phase.to_dict() for phase in self.phases]
+        if self.frozen:
+            payload["frozen"] = [item.to_dict() for item in self.frozen]
+        if self.reused_from_disk:
+            payload["reused_from_disk"] = list(self.reused_from_disk)
+        if self.restart_spreads:
+            payload["restart_spreads"] = [item.to_dict() for item in self.restart_spreads]
+        if self.steady_window is not None:
+            payload["steady_window"] = dict(self.steady_window)
+        if self.protocol is not None:
+            payload["protocol"] = self.protocol
+        if self.methods_paragraph is not None:
+            payload["methods_paragraph"] = self.methods_paragraph
+        if self.methods_path is not None:
+            payload["methods_path"] = str(self.methods_path)
         if self.extra:
             payload["extra"] = dict(self.extra)
         return payload
 
 
-# ---------------------------------------------------------------------------
-# SessionReportData - data handed to the display layer
-# ---------------------------------------------------------------------------
+CALIBRATE_SCHEMA = "hydromodpy.calibrate.v1"
+"""The JSON Schema of what ``hmp calibrate --format json`` holds in ``data``."""
 
 
-@dataclass(frozen=True)
-class SessionReportData:
-    """Plain data extracted from one calibration session.
+class CalibrationResult(BaseModel):
+    """What ``hmp calibrate --format json`` writes: :meth:`CalibrationReport.to_dict`, as a contract.
 
-    Carries everything
-    :func:`hydromodpy.reporting.calibration_report.render_session` needs to
-    produce the HTML report; no catalog handle, no live database
-    connection. Constructed by :func:`load_session_report_data`.
-
-    Attributes
-    ----------
-    session_id
-        Canonical hex session identifier.
-    session_name
-        Readable name of the session directory on disk
-        (``<date>-<method>-<id8>``), so the report sits under the same name.
-    session
-        Row from ``calibration_sessions`` as a dict.
-    iterations
-        Rows from ``calibration_iterations`` as a list of dicts.
-    workspace_root
-        Workspace root the session was written to (used to compute the
-        report output directory).
-    best_sim_id
-        Canonical hex sim_id of the promoted best run, or ``None`` when
-        no run was promoted.
-    sim_timeseries
-        Simulated discharge for ``best_sim_id`` (columns ``datetime``,
-        ``value``), or ``None`` when no best run is available.
-    obs_timeseries
-        Observed discharge for ``best_sim_id`` (columns ``datetime``,
-        ``value``), or ``None`` when no observations are available.
+    Experimental with the report it reads: its shape may change until the rework
+    of the calibration is published. A key that does not apply is null.
     """
 
-    session_id: str
-    session_name: str
-    session: dict[str, Any]
-    iterations: list[dict[str, Any]]
-    workspace_root: Path
-    best_sim_id: str | None
-    sim_timeseries: pd.DataFrame | None
-    obs_timeseries: pd.DataFrame | None
-    variable: str = "discharge"
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: str = Field(description="Id of the session the search belongs to.")
+    method: str = Field(description="Optimizer method name.")
+    status: str = Field(description="How the session closed: completed, partial, aborted, failed.")
+    n_trials: int = Field(description="Number of trials actually run.")
+    best_cost: float | None = Field(description="Lowest cost reached. Null if no trial completed.")
+    duration_s: float = Field(description="Wall-clock duration of the search, in seconds.")
+    save_runs: str = Field(description="The save_runs mode used: none, best_n or all.")
+    promoted: int = Field(description="Count of trials promoted to runs after the search.")
+    best_cases: dict[str, Any] = Field(
+        description="The run and the cost of the best trial, by case."
+    )
+    best_sim_id: str | None = Field(default=None, description="Run of the one case.")
+    best_rel_dir: str | None = Field(default=None, description="Its folder under the project.")
+    cost_name: str | None = Field(default=None, description="Name of the cost minimized.")
+    cost_label: str | None = Field(default=None, description="What it reads as: 1 - nse_log.")
+    best_trial: int | None = Field(default=None, description="Number of the best trial.")
+    best_parameters: dict[str, float] | None = Field(
+        default=None, description="Physical values of the best candidate, by parameter name."
+    )
+    windows: dict[str, Any] | None = Field(
+        default=None, description="The periods the best trial was scored on, by name."
+    )
+    parameter_uncertainty: list[dict[str, Any]] | None = Field(
+        default=None, description="Width beside each calibrated value, when the file asked for one."
+    )
+    cost_block_fractions: dict[str, Any] | None = Field(
+        default=None, description="Fraction of the cost each block took, 0 to 1."
+    )
+    workspace: str | None = Field(default=None, description="Project root of the session.")
+    session_dir: str | None = Field(default=None, description="Folder of the session.")
+    phases: list[dict[str, Any]] | None = Field(
+        default=None, description="The phases in the order they ran, each with its own report."
+    )
+    frozen: list[dict[str, Any]] | None = Field(
+        default=None, description="Every value a settled phase declared frozen."
+    )
+    reused_from_disk: list[str] | None = Field(
+        default=None, description="The phases read back from the session instead of solved."
+    )
+    restart_spreads: list[dict[str, Any]] | None = Field(
+        default=None, description="Where the restarts of each phase landed."
+    )
+    steady_window: dict[str, Any] | None = Field(
+        default=None, description="The span a steady phase averaged its recharge over."
+    )
+    protocol: dict[str, Any] | None = Field(
+        default=None, description="The published method that wrote these stages."
+    )
+    methods_paragraph: str | None = Field(
+        default=None, description="The prose this run writes about itself."
+    )
+    methods_path: str | None = Field(default=None, description="The file that paragraph is in.")
+    extra: dict[str, Any] | None = Field(default=None, description="Free-form metadata.")
 
 
-# ---------------------------------------------------------------------------
-# Loader
-# ---------------------------------------------------------------------------
+def samples_text(samples: Mapping[str, Mapping[str, Any]]) -> str:
+    """Return the pairs of ``extra["cost_samples"]`` in words, one clause per output."""
+    return scored_samples_text(
+        scored_entry(name, info, case_id="") for name, info in samples.items()
+    )
 
 
-def _session_candidates(conn: Any) -> list[tuple[str, Any]]:
-    """Return ``[(session_hex, started_at)]`` ordered most-recent first."""
-    rows = conn.execute(
-        "SELECT session_id, started_at FROM calibration_sessions "
-        "ORDER BY started_at DESC NULLS LAST",
-    ).fetchall()
-    return [(_hex(r[0]), r[1]) for r in rows]
+def scored_entry(
+    output: str, info: Mapping[str, Any], *, case_id: str, window: str = CALIBRATION_ROLE
+) -> ScoredSamples:
+    """Return one ``{n_paired, n_sim_nan, start, end}`` entry of a report as a :class:`ScoredSamples`."""
+    return ScoredSamples(
+        window=window,
+        case_id=case_id,
+        output=output,
+        n=info["n_paired"],
+        n_sim_nan=info.get("n_sim_nan"),
+        first=info.get("start"),
+        last=info.get("end"),
+    )
 
 
-def _sessions_for_sim_prefix(conn: Any, normalized: str) -> set[str]:
-    """Return session hexes whose calibration run matches ``normalized``.
+def interval_is_degenerate(interval: Mapping[str, Any]) -> bool:
+    """Whether an interval holds the best trial alone, so it has no width.
 
-    Matches both iteration runs (``calibration_iterations.sim_id``) and the
-    promoted best run (``calibration_sessions.best_sim_id``), so a reference
-    copied from ``hmp catalog ls`` resolves to its parent session.
+    ``interval`` is a :meth:`ParameterInterval.to_dict` record. Printed as
+    ``[x, x]``, such an interval reads as a value known exactly, when it only
+    says that no other trial scored within the cost margin.
     """
-    out: set[str] = set()
-    for session_id, sim_id in conn.execute(
-        "SELECT session_id, sim_id FROM calibration_iterations WHERE sim_id IS NOT NULL"
-    ).fetchall():
-        if _hex(sim_id).startswith(normalized):
-            out.add(_hex(session_id))
-    for session_id, best in conn.execute(
-        "SELECT session_id, best_sim_id FROM calibration_sessions WHERE best_sim_id IS NOT NULL"
-    ).fetchall():
-        if _hex(best).startswith(normalized):
-            out.add(_hex(session_id))
-    return out
+    n_within = interval.get("n_within")
+    if n_within is not None and int(n_within) <= 1:
+        return True
+    return float(interval["lower"]) == float(interval["upper"])
 
 
-def _match_session_ids(conn: Any, raw: str) -> list[str]:
-    """Return session hexes matching ``raw`` as a session id or a run id.
+def interval_best_is_on_a_bound(interval: Mapping[str, Any]) -> bool:
+    """Whether the value itself sits on a search bound, not only the range around it."""
+    best = float(interval["best"])
+    return bool(
+        (interval["reaches_lower_bound"] and best <= float(interval["lower"]))
+        or (interval["reaches_upper_bound"] and best >= float(interval["upper"]))
+    )
 
-    ``raw`` is a full UUID or a unique hex prefix. A reference that matches a
-    calibration run (an iteration sim_id or the promoted best run) resolves to
-    that run's parent session. Never raises; returns ``[]`` on no match.
+
+def promotion_failures(result: Any) -> list[str]:
+    """Return the promotions a finished calibration could not write, one line each.
+
+    Reads a calibration report or its ``to_dict`` summary. A line of a staged
+    run starts with its phase name. The search results stay valid: only the
+    replayed runs are missing.
     """
-    import uuid
-
-    normalized = raw.replace("-", "").lower()
-    candidates = {h for h, _ in _session_candidates(conn)}
-    if not candidates:
+    summary = result.to_dict() if hasattr(result, "to_dict") else result
+    if not isinstance(summary, Mapping):
         return []
-    hits: set[str] = set()
-    if len(normalized) == 32:
-        try:
-            full = uuid.UUID(normalized).hex
-        except ValueError:
-            full = None
-        if full is not None and full in candidates:
-            hits.add(full)
-    else:
-        hits.update(h for h in candidates if h.startswith(normalized))
-    hits.update(h for h in _sessions_for_sim_prefix(conn, normalized) if h in candidates)
-    return sorted(hits)
+    lines: list[str] = []
+    for phase in summary.get("phases") or ():
+        extra = phase["report"].get("extra") or {}
+        for failure in extra.get("promotion_failures") or ():
+            lines.append(f"phase {phase['phase']}: {failure}")
+    extra = summary.get("extra")
+    if isinstance(extra, Mapping):
+        lines.extend(str(failure) for failure in extra.get("promotion_failures") or ())
+    return lines
 
 
-def resolve_calibration_session_id(
-    catalog: Any,
-    raw: str | None,
-) -> str:
-    """Return the canonical hex session id for ``raw`` in one catalog.
+def unfinished_session(result: Any) -> str | None:
+    """Return one line saying how the session of a calibration closed, unless completed.
 
-    ``raw`` accepts a full UUID (hex or dashed, 32 hex chars) or a unique
-    prefix of >= 1 hex char, matching either a calibration session id or a
-    calibration run id (mapped to its parent session). When ``raw`` is
-    ``None``, return the most recently started session.
+    Reads ``session.json`` of the session a calibration report, or its
+    ``to_dict`` summary, names. ``None`` when that session closed
+    ``completed``, or when the result names no folder holding a descriptor.
     """
-    from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
-
-    candidates = _session_candidates(catalog.connection)
-    if not candidates:
-        raise ConfigMissingError("No calibration session found in the workspace catalog.")
-    if raw is None:
-        return candidates[0][0]
-    matches = _match_session_ids(catalog.connection, raw)
-    if not matches:
-        raise ConfigMissingError(f"No calibration session or run matches {raw!r}.")
-    if len(matches) > 1:
-        raise ConfigError(
-            f"Reference {raw!r} is ambiguous ({len(matches)} sessions). Use more hex characters."
-        )
-    return matches[0]
-
-
-def _iter_catalog_roots(workspace_root: Path) -> list[Path]:
-    """Return the workspace catalog roots (single canonical federation helper)."""
-    from hydromodpy.results.catalog import iter_project_catalog_roots
-
-    return iter_project_catalog_roots(workspace_root)
-
-
-def resolve_session_in_workspace(
-    workspace_root: Path,
-    raw: str | None,
-) -> tuple[Path, str]:
-    """Resolve a calibration session across a whole workspace.
-
-    Searches the workspace-level catalog and every ``projects/<name>`` catalog
-    under ``workspace_root``. ``raw`` may be a session id/prefix or a
-    calibration run id/prefix (mapped to its parent session). ``None`` selects
-    the most recently started session anywhere in the workspace.
-
-    Returns ``(catalog_root, session_hex)``: the project root whose catalog owns
-    the session, ready to open for rendering.
-    """
-    from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
-    from hydromodpy.results.catalog import Catalog
-
-    workspace_root = Path(workspace_root).expanduser().resolve()
-    roots = _iter_catalog_roots(workspace_root)
-    if not roots:
-        raise ConfigMissingError(
-            f"No catalog found under {workspace_root}. Pass -w <workspace-or-project>."
-        )
-    if len(roots) == 1:
-        with Catalog(roots[0], read_only=True) as catalog:
-            return roots[0], resolve_calibration_session_id(catalog, raw)
-
-    matches: list[tuple[Path, str, Any]] = []
-    for root in roots:
-        try:
-            with Catalog(root, read_only=True) as catalog:
-                conn = catalog.connection
-                if raw is None:
-                    cands = _session_candidates(conn)
-                    if cands:
-                        matches.append((root, cands[0][0], cands[0][1]))
-                else:
-                    started = dict(_session_candidates(conn))
-                    matches.extend(
-                        (root, sid, started.get(sid)) for sid in _match_session_ids(conn, raw)
-                    )
-        except Exception as exc:  # a locked or stale catalog must not hide the rest
-            logger.warning("report: skipping catalog %s: %s", root, exc)
-
-    if not matches:
-        if raw is None:
-            raise ConfigMissingError(
-                f"No calibration session found in any project under {workspace_root}."
-            )
-        raise ConfigMissingError(
-            f"No calibration session or run matches {raw!r} in workspace {workspace_root}. "
-            "Run 'hmp catalog ls' to list runs."
-        )
-    if raw is None:
-        matches.sort(
-            key=lambda m: (m[2] is not None, m[2].timestamp() if m[2] is not None else 0.0),
-            reverse=True,
-        )
-        return matches[0][0], matches[0][1]
-    distinct = {(root, sid) for root, sid, _ in matches}
-    if len(distinct) > 1:
-        listing = ", ".join(
-            f"{root.name}/{sid[:8]}"
-            for root, sid in sorted(distinct, key=lambda x: (x[0].name, x[1]))
-        )
-        raise ConfigError(
-            f"Reference {raw!r} is ambiguous across the workspace: {listing}. "
-            "Use more hex characters or pass -w <project_dir>."
-        )
-    root, sid = next(iter(distinct))
-    return root, sid
-
-
-def load_session_report_data(
-    *,
-    catalog: Any,
-    session_id: str,
-    workspace_root: Path,
-) -> SessionReportData:
-    """Load all data needed to render an HTML report for one session.
-
-    Reads the session row, the iteration history, and (when a best run
-    is available) the simulated and observed discharge timeseries. The
-    return value is a plain dataclass, so the caller is free to render
-    it through any backend.
-    """
-    session_row = _load_session(catalog, session_id)
-    iterations = _load_iterations(catalog, session_id)
-    variable = _calibration_variable(session_row)
-    best_sim_id = _pick_report_sim_id(session_row, iterations)
-    sim_df = obs_df = None
-    if best_sim_id is not None:
-        sid = _dashed(best_sim_id)
-        if variable == "lake_level":
-            sim_df, obs_df = _load_best_lake_level(catalog, sid)
-        else:
-            sim_df, obs_df = _load_best_discharge(catalog, sid)
-    return SessionReportData(
-        session_id=session_id,
-        session_name=_session_name(session_row, session_id),
-        session=session_row,
-        iterations=iterations,
-        workspace_root=Path(workspace_root),
-        best_sim_id=best_sim_id,
-        sim_timeseries=sim_df,
-        obs_timeseries=obs_df,
-        variable=variable,
-    )
-
-
-def _session_name(session_row: dict, session_id: str) -> str:
-    """Return the on-disk directory name of the session.
-
-    Rebuilt from the same ``(method, started_at)`` pair the journal used, so
-    a report never invents a second vocabulary for one session.
-    """
-    from datetime import datetime
-
-    from hydromodpy.results.session_journal import session_dir_name
-
-    started_at = session_row["started_at"]
-    if not isinstance(started_at, datetime):
-        started_at = datetime.fromisoformat(str(started_at))
-    return session_dir_name(session_id, str(session_row["method"]), started_at)
-
-
-# ---------------------------------------------------------------------------
-# Catalog reads
-# ---------------------------------------------------------------------------
-
-
-def _load_session(catalog: Any, session_id: str) -> dict:
-    import uuid
-
-    sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
-    row = catalog.connection.execute(
-        """
-        SELECT s.session_id, s.project, s.method, s.objective_name,
-               s.n_iterations, s.config, s.started_at, s.ended_at,
-               st.code AS status,
-               s.best_sim_id, s.best_objective, s.duration_s
-          FROM calibration_sessions s
-          LEFT JOIN statuses st ON st.id = s.status_id
-         WHERE s.session_id = ?
-        """,
-        [sid],
-    ).fetchone()
-    if row is None:
-        raise ValueError(f"Unknown calibration session {session_id!r}")
-    keys = (
-        "session_id",
-        "project",
-        "method",
-        "objective_name",
-        "n_iterations",
-        "config",
-        "started_at",
-        "ended_at",
-        "status",
-        "best_sim_id",
-        "best_objective",
-        "duration_s",
-    )
-    return dict(zip(keys, row, strict=False))
-
-
-def _load_iterations(catalog: Any, session_id: str) -> list[dict]:
-    from hydromodpy.calibration.persistence import CalibrationPersistence
-
-    return CalibrationPersistence(catalog).load_iterations(session_id)
-
-
-def _calibration_variable(session_row: dict) -> str:
-    """Return the calibrated variable from the persisted session config."""
-    config = session_row.get("config")
-    if isinstance(config, str):
-        try:
-            config = json.loads(config)
-        except (TypeError, ValueError):
-            config = {}
-    if isinstance(config, dict):
-        return str(config.get("variable", "discharge"))
-    return "discharge"
-
-
-def _dashed(value: Any) -> str:
-    """Normalize a sim id to the dashed UUID form stored in the catalog."""
-    import uuid
-
-    hexed = _hex(value)
-    try:
-        return str(uuid.UUID(hexed))
-    except ValueError:
-        return str(value)
-
-
-def _load_best_lake_level(
-    catalog: Any, sim_id: str
-) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
-    """Return (simulated stage, observed lake level) for ``sim_id``.
-
-    The simulated LAK stage comes from the catalog ``timeseries`` (one
-    ``lake:<id>`` station per lake); the observed series comes from the
-    ``observations`` table populated at promotion. Either side may be ``None``
-    when the catalog has no matching rows.
-    """
-    try:
-        stations = catalog.backend.query(
-            "SELECT DISTINCT station_id FROM timeseries "
-            "WHERE sim_id = ? AND variable = 'stage' AND station_id LIKE 'lake:%' "
-            "ORDER BY station_id",
-            [sim_id],
-        )
-        if stations.empty:
-            return None, None
-        station = str(stations.iloc[0, 0])
-        sim_df = catalog.backend.query(
-            "SELECT time AS datetime, value FROM timeseries "
-            "WHERE sim_id = ? AND station_id = ? AND variable = 'stage' ORDER BY timestep",
-            [sim_id, station],
-        )
-        obs_df = catalog.backend.query(
-            "SELECT datetime, value FROM observations "
-            "WHERE station_id = ? AND variable_type = 'lake_level' ORDER BY datetime",
-            [station],
-        )
-    except Exception as exc:
-        logger.warning("best_lake_level: catalog query failed: %s", exc)
-        return None, None
-    return sim_df, obs_df
-
-
-def _load_best_discharge(
-    catalog: Any, sim_id: str
-) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
-    """Return (simulated, observed) discharge frames for ``sim_id``.
-
-    Either side may be ``None`` (or empty) if the catalog does not
-    contain matching rows; the display layer is expected to skip the
-    obs-vs-sim figure in that case.
-    """
-    try:
-        sim_df = catalog.backend.query(
-            "SELECT time AS datetime, value FROM timeseries "
-            "WHERE sim_id = ? AND variable = 'discharge' AND station_id = '_catchment' "
-            "ORDER BY timestep",
-            [sim_id],
-        )
-        obs_df = catalog.backend.query(
-            "SELECT time AS datetime, value FROM timeseries "
-            "WHERE sim_id = ? AND variable = 'discharge_obs' "
-            "ORDER BY timestep",
-            [sim_id],
-        )
-    except Exception as exc:
-        logger.warning("best_obs_vs_sim: catalog query failed: %s", exc)
-        return None, None
-    return sim_df, obs_df
-
-
-def _pick_report_sim_id(session_row: dict, iterations: list[dict]) -> str | None:
-    """Return the sim_id used by the obs-vs-sim figure.
-
-    Prefers the session-level ``best_sim_id`` (promoted run); falls back
-    to the lowest-cost iteration whose ``sim_id`` is set when the session
-    field is empty (e.g. failed promotion of the top iteration).
-    """
-    sid = session_row.get("best_sim_id")
-    if sid is not None:
-        return _hex(sid)
-    for row in sorted(
-        (r for r in iterations if r.get("sim_id") and r.get("objective_value") is not None),
-        key=lambda r: r["objective_value"],
-    ):
-        return _hex(row["sim_id"])
-    return None
-
-
-def _hex(value: Any) -> str:
-    if value is None:
-        return ""
-    if hasattr(value, "hex"):
-        return value.hex
-    return str(value).replace("-", "")
+    summary = result.to_dict() if hasattr(result, "to_dict") else result
+    if not isinstance(summary, Mapping) or not summary.get("session_dir"):
+        return None
+    session_dir = Path(summary["session_dir"])
+    if not session_descriptor_path(session_dir).is_file():
+        return None
+    descriptor = read_session(session_dir)
+    if descriptor.status == "completed":
+        return None
+    reason = f": {descriptor.error_message}" if descriptor.error_message else ""
+    return f"Session {session_dir.name} closed {descriptor.status}{reason}"
 
 
 __all__ = (
+    "CALIBRATE_SCHEMA",
+    "NO_OTHER_TRIAL",
     "CalibrationReport",
-    "SessionReportData",
-    "load_session_report_data",
-    "resolve_calibration_session_id",
-    "resolve_session_in_workspace",
+    "CalibrationResult",
+    "FrozenParameter",
+    "PhaseRun",
+    "interval_best_is_on_a_bound",
+    "interval_is_degenerate",
+    "promotion_failures",
+    "samples_text",
+    "scored_entry",
+    "unfinished_session",
 )

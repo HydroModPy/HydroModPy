@@ -1,9 +1,20 @@
-[discharge]
-relative_rmse = 0.24
-relative_max_error = 0.26
+[recession]
+coefficient_relative_error = 0.0047
+exponent_abs_error = 0.0023
+late_relative_rmse = 0.0043
 
 [uniformity]
 row_spread = 1e-6
 
 [monotonicity]
 max_positive_increment_m3_s = 1e-12
+
+[doc]
+reason = """
+Twice the error measured with PETSc on 40 x 24 cells and 4 backward-Euler steps
+a day, the steps MODFLOW takes: coefficient error -0.0023, |b - 3/2| 0.0011,
+late RMSE 0.0021. MODFLOW reads +4 % on the coefficient from upstream weighting
+next to the dry outlet; the Boussinesq solver takes the mean thickness at a face
+and does not carry that error. The row spread (3e-16 m measured) and
+monotonicity bounds are those of tolerances.toml.
+"""

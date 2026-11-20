@@ -1,0 +1,19 @@
+{
+  "$schema": "urn:hmp:profile:process-index:v1",
+  "processes": [
+    {
+      "id": "data-request",
+      "version": "1.0.0",
+      "major": 1,
+      "title": "Serve [data] sections over an extent and a period, one file per variable",
+      "file": "data-request@1.json"
+    },
+    {
+      "id": "domain-build",
+      "version": "1.0.0",
+      "major": 1,
+      "title": "Aquifer domain geometry from a terrain and a depth model",
+      "file": "domain-build@1.json"
+    }
+  ]
+}

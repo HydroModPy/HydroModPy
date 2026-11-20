@@ -1,181 +1,178 @@
-# ======================================================================
-# HydroModPy - example 04: streamflow intermittence in transient
-# ----------------------------------------------------------------------
-# Nancon catchment (Brittany, EPSG:2154), extracted from the regional 75 m
-# DEM by outlet snapping. Monthly transient groundwater flow over three
-# years (2000-2002), solved with MODFLOW 6, forced by an observed monthly
-# recharge and runoff climatology.
+# Example 04: the seepage network of the Nançon catchment (Ille-et-Vilaine)
+# through the seasons.
 #
-# The theme is intermittence: as recharge swings between wet winters and
-# dry summers, the water table rises and falls, so the seepage cells and
-# the simulated active network expand and contract through the year. Render
-# the seepage map at a wet and a dry month (see run_manual.py) to see the
-# perennial vs intermittent parts of the network.
+# Monthly transient run, 2000 to 2002, a 30 m aquifer in one layer under a
+# 75 m DEM, seepage at the ground surface, the SIM2 recharge and runoff of the
+# catchment. As the recharge swings between wet winters and dry summers, the
+# seepage cells spread out and draw back. MODFLOW 6 solves the flow.
 #
-# Launch:
-#   hmp run examples/projects/04_streamflow_intermittence_in_transient/project.toml
-# ======================================================================
+#   hmp run project.toml
 
+# The catchment. The gauge is the station of every series below: the discharge,
+# the recharge and the runoff read station NANCON. The recharge and the runoff
+# are the SIM2 means over the catchment. The uri is the Hub'Eau code of the
+# site, a key that survives a move to another workspace.
+[site]
+name = "nancon"
+label = "Le Nançon à Lécousse"
+gauge = "NANCON"
+uri = "hubeau:J0014010"
 
-[workflow]
-mode = "simulation"
-
-[workspace]
-project_root = "."
-
+# The discharge is scored on 2001 and 2002. The year 2000 is spin-up.
+[metrics]
+window = { start = "2001-01-01", end = "2002-12-31" }
 
 [simulation]
 name = "nancon_intermittence_mf6"
-description = "Nancon catchment, monthly transient 2000-2002, MODFLOW 6, seasonal seepage intermittence."
-if_exists = "replace"
+description = "Nancon catchment, monthly transient 2000-2002, seasonal seepage intermittence."
 
+# Thirty-six monthly stress periods, one time step each.
 [simulation.time]
 start_datetime = "2000-01-01"
 end_datetime = "2002-12-31"
 step_value = "1 month"
-coverage_policy = "warn"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
-
-# ---------------------------------------------------------------------- geographic
+# The catchment is cut out of a regional 75 m DEM, upstream of the outlet,
+# after the depressions of the DEM are breached. The domain is the box around
+# the catchment widened by 10 % of the square root of its area: 172 x 157 cells.
 [geographic]
-source_mode = "standard"
 crs_project = "EPSG:2154"
 dem_correc_type = "breach"
-domain_extent = "box"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
-dem_init_path = "DEM_armorican_massif.tif"
-# Nancon gauging-station outlet, EPSG:2154.
+kind = "from_outlet_coord"
 x_outlet = 389285.910
 y_outlet = 6816518.749
 snap_dist = "150 m"
-buff_area = "10%"
+buff_area = "10% of sqrt(area)"
 
-[geographic.river_network]
-enabled = true
-threshold_mode = "area_km2"
-threshold_area_km2 = 0.5
-compute_strahler_order = true
-compute_stream_links = true
-
-
-# ---------------------------------------------------------------------- domain
-[domain]
-
+# One layer, 30 m thick under the ground surface.
 [domain.depth_model]
 kind = "constant_thickness"
-thickness = "30.0 m"
+thickness = "30 m"
 
-
-# ---------------------------------------------------------------------- data
+# The DEM, the mapped streams, the gauge, and the monthly recharge and runoff of
+# station NANCON. The mapped streams are drawn and exported. The model does not
+# read them.
 [data]
-project_crs = "EPSG:2154"
-types = ["dem", "recharge", "runoff"]
-inference_mode = "warn"
+types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "DEM_armorican_massif.tif"
+source = "file"
+path = "workspace:DEM_armorican_massif.tif"
 
-# Observed monthly recharge climatology for the Nancon (mm/day).
-[data.recharge]
-date_start = "2000-01-01"
-date_end = "2002-12-31"
+[[data.hydrography.sources]]
+source = "file"
+path = "workspace:nancon_stream_network.gpkg"
+
+[[data.hydrometry.sources]]
+source = "file"
+path = "workspace:."
+
 [[data.recharge.sources]]
-source = "custom"
-path = "recharge"
-station_ids = ["NANCON"]
+source = "file"
+path = "workspace:."
 
-# Observed monthly runoff, added to the simulated baseflow to form the
-# total streamflow the discharge series reports.
-[data.runoff]
-date_start = "2000-01-01"
-date_end = "2002-12-31"
 [[data.runoff.sources]]
-source = "custom"
-path = "runoff"
-station_ids = ["NANCON"]
+source = "file"
+path = "workspace:."
 
-
-# ---------------------------------------------------------------------- flow
 [flow]
-flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
-# Warm the heads up on the mean recharge before the transient starts.
-first_period_steady = true
 
-[flow.ic]
-type = "top"
-description = "Water table initialised at the topographic surface."
-
+# py1_run_and_plot.py gives Sy three values: 0.001, 0.05 and 0.3.
 [flow.param.K.field]
-id = "K"
 kind = "homogeneous"
 unit = "m/s"
 value = 5e-5
 
 [flow.param.Sy.field]
-id = "Sy"
 kind = "homogeneous"
 unit = "-"
 value = 0.05
 
 [flow.param.Ss.field]
-id = "Ss"
 kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
 
+# Every cell drains at the ground surface. The conductance follows K,
+# C = K * cell area / 1 m.
 [flow.bc.drainage]
-kind = "cauchy"
-application_domain = "top"
-description = "Cauchy drainage on the aquifer top face."
-value = 0.0
 
+# January 2000 is solved in steady state under the recharge of January, so the
+# run starts from a wet winter water table.
 [flow.sinks_sources.recharge]
-first_clim = "mean"
+first_clim = "first"
 
-
-# ---------------------------------------------------------------------- solver
-[modflow6.runtime]
-# COMPLEX is the robust IMS preset for the transient Newton solve on the
-# buffered box (edge cells wet and dry as the water table swings); the outer
-# head-change criterion is relaxed to 1 cm, ample at catchment scale.
-mf6_ims_complexity = "COMPLEX"
-mf6_outer_dvclose = 1e-2
-
-[modflow6.sgrid.planar]
-mode = "keep_native"
-
-[modflow6.sgrid.vertical]
-genmtd_lay = "constant"
-nlay = 1
-
-
-# ---------------------------------------------------------------------- display
+# The figures land in runs/nancon_intermittence_mf6/figures/. Each one that
+# applies and fails stops the run, so a broken figure cannot go unseen.
 [display]
-enabled = true
-show = false
-save = true
-output_dir = "figures"
 on_error = "raise"
-figures = [
-    "watershed_id_card",
-    "mesh_map",
-    "piezometric_map",
-    "watertable_depth_map",
-    "seepage_map",
-    "simulated_active_network",
-    "hydrograph",
-    "flux_timeseries",
-    "cross_section",
-    "water_budget",
-]
+
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "network", "outlet"]
+
+# October 2002, the driest month of the record: the water-table depth with the
+# seepage cells, then a section from south to north through the outlet.
+[[display.figure]]
+variable = "watertable_depth"
+time = "2002-10-15"
+overlays = ["seepage", "outline"]
+limits = [0.0, 15.0]
+line = [[389175.0, 6815000.0], [389175.0, 6826000.0]]
+
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "section_south_north"
+time = "2002-10-15"
+line = [[389175.0, 6815000.0], [389175.0, 6826000.0]]
+
+# The share of the 36 months each cell seeps.
+[[display.figure]]
+variable = "simulated_active_network"
+reduce = "frequency"
+overlays = ["outline", "network"]
+
+# The discharge against the gauge on a log axis, the seepage share of the
+# catchment beside the discharge, and what enters and leaves each month.
+[[display.figure]]
+preset = "hydrograph"
+scale = "log"
+name = "hydrograph_log"
+
+[[display.figure]]
+preset = "network_expansion"
+
+[[display.figure]]
+preset = "water_budget"
+
+# What lands in runs/nancon_intermittence_mf6/exports/, ready for QGIS or a
+# spreadsheet.
+
+# The catchment and the mapped streams: GeoPackage.
+[[export]]
+variable = ["watershed", "hydrographic_network_reference"]
+
+# The water-table depth and the seepage cells of October 2002: one GeoTIFF each.
+[[export]]
+variable = ["watertable_depth", "seepage_mask"]
+time = "2002-10-15"
+
+# Simulated and gauged discharge, month by month: CSV.
+[[export]]
+variable = ["discharge", "discharge_obs"]
+
+# The water budget of every month: CSV.
+[[export]]
+variable = "budget"

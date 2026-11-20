@@ -8,11 +8,8 @@ description = "Synthetic steady-state unconfined flow with west-side divide, eas
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
-
-[workspace]
-project_root = "."
 
 [geographic]
 source_mode = "synthetic"
@@ -35,14 +32,15 @@ base_elevation = 20.0
 kind = "constant_thickness"
 thickness = "20.0 m"
 
+[domain.layers]
+nlay = 1
+
 [data]
 types = ["recharge"]
 inference_mode = "warn"
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["east_side"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -51,7 +49,7 @@ kind = "homogeneous"
 value = "1e-4 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "9.0 m"
 
 [flow.bc.east_side]
@@ -64,16 +62,6 @@ first_clim = "mean"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [1.0]
-runoff_ratio = 0.0
-
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 40
-ny = 5
-resampling = "nearest"
-
-[modflownwt.sgrid.vertical]
-nlay = 1
 
 [display]
 enabled = false

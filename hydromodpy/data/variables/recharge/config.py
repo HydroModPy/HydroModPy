@@ -2,21 +2,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.tracking import InputFile
-from hydromodpy.data.managers.base_config import BaseVariableConfig
-from hydromodpy.data.variables.timeseries_variable_config import (
+from hydromodpy.core.tracking.input_file import InputFile
+from hydromodpy.data.families.base_config import BaseVariableConfig
+from hydromodpy.data.families.timeseries_config import (
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    UrlSourceFieldsMixin,
+    registered_section_source,
 )
 
 
-class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+class RechargeSourceConfig(UrlSourceFieldsMixin, TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     """Configuration for one recharge data source.
 
     Recharge sources provide water input to the subsurface as custom files,
@@ -25,10 +29,26 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     optional amplitude settings.
     """
 
-    source: Annotated[Literal["custom", "sim2", "synthetic"], Profile.USER] = Field(
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "runoff_ratio": (
+            "no step ever read it, the recharge of a source is the water that "
+            "reaches the saturated zone; give that net recharge in `values`"
+        ),
+    }
+
+    source: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.",
+        description=(
+            "Data provider: 'custom' for user CSV files, or the id of a source registered "
+            "for the recharge section, such as 'sim2' for the SIM2 EDR API and 'synthetic' "
+            "for generated series."
+        ),
     )
+
+    @field_validator("source")
+    @classmethod
+    def _check_the_source_is_served_for_recharge(cls, source: str) -> str:
+        return registered_section_source(source, "recharge")
 
     # --- Custom source fields ---
     path: Annotated[
@@ -38,6 +58,7 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     ] = Field(
         default=None,
         description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     source_unit: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -48,12 +69,14 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     mask_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
 
     # --- Synthetic source fields ---
     values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
         description="Recharge values in mm/day. Single value for constant, list for time-varying.",
+        json_schema_extra=field_metadata(unit="mm/day"),
     )
     start_date: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -66,36 +89,53 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     periods: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         description="Number of periods for synthetic series.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     amplitude: Annotated[float | None, Profile.EXPERT] = Field(
         default=None,
         description="Sinusoidal amplitude in mm/day (superimposed on values).",
+        json_schema_extra=field_metadata(unit="mm/day"),
     )
     period_days: Annotated[int | None, Profile.EXPERT] = Field(
         default=None,
-        description="Sinusoidal period in days.",
+        description="Period of the sinusoid in days, whatever freq is. Each sample holds the mean of the wave over its own period.",
     )
     offset: Annotated[float | None, Profile.EXPERT] = Field(
         default=None,
-        description="Sinusoidal baseline offset in mm/day.",
-    )
-    runoff_ratio: Annotated[float | None, Profile.DEV] = Field(
-        default=None,
-        description="Fraction of recharge routed to runoff (0.0 to 1.0).",
+        description="Added to the sinusoid, in mm/day. Requires amplitude and period_days.",
+        json_schema_extra=field_metadata(unit="mm/day"),
     )
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> RechargeSourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
+                    "File source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
                 )
         if self.source == "synthetic":
             if self.values is None:
                 raise ValueError(
                     "Synthetic source requires 'values' (list of recharge values in mm/day)."
                 )
+        wave = {"amplitude": self.amplitude, "period_days": self.period_days}
+        if self.source != "synthetic" and any(v is not None for v in wave.values()):
+            raise ValueError("amplitude and period_days only shape a synthetic source.")
+        if self.source != "synthetic" and self.offset is not None:
+            raise ValueError("offset only shapes a synthetic source.")
+        written = [name for name, value in wave.items() if value is not None]
+        if len(written) == 1:
+            missing = "period_days" if written[0] == "amplitude" else "amplitude"
+            raise ValueError(
+                f"{written[0]} draws a sinusoid only with {missing}: write both, or neither."
+            )
+        if self.offset is not None and not written:
+            raise ValueError(
+                f"offset = {self.offset} shifts the sinusoid, and this source declares none: "
+                "write amplitude and period_days, or add the offset to values."
+            )
+        if self.period_days is not None and self.period_days <= 0:
+            raise ValueError(f"period_days must be positive, got {self.period_days}.")
         return self
 
 

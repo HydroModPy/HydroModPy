@@ -11,6 +11,18 @@ SHELL := /usr/bin/env bash
 # writing takes several minutes. Override with `make html SPHINXOPTS=` to disable.
 SPHINXOPTS    ?= -j auto
 SPHINXBUILD   ?= python -m sphinx
+# The search index of the built site (search.html loads it). What the index
+# leaves out: the heading anchors, every button (copy, show dev keys), the TeX
+# source of the math (it would show as \(K\) in an excerpt), the labels of a
+# parameter card (Path, Accepted, Unit...), the facts line under a key table,
+# and the hidden copy of a TOML view (hmp-search-text), which repeats the
+# visible lines. Keep the same list in .github/workflows/docs-deploy-pages.yml.
+PAGEFIND      = python -m pagefind --site $(BUILDDIR)/html --quiet \
+                --exclude-selectors ".headerlink" --exclude-selectors "button" \
+                --exclude-selectors ".math" --exclude-selectors ".hmp-card dt" \
+                --exclude-selectors ".hmp-facts" --exclude-selectors ".hmp-search-text"
+# llms.txt and llms-full.txt, written from the built pages (tools/docs/llms_txt.py).
+LLMS          = PYTHONPATH=.. python -m tools.docs.llms_txt $(BUILDDIR)/html
 SPHINXPROJ    = HydroModPy
 SOURCEDIR     = source
 BUILDDIR      = build
@@ -45,8 +57,6 @@ help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  html       to make standalone HTML files"
 	@echo "  livehtml   to serve HTML with sphinx-autobuild and reload on save"
-	@echo "  polyversion       to build a merged multi-version site (main + dev + archive-v1 + tags)"
-	@echo "  polyversion-local to build only the current working tree under docs/build/html"
 	@echo "  dirhtml    to make HTML files named index.html in directories"
 	@echo "  singlehtml to make a single large HTML file"
 	@echo "  pickle     to make pickle files"
@@ -66,11 +76,19 @@ help:
 	@echo "  linkcheck  to check all external links for integrity"
 	@echo "  doctest    to run all doctests embedded in the documentation (if enabled)"
 
+# The folders below are written by the build and ignored by git (.gitignore).
+# reference/parameters keeps grammar.md and _generated keeps CHANGELOG.md.
 clean:
 	-rm -rf $(BUILDDIR)/*
+	-rm -rf $(SOURCEDIR)/api/generated $(SOURCEDIR)/_data \
+		$(SOURCEDIR)/reference/python $(SOURCEDIR)/reference/cli
+	-find $(SOURCEDIR)/_generated -mindepth 1 ! -name CHANGELOG.md -delete
+	-find $(SOURCEDIR)/reference/parameters -mindepth 1 ! -name grammar.md -delete
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
+	$(PAGEFIND)
+	$(LLMS)
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
@@ -81,25 +99,13 @@ html:
 # own.
 html-strict:
 	$(SPHINXBUILD) -b html -W --keep-going $(ALLSPHINXOPTS) $(BUILDDIR)/html 2>&1 | { grep -v $(NOISY_PATTERNS) || true; }; exit $${PIPESTATUS[0]}
+	$(PAGEFIND)
+	$(LLMS)
 	@echo
 	@echo "Strict build finished (warnings treated as errors)."
 
-lint:
-	@echo "Running sphinx-lint on $(SOURCEDIR)..."
-	@python -m sphinxlint --enable all --max-line-length 100 $(SOURCEDIR) || true
-	@echo "Running doc8 on $(SOURCEDIR)..."
-	@python -m doc8 --max-line-length 100 $(SOURCEDIR) || true
-
 livehtml:
 	sphinx-autobuild -b html --open-browser --watch ../hydromodpy --watch ../examples --watch ../tools $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
-
-polyversion:
-	cd .. && python -m sphinx_polyversion poly.py
-	@echo "Multi-version site at docs/build/html/<branch-or-tag>/index.html"
-
-polyversion-local:
-	cd .. && python -m sphinx_polyversion poly.py -l --sequential
-	@echo "Local mock build at docs/build/html/<current-branch>/index.html"
 
 dirhtml:
 	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
@@ -207,7 +213,7 @@ doctest:
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."
 
-.PHONY: help Makefile clean html html-strict lint livehtml polyversion polyversion-local dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
+.PHONY: help Makefile clean html html-strict livehtml dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).

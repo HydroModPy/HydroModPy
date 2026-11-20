@@ -1,23 +1,25 @@
 """End-to-end run of the HMP-built two-lake forebay (pre-retenue + reservoir).
 
-Two LAK lakes are coupled across a sill by TWO reciprocal DIRECT WEIR outlets at
-a shared invert (lac0 -> lac1 with ``lakeout = 2`` and lac1 -> lac0 with
-``lakeout = 1``, no MVR). lac1 also carries a spillway WEIR to the external
-boundary. The LAK package is assembled by the production
-``build_lak_package_args`` (so the integration covers the real builder output),
-then wired into a tiny 5x11 / 2-layer DISV model exported from a ``SolverMesh``
-and run in MF6. The lakebed is sealed (``bedleak = 0``) so the only inter-lake
-path is the weir, which isolates the sill behaviour:
+Two LAK lakes are coupled across a sill by ONE direct WEIR outlet, from the
+forebay to the reservoir (lac0 -> lac1 with ``lakeout = 2``, no MVR). lac1 also
+carries a spillway WEIR to the external boundary. The LAK package is assembled
+by the production ``build_lak_package_args`` (so the integration covers the real
+builder output), then wired into a tiny 5x11 / 2-layer DISV model exported from
+a ``SolverMesh`` and run in MF6. The lakebed is sealed (``bedleak = 0``) so the
+only inter-lake path is the weir, which isolates the sill behavior:
 
-* BELOW the sill (both stages < invert) the reciprocal weirs are inert and the
-  two lakes stay independent -- no exchange, stages held;
+* BELOW the sill (both stages < invert) the weir is inert and the two lakes
+  stay independent -- no exchange, stages held;
 * ABOVE the sill (lac0 > invert) lac0 spills its surplus into lac1 (the
   exploitable-volume transfer) and parks at the invert, while lac1 (still below
   the invert) sends nothing back.
 
-This is the runtime proof behind the reciprocal-direct-weir design: MF6 accepts
-and converges with the 2-cycle of direct outlets, and the storage moves the way
-the forebay-over-a-sill conceptual model requires.
+Why one weir and not two reciprocal ones: two WEIR outlets that spill into each
+other over the same crest make MF6 circulate water both ways once both lakes
+are above it (17.6 m3/s each way for a 0.04 m3/s net on the Cheze), and the
+builder now refuses that pair (C-04, decision D9). The sill is a one-way
+spillway, so the fixture declares it once. "Nothing comes back" is read on the
+OUTLET-INFLOW of lac0, the water it receives from other lakes' outlets.
 """
 
 from __future__ import annotations
@@ -29,14 +31,15 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.builders import (
-    apply_lake_idomain_mask,
-    build_lak_package_args,
-)
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
+from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args
+from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
-_CREST = 95.0  # sill crest = both reciprocal weir inverts
+_CREST = 95.0  # sill crest = invert of the forebay weir
 _SPILL = 98.0  # spillway crest on lac1 (external)
 _NROW, _NCOL = 5, 11
 
@@ -46,30 +49,25 @@ def _two_lake_model(*, strt0: float, strt1: float) -> SimpleNamespace:
     return SimpleNamespace(
         model_output_name="twolake",
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["reservoir"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {
-                        "polygon": None,
-                        "bedleak": 0.0,  # sealed bed: isolate the weir coupling
-                        "abacus": abacus,
-                        "stageinit": strt0,
-                        "outlets": [
-                            {"couttype": "WEIR", "invert": _CREST, "width": 24.0, "lakeout": 2}
-                        ],
-                    },
-                    "lac1": {
-                        "polygon": None,
-                        "bedleak": 0.0,
-                        "abacus": abacus,
-                        "stageinit": strt1,
-                        "outlets": [
-                            {"couttype": "WEIR", "invert": _CREST, "width": 24.0, "lakeout": 1},
-                            {"couttype": "WEIR", "invert": _SPILL, "width": 35.0, "lakeout": 0},
-                        ],
-                    },
-                }
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={
+                "lac0": {
+                    "polygon": None,
+                    "bedleak": 0.0,  # sealed bed: isolate the weir coupling
+                    "abacus": abacus,
+                    "initial_stage": strt0,
+                    "outlets": [{"kind": "WEIR", "invert": _CREST, "width": 24.0, "lakeout": 2}],
+                },
+                "lac1": {
+                    "polygon": None,
+                    "bedleak": 0.0,
+                    "abacus": abacus,
+                    "initial_stage": strt1,
+                    "outlets": [
+                        {"kind": "WEIR", "invert": _SPILL, "width": 35.0, "lakeout": 0},
+                    ],
+                },
             },
         ),
     )
@@ -80,7 +78,7 @@ def _run(ws: Path, exe: str, *, strt0: float, strt1: float) -> tuple[dict, dict]
 
     top = np.full((_NROW, _NCOL), 100.0)
     botm = np.stack([np.full((_NROW, _NCOL), 90.0), np.full((_NROW, _NCOL), 50.0)])
-    mesh = SolverMesh.from_structured_arrays(
+    mesh = solver_mesh_from_structured_arrays(
         nrow=_NROW, ncol=_NCOL, top=top, botm=botm, dx=10.0, dy=10.0
     )
     # lac0 = west 3x3 block, lac1 = east 3x3 block; the gap (cols 4-6) keeps the
@@ -94,9 +92,9 @@ def _run(ws: Path, exe: str, *, strt0: float, strt1: float) -> tuple[dict, dict]
     model = _two_lake_model(strt0=strt0, strt1=strt1)
     args = build_lak_package_args(model, solver_mesh=masked, lake_cell_ids_by_lake=cells)
     assert args is not None
-    # The reciprocal sill weirs route directly (no MVR) and the spillway is external.
+    # The sill weir routes directly (no MVR) and the spillway is external.
     assert args["nlakes"] == 2
-    assert args["noutlets"] == 3
+    assert args["noutlets"] == 2
     assert "mover" not in args
     assert "mover_records" not in args
 
@@ -125,7 +123,7 @@ def _run(ws: Path, exe: str, *, strt0: float, strt1: float) -> tuple[dict, dict]
         sim, modelname="twolake", save_flows=True, newtonoptions="NEWTON UNDER_RELAXATION"
     )
     flopy.mf6.ModflowGwfdisv(
-        gwf, nlay=masked.nlay, idomain=masked.idomain(), **masked.to_disv_kwargs()
+        gwf, nlay=masked.nlay, idomain=masked.idomain, **masked.to_disv_kwargs()
     )
     flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=1.0, k33=0.1, save_flows=True)
     flopy.mf6.ModflowGwfsto(gwf, iconvert=1, sy=0.2, ss=1e-5, transient={0: True})
@@ -157,8 +155,10 @@ def _run(ws: Path, exe: str, *, strt0: float, strt1: float) -> tuple[dict, dict]
                 ("stageA", "STAGE", 1),
                 ("stageB", "STAGE", 2),
                 ("AtoB", "OUTLET", 1),
-                ("BtoA", "OUTLET", 2),
-                ("Bext", "OUTLET", 3),
+                # What lac0 receives from other lakes' outlets: lac1 has no outlet
+                # into lac0, so this is the "nothing comes back" check.
+                ("BtoA", "OUTLET-INFLOW", 1),
+                ("Bext", "OUTLET", 2),
             ]
         },
     )
@@ -170,7 +170,7 @@ def _run(ws: Path, exe: str, *, strt0: float, strt1: float) -> tuple[dict, dict]
     )
     sim.write_simulation(silent=True)
     success, _buff = sim.run_simulation(silent=True)
-    assert success, "two-lake reciprocal-weir MF6 run did not converge"
+    assert success, "two-lake sill MF6 run did not converge"
 
     with open(ws / "twolake.lak.obs.csv") as fh:
         rows = list(csv.reader(fh))
@@ -185,7 +185,7 @@ def _run(ws: Path, exe: str, *, strt0: float, strt1: float) -> tuple[dict, dict]
 @pytest.mark.allow_subprocess
 @pytest.mark.fast
 def test_two_lakes_independent_below_the_sill(tmp_path: Path) -> None:
-    # Both lakes start below the sill (92 < 95): the reciprocal weirs are inert
+    # Both lakes start below the sill (92 < 95): the sill weir is inert
     # and the sealed beds carry no leakage, so the two lakes are fully decoupled.
     first, last = _run(tmp_path, str(ensure_solver_binary("mf6")), strt0=92.0, strt1=92.0)
     for snap in (first, last):
@@ -206,8 +206,8 @@ def test_forebay_spills_its_surplus_over_the_sill(tmp_path: Path) -> None:
     # while lac1 -- still below the invert -- sends nothing back.
     first, last = _run(tmp_path, str(ensure_solver_binary("mf6")), strt0=96.0, strt1=92.0)
 
-    # First step: lac0 -> lac1 outflow is active (negative = leaving lac0); the
-    # reverse weir stays off because lac1 is below the invert.
+    # First step: lac0 -> lac1 outflow is active (negative = leaving lac0); lac0
+    # receives nothing back from lac1.
     assert first["ATOB"] < 0.0
     assert first["BTOA"] == pytest.approx(0.0, abs=1e-9)
 

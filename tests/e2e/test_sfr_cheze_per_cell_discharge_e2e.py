@@ -27,7 +27,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
+from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask
 from tests.e2e.test_sfr_cheze_e2e import _LAKE_ID, _config_body
 from tests.regression.golden_utils import (
     _open_result_store,
@@ -47,7 +47,7 @@ def _run(tmp_path: Path) -> Path:
 
 
 def _solver_run(out_path: Path) -> tuple[Path, str]:
-    """Return the scratch directory and model name of the MODFLOW 6 run."""
+    """Return the kept solver folder and model name of the MODFLOW 6 run."""
     budgets = [path for path in out_path.rglob("*.cbc") if "." not in path.stem]
     assert budgets, f"no model budget kept under {out_path}; set keep_solver_files"
     budget = budgets[0]
@@ -132,9 +132,7 @@ def test_a_routed_reach_carries_the_discharge_under_each_gauge_cell(tmp_path: Pa
     import flopy
 
     from hydromodpy.solver.modflow6.extractors.sfr import reach_flow_by_cell
-    from hydromodpy.solver.modflow_common.calibration_extractors import (
-        _resolve_seconds_per_unit,
-    )
+    from hydromodpy.solver.modflow_common.time_units import seconds_per_solver_time_unit
 
     out_path = _run(tmp_path)
     output_dir, model_name = _solver_run(out_path)
@@ -144,7 +142,7 @@ def test_a_routed_reach_carries_the_discharge_under_each_gauge_cell(tmp_path: Pa
         output_dir,
         model_name,
         times=times,
-        seconds_per_time_unit=_resolve_seconds_per_unit(output_dir, model_name),
+        seconds_per_time_unit=seconds_per_solver_time_unit(output_dir, model_name),
     )
 
     assert by_cell, "the routed network yielded no reach flow keyed by mesh cell"
@@ -183,9 +181,7 @@ def test_the_reaches_carry_at_least_the_water_the_lake_receives(tmp_path: Path) 
     import flopy
 
     from hydromodpy.solver.modflow6.extractors.sfr import reach_flow_by_cell
-    from hydromodpy.solver.modflow_common.calibration_extractors import (
-        _resolve_seconds_per_unit,
-    )
+    from hydromodpy.solver.modflow_common.time_units import seconds_per_solver_time_unit
 
     out_path = _run(tmp_path)
     output_dir, model_name = _solver_run(out_path)
@@ -194,7 +190,7 @@ def test_the_reaches_carry_at_least_the_water_the_lake_receives(tmp_path: Path) 
         output_dir,
         model_name,
         times=times,
-        seconds_per_time_unit=_resolve_seconds_per_unit(output_dir, model_name),
+        seconds_per_time_unit=seconds_per_solver_time_unit(output_dir, model_name),
     )
     assert by_cell
 
@@ -243,16 +239,14 @@ def test_the_routed_outlet_carries_the_whole_catchment_release(tmp_path: Path) -
         require_mt3dms=False,
     )
     import hydromodpy as hmp
+    from hydromodpy.catchment.drainage.routing import route_release_to_discharge
     from hydromodpy.solver.modflow_common.calibration_extractors import (
         extract_release_flux_by_cell_from_cbc,
-    )
-    from hydromodpy.solver.modflow_common.discharge_routing import (
-        route_release_to_discharge,
-        routing_graph_for_model,
     )
     from hydromodpy.solver.modflow_common.observable_extraction import (
         excluded_release_records_for_model,
         release_packages_for_model,
+        routing_graph_for_model,
     )
 
     out_path = tmp_path / "no_sfr_identity"
@@ -265,12 +259,11 @@ def test_the_routed_outlet_carries_the_whole_catchment_release(tmp_path: Path) -
         # Stop before 'derive': that step clears the model registry to free
         # memory, and the model is what carries the mesh this test routes on.
         project.simulate(until_step="extract")
-        execution = project.workflow_context.execution
-        run_ids = list(execution.models_by_run_id)
-        assert run_ids, "the pipeline kept no model for the run"
-        run_id = run_ids[0]
-        model = execution.models_by_run_id[run_id]
-        output_dir = Path(execution.output_dirs_by_run_id[run_id])
+        execution = project._ctx.execution
+        built = [run for run in execution.solver_runs.values() if run.solver_model is not None]
+        assert built, "the pipeline kept no model for the run"
+        model = built[0].solver_model
+        output_dir = Path(built[0].output_dir)
         model_name = str(model.model_output_name)
 
         frame = extract_release_flux_by_cell_from_cbc(

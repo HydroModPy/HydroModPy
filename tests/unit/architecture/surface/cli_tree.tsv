@@ -1,0 +1,672 @@
+hmp	command
+hmp --version,-V	nargs=0
+hmp --workspace,-w	
+hmp calibrate	command
+hmp calibrate --allow-host	default=[]
+hmp calibrate --case	
+hmp calibrate --credentials	
+hmp calibrate --debug	nargs=0
+hmp calibrate --dry-run	nargs=0
+hmp calibrate --expand	nargs=0
+hmp calibrate --format	choices=['csv', 'json', 'table'] default='table'
+hmp calibrate --list-phases	nargs=0
+hmp calibrate --max-download-bytes	
+hmp calibrate --no-report	nargs=0
+hmp calibrate --overlay	default=[]
+hmp calibrate --phase	
+hmp calibrate --profile	nargs=?
+hmp calibrate --quiet,-q	nargs=0
+hmp calibrate --resume	nargs=0
+hmp calibrate --set	default=[]
+hmp calibrate --verbose,-v	nargs=0
+hmp calibrate --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp calibrate --workspace,-w	
+hmp calibrate <config>	required
+hmp campaign	command
+hmp campaign array	command
+hmp campaign array --allow-host	default=[]
+hmp campaign array --credentials	
+hmp campaign array --debug	nargs=0
+hmp campaign array --format	choices=['csv', 'json', 'table'] default='table'
+hmp campaign array --max-download-bytes	
+hmp campaign array --partition	
+hmp campaign array --prepare-parallel	
+hmp campaign array --quiet,-q	nargs=0
+hmp campaign array --scheduler	required choices=['slurm']
+hmp campaign array --threads-per-case	
+hmp campaign array --time	
+hmp campaign array --verbose,-v	nargs=0
+hmp campaign array --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp campaign array --workspace,-w	
+hmp campaign array <project>	nargs=?
+hmp campaign case	command
+hmp campaign case --debug	nargs=0
+hmp campaign case --format	choices=['csv', 'json', 'table'] default='table'
+hmp campaign case --quiet,-q	nargs=0
+hmp campaign case --verbose,-v	nargs=0
+hmp campaign case --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp campaign case --workspace,-w	
+hmp campaign case <job>	required
+hmp campaign case <task>	required
+hmp campaign collect	command
+hmp campaign collect --debug	nargs=0
+hmp campaign collect --format	choices=['csv', 'json', 'table'] default='table'
+hmp campaign collect --mixed-windows	nargs=0
+hmp campaign collect --quiet,-q	nargs=0
+hmp campaign collect --verbose,-v	nargs=0
+hmp campaign collect --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp campaign collect --workspace,-w	
+hmp campaign collect --write-sites	nargs=0
+hmp campaign collect <project>	nargs=?
+hmp campaign promote	command
+hmp campaign promote --debug	nargs=0
+hmp campaign promote --format	choices=['csv', 'json', 'table'] default='table'
+hmp campaign promote --name	
+hmp campaign promote --quiet,-q	nargs=0
+hmp campaign promote --trial	
+hmp campaign promote --verbose,-v	nargs=0
+hmp campaign promote --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp campaign promote --workspace,-w	
+hmp campaign promote <case>	required
+hmp campaign prune	command
+hmp campaign prune --debug	nargs=0
+hmp campaign prune --dry-run	nargs=0
+hmp campaign prune --format	choices=['csv', 'json', 'table'] default='table'
+hmp campaign prune --keep	choices=['best'] default='best'
+hmp campaign prune --quiet,-q	nargs=0
+hmp campaign prune --verbose,-v	nargs=0
+hmp campaign prune --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp campaign prune --workspace,-w	
+hmp campaign prune --yes,-y	nargs=0
+hmp campaign prune <case>	required
+hmp catalog	command
+hmp catalog delete	command
+hmp catalog delete --debug	nargs=0
+hmp catalog delete --dry-run	nargs=0
+hmp catalog delete --force	nargs=0
+hmp catalog delete --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog delete --now	nargs=0
+hmp catalog delete --quiet,-q	nargs=0
+hmp catalog delete --site	
+hmp catalog delete --verbose,-v	nargs=0
+hmp catalog delete --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog delete --workspace,-w	
+hmp catalog delete --yes,-y	nargs=0
+hmp catalog delete <sim_ref>	required
+hmp catalog gc	command
+hmp catalog gc --debug	nargs=0
+hmp catalog gc --dry-run	nargs=0
+hmp catalog gc --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog gc --keep-versions	default=5
+hmp catalog gc --max-age-days	
+hmp catalog gc --quiet,-q	nargs=0
+hmp catalog gc --trial-fields-days	default=90
+hmp catalog gc --verbose,-v	nargs=0
+hmp catalog gc --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog gc --workspace,-w	
+hmp catalog gc --yes,-y	nargs=0
+hmp catalog import	command
+hmp catalog import --debug	nargs=0
+hmp catalog import --dry-run	nargs=0
+hmp catalog import --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog import --name	
+hmp catalog import --quiet,-q	nargs=0
+hmp catalog import --verbose,-v	nargs=0
+hmp catalog import --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog import --workspace,-w	
+hmp catalog import <source>	required
+hmp catalog note	command
+hmp catalog note --debug	nargs=0
+hmp catalog note --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog note --quiet,-q	nargs=0
+hmp catalog note --site	
+hmp catalog note --verbose,-v	nargs=0
+hmp catalog note --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog note --workspace,-w	
+hmp catalog note <sim_ref>	required
+hmp catalog note <text>	required
+hmp catalog query	command
+hmp catalog query --debug	nargs=0
+hmp catalog query --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog query --limit	
+hmp catalog query --quiet,-q	nargs=0
+hmp catalog query --verbose,-v	nargs=0
+hmp catalog query --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog query --workspace,-w	
+hmp catalog query <sql>	required
+hmp catalog reindex	command
+hmp catalog reindex --debug	nargs=0
+hmp catalog reindex --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog reindex --incremental	nargs=0
+hmp catalog reindex --quiet,-q	nargs=0
+hmp catalog reindex --verbose,-v	nargs=0
+hmp catalog reindex --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog reindex --workspace,-w	
+hmp catalog rename	command
+hmp catalog rename --debug	nargs=0
+hmp catalog rename --dry-run	nargs=0
+hmp catalog rename --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog rename --quiet,-q	nargs=0
+hmp catalog rename --site	
+hmp catalog rename --verbose,-v	nargs=0
+hmp catalog rename --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog rename --workspace,-w	
+hmp catalog rename <new_name>	required
+hmp catalog rename <sim_ref>	required
+hmp catalog rerun	command
+hmp catalog rerun --debug	nargs=0
+hmp catalog rerun --dry-run	nargs=0
+hmp catalog rerun --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog rerun --name	
+hmp catalog rerun --quiet,-q	nargs=0
+hmp catalog rerun --set	default=[]
+hmp catalog rerun --site	
+hmp catalog rerun --verbose,-v	nargs=0
+hmp catalog rerun --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog rerun --workspace,-w	
+hmp catalog rerun <sim_ref>	required
+hmp catalog restore	command
+hmp catalog restore --debug	nargs=0
+hmp catalog restore --dry-run	nargs=0
+hmp catalog restore --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog restore --quiet,-q	nargs=0
+hmp catalog restore --verbose,-v	nargs=0
+hmp catalog restore --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog restore --workspace,-w	
+hmp catalog restore <sim_ref>	required
+hmp catalog tag	command
+hmp catalog tag --debug	nargs=0
+hmp catalog tag --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog tag --quiet,-q	nargs=0
+hmp catalog tag --rm	default=[]
+hmp catalog tag --site	
+hmp catalog tag --verbose,-v	nargs=0
+hmp catalog tag --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog tag --workspace,-w	
+hmp catalog tag <add_tags>	nargs=*
+hmp catalog tag <sim_ref>	required
+hmp catalog trash	command
+hmp catalog trash --debug	nargs=0
+hmp catalog trash --dry-run	nargs=0
+hmp catalog trash --empty	nargs=0
+hmp catalog trash --force	nargs=0
+hmp catalog trash --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog trash --quiet,-q	nargs=0
+hmp catalog trash --verbose,-v	nargs=0
+hmp catalog trash --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog trash --workspace,-w	
+hmp catalog trash --yes,-y	nargs=0
+hmp catalog trash <ref>	nargs=?
+hmp catalog watch	command
+hmp catalog watch --debug	nargs=0
+hmp catalog watch --format	choices=['csv', 'json', 'table'] default='table'
+hmp catalog watch --quiet,-q	nargs=0
+hmp catalog watch --stale-minutes	default=5.0
+hmp catalog watch --verbose,-v	nargs=0
+hmp catalog watch --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp catalog watch --workspace,-w	
+hmp check	command
+hmp check --debug	nargs=0
+hmp check --format	choices=['csv', 'json', 'table'] default='table'
+hmp check --inputs	nargs=0
+hmp check --lang	choices=['en', 'fr'] default='en'
+hmp check --partial	nargs=0
+hmp check --quiet,-q	nargs=0
+hmp check --verbose,-v	nargs=0
+hmp check --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp check --workspace,-w	
+hmp check <file>	required
+hmp completion	command
+hmp completion --workspace,-w	
+hmp completion <shell>	required choices=['bash', 'fish', 'zsh']
+hmp config	command
+hmp config figures	command
+hmp config figures --debug	nargs=0
+hmp config figures --format	choices=['csv', 'json', 'table'] default='table'
+hmp config figures --kind	choices=['frame', 'preset', 'special', 'variable']
+hmp config figures --quiet,-q	nargs=0
+hmp config figures --run	
+hmp config figures --verbose,-v	nargs=0
+hmp config figures --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp config figures --workspace,-w	
+hmp config resolve	command
+hmp config resolve --origin	nargs=0
+hmp config resolve --workspace,-w	
+hmp config resolve <file>	required
+hmp config schema	command
+hmp config schema --bundle	nargs=0
+hmp config schema --editor	nargs=0
+hmp config schema --list-sections	nargs=0
+hmp config schema --profile	choices=['dev', 'expert', 'user']
+hmp config schema --section	
+hmp config schema --to	
+hmp config schema --workspace,-w	
+hmp config targets	command
+hmp config targets --format	choices=['csv', 'json', 'table'] default='table'
+hmp config targets --workspace,-w	
+hmp config targets <file>	required
+hmp config template	command
+hmp config template --list-modules	nargs=0
+hmp config template --modules	nargs=+
+hmp config template --profile	choices=['dev', 'expert', 'user'] default='user'
+hmp config template --to	
+hmp config template --workspace,-w	
+hmp config wizard	command
+hmp config wizard --profile	choices=['dev', 'expert', 'user'] default='user'
+hmp config wizard --to	
+hmp config wizard --workspace,-w	
+hmp data	command
+hmp data archive	command
+hmp data archive --debug	nargs=0
+hmp data archive --format	choices=['csv', 'json', 'table'] default='table'
+hmp data archive --quiet,-q	nargs=0
+hmp data archive --to	required
+hmp data archive --verbose,-v	nargs=0
+hmp data archive --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp data archive --workspace,-w	
+hmp data get	command
+hmp data get --allow-host	default=[]
+hmp data get --bbox	
+hmp data get --credentials	
+hmp data get --crs	
+hmp data get --debug	nargs=0
+hmp data get --end	
+hmp data get --format	choices=['csv', 'json', 'table'] default='table'
+hmp data get --mask	
+hmp data get --max-download-bytes	
+hmp data get --quiet,-q	nargs=0
+hmp data get --source	
+hmp data get --start	
+hmp data get --stations	
+hmp data get --to	required
+hmp data get --verbose,-v	nargs=0
+hmp data get --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp data get --workspace,-w	
+hmp data get <target>	required
+hmp data lock	command
+hmp data lock --check	nargs=0
+hmp data lock --debug	nargs=0
+hmp data lock --format	choices=['csv', 'json', 'table'] default='table'
+hmp data lock --lockfile	
+hmp data lock --project	
+hmp data lock --quiet,-q	nargs=0
+hmp data lock --strict	nargs=0
+hmp data lock --to	
+hmp data lock --verbose,-v	nargs=0
+hmp data lock --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp data lock --workspace,-w	
+hmp data ls	command
+hmp data ls --debug	nargs=0
+hmp data ls --format	choices=['csv', 'json', 'table'] default='table'
+hmp data ls --provider	
+hmp data ls --quiet,-q	nargs=0
+hmp data ls --variable	
+hmp data ls --verbose,-v	nargs=0
+hmp data ls --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp data ls --workspace,-w	
+hmp data prune	command
+hmp data prune --debug	nargs=0
+hmp data prune --delete-files	nargs=0
+hmp data prune --dry-run	nargs=0
+hmp data prune --format	choices=['csv', 'json', 'table'] default='table'
+hmp data prune --older-than	default=30
+hmp data prune --quiet,-q	nargs=0
+hmp data prune --verbose,-v	nargs=0
+hmp data prune --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp data prune --workspace,-w	
+hmp data prune --yes,-y	nargs=0
+hmp data remove	command
+hmp data remove --debug	nargs=0
+hmp data remove --delete-files	nargs=0
+hmp data remove --dry-run	nargs=0
+hmp data remove --format	choices=['csv', 'json', 'table'] default='table'
+hmp data remove --provider	
+hmp data remove --quiet,-q	nargs=0
+hmp data remove --station-id	
+hmp data remove --variable	
+hmp data remove --verbose,-v	nargs=0
+hmp data remove --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp data remove --workspace,-w	
+hmp data remove --yes,-y	nargs=0
+hmp data restore	command
+hmp data restore --debug	nargs=0
+hmp data restore --format	choices=['csv', 'json', 'table'] default='table'
+hmp data restore --quiet,-q	nargs=0
+hmp data restore --to	
+hmp data restore --verbose,-v	nargs=0
+hmp data restore --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp data restore --workspace,-w	
+hmp data restore <input>	required
+hmp diff	command
+hmp diff --by	choices=['site']
+hmp diff --debug	nargs=0
+hmp diff --format	choices=['csv', 'json', 'table'] default='table'
+hmp diff --quiet,-q	nargs=0
+hmp diff --to	
+hmp diff --variables	
+hmp diff --verbose,-v	nargs=0
+hmp diff --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp diff --workspace,-w	
+hmp diff <refs>	nargs=+ required
+hmp doctor	command
+hmp doctor --cross-catalog	nargs=0
+hmp doctor --dry-run	nargs=0
+hmp doctor --fix-config	
+hmp doctor --format	choices=['csv', 'json', 'table'] default='table'
+hmp doctor --lifecycle	nargs=0
+hmp doctor --prt	nargs=0
+hmp doctor --workspace,-w	
+hmp example	command
+hmp example add	command
+hmp example add --force	nargs=0
+hmp example add --format	choices=['csv', 'json', 'table'] default='table'
+hmp example add --ref	
+hmp example add --workspace,-w	
+hmp example add <example_id>	required
+hmp example list	command
+hmp example list --format	choices=['csv', 'json', 'table'] default='table'
+hmp example list --workspace,-w	
+hmp example show	command
+hmp example show --format	choices=['csv', 'json', 'table'] default='table'
+hmp example show --workspace,-w	
+hmp example show <example_id>	required
+hmp export	command
+hmp export --allow-host	default=[]
+hmp export --as	
+hmp export --credentials	
+hmp export --crs	
+hmp export --debug	nargs=0
+hmp export --deliver	nargs=0
+hmp export --format	choices=['csv', 'json', 'table'] default='table'
+hmp export --layer	
+hmp export --list	nargs=0
+hmp export --max-download-bytes	
+hmp export --nodata	
+hmp export --period	nargs=2
+hmp export --quiet,-q	nargs=0
+hmp export --regen	nargs=? choices=['all', 'exports', 'figures']
+hmp export --resolution	
+hmp export --time	nargs=+
+hmp export --to	
+hmp export --verbose,-v	nargs=0
+hmp export --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp export --workspace,-w	
+hmp export <sim_ref>	required
+hmp export <variables>	nargs=*
+hmp install-binaries	command
+hmp install-binaries --debug	nargs=0
+hmp install-binaries --format	choices=['csv', 'json', 'table'] default='table'
+hmp install-binaries --mf6-prt	nargs=0
+hmp install-binaries --quiet,-q	nargs=0
+hmp install-binaries --release	
+hmp install-binaries --subset	
+hmp install-binaries --to	
+hmp install-binaries --upgrade	nargs=0
+hmp install-binaries --verbose,-v	nargs=0
+hmp install-binaries --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp install-binaries --workspace,-w	
+hmp ls	command
+hmp ls --best	
+hmp ls --by	choices=['site']
+hmp ls --debug	nargs=0
+hmp ls --disk	nargs=0
+hmp ls --format	choices=['csv', 'json', 'table'] default='table'
+hmp ls --label	
+hmp ls --limit	
+hmp ls --mixed-windows	nargs=0
+hmp ls --plan	nargs=0
+hmp ls --project	
+hmp ls --quiet,-q	nargs=0
+hmp ls --site	
+hmp ls --solver	
+hmp ls --stale-minutes	
+hmp ls --status	
+hmp ls --tag	
+hmp ls --verbose,-v	nargs=0
+hmp ls --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp ls --workspace,-w	
+hmp privacy	command
+hmp privacy purge	command
+hmp privacy purge --archive-pii	nargs=0
+hmp privacy purge --dry-run	nargs=0
+hmp privacy purge --format	choices=['csv', 'json', 'table'] default='table'
+hmp privacy purge --reason	default='unspecified'
+hmp privacy purge --workspace,-w	
+hmp privacy purge --yes,-y	nargs=0
+hmp privacy purge <sim_ref>	required
+hmp privacy verify	command
+hmp privacy verify --format	choices=['csv', 'json', 'table'] default='table'
+hmp privacy verify --strict	nargs=0
+hmp privacy verify --workspace,-w	
+hmp privacy verify <certificate>	required
+hmp project	command
+hmp project delete	command
+hmp project delete --debug	nargs=0
+hmp project delete --dry-run	nargs=0
+hmp project delete --format	choices=['csv', 'json', 'table'] default='table'
+hmp project delete --quiet,-q	nargs=0
+hmp project delete --verbose,-v	nargs=0
+hmp project delete --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp project delete --workspace,-w	
+hmp project delete --yes,-y	nargs=0
+hmp project delete <project>	required
+hmp project import	command
+hmp project import --debug	nargs=0
+hmp project import --dry-run	nargs=0
+hmp project import --format	choices=['csv', 'json', 'table'] default='table'
+hmp project import --name	
+hmp project import --quiet,-q	nargs=0
+hmp project import --verbose,-v	nargs=0
+hmp project import --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp project import --workspace,-w	
+hmp project import <source>	required
+hmp project list	command
+hmp project list --debug	nargs=0
+hmp project list --format	choices=['csv', 'json', 'table'] default='table'
+hmp project list --quiet,-q	nargs=0
+hmp project list --verbose,-v	nargs=0
+hmp project list --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp project list --workspace,-w	
+hmp project log	command
+hmp project log --debug	nargs=0
+hmp project log --failed	nargs=0
+hmp project log --format	choices=['csv', 'json', 'table'] default='table'
+hmp project log --job	
+hmp project log --quiet,-q	nargs=0
+hmp project log --verbose,-v	nargs=0
+hmp project log --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp project log --workspace,-w	
+hmp project log <project>	nargs=?
+hmp project new	command
+hmp project new --debug	nargs=0
+hmp project new --format	choices=['csv', 'json', 'table'] default='table'
+hmp project new --quiet,-q	nargs=0
+hmp project new --verbose,-v	nargs=0
+hmp project new --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp project new --workspace,-w	
+hmp project new <project>	required
+hmp project plan	command
+hmp project plan --debug	nargs=0
+hmp project plan --force	nargs=0
+hmp project plan --format	choices=['csv', 'json', 'table'] default='table'
+hmp project plan --quiet,-q	nargs=0
+hmp project plan --recipe	
+hmp project plan --set	default=[]
+hmp project plan --verbose,-v	nargs=0
+hmp project plan --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp project plan --workspace,-w	
+hmp project plan <project>	nargs=?
+hmp publish	command
+hmp publish --container	choices=['dir', 'tar']
+hmp publish --debug	nargs=0
+hmp publish --dry-run	nargs=0
+hmp publish --format	choices=['csv', 'json', 'table'] default='table'
+hmp publish --package	nargs=0
+hmp publish --public	nargs=0
+hmp publish --quiet,-q	nargs=0
+hmp publish --to	
+hmp publish --verbose,-v	nargs=0
+hmp publish --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp publish --verify	
+hmp publish --with	choices=['fetched', 'inputs', 'mesh', 'results', 'runs', 'sessions'] default=[]
+hmp publish --without	choices=['inputs', 'results'] default=[]
+hmp publish --workspace,-w	
+hmp publish <ref>	nargs=?
+hmp replay	command
+hmp replay --allow-host	default=[]
+hmp replay --credentials	
+hmp replay --debug	nargs=0
+hmp replay --format	choices=['csv', 'json', 'table'] default='table'
+hmp replay --max-download-bytes	
+hmp replay --quiet,-q	nargs=0
+hmp replay --strict	nargs=0
+hmp replay --verbose,-v	nargs=0
+hmp replay --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp replay --workspace,-w	
+hmp replay <ref>	required
+hmp run	command
+hmp run --allow-host	default=[]
+hmp run --base	
+hmp run --case	
+hmp run --credentials	
+hmp run --debug	nargs=0
+hmp run --dry-run	nargs=0
+hmp run --force	nargs=0
+hmp run --format	choices=['csv', 'json', 'table'] default='table'
+hmp run --fresh	nargs=0
+hmp run --from	
+hmp run --frozen	nargs=0
+hmp run --max-download-bytes	
+hmp run --no-display	nargs=0
+hmp run --only	default=[]
+hmp run --overlay	default=[]
+hmp run --parallel	
+hmp run --profile	nargs=?
+hmp run --quiet,-q	nargs=0
+hmp run --resume	nargs=?
+hmp run --set	default=[]
+hmp run --site	
+hmp run --until	
+hmp run --verbose,-v	nargs=0
+hmp run --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp run --workspace,-w	
+hmp run <config>	nargs=?
+hmp show	command
+hmp show --cell	
+hmp show --data	
+hmp show --debug	nargs=0
+hmp show --depth	
+hmp show --detail	nargs=0
+hmp show --engine	choices=['interactive', 'static']
+hmp show --figure	
+hmp show --format	choices=['csv', 'json', 'table'] default='table'
+hmp show --label	
+hmp show --layer	
+hmp show --limit,-n	
+hmp show --mixed-windows	nargs=0
+hmp show --open	nargs=0
+hmp show --opt	default=[]
+hmp show --overview	
+hmp show --point	nargs=0
+hmp show --preset	choices=['management', 'research']
+hmp show --profile	nargs=0
+hmp show --quiet,-q	nargs=0
+hmp show --rank	
+hmp show --report	nargs=0
+hmp show --station	
+hmp show --strict	nargs=0
+hmp show --table	
+hmp show --time	
+hmp show --timestep	
+hmp show --to	
+hmp show --var	default=[]
+hmp show --verbose,-v	nargs=0
+hmp show --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp show --workspace,-w	
+hmp show --worst	nargs=0
+hmp show --xy	nargs=2
+hmp show <refs>	nargs=*
+hmp site	command
+hmp site add	command
+hmp site add --crs	default='EPSG:2154'
+hmp site add --force	nargs=0
+hmp site add --format	choices=['csv', 'json', 'table'] default='table'
+hmp site add --gauge	
+hmp site add --label	
+hmp site add --outlet	nargs=2
+hmp site add --tag	default=[]
+hmp site add --uri	
+hmp site add --workspace,-w	
+hmp site add <name>	required
+hmp site import	command
+hmp site import --bbox	nargs=4
+hmp site import --crs	default='EPSG:2154'
+hmp site import --dry-run	nargs=0
+hmp site import --force	nargs=0
+hmp site import --format	choices=['csv', 'json', 'table'] default='table'
+hmp site import --gauge-field	
+hmp site import --hubeau	nargs=0
+hmp site import --label-field	
+hmp site import --layer	
+hmp site import --layer-name	
+hmp site import --min-years	
+hmp site import --name-field	
+hmp site import --snap-max-m	default=200.0
+hmp site import --snap-network	
+hmp site import --tag	default=[]
+hmp site import --workspace,-w	
+hmp site import <table>	nargs=?
+hmp site ls	command
+hmp site ls --format	choices=['csv', 'json', 'table'] default='table'
+hmp site ls --tag	
+hmp site ls --workspace,-w	
+hmp site show	command
+hmp site show --format	choices=['csv', 'json', 'table'] default='table'
+hmp site show --workspace,-w	
+hmp site show <name>	required
+hmp spinup	command
+hmp spinup --allow-host	default=[]
+hmp spinup --credentials	
+hmp spinup --debug	nargs=0
+hmp spinup --dry-run	nargs=0
+hmp spinup --format	choices=['csv', 'json', 'table'] default='table'
+hmp spinup --max-download-bytes	
+hmp spinup --profile	nargs=?
+hmp spinup --quiet,-q	nargs=0
+hmp spinup --then-run	nargs=0
+hmp spinup --verbose,-v	nargs=0
+hmp spinup --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp spinup --workspace,-w	
+hmp spinup <config>	required
+hmp stop	command
+hmp stop --debug	nargs=0
+hmp stop --format	choices=['csv', 'json', 'table'] default='table'
+hmp stop --quiet,-q	nargs=0
+hmp stop --verbose,-v	nargs=0
+hmp stop --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp stop --workspace,-w	
+hmp stop <ref>	required
+hmp workspace	command
+hmp workspace clean	command
+hmp workspace clean --all	nargs=0
+hmp workspace clean --data-cache	nargs=0
+hmp workspace clean --dry-run	nargs=0
+hmp workspace clean --force	nargs=0
+hmp workspace clean --format	choices=['csv', 'json', 'table'] default='table'
+hmp workspace clean --results	nargs=0
+hmp workspace clean --runtime	nargs=0
+hmp workspace clean --scratch	nargs=0
+hmp workspace clean --workspace,-w	
+hmp workspace clean --yes,-y	nargs=0
+hmp workspace init	command
+hmp workspace init --creator-email	
+hmp workspace init --creator-name	
+hmp workspace init --force	nargs=0
+hmp workspace init --format	choices=['csv', 'json', 'table'] default='table'
+hmp workspace init --project-name	
+hmp workspace init --workspace,-w	
+hmp workspace init <path>	nargs=?
+hmp workspace list	command
+hmp workspace list --format	choices=['csv', 'json', 'table'] default='table'
+hmp workspace list --workspace,-w	
+hmp workspace list <path>	nargs=?

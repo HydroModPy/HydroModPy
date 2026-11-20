@@ -1,0 +1,217 @@
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+
+from hydromodpy.core.exceptions import SolverError
+from hydromodpy.core.state.run_state import RunState
+from hydromodpy.model.domain.cell_column import centre_column
+from hydromodpy.model.flow import Flow
+from hydromodpy.model.model import Geometry, Model, ModelTime, model_from_flow
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
+from hydromodpy.solver.base.runner import solve_one
+from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
+from tests._helpers.model_factory import default_options
+
+
+@dataclass(frozen=True)
+class AdapterCall:
+    """What the runner hands the Boussinesq adapter: the Model, its options, its slot, its context."""
+
+    model: Model
+    options: BoussinesqOptions
+    slot: RunSlot
+    ctx: RunContext
+
+    def build(self) -> SolverRun:
+        """Build the run in memory, as the runner does before ``run``."""
+        return BoussinesqFlowAdapter().build(self.model, self.options, self.slot, self.ctx)
+
+    def solve(self) -> SolverRun:
+        """Validate, build and run, through the same function the runner calls."""
+        try:
+            return solve_one(BoussinesqFlowAdapter(), self.model, self.options, self.slot, self.ctx)
+        except SolverError as exc:
+            if exc.run_id is None:
+                exc.run_id = self.ctx.run.id
+            raise
+
+
+def adapter_call(
+    tmp_path: Path,
+    *,
+    flow: Flow,
+    cell_mesh: object = None,
+    domain: object = None,
+    time_grid: object = None,
+    exchange_mesh: Path | None = None,
+    name: str = "flow_main__boussinesq",
+    **settings: object,
+) -> AdapterCall:
+    """The call of the Boussinesq adapter on the Model of ``flow``, solving under ``tmp_path``.
+
+    ``exchange_mesh`` is the mesh bundle folder of ``[solver.boussinesq]``, and
+    ``settings`` are the other options of that table. The slot puts the run in
+    ``tmp_path / name``.
+    """
+    column = None
+    if cell_mesh is not None and getattr(domain, "substratum", None) is not None:
+        column = centre_column(cell_mesh=cell_mesh, domain=domain)
+    model = model_from_flow(
+        flow,
+        geometry=Geometry(cells=cell_mesh, domain=domain, column=column),
+        time=ModelTime.from_flow(flow, time_grid),
+        options=default_options(),
+    )
+    run = ProcessRun(
+        id=f"flow_main::{name}", process_id="flow_main", process_type="flow", solver="boussinesq"
+    )
+    ctx = RunContext(
+        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
+        run=run,
+        state=RunState(),
+    )
+    return AdapterCall(
+        model=model,
+        options=BoussinesqOptions(exchange_mesh=exchange_mesh, **settings),
+        slot=RunSlot(folder=tmp_path, name=name),
+        ctx=ctx,
+    )
+
+
+def _write_csv(path: Path, header: str, rows: list[str]) -> None:
+    path.write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
+
+
+def _write_minimal_bundle(bundle_dir: Path, *, river_internal_edge: bool = False) -> Path:
+    return _write_custom_bundle(
+        bundle_dir,
+        river_internal_edge=river_internal_edge,
+        storage_values=("0.10", "0.15"),
+        storage_default=None,
+    )
+
+
+def _write_custom_bundle(
+    bundle_dir: Path,
+    *,
+    river_internal_edge: bool = False,
+    storage_values: tuple[str, str] = ("0.10", "0.15"),
+    storage_default: float | None = None,
+    conductivity_values: tuple[str, str] = ("1.0e-5", "2.0e-5"),
+    conductivity_default: float | None = None,
+) -> Path:
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (bundle_dir / "mesh_2d.msh").write_text(
+        "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n",
+        encoding="utf-8",
+    )
+    hydraulic_properties = {}
+    if storage_default is not None:
+        hydraulic_properties["storage_coefficient"] = {
+            "available": True,
+            "unit": "-",
+            "values_source": "inline",
+            "default_value": float(storage_default),
+        }
+    if conductivity_default is not None:
+        hydraulic_properties["conductivity"] = {
+            "available": True,
+            "unit": "m/s",
+            "values_source": "inline",
+            "default_value": float(conductivity_default),
+        }
+    (bundle_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "bundle_schema_version": "mesh_catchment_bundle_v1",
+                "crs": "EPSG:2154",
+                "files": {"mesh": "mesh_2d.msh"},
+                "hydraulic_properties": hydraulic_properties,
+            },
+            indent=2,
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (bundle_dir / "mesh_summary.json").write_text(
+        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+    _write_csv(
+        bundle_dir / "nodes.csv",
+        "node_id,x,y,z_top,z_bottom",
+        [
+            "0,0.0,0.0,10.0,5.0",
+            "1,1.0,0.0,10.0,5.0",
+            "2,1.0,1.0,10.0,5.0",
+            "3,0.0,1.0,10.0,5.0",
+        ],
+    )
+    _write_csv(
+        bundle_dir / "cells.csv",
+        "cell_id,geom_type,n0,n1,n2,n3,centroid_x,centroid_y,area_m2,z_top_centroid,z_top_mean,z_bottom_centroid,z_bottom_mean,geology_code,geology_key,hydraulic_conductivity_m_s,storage_coefficient",
+        [
+            f"0,triangle,0,1,2,,0.666667,0.333333,0.5,10.0,10.0,5.0,5.0,1,granite,{conductivity_values[0]},{storage_values[0]}",
+            f"1,triangle,0,2,3,,0.333333,0.666667,0.5,11.0,11.0,4.0,4.0,2,schist,{conductivity_values[1]},{storage_values[1]}",
+        ],
+    )
+    _write_csv(
+        bundle_dir / "edges.csv",
+        "edge_id,node_a,node_b,cell_a,cell_b,length_m,edge_kind,is_river,geology_a_key,geology_b_key",
+        [
+            "0,0,1,0,,1.0,boundary,false,granite,",
+            "1,1,2,0,,1.0,boundary,false,granite,",
+            f"2,0,2,0,1,1.414214,internal,{str(bool(river_internal_edge)).lower()},granite,schist",
+            "3,2,3,1,,1.0,boundary,false,schist,",
+            "4,0,3,1,,1.0,boundary,false,schist,",
+        ],
+    )
+    _write_csv(
+        bundle_dir / "cell_geology_fractions.csv",
+        "cell_id,geology_key,fraction",
+        [
+            "0,granite,1.0",
+            "1,schist,1.0",
+        ],
+    )
+    return bundle_dir
+
+
+def _homogeneous_param(value: object) -> dict[str, object]:
+    return {"field": {"kind": "homogeneous", "value": value}}
+
+
+class _DummyRasterSupport:
+    def __init__(
+        self,
+        *,
+        xmin: float,
+        xmax: float,
+        ymin: float,
+        ymax: float,
+        dx: float,
+        dy: float,
+        nrows: int,
+        ncols: int,
+    ) -> None:
+        self.xmin = float(xmin)
+        self.xmax = float(xmax)
+        self.ymin = float(ymin)
+        self.ymax = float(ymax)
+        self.dx = float(dx)
+        self.dy = float(dy)
+        self.nrows = int(nrows)
+        self.ncols = int(ncols)
+        self.nodata = None
+
+
+class _DummySurface:
+    def __init__(self, values: np.ndarray, support: _DummyRasterSupport) -> None:
+        self.values = np.asarray(values, dtype=float)
+        self.support = support

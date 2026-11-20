@@ -1,0 +1,158 @@
+# Nancon, K and Sy calibrated by hand on BD Topage and the gauge. The map is
+# fetched instead of read off disk, with the permanence of every reach: the
+# permanent reaches are the minimal map, all reaches the maximal one.
+#   1. K alone, monthly transient, until the simulated extents match both
+#      maps: the yearly minimal extent the permanent reaches, the yearly
+#      maximal extent all of them.
+#   2. Sy alone, monthly transient, K frozen, on the gauged discharge.
+# Needs network access at the first run, the download is cached after it.
+#
+#   hmp check run_calibration_bdtopage.toml              every problem at once
+#   hmp calibrate run_calibration_bdtopage.toml --list-phases   both phases, before any solve
+#   hmp run       run_calibration_bdtopage.toml                 about one hour: 24 to 32 runs, then 30
+
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_intermittence_mf6_bdtopage"
+description = "Nancon, K from the permanent and complete BD Topage maps, then Sy from the gauge."
+
+# BD Topage instead of the local map: every reach with its permanence, the
+# permanent ones written apart. The download box comes from the watershed.
+[data.hydrography]
+sources__delete = true
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+
+[calibration]
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+
+# The maximal map is every reach data.hydrography loaded, the minimal map the
+# permanent reaches it wrote beside them.
+[calibration.outputs.seepage_network]
+support = "network"
+
+[calibration.outputs.seepage_network.map]
+complete = "data.hydrography"
+permanent = "data.hydrography"
+
+# Equal shares: log K returned halfway between the two roots.
+[calibration.outputs.seepage_network.map.calibrate_on]
+permanent = 0.5
+complete = 0.5
+
+# Two bounds over the scored years instead of one state. The maximal extent
+# flows at least one month of a year, the minimal one is dry at most one month.
+# Two scored years, so a cell has to meet the rule in both.
+[calibration.outputs.seepage_network.model.extent]
+flowing_at_least = "1 month"
+dry_at_most = "1 month"
+year_quorum = 1.0
+visible_flow = "1 L/s"
+
+# The record of the gauge of [site], on the simulated months: a point output
+# that names no station observes the gauge.
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+
+# Eq. 1 on each bound: the gap in meters, zero where the simulated extent
+# reaches as far as its map.
+[[calibration.objective_blocks]]
+name = "network_extent"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+# NSE on log discharge, which weights the recessions where storage shows.
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["hydrograph"]
+
+# Phase one: K alone, Sy at its project value. One sweep, then one bisection
+# per bound on the same trials, each a 36-month run.
+[[calibration.phases]]
+name = "transient_conductivity"
+description = "Match the yearly minimal and maximal simulated extents to the permanent and complete BD Topage maps by moving K, monthly transient."
+parameters = ["K"]
+regime = "transient"
+objective_blocks = ["network_extent"]
+method = "bisection"
+
+# 2000 is spin-up: simulated, not counted in the extents.
+[calibration.phases.window]
+start = "2001-01-01"
+
+# Phase two: Sy alone, K from phase one. It does not start if phase one did
+# not close both brackets.
+[[calibration.phases]]
+name = "transient_storage"
+description = "Read Sy from the observed hydrograph, K frozen, monthly transient, scored from 2001-01-01 on."
+parameters = ["Sy"]
+regime = "transient"
+objective_blocks = ["hydrograph"]
+method = "scipy_nelder_mead"
+max_trials = 30
+precision = 0.05
+depends_on = "transient_conductivity"
+
+[calibration.phases.window]
+start = "2001-01-01"
+
+# The catchment and the topography with the network first, then the agreement
+# with the mapped network, the hydrograph and the seepage cells. The last three
+# figures, with when = "session", are drawn for a calibration session only.
+[display]
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "network"]
+
+[[display.figure]]  # replaces network_extent_bounds_map, seepage_network_confusion_map
+variable = "network_agreement"
+
+[[display.figure]]
+preset = "hydrograph"
+scale = "log"
+name = "hydrograph_log"
+
+[[display.figure]]
+variable = "seepage_mask"
+
+[[display.figure]]  # replaces flow_persistence_map, flow_intermittence_map
+variable = "simulated_active_network"
+reduce = "frequency"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+
+[[display.figure]]
+preset = "calibration_progress"
+when = "session"
+
+[[display.figure]]  # replaces bisection_bracket_trace, matching_hydrographic_network_card
+preset = "root_search"
+when = "session"
+
+[[display.figure]]
+variable = ["trials.parameter", "trials.cost"]
+type = "xy"
+facet = "parameter"
+when = "session"
+
+# The four exports of project.toml, where the network is all BD Topage
+# reaches, plus the permanent reaches, the minimal map.
+[[export__append]]
+variable = "hydrographic_network_reference_permanent"

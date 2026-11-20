@@ -1,50 +1,81 @@
-"""Per-run figure rendering helpers.
+"""Figures of a run: draw requests at the end of a run, draw the recorded ones again.
 
-Bridges :class:`~hydromodpy.results.run.Run` and the figure registry in
-:mod:`hydromodpy.display`. Saving and showing are driven by
-``DisplayConfig`` (TOML ``[display]`` section).
+A figure of a run is written under ``runs/<run>/figures/``. Each file carries the
+identity block of the run (a visible footer and a PNG text chunk) and an entry in
+``figures/index.json``, which :func:`regen_figures` replays.
 
-Rendering reports what it did through :class:`FigureRenderReport` rather than
-a bare list of files: a figure the user asked for and did not get is an output
-that must stay visible. Per-figure logging keeps its gradation (a skip a config
-option can unblock is a WARNING, a figure inapplicable by nature is DEBUG), and
-the batch summary always names every requested figure that produced nothing.
+Drawing reports what it did through :class:`FigureRenderReport`. A figure the user
+asked for and did not get is an output that must stay visible: the batch summary
+names every requested figure that produced nothing, at WARNING when the user can act
+on one of them, at INFO otherwise.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.console.progress import MILESTONE
+from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.display import get as _get_figure
-from hydromodpy.display.renderer import matplotlib_backend
-from hydromodpy.display.theme import apply_theme
+from hydromodpy.core.runtime.stopwatch import Measure, measured
+from hydromodpy.core.state.portable import display_path
+from hydromodpy.display.output import (
+    PRODUCER,
+    PRODUCER_PREFIX,
+    THEME_KEY,
+    request_from_ledger,
+    write,
+)
+from hydromodpy.display.presets import PRESETS
+from hydromodpy.display.render import render
+from hydromodpy.display.request import (
+    END,
+    FORMATS,
+    INTERACTIVE,
+    STATIC,
+    expand,
+    file_stem,
+    retired,
+)
+from hydromodpy.display.subject import FigureNotApplicable
+from hydromodpy.display.theme import get_theme
+from hydromodpy.results.ledger import Ledger
+from hydromodpy.results.session.view import Session
+from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 if TYPE_CHECKING:
     from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.figure import BaseFigure
-    from hydromodpy.results.run import Run
+    from hydromodpy.display.request import FigureRequest
+    from hydromodpy.display.theme import Theme
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
 class SkippedFigure:
-    """One requested figure that produced nothing, and the short reason why."""
+    """One requested figure that produced nothing, and the short reason why.
+
+    ``actionable`` marks a skip the user can act on: a config option would
+    have kept the field it needs, or the figure failed while drawing. A figure
+    inapplicable to the run by nature (no calibration, one period for a
+    persistence map, a date the run does not hold) is not.
+    """
 
     name: str
     reason: str
+    actionable: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class FigureRenderReport:
     """What one rendering pass asked for, drew, wrote and skipped.
 
-    ``rendered`` counts the figures actually drawn, which is not
-    ``len(written)``: ``display.save = false`` draws without writing a file.
-    ``skipped`` holds every requested figure that produced nothing, whether it
+    ``rendered`` counts the figures actually drawn, and ``written`` the files they
+    gave. ``skipped`` holds every requested figure that produced nothing, whether it
     was inapplicable to the run or failed while rendering.
     """
 
@@ -62,14 +93,19 @@ class FigureRenderReport:
             skipped=self.skipped + other.skipped,
         )
 
-    def summary(self, *, destination: Path | None = None) -> str:
-        """One line: the rendered count, then every figure not produced."""
+    def summary(self, *, destination: Path | None = None, detail: bool = True) -> str:
+        """One line: the rendered count, then every figure not produced.
+
+        ``detail = False`` counts the skipped figures without naming them.
+        """
         line = f"Rendered {len(self.rendered)}/{len(self.requested)} figure(s)"
         if destination is not None:
-            line = f"{line} -> {destination}"
-        if self.skipped:
-            detail = ", ".join(f"{item.name} ({item.reason})" for item in self.skipped)
-            line = f"{line}; {len(self.skipped)} skipped: {detail}"
+            line = f"{line} -> {display_path(destination)}"
+        if self.skipped and detail:
+            named = ", ".join(f"{item.name} ({item.reason})" for item in self.skipped)
+            line = f"{line}; {len(self.skipped)} skipped: {named}"
+        elif self.skipped:
+            line = f"{line}; {len(self.skipped)} not applicable to this run"
         return line
 
 
@@ -80,168 +116,197 @@ def log_render_summary(
 ) -> None:
     """Log the batch summary of one rendering pass.
 
-    WARNING when a requested figure produced nothing, so the line survives
-    ``quiet`` mode: an output the user asked for and did not get must never
-    disappear. INFO when the whole batch was rendered.
+    WARNING when the user can act on a skipped figure (a config option would
+    have kept its field, or it failed while drawing), so the line survives
+    ``quiet`` mode. Otherwise one milestone line counts the figures, and the
+    figures inapplicable to this run by nature are named at INFO, which
+    ``--verbose`` shows: a showcase that lists the calibration figures on a
+    plain run must not print a warning on its plainest command.
     """
     if not report.requested:
         return
-    level = logger.warning if report.skipped else logger.info
-    level("%s", report.summary(destination=destination))
-
-
-def _backend_is_interactive(display_cfg: DisplayConfig) -> bool:
-    backend = str(getattr(display_cfg, "backend", "auto") or "auto").lower()
-    if backend == "auto":
-        return bool(display_cfg.show)
-    return backend != "agg"
-
-
-def _figure_options(display_cfg: DisplayConfig, figure_name: str) -> dict:
-    """Build the keyword options passed to one figure.
-
-    The project-wide ``cmap`` is forwarded only when the user actually set
-    it. Injecting the schema default would override each figure's own
-    colormap, which is chosen for the physics it shows (a reversed scale for
-    a depth, a discrete one for an indicator).
-    """
-    options: dict = {}
-    if "cmap" in display_cfg.model_fields_set:
-        options["cmap"] = display_cfg.cmap
-    options.update(dict(display_cfg.overrides.get(figure_name, {})))
-    return options
-
-
-def _log_skipped_figure(name: str, fig: BaseFigure, sim: Run, reason: str) -> None:
-    """Log one skipped figure, loudly when a field it needs was not kept."""
-    from hydromodpy.results.derive.config_flags import (
-        enable_options_hint,
-        missing_field_options,
-    )
-
-    options = missing_field_options(fig.spec.required_fields, sim)
-    if options:
-        logger.warning(
-            "Figure '%s' skipped: %s. %s",
-            name,
-            reason,
-            enable_options_hint(options),
-        )
+    if any(item.actionable for item in report.skipped):
+        logger.warning("%s", report.summary(destination=destination))
         return
-    # A figure inapplicable by nature (no calibration, no particles, another
-    # solver) is a normal skip: DEBUG here, and always named in the batch
-    # summary so it never disappears entirely.
-    logger.debug("Figure '%s' not applicable to this run: %s.", name, reason)
+    logger.info("%s", report.summary(destination=destination, detail=False), extra=MILESTONE)
+    if report.skipped:
+        logger.info(
+            "Not applicable to this run: %s",
+            ", ".join(f"{item.name} ({item.reason})" for item in report.skipped),
+        )
 
 
-def render_figure(
-    figure_name: str,
-    sim: Run,
-    *,
-    save: str | Path | None = None,
-) -> None:
-    """Render one figure registered in :mod:`hydromodpy.display`.
+def figures_dir_of(run_dir: Path) -> Path:
+    """Return ``runs/<run>/figures/``, where the figures of one run are saved.
 
-    ``save`` may be a directory (one ``<figure_name>.png`` is written into
-    it) or a full file path.
+    Figures live inside the run they describe, so moving, publishing or
+    deleting a run takes them along.
     """
-    fig = _get_figure(figure_name)
-    save_path: Path | None
-    if save is None:
-        save_path = None
-    else:
-        target = Path(save)
-        # Treat suffix-less paths as a directory; anything with an extension
-        # is a complete file path the caller wants honoured verbatim.
-        save_path = target / f"{figure_name}.png" if target.suffix == "" else target
-    fig.plot(sim, save_path=save_path)
+    return Path(run_dir) / RUN_FIGURES_DIRNAME
 
 
-def resolve_run_output_dir(
-    display_cfg: DisplayConfig,
-    *,
-    project_root: Path,
-    run_name: str | None,
-    sim_id: str,
-) -> Path:
-    """Return the directory where figures for one run should be saved.
+def _regen_request(entry: Any, sim: Run, figures_dir: Path, dpi: int | None) -> None:
+    """Draw again the figure of a ``display:figure`` entry, from the request and theme it recorded."""
+    theme = get_theme(entry.options.get(THEME_KEY, "default"))
+    theme = theme if dpi is None else replace(theme, dpi=dpi)
+    figure = expand(request_from_ledger(entry.options), PRESETS)
+    suffix = Path(entry.file).suffix.lstrip(".")
+    figure = replace(
+        figure,
+        stem=Path(entry.file).stem,
+        formats=(suffix,) if suffix in FORMATS else figure.formats,
+    )
+    engine = INTERACTIVE if suffix == "html" else STATIC
+    write(render(figure, sim, theme=theme, engine=engine), figure, sim, figures_dir, theme)
 
-    Layout: ``<project_root>/runs/<run>/<display.output_dir>/``. Figures
-    live inside the run they describe, so moving or deleting a run takes
-    them along.
+
+def sealed_display_values(snapshot: object) -> dict[str, Any] | None:
+    """Return the ``[display]`` values a config snapshot sets away from their defaults.
+
+    ``None`` when the snapshot holds no ``[display]``. A snapshot spells out every
+    field, so only a value away from its default counts as set.
     """
-    from hydromodpy.core.state.paths import runs_dir_for
-    from hydromodpy.results.catalog.storage_paths import run_dirname
+    from hydromodpy.display.config import DisplayConfig
 
-    label = run_name if run_name else sim_id[:8]
-    return runs_dir_for(project_root) / run_dirname(label) / display_cfg.output_dir
+    section = snapshot.get("display") if isinstance(snapshot, Mapping) else None
+    if not isinstance(section, Mapping):
+        return None
+    fields = DisplayConfig.model_fields
+    return {
+        key: value
+        for key, value in section.items()
+        if key not in fields or value != fields[key].get_default(call_default_factory=True)
+    }
 
 
-def render_figures_for_run(
-    sim: Run,
-    display_cfg: DisplayConfig,
+def display_theme(display_cfg: DisplayConfig) -> Theme:
+    """Return the theme a ``[display]`` names, drawn at its ``dpi``."""
+    return replace(get_theme(display_cfg.theme), dpi=display_cfg.dpi)
+
+
+def draw_requests(
+    subject: Run | Session,
+    requests: Sequence[FigureRequest],
     *,
+    presets: Mapping[str, FigureRequest],
+    theme: Theme,
     output_dir: Path,
-    figure_names: list[str] | None = None,
+    on_error: str = "warn",
+    on_measure: Callable[[Measure], None] | None = None,
+    when: str = END,
 ) -> FigureRenderReport:
-    """Render the figures listed in ``display_cfg`` for one :class:`Run`.
+    """Draw each request whose ``when`` is the given one: one expand, then a render and a write per engine.
 
-    Honors ``display_cfg.enabled`` and ``display_cfg.save``. A figure whose
-    declared requirements are not met by this run (no particle process, no
-    calibration, a solver that does not produce the field) is reported as
-    not applicable and skipped. A figure that fails while rendering raises
-    or is logged depending on ``display_cfg.on_error``. Returns the
-    :class:`FigureRenderReport` of the pass: the caller owns the summary, so
-    a per-figure loop can render one at a time and still report as one batch.
+    The subject is a run, possibly not sealed yet, or a session. A session figure is
+    written without a ledger entry. A figure that does not apply to the subject is
+    skipped with its reason. Any other failure is logged and skipped, or raised when
+    ``on_error`` is ``raise``. A request drawn at another time is left out of the report.
     """
-    if not display_cfg.enabled:
-        return FigureRenderReport()
-
-    wanted = figure_names if figure_names is not None else list(display_cfg.figures)
-    if not wanted:
-        return FigureRenderReport()
-
+    run = None if isinstance(subject, Session) else subject
     rendered: list[str] = []
     written: list[Path] = []
     skipped: list[SkippedFigure] = []
-    output_dir = Path(output_dir)
-    if display_cfg.save:
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-    with matplotlib_backend(interactive=_backend_is_interactive(display_cfg), dpi=display_cfg.dpi):
-        apply_theme(display_cfg.preset)
-        for name in wanted:
-            fig = _get_figure(name)
-            reason = fig.unavailable_reason(sim)
-            if reason is not None:
-                _log_skipped_figure(name, fig, sim, reason)
-                skipped.append(SkippedFigure(name=name, reason=reason))
-                continue
-            save_path = output_dir / f"{name}.png" if display_cfg.save else None
-            try:
-                fig.plot(
-                    sim,
-                    dpi=display_cfg.dpi,
-                    save_path=save_path,
-                    **_figure_options(display_cfg, name),
+    requested: list[str] = []
+    for request in requests:
+        stem = file_stem(request)
+        try:
+            figure = expand(request, presets)
+            if figure.when != when:
+                logger.info(
+                    "Figure %s is not drawn now: when = %r is drawn at that time.",
+                    stem,
+                    figure.when,
                 )
-            except Exception as exc:
-                # One line per figure that fails, at WARNING so it is visible.
-                if display_cfg.on_error == "raise":
-                    raise
-                logger.warning("Figure '%s' failed to render: %s", name, exc)
-                skipped.append(SkippedFigure(name=name, reason=f"render failed: {exc}"))
                 continue
-            rendered.append(name)
-            if display_cfg.show:
-                import matplotlib.pyplot as plt
-
-                plt.show()
-            if save_path is not None:
-                written.append(save_path)
-                logger.debug("Rendered figure '%s' -> %s", name, save_path)
+            requested.append(stem)
+            with measured("figure", stem) as measure:
+                try:
+                    # One file per engine: the static formats, then the HTML page.
+                    paths = [
+                        path
+                        for engine in figure.engine
+                        for path in write(
+                            render(figure, subject, theme=theme, engine=engine),
+                            figure,
+                            run,
+                            output_dir,
+                            theme,
+                        )
+                    ]
+                finally:
+                    if on_measure is not None:
+                        on_measure(measure)
+        except FigureNotApplicable as exc:
+            logger.info("Figure %s skipped: %s", stem, exc)
+            skipped.append(SkippedFigure(name=stem, reason=str(exc)))
+        except Exception as exc:
+            if on_error == "raise":
+                raise
+            logger.warning("Figure %s failed: %s", stem, exc)
+            if stem not in requested:
+                requested.append(stem)
+            skipped.append(
+                SkippedFigure(name=stem, reason=f"render failed: {exc}", actionable=True)
+            )
+        else:
+            rendered.append(stem)
+            written.extend(paths)
     return FigureRenderReport(
-        requested=tuple(wanted),
+        requested=tuple(requested),
+        rendered=tuple(rendered),
+        written=tuple(written),
+        skipped=tuple(skipped),
+    )
+
+
+def _old_entry(entry: Any) -> SkippedFigure:
+    """Skip a ledger entry of a figure of a pre-release, with what replaces it."""
+    name = entry.producer.removeprefix(PRODUCER_PREFIX)
+    reason = (
+        f"figures/index.json records {entry.file} from the figure '{name}' of a pre-release, "
+        "which this version does not draw. Draw it again with hmp show <run> "
+        f"--figure <variable or preset> --to {entry.file}"
+    )
+    more = retired(name)
+    return SkippedFigure(name=Path(entry.file).stem, reason=f"{reason}. {more}" if more else reason)
+
+
+def regen_figures(sim: Run, run_dir: Path, *, dpi: int | None = None) -> FigureRenderReport:
+    """Draw again every figure ``figures/index.json`` of a run records.
+
+    Each request entry is drawn with the request and theme it was recorded with, into
+    the same file, at ``dpi`` or at the dpi of its theme, and recorded again. An entry
+    of a figure of a pre-release is skipped with a sentence that names what to draw.
+    """
+    figures_dir = figures_dir_of(run_dir)
+    entries = [
+        entry
+        for entry in Ledger.read(figures_dir).entries
+        if entry.producer.startswith(PRODUCER_PREFIX)
+    ]
+    if not entries:
+        raise ValueError(
+            f"{figures_dir} records no figure to draw again. Draw one with "
+            "'hmp show <run> --figure <variable or preset> --to FILE' or write a "
+            "[[display.figure]] table."
+        )
+    rendered: list[str] = []
+    written: list[Path] = []
+    skipped: list[SkippedFigure] = []
+    for entry in entries:
+        stem = Path(entry.file).stem
+        if entry.producer != PRODUCER:
+            skipped.append(_old_entry(entry))
+            continue
+        try:
+            _regen_request(entry, sim, figures_dir, dpi)
+        except (DisplayError, ValueError) as error:
+            skipped.append(SkippedFigure(name=stem, reason=str(error)))
+            continue
+        rendered.append(stem)
+        written.append(figures_dir / entry.file)
+    return FigureRenderReport(
+        requested=tuple(Path(entry.file).stem for entry in entries),
         rendered=tuple(rendered),
         written=tuple(written),
         skipped=tuple(skipped),

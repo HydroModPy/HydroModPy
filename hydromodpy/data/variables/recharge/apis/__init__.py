@@ -1,1 +1,0 @@
-"""Recharge API adapters."""

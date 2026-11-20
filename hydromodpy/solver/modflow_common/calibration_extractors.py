@@ -18,84 +18,18 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.exceptions import ObservableNotAvailableError
+from hydromodpy.core.fields.vertical_column import values_at_layer
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units.time import factor_to_seconds
-from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
+from hydromodpy.model.time.history_contract import saturated_thickness_from_head_history
+from hydromodpy.solver.modflow_common.period_steps import (
+    budget_file_steps,
+    period_end_positions,
+    weighted_period_mean,
+    weighted_period_scalar,
+)
+from hydromodpy.solver.modflow_common.time_units import seconds_per_solver_time_unit
 
 logger = get_logger(__name__)
-
-
-def _seconds_per_itmuni(itmuni: int) -> float:
-    """Seconds per MODFLOW ITMUNI code; 0 (undefined) means seconds."""
-    if itmuni == 0:
-        return 1.0
-    try:
-        return factor_to_seconds(int(itmuni))
-    except ValueError:
-        return 1.0
-
-
-def _read_time_units_from_tdis(tdis_path: Path) -> str | None:
-    """Return the MF6 TDIS TIME_UNITS token, or None when unreadable."""
-    if not tdis_path.is_file():
-        return None
-    try:
-        with tdis_path.open("r", encoding="utf-8") as fh:
-            for raw in fh:
-                tokens = raw.strip().split()
-                if len(tokens) >= 2 and tokens[0].upper() == "TIME_UNITS":
-                    return tokens[1].upper()
-    except OSError:
-        return None
-    return None
-
-
-def _resolve_seconds_per_unit(output_dir: Path, model_name: str) -> float:
-    """Seconds per native solver time unit, to convert CBC fluxes to m3/s.
-
-    MODFLOW 6 declares the unit as TIME_UNITS in ``{stem}.tdis`` (the TDIS file
-    name may differ from the CBC stem, so glob for it). MODFLOW-NWT declares it
-    as ITMUNI in ``{model_name}.dis``. Defaults to seconds (1.0).
-    """
-    tdis_path = output_dir / f"{model_name}.tdis"
-    if not tdis_path.is_file():
-        tdis_path = next(iter(output_dir.glob("*.tdis")), tdis_path)
-    token = _read_time_units_from_tdis(tdis_path)
-    if token is not None:
-        if token in ("", "UNKNOWN"):
-            return 1.0
-        try:
-            return factor_to_seconds(token)
-        except ValueError:
-            return 1.0
-    return _seconds_per_itmuni(_read_itmuni_from_dis(output_dir / f"{model_name}.dis"))
-
-
-def _read_itmuni_from_dis(dis_path: Path) -> int:
-    """Return the ITMUNI integer declared in a MODFLOW DIS file.
-
-    Falls back to ``1`` (seconds) when the file is missing or unparseable.
-    """
-    if not dis_path.is_file():
-        return 1
-    try:
-        with dis_path.open("r", encoding="utf-8") as fh:
-            header_lines: list[str] = []
-            for raw in fh:
-                stripped = raw.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-                header_lines.append(stripped)
-                if len(header_lines) >= 2:
-                    break
-        if len(header_lines) < 2:
-            return 1
-        tokens = header_lines[1].split()
-        if len(tokens) >= 2:
-            return int(tokens[1])
-    except (OSError, ValueError):
-        return 1
-    return 1
 
 
 def _resolve_cbc_path(output_dir: Path, model_name: str) -> Path:
@@ -117,11 +51,14 @@ def extract_discharge_from_cbc(
     *,
     catchment_mask: np.ndarray,
 ) -> pd.Series:
-    """Sum the DRAIN budget of the CATCHMENT per timestep, as a m3/s series.
+    """Sum the DRAIN budget of the CATCHMENT per stress period, as a m3/s series.
+
+    A stamp closes its period: each value is the mean of the saved steps of
+    the period, weighted by their length. A period of one step keeps it.
 
     ``catchment_mask`` is required, not optional. A gauge closes a catchment,
     and a model domain is not one: on a buffered grid the same sum takes in the
-    neighbouring basins. Measured on the Nancon at 25 m, the domain carries
+    neighboring basins. Measured on the Nancon at 25 m, the domain carries
     2.119 m3/s of drain outflow against 0.888 m3/s inside the basin, so an
     unmasked series would be 2.4 times the water the gauge sees and every
     discharge metric computed on it would be meaningless while looking healthy.
@@ -138,7 +75,7 @@ def extract_discharge_from_cbc(
     if not mask.any():
         raise ValueError("the catchment mask of a discharge observable holds no cell.")
     cbc_path = _resolve_cbc_path(output_dir, model_name)
-    seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
+    seconds_per_unit = seconds_per_solver_time_unit(output_dir, model_name)
 
     cbb = open_cell_budget(cbc_path)
     try:
@@ -151,28 +88,29 @@ def extract_discharge_from_cbc(
             )
         drain_key = _find_drain_component(cbb)
 
-        times = cbb.get_times()
-        n_timesteps = len(times)
-        values = np.zeros(n_timesteps, dtype=float)
         # Read by POSITION, and without `full3D`. Passing `text=` and
         # `kstpkper=` to `get_data` rebuilds a boolean mask over the whole
         # record index on every call, which is quadratic over a long chronicle;
-        # `get_indices` builds that index ONCE and `get_record` then seeks
-        # straight to a record. `full3D` compounds the cost by expanding a list
-        # package into a full (nlay, ncpl) grid per step, when the drain rows
-        # only ever cover the cells that carry a drain.
-        # `get_indices` hands back a numpy array, not a sequence: `or ()` on it
-        # raises "truth value of an array is ambiguous".
-        raw_indices = cbb.get_indices(text=drain_key)
-        indices = () if raw_indices is None else tuple(np.asarray(raw_indices).reshape(-1).tolist())
-        if len(indices) != n_timesteps:
-            raise ValueError(
-                f"the budget file holds {len(indices)} '{drain_key}' record(s) for "
-                f"{n_timesteps} timestep(s). The series is built by position, so an "
-                "uneven count would silently shift the hydrograph in time."
-            )
-        for t, idx in enumerate(indices):
-            values[t] = _drain_outflow_on_mask(cbb.get_record(int(idx)), mask)
+        # the step index is built ONCE and `get_record` then seeks straight to
+        # a record. `full3D` compounds the cost by expanding a list package
+        # into a full (nlay, ncpl) grid per step, when the drain rows only ever
+        # cover the cells that carry a drain.
+        steps = budget_file_steps(cbb)
+        stamps = steps.stamps()
+        n_timesteps = len(stamps)
+        values = np.zeros(n_timesteps, dtype=float)
+        for stamp in stamps:
+            per_step: list[float] = []
+            for position in stamp.positions:
+                idx = steps.record.get((drain_key.strip(), steps.keys[position]))
+                if idx is None:
+                    raise ValueError(
+                        f"the budget file holds no '{drain_key}' record at time step "
+                        f"{steps.keys[position]} (kstp, kper). A missing step would "
+                        "silently shift or bias the hydrograph."
+                    )
+                per_step.append(_drain_outflow_on_mask(cbb.get_record(int(idx)), mask))
+            values[stamp.stamp] = weighted_period_scalar(per_step, stamp.weights)
     finally:
         cbb.close()
 
@@ -451,14 +389,18 @@ def extract_release_flux_by_cell_from_cbc(
     time_index: pd.DatetimeIndex | None = None,
     n_cells: int | None = None,
 ) -> pd.DataFrame:
-    """Return positive per-cell release to the surface, by timestep, in m3/s.
+    """Return positive per-cell release to the surface, by stress period, in m3/s.
 
     The release is the union of the declared packages: DRN where the hillslope
     seeps, SFR where a reach drains the aquifer, CHD where a stream boundary
     holds the head. They are summed onto the same cell index, so a cell served
     by two packages carries their total once.
 
-    The returned frame has one row per CBC timestep and integer cell columns.
+    A stamp closes its period. Each package flux is the mean of the saved
+    steps of the period, weighted by their length, and is then clamped to
+    the release, as the stored budget field of that package is.
+
+    The returned frame has one row per stress period and integer cell columns.
     For single-layer runs ``n_cells`` can be omitted; pass it for multi-layer
     outputs so the layers are summed onto the cell index.
     """
@@ -467,7 +409,7 @@ def extract_release_flux_by_cell_from_cbc(
         raise ValueError("extract_release_flux_by_cell_from_cbc needs at least one package.")
 
     cbc_path = _resolve_cbc_path(output_dir, model_name)
-    seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
+    seconds_per_unit = seconds_per_solver_time_unit(output_dir, model_name)
 
     cbb = open_cell_budget(cbc_path)
     try:
@@ -475,23 +417,30 @@ def extract_release_flux_by_cell_from_cbc(
         _refuse_sibling_budgets_the_union_cannot_read(cbc_path, packages, record_names)
         _refuse_records_the_union_misses(packages, record_names, excluded_records=excluded_records)
         keyed = [(package, _resolve_release_record(package, record_names)) for package in packages]
-        times = cbb.get_times()
-        kstpkpers = cbb.get_kstpkper()
+        steps = budget_file_steps(cbb)
+        stamps = steps.stamps()
+        times = [steps.ends[stamp.positions[-1]] for stamp in stamps]
         width = int(n_cells) if n_cells is not None else None
         rows: list[np.ndarray | None] = []
 
-        for time, ksk in zip(times, kstpkpers, strict=False):
+        for stamp in stamps:
             total: np.ndarray | None = None
             for package, key in keyed:
                 # A package can hold no row at a given timestep; that step is a
                 # real zero for it, unlike a record missing from the whole file.
-                try:
-                    data = cbb.get_data(text=key, kstpkper=ksk, totim=time, full3D=True)
-                except Exception:
-                    data = None
-                if not data:
+                arrays: list[np.ndarray] = []
+                weights: list[float] = []
+                for position, weight in zip(stamp.positions, stamp.weights, strict=True):
+                    idx = steps.record.get((key.strip(), steps.keys[position]))
+                    if idx is None:
+                        continue
+                    arrays.append(np.asarray(cbb.get_record(int(idx), full3D=True)))
+                    weights.append(weight)
+                if not arrays:
                     continue
-                vec = _positive_release_by_cell(data[0], n_cells=width)
+                vec = _positive_release_by_cell(
+                    weighted_period_mean(arrays, weights), n_cells=width
+                )
                 if width is None:
                     width = int(vec.size)
                 elif vec.size != width:
@@ -527,6 +476,16 @@ def extract_release_flux_by_cell_from_cbc(
     return pd.DataFrame(filled_rows, index=index, columns=np.arange(width))
 
 
+def _period_end_times(head_file: object) -> list[float]:
+    """Simulated time of the head that closes each stress period.
+
+    A period cut into steps can save the head of every step (MODFLOW-NWT
+    does); the state of the period is the head of its last step.
+    """
+    times = head_file.get_times()
+    return [times[i] for i in period_end_positions(head_file.get_kstpkper())]
+
+
 def extract_head_from_hds(
     output_dir: Path,
     model_name: str,
@@ -534,7 +493,10 @@ def extract_head_from_hds(
     station_cells: Mapping[str, tuple[int, int, int]],
     time_index: pd.DatetimeIndex | None = None,
 ) -> dict[str, pd.Series]:
-    """Return head timeseries keyed by station at the given ``(k, i, j)`` cells."""
+    """Return head timeseries keyed by station at the given ``(k, i, j)`` cells.
+
+    One value per stress period: the head at its last saved step.
+    """
     import flopy.utils.binaryfile as bf
 
     hds_path = output_dir / f"{model_name}.hds"
@@ -545,7 +507,7 @@ def extract_head_from_hds(
 
     hf = bf.HeadFile(str(hds_path))
     try:
-        times = hf.get_times()
+        times = _period_end_times(hf)
         n_t = len(times)
         values_by_station = {
             station_id: np.full(n_t, np.nan, dtype=float) for station_id in station_cells
@@ -572,26 +534,24 @@ def extract_head_from_hds(
     return out
 
 
-def extract_saturated_thickness_by_cell_from_hds(
+def extract_water_table_by_cell_from_hds(
     output_dir: Path,
     model_name: str,
     *,
-    top: np.ndarray,
-    bottom: np.ndarray,
+    layer: np.ndarray,
     time_index: pd.DatetimeIndex | None = None,
 ) -> pd.DataFrame:
-    """Return saturated thickness by timestep and cell, in metres.
+    """Return the water table by stress period and cell, in meters.
 
-    The water table is the head of the uppermost layer, the definition
-    ``results/derive/derived.py`` already applies; a MODFLOW head array is
-    layer-major, so the first ``n_cells`` values of the flattened snapshot are
-    that layer. ``bottom`` is the base of the whole aquifer, ``botm[-1]``, not
-    the bottom of layer 0: what the method calibrates is the transmissivity of
-    the aquifer, not of its top slice.
+    One row per stress period: the head at its last saved step.
+
+    The water table is the head of the top active cell of each column, the
+    layer ``layer`` names per cell; a cell where it is -1 (a closed column)
+    has no water table and reads ``NaN``.
 
     MODFLOW writes a large sentinel into dry and no-flow cells; those become
-    ``NaN`` here, as in :func:`extract_head_from_hds`, rather than a full or
-    zero thickness that would read as a real value.
+    ``NaN`` here, as in :func:`extract_head_from_hds`, rather than a value that
+    would read as a real head.
     """
 
     import flopy.utils.binaryfile as bf
@@ -602,35 +562,67 @@ def extract_saturated_thickness_by_cell_from_hds(
             f"HDS file not found for model {model_name!r} in {output_dir}"
         )
 
+    layer_m = np.asarray(layer, dtype=np.int64).reshape(-1)
+    n_cells = int(layer_m.size)
+    hf = bf.HeadFile(str(hds_path))
+    try:
+        times = _period_end_times(hf)
+        heads = np.full((len(times), n_cells), np.nan, dtype="float64")
+        for step, totim in enumerate(times):
+            snapshot = np.asarray(hf.get_data(totim=totim), dtype=float).reshape(-1)
+            if snapshot.size < n_cells or snapshot.size % n_cells:
+                raise ValueError(
+                    f"head snapshot holds {snapshot.size} values, not a whole number of "
+                    f"layers of the {n_cells} cells of the mesh."
+                )
+            heads[step] = values_at_layer(snapshot.reshape(-1, n_cells), layer_m)
+    finally:
+        hf.close()
+
+    heads[np.abs(heads) > 1e6] = np.nan
+    if time_index is not None and len(time_index) == len(times):
+        index: pd.Index = time_index
+    else:
+        index = pd.Index(times, name="totim")
+    return pd.DataFrame(heads, index=index, columns=np.arange(n_cells))
+
+
+def extract_saturated_thickness_by_cell_from_hds(
+    output_dir: Path,
+    model_name: str,
+    *,
+    top: np.ndarray,
+    bottom: np.ndarray,
+    layer: np.ndarray,
+    time_index: pd.DatetimeIndex | None = None,
+) -> pd.DataFrame:
+    """Return saturated thickness by stress period and cell, in meters.
+
+    One row per stress period: the thickness at its last saved step, under the
+    water table of :func:`extract_water_table_by_cell_from_hds`. ``bottom`` is
+    the base of the whole aquifer, ``botm[-1]``, not the bottom of the top
+    layer: what the method calibrates is the transmissivity of the aquifer, not
+    of its top slice. A cell without a water table reads ``NaN``, rather than a
+    full or zero thickness that would read as a real value.
+    """
+
     top_m = np.asarray(top, dtype=float).reshape(-1)
     bottom_m = np.asarray(bottom, dtype=float).reshape(-1)
     n_cells = int(top_m.size)
     if bottom_m.size != n_cells:
         raise ValueError(f"top holds {n_cells} cells but bottom holds {bottom_m.size}.")
 
-    hf = bf.HeadFile(str(hds_path))
-    try:
-        times = hf.get_times()
-        heads = np.full((len(times), n_cells), np.nan, dtype="float64")
-        for step, totim in enumerate(times):
-            snapshot = np.asarray(hf.get_data(totim=totim), dtype=float).reshape(-1)
-            if snapshot.size < n_cells:
-                raise ValueError(
-                    f"head snapshot holds {snapshot.size} values, fewer than the "
-                    f"{n_cells} cells declared by top."
-                )
-            heads[step] = snapshot[:n_cells]
-    finally:
-        hf.close()
+    layer_m = np.asarray(layer, dtype=np.int64).reshape(-1)
+    if layer_m.size != n_cells:
+        raise ValueError(f"top holds {n_cells} cells but layer holds {layer_m.size}.")
 
-    heads[np.abs(heads) > 1e6] = np.nan
-    thickness = saturated_thickness_from_head_history(heads, top_m=top_m, bottom_m=bottom_m)
-
-    if time_index is not None and len(time_index) == len(times):
-        index: pd.Index = time_index
-    else:
-        index = pd.Index(times, name="totim")
-    return pd.DataFrame(thickness, index=index, columns=np.arange(n_cells))
+    table = extract_water_table_by_cell_from_hds(
+        output_dir, model_name, layer=layer_m, time_index=time_index
+    )
+    thickness = saturated_thickness_from_head_history(
+        table.to_numpy(), top_m=top_m, bottom_m=bottom_m
+    )
+    return pd.DataFrame(thickness, index=table.index, columns=table.columns)
 
 
 __all__ = [
@@ -639,4 +631,5 @@ __all__ = [
     "extract_head_from_hds",
     "extract_release_flux_by_cell_from_cbc",
     "extract_saturated_thickness_by_cell_from_hds",
+    "extract_water_table_by_cell_from_hds",
 ]

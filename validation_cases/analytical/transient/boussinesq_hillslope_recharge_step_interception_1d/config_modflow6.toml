@@ -1,0 +1,12 @@
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 1e-8
+mf6_inner_dvclose = 1e-9
+mf6_inner_rclose = 1e-11
+
+[domain.layers]
+nlay = 1

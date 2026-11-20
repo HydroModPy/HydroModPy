@@ -9,7 +9,6 @@ from .plotting import plot_boussinesq_sloping_substratum_fixed_head_comparison
 from .reference import (
     build_linear_substratum_values,
     build_linear_topography_values,
-    expected_sloping_substratum_fixed_head_profile,
     expected_sloping_substratum_fixed_head_profile_at_x,
     solve_sloping_substratum_fixed_head_discharge_per_width,
 )
@@ -19,7 +18,6 @@ __all__ = [
     "build_boussinesq_sloping_substratum_fixed_head_comparison",
     "build_linear_substratum_values",
     "build_linear_topography_values",
-    "expected_sloping_substratum_fixed_head_profile",
     "expected_sloping_substratum_fixed_head_profile_at_x",
     "plot_boussinesq_sloping_substratum_fixed_head_comparison",
     "run_boussinesq_sloping_substratum_fixed_head_comparison",

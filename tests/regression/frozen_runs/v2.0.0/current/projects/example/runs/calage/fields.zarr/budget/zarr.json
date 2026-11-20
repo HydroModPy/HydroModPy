@@ -1,0 +1,12 @@
+{
+  "attributes": {
+    "policy": "all",
+    "kept_terms": [
+      "constant_head",
+      "drain",
+      "recharge"
+    ]
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

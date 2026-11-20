@@ -1,0 +1,201 @@
+"""The generic url data source: a pinned digest or an unchanged ETag serves the cache, a new ETag downloads."""
+
+from __future__ import annotations
+
+import hashlib
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from hydromodpy.data.provenance.sidecars import CacheIndex, Sidecar, load_sidecar, write_sidecar
+from hydromodpy.data.source.port import FetchRequest
+from hydromodpy.data.source.url import DemUrl, RechargeUrl
+
+
+def test_pinned_digest_needs_no_network(tmp_path: Path) -> None:
+    content = b"cached raster bytes"
+    pin = hashlib.sha256(content).hexdigest()
+    out_dir = tmp_path / "cache"
+    out_dir.mkdir()
+
+    # Pre-populate cache file matching pattern dem_url_*_<sha8>.*
+    cached_file = out_dir / f"dem_url_example-com_{pin[:8]}.tif"
+    cached_file.write_bytes(content)
+
+    source = DemUrl(url="https://example.com/dem.tif", sha256=pin)
+    req = FetchRequest(out_dir=out_dir)
+
+    # With patch preventing any network connection
+    with patch("socket.getaddrinfo", side_effect=AssertionError("Network accessed!")):
+        res = source.fetch(req)
+
+    assert len(res.files) == 1
+    assert res.files[0].path == cached_file
+    assert res.files[0].sha256 == pin
+    assert res.files[0].origin == "url"
+
+
+def test_same_etag_is_not_downloaded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    content = b"existing data"
+    sha = hashlib.sha256(content).hexdigest()
+    out_dir = tmp_path / "cache"
+    out_dir.mkdir()
+
+    data_file = out_dir / "dem_url_example-com_12345678.tif"
+    data_file.write_bytes(content)
+    sidecar = Sidecar(
+        source="url",
+        variable="dem",
+        origin="https://example.com/dem.tif",
+        sha256=sha,
+        bytes=len(content),
+        etag='"etag-v1"',
+        last_modified="Wed, 21 Oct 2025 07:28:00 GMT",
+    )
+    write_sidecar(data_file, sidecar)
+
+    # HEAD returns same ETag
+    head_resp = MagicMock(status_code=200, headers={"ETag": '"etag-v1"'})
+    head_resp.iter_content = MagicMock(return_value=iter([]))
+
+    monkeypatch.setattr(
+        "socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("93.184.216.34", 443))]
+    )
+    with patch("requests.Session.request", return_value=head_resp) as mock_req:
+        source = DemUrl(url="https://example.com/dem.tif")
+        req = FetchRequest(out_dir=out_dir)
+        res = source.fetch(req)
+
+    assert len(res.files) == 1
+    assert res.files[0].path == data_file
+    assert res.files[0].sha256 == sha
+    # Only HEAD request was issued, no GET streaming
+    assert mock_req.call_count == 1
+    assert mock_req.call_args[0][0] == "HEAD"
+
+
+def test_new_etag_downloads_and_writes_sidecar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out_dir = tmp_path / "cache"
+    out_dir.mkdir()
+
+    old_file = out_dir / "recharge_url_example-com_12345678.tif"
+    old_file.write_bytes(b"old")
+    write_sidecar(
+        old_file,
+        Sidecar(
+            source="url",
+            variable="recharge",
+            origin="https://example.com/r.tif",
+            sha256="old",
+            bytes=3,
+            etag='"v1"',
+        ),
+    )
+
+    new_content = b"new recharge raster"
+    new_sha = hashlib.sha256(new_content).hexdigest()
+
+    head_resp = MagicMock(status_code=200, headers={"ETag": '"v2"'})
+    head_resp.iter_content = MagicMock(return_value=iter([]))
+
+    get_resp = MagicMock(
+        status_code=200, headers={"ETag": '"v2"', "Last-Modified": "Thu, 22 Oct 2025 08:00:00 GMT"}
+    )
+    get_resp.iter_content = MagicMock(return_value=iter([new_content]))
+
+    monkeypatch.setattr(
+        "socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("93.184.216.34", 443))]
+    )
+
+    def fake_request(_self: Any, method: str, _url: str, **_kw: Any) -> MagicMock:
+        return head_resp if method == "HEAD" else get_resp
+
+    monkeypatch.setattr("requests.Session.request", fake_request)
+
+    source = RechargeUrl(url="https://example.com/r.tif", license="ODbL-1.0")
+    req = FetchRequest(out_dir=out_dir)
+    res = source.fetch(req)
+
+    assert len(res.files) == 1
+    new_path = res.files[0].path
+    assert new_path.is_file()
+    assert new_path.name.startswith("recharge_url_example-com_")
+    assert new_path.name.endswith(".tif")
+    assert new_path.read_bytes() == new_content
+
+    # Verify sidecar written
+    sc = load_sidecar(new_path)
+    assert sc.origin == "https://example.com/r.tif"
+    assert sc.etag == '"v2"'
+    assert sc.last_modified == "Thu, 22 Oct 2025 08:00:00 GMT"
+    assert sc.license == "ODbL-1.0"
+    assert sc.sha256 == new_sha
+    assert sc.state == "raw"
+    # The sidecar is the row of the cache: it names the variable and the size.
+    assert sc.variable == "recharge"
+    assert sc.bytes == len(new_content)
+    row = CacheIndex(tmp_path).row_for(new_path)
+    assert row is not None
+    assert (row.variable, row.source, row.origin) == (
+        "recharge",
+        "url",
+        "https://example.com/r.tif",
+    )
+
+
+def test_a_download_is_a_row_of_the_index(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    data_root = tmp_path / "data"
+    out_dir = data_root / "dem"
+    content = b"raster"
+    get_resp = MagicMock(status_code=200, headers={"ETag": '"v1"'})
+    get_resp.iter_content = MagicMock(return_value=iter([content]))
+    monkeypatch.setattr(
+        "socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("93.184.216.34", 443))]
+    )
+    monkeypatch.setattr("requests.Session.request", lambda *_a, **_k: get_resp)
+
+    index = CacheIndex(data_root)
+    res = DemUrl(url="https://example.com/dem.tif", index=index).fetch(
+        FetchRequest(out_dir=out_dir)
+    )
+
+    (row,) = index.rows(variable="dem", source="url")
+    assert row.path == res.files[0].path.resolve()
+    assert row.sha256 == hashlib.sha256(content).hexdigest()
+    assert row.etag == '"v1"'
+
+
+def test_a_sidecar_without_variable_is_no_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Without its variable the sidecar is no row, so the URL is asked again.
+    out_dir = tmp_path / "cache"
+    out_dir.mkdir()
+    old = out_dir / "dem_url_example-com_12345678.tif"
+    old.write_bytes(b"old")
+    (out_dir / (old.name + ".json")).write_text(
+        '{"source": "url", "origin": "https://example.com/dem.tif", "sha256": "x", "etag": "\\"v1\\""}'
+    )
+    head_resp = MagicMock(status_code=200, headers={"ETag": '"v1"'})
+    head_resp.iter_content = MagicMock(return_value=iter([]))
+    get_resp = MagicMock(status_code=200, headers={"ETag": '"v1"'})
+    get_resp.iter_content = MagicMock(return_value=iter([b"new"]))
+    monkeypatch.setattr(
+        "socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("93.184.216.34", 443))]
+    )
+    calls: list[str] = []
+
+    def fake_request(_self: Any, method: str, *_a: Any, **_k: Any) -> MagicMock:
+        calls.append(method)
+        return head_resp if method == "HEAD" else get_resp
+
+    monkeypatch.setattr("requests.Session.request", fake_request)
+
+    res = DemUrl(url="https://example.com/dem.tif").fetch(FetchRequest(out_dir=out_dir))
+
+    assert "GET" in calls
+    assert res.files[0].path.read_bytes() == b"new"

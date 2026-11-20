@@ -1,24 +1,48 @@
-"""``hmp data restore`` - thin wrapper around :func:`hydromodpy.restore_data_cache`."""
+"""``hmp data restore`` - thin wrapper around :func:`hydromodpy.data.request.cache_verbs.restore_data_cache`."""
 
 from __future__ import annotations
 
 import argparse
+
+from hydromodpy.cli.conventions import (
+    add_destination,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.output import emit
 
 NAME: str = "restore"
 HELP: str = "Restore a cache archive into the workspace"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
+        epilog="Example:\n  hmp data restore data-cache.tar.gz",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("input", help="Archive produced by 'hmp data archive'")
-    parser.add_argument("--workspace", default=None)
+    add_destination(
+        parser,
+        help="Folder to restore into (default: data/ of the workspace)",
+        metavar="DIR",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.data import restore_data_cache
+    from hydromodpy.cli.refs import resolve_workspace
+    from hydromodpy.data.request.cache_verbs import restore_data_cache
 
     src = args.input
-    dest = restore_data_cache(src, workspace=args.workspace)
-    print(f"  Restored {src} into {dest}")
+    dest = restore_data_cache(src, workspace_root=resolve_workspace(args.workspace), to=args.to)
+    emit(
+        args,
+        "data restore",
+        {"source": src, "path": dest},
+        table=lambda: print(f"  Restored {src} into {dest}"),
+    )

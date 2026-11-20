@@ -1,6 +1,6 @@
 """Typed convention for ``Field(json_schema_extra=...)`` metadata.
 
-The codebase attaches UI hints, calibration bindings, and serialisation flags
+The codebase attaches UI hints, calibration bindings, and serialization flags
 through ``json_schema_extra``. This module defines the canonical key set so
 typos surface during validation and tooling can rely on a stable contract.
 
@@ -14,12 +14,28 @@ Use :func:`field_metadata` when declaring a new ``Field``::
         json_schema_extra=field_metadata(
             widget_type="input",
             unit="m/s",
-            display_name_fr="Conductivite hydraulique",
         ),
     )
 
 The helper rejects unknown keys at module import time, catching typos in CI
 rather than at first JSON schema export.
+
+``renamed_from`` lists the TOML paths a field replaces, written in full
+(``calibration.optimizer_kwargs``). The changes page of the parameter
+reference reads it to list a rename instead of a removal.
+
+``site_scoped`` marks a field whose value belongs to one catchment (an outlet,
+a station, a site-specific file). A ``[sites]`` project refuses a case whose
+resolved config keeps a literal value in such a field without a ``bind`` or a
+site overlay, and the generated docs say the value varies by site.
+:func:`hydromodpy.core.config_kit.introspect.site_scoped_paths` lists them.
+
+``stability="experimental"`` marks a key that may change in a minor release. A
+mark on a section root covers every key below it. ``experimental_values`` marks
+some values of a selector, a choice or a list of names, whose other values stay
+stable. The docs and the JSON Schema read both marks, and
+:func:`hydromodpy.core.config_kit.written.written_experimental_keys` lists the
+marked keys a configuration wrote.
 """
 
 from __future__ import annotations
@@ -43,15 +59,16 @@ class FieldMetadata(TypedDict, total=False):
 
     widget_type: WidgetType
     unit: str
-    display_name_fr: str
-    help_text_fr: str
     display_min: float
     display_max: float
     calibrable: Any
     toml_exclude: bool
     group: str
     stability: Stability
+    experimental_values: list[str]
     value_docs: dict[str, str]
+    renamed_from: list[str]
+    site_scoped: bool
 
 
 _ALLOWED_KEYS: Final[frozenset[str]] = frozenset(FieldMetadata.__annotations__)
@@ -73,14 +90,13 @@ def field_metadata(**kwargs: Any) -> dict[str, Any]:
     return dict(kwargs)
 
 
-def is_valid_field_metadata(payload: dict[str, Any]) -> bool:
-    """Return True when *payload* only contains canonical keys."""
-    return set(payload).issubset(_ALLOWED_KEYS)
-
-
 def unknown_metadata_keys(payload: dict[str, Any]) -> set[str]:
-    """Return the set of keys in *payload* that are not canonical."""
-    return set(payload) - _ALLOWED_KEYS
+    """Return the set of keys in *payload* that are not canonical.
+
+    An ``x-hmp-`` key is an extension of the published schema, written by a model that
+    carries a vocabulary, and is not counted.
+    """
+    return {key for key in payload if key not in _ALLOWED_KEYS and not key.startswith("x-hmp-")}
 
 
 __all__ = [
@@ -88,6 +104,5 @@ __all__ = [
     "Stability",
     "WidgetType",
     "field_metadata",
-    "is_valid_field_metadata",
     "unknown_metadata_keys",
 ]

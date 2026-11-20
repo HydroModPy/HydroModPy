@@ -1,0 +1,125 @@
+"""Compute which pipeline step is the earliest affected by a set of overrides.
+
+When a calibration overrides a field deep in the config (e.g.
+``flow.param.K.field.value``), only the steps whose
+``config_sections`` consume that part of the tree need to re-run. The
+earlier (setup) steps give the same result for every trial and can be
+executed once, then shared across the ask/tell loop.
+
+``earliest_affected_step`` performs a dotted-prefix match between every
+override path and every step's declared ``config_sections``, either way:
+``flow.sinks_sources.lakes`` replaces every lake, so it reaches a step that
+reads ``flow.sinks_sources.lakes.*.enabled``. A ``*`` key stands for any one
+id of a table. The first step (lowest index) that owns a matching section
+wins, and a path no step owns is refused: nothing would re-run, so the trial
+would score the previous model.
+
+All steps in ``steps[earliest:]`` must re-run, even those with empty
+``config_sections``, because they consume the output state produced by
+the re-run predecessor.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any
+
+from hydromodpy.core.exceptions import ConfigError
+
+
+def _matches(path: str, section: str) -> bool:
+    """Return True if ``path`` is ``section``, holds it, or lies under it.
+
+    ``"flow.param.K"`` matches the sections ``"flow"`` and
+    ``"flow.param.K.field.value"``. A ``*`` key of the section matches any key,
+    so ``"flow.sinks_sources.lakes.a.enabled"`` matches
+    ``"flow.sinks_sources.lakes.*.enabled"``. The empty section never matches.
+    """
+    if not section:
+        return False
+    pairs = zip(path.split("."), section.split("."), strict=False)
+    return all(key in ("*", part) for part, key in pairs)
+
+
+def section_value(document: Mapping[str, Any], section: str) -> Any:
+    """Return what a dumped configuration holds under ``section``, None where a key is missing.
+
+    A ``*`` key gives, for each id of that table, what the id holds under the
+    rest of the section.
+    """
+    keys = section.split(".")
+    value: Any = document
+    for index, key in enumerate(keys):
+        if not isinstance(value, Mapping):
+            return None
+        if key == "*":
+            rest = ".".join(keys[index + 1 :])
+            return {
+                name: section_value(item, rest) if rest else item for name, item in value.items()
+            }
+        value = value.get(key)
+    return value
+
+
+def earliest_affected_step(
+    override_paths: Iterable[str],
+    steps: Sequence[Any],
+) -> int:
+    """Return the lowest step index affected by any of ``override_paths``.
+
+    Parameters
+    ----------
+    override_paths
+        Dotted config paths that the calibration will mutate on each
+        trial (e.g. ``{"flow.param.K.field.value"}``).
+    steps
+        Ordered pipeline steps, each with a ``config_sections`` class
+        variable declaring the TOML subtrees it consumes.
+
+    Returns
+    -------
+    int
+        The index of the first step whose ``config_sections`` owns any
+        override path.
+
+    Raises
+    ------
+    ConfigError
+        When ``override_paths`` is empty, or when a path is owned by no step.
+        A path nothing consumes would leave every step shared across trials, so
+        each trial would evaluate the same model with a different number
+        attached to it and the search would report a value it never varied.
+    """
+    paths = [p for p in override_paths if p]
+    if not paths:
+        raise ConfigError("earliest_affected_step requires at least one override path")
+
+    earliest = len(steps)
+    orphans: list[str] = []
+    for path in paths:
+        for index, step in enumerate(steps):
+            sections = getattr(step, "config_sections", ()) or ()
+            if any(_matches(path, section) for section in sections):
+                if index < earliest:
+                    earliest = index
+                break
+        else:
+            orphans.append(path)
+    if orphans:
+        declared = sorted(
+            {
+                section
+                for step in steps
+                for section in (getattr(step, "config_sections", ()) or ())
+                if section
+            }
+        )
+        raise ConfigError(
+            f"no pipeline step reads {', '.join(sorted(orphans))}, so changing it would "
+            "re-run nothing and every trial would evaluate the same model. Sections a "
+            f"step declares: {', '.join(declared) or 'none'}."
+        )
+    return earliest
+
+
+__all__ = ("earliest_affected_step", "section_value")

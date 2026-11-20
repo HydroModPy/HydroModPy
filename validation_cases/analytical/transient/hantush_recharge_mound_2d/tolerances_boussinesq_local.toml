@@ -1,0 +1,21 @@
+[space_time]
+rmse = 0.0028
+max_abs_error = 0.0093
+centre_max_abs_error = 0.0089
+
+[final_time]
+rmse = 0.0025
+map_max_abs_error = 0.021
+
+[doc]
+reason = """
+Twice the error measured with the default 'auto' engine, which runs
+scipy_sparse on these 6806 conforming triangles with one backward-Euler step a
+period: transect space-time RMSE 1.37e-3 m, max error 4.6e-3 m, center max
+4.4e-3 m, final transect RMSE 1.2e-3 m, final map max 1.04e-2 m. MODFLOW 6 on
+the same triangles reads the same within 4 %, and its refinement converges to
+Hantush: the error is the mesh and the step. The run stores the whole
+recharge, 0.99999999 of the recharged volume. Until 2026-10-10 the surface
+closure released 3.6 % of the recharge with the water table 10 m under the
+top, and the mound ended 1.7 cm low.
+"""

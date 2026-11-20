@@ -1,0 +1,111 @@
+/* Validation page (loaded by _ext/hmp_validation.py). Theme tokens only. */
+
+.hmp-val-count { font-size: 1.05em; }
+.hmp-val-h { font-weight: 600; margin: .9rem 0 .25rem; }
+.hmp-val-warn { color: var(--pst-color-danger); }
+.hmp-val-jobs { font-size: .95em; }
+.hmp-val-chips .tc { margin-right: .25rem; }
+.hmp-val-scope { color: var(--pst-color-success); }
+
+/* Wide tables scroll inside the column, never the page. */
+.hmp-val-scroll { overflow-x: auto; max-width: 100%; margin: .3rem 0 .4rem; }
+.hmp-val-scroll table { margin: 0; font-size: .9em; }
+.hmp-val-scroll th, .hmp-val-scroll td { padding: .25rem .5rem; vertical-align: top; }
+td.hmp-val-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+td.hmp-val-out { color: var(--pst-color-danger); font-weight: 600; }
+
+/* Outcome chips. Skipped and not measured are never green. */
+.hmp-vs {
+  display: inline-block; font-size: max(.75em, .8rem); line-height: 1.5; padding: 0 .45rem;
+  border-radius: .6rem; border: 1px solid currentColor; white-space: nowrap;
+}
+.hmp-vs-passed { color: var(--pst-color-success); }
+.hmp-vs-failed, .hmp-vs-error { color: var(--pst-color-danger); }
+.hmp-vs-skipped, .hmp-vs-not-measured { color: var(--pst-color-text-muted); border-style: dashed; }
+.hmp-vs-gap { color: var(--pst-color-warning); font-weight: 600; }
+
+/* Accuracy and share of the threshold: one hue per class, mixed into the surface.
+   r1 reads best, r4 is a warning, only r5 (a failed test) is red. */
+.hmp-val-share { display: inline-block; min-width: 3.2em; padding: 0 .3rem; border-radius: .25rem; text-align: center; }
+.hmp-val-r0 { background: var(--pst-color-surface); }
+.hmp-val-r1 { background: color-mix(in srgb, var(--pst-color-success) 34%, transparent); }
+.hmp-val-r2 { background: color-mix(in srgb, var(--pst-color-success) 14%, transparent); }
+.hmp-val-r3 { background: color-mix(in srgb, var(--pst-color-warning) 14%, transparent); }
+.hmp-val-r4 { background: color-mix(in srgb, var(--pst-color-warning) 32%, transparent); }
+.hmp-val-r5 { background: color-mix(in srgb, var(--pst-color-danger) 30%, transparent); }
+.hmp-val-legend .hmp-val-share { min-width: 0; margin: 0 .2rem .2rem 0; font-size: .85em; }
+
+/* Case by solver matrix. */
+table.hmp-val-matrix td.hmp-val-cell { text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.hmp-val-matrix td:first-child { min-width: 10rem; }
+table.hmp-val-matrix th { font-size: .9em; }
+table.hmp-val-sched td:first-child { min-width: 9rem; }
+code.hmp-val-wf { white-space: nowrap; font-size: .85em; }
+table.hmp-val-matrix tr.hmp-val-grow th { text-align: left; background: var(--pst-color-surface); font-weight: 600; }
+td.hmp-val-nm { color: var(--pst-color-text-muted); font-style: italic; font-size: .85em; }
+td.hmp-val-sk { color: var(--pst-color-text-muted); font-size: .85em; }
+td.hmp-val-na { background: transparent; color: var(--pst-color-text-muted); font-size: .85em; }
+td.hmp-val-un { color: var(--pst-color-text-muted); font-size: .85em; font-style: italic; }
+.hmp-val-up { color: var(--pst-color-danger); font-weight: 700; cursor: help; }
+.hmp-val-down { color: var(--pst-color-text-muted); cursor: help; }
+.hmp-val-gapmark {
+  font-size: .75em; font-weight: 700; color: var(--pst-color-warning);
+  border: 1px solid currentColor; border-radius: .3rem; padding: 0 .2rem;
+}
+
+/* Known gap: a warning box at the top of the case. */
+.admonition.hmp-val-gap { margin: .5rem 0 .8rem; }
+
+/* Equations of the case README. */
+.hmp-val-eq { margin: .2rem 0 .4rem; overflow-x: auto; }
+
+/* Figures: small multiples drawn from the recorded curves. */
+.hmp-val-figs { display: flex; flex-wrap: wrap; gap: .6rem; margin: .5rem 0 .2rem; }
+figure.hmp-val-fig { flex: 1 1 18rem; max-width: 28rem; margin: 0; }
+figure.hmp-val-fig > svg { width: 100%; height: auto; display: block; }
+figure.hmp-val-fig figcaption { font-size: .82em; color: var(--pst-color-text-muted); }
+.hmp-val-axes line { stroke: var(--pst-color-border); stroke-width: 1; }
+.hmp-val-axes line.hmp-val-zero { stroke-dasharray: 3 3; }
+.hmp-val-lab text { fill: var(--pst-color-text-muted); font-size: 10px; }
+polyline.hmp-val-ref { fill: none; stroke: var(--pst-color-primary); stroke-width: 1.6; }
+polyline.hmp-val-ref-own { fill: none; stroke: var(--hmp-solver); stroke-width: 1.1; stroke-dasharray: 4 2; }
+/* One color per solver (Okabe-Ito), the same on every figure; a shape goes with it. */
+.hmp-val-s0 { --hmp-solver: #e69f00; }
+.hmp-val-s1 { --hmp-solver: #0072b2; }
+.hmp-val-s2 { --hmp-solver: #009e73; }
+.hmp-val-s3 { --hmp-solver: #cc79a7; }
+.hmp-val-s4 { --hmp-solver: #d55e00; }
+.hmp-val-s5 { --hmp-solver: #56b4e9; }
+html[data-theme="dark"] .hmp-val-s1 { --hmp-solver: #56b4e9; }
+html[data-theme="dark"] .hmp-val-s5 { --hmp-solver: #f0e442; }
+.hmp-val-mk > * { fill: var(--hmp-solver); stroke: var(--pst-color-background); stroke-width: .6; }
+.hmp-val-res polyline { fill: none; stroke: var(--hmp-solver); stroke-width: 1; }
+.hmp-val-res > :not(polyline) { fill: var(--hmp-solver); }
+.hmp-val-key { display: inline-flex; align-items: center; gap: .25rem; margin-right: .7rem; white-space: nowrap; }
+figure.hmp-val-fig .hmp-val-key svg { width: .75rem; height: .75rem; flex: none; }
+.hmp-val-key-ref, .hmp-val-key-own { display: inline-block; width: 1.2rem; height: 0; border-top: 2px solid var(--pst-color-primary); }
+.hmp-val-key-own { border-top: 2px dashed var(--pst-color-text-muted); }
+
+/* The folded details of a case. */
+details.hmp-val-more { border: 1px solid var(--pst-color-border); border-radius: .4rem; margin: .6rem 0 1.2rem; }
+details.hmp-val-more > summary { cursor: pointer; padding: .4rem .7rem; color: var(--pst-color-text-muted); }
+details.hmp-val-more[open] > summary { border-bottom: 1px solid var(--pst-color-border); }
+.hmp-val-body { padding: .5rem .9rem .3rem; font-size: .95em; }
+.hmp-val-pre { font-size: .85em; background: var(--pst-color-surface); padding: .4rem .6rem; border-radius: .3rem; overflow-x: auto; }
+.hmp-val-tol, .hmp-val-tests { font-size: .92em; margin: .2rem 0 .5rem; }
+
+/* Checked by boxes of the theory pages. */
+.hmp-tested-tier > summary { cursor: pointer; font-weight: 600; margin: .3rem 0; }
+.hmp-tested ul { font-size: .95em; margin-bottom: .4rem; }
+
+/* On a phone the wide tables keep readable columns and scroll sideways. */
+@media (max-width: 760px) {
+  table.hmp-val-sched { min-width: 40rem; }
+  table.hmp-val-res { min-width: 36rem; }
+  table.hmp-val-matrix { min-width: 34rem; }
+}
+
+/* Figures drawn at build time: one wide image per case and kind, a variant per theme. */
+.hmp-val-figs-wide { display: block; }
+figure.hmp-val-wide { max-width: 52rem; margin: .6rem 0 .8rem; }
+figure.hmp-val-wide > img { width: 100%; height: auto; display: block; border-radius: .3rem; }

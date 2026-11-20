@@ -1,0 +1,474 @@
+"""The frozen ``Model`` every flow backend reads, and the functions that derive one model from another.
+
+The ``prepare_solver`` step builds one ``Model`` per run with ``model_from_flow``,
+from the ``Flow`` the setup and data steps bound, the mesh, the domain, the
+delineation, the time grid and ``[solver]``. A backend reads it and nothing it
+was built from, and never changes it: a solve leaves the ``Model`` as it found
+it. ``steady_variant`` and ``cycle_variant`` give the model an auxiliary solve
+runs on, ``with_initial`` and ``with_properties`` a model with one member set.
+
+Each member keeps the object the ``Flow`` held, without a copy. A mapping is
+read-only, a sequence is a tuple. The ``Model`` carries no configuration, no
+delineation object, no folder and no setting of one backend.
+"""
+
+from __future__ import annotations
+
+import copy
+from collections.abc import Mapping
+from dataclasses import dataclass, field, fields, replace
+from types import MappingProxyType
+from typing import Any
+
+from hydromodpy.catchment.drainage.channel_tree import ChannelExits
+from hydromodpy.core.summary import members, one_line, summary
+from hydromodpy.core.time.steady_initialization import single_period_mean_forcing_time_grid
+from hydromodpy.core.units.quantities import factor_to_m_per_s
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.model.boundaries.boundary_condition_registry import (
+    BoundaryConditionBundle,
+    boundary_condition_bundle_from_flow,
+)
+from hydromodpy.model.domain.cell_column import CellColumn
+from hydromodpy.model.domain.domain import Domain
+from hydromodpy.model.domain.geometry import CatchmentGeometry, RasterGeometry
+from hydromodpy.model.flow import Flow
+from hydromodpy.model.forcing.native import NativeSeries
+from hydromodpy.model.forcing.time_forcing import compact_pre_resolved_forcings
+from hydromodpy.model.initial.state import (
+    INITIAL_STATE_TYPES,
+    HeadRule,
+    InitialState,
+    SolvedState,
+    SteadyStart,
+    SteadyStateStrategy,
+)
+from hydromodpy.model.initial_config import initial_state_of
+from hydromodpy.model.properties.property_table import refuse_unknown_override_names
+from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
+from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
+from hydromodpy.model.sinks_sources.wells import FlowWellConfig
+from hydromodpy.model.time.regime import FlowRegime, normalize_flow_regime
+
+
+def _frozen(mapping: Mapping[str, Any] | None) -> Mapping[str, Any]:
+    """A read-only mapping over a shallow copy: the values are the same objects."""
+    return MappingProxyType(dict(mapping or {}))
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class Geometry:
+    """Where the model lies.
+
+    ``cells`` is the planar cell mesh MODFLOW 6 and Boussinesq build their grid
+    on, and ``domain`` the vertical (top, base, layers, supports). ``raster``
+    is the DEM grid NWT builds its grid on, and MODFLOW 6 reads it for the DEM
+    its routing is conditioned on. ``catchment`` says where the catchment
+    closes. ``channel_exits`` is the generated river network A read on the
+    cells, which a backend turns into pinned receivers with its active columns
+    and its lakes. ``column`` is the top and the bottom of every cell, which the
+    rule the backend declares in ``cell_column`` reads from the domain once, before
+    the solve. A member the run does not have is ``None``.
+    """
+
+    cells: PlanarCellMesh | None
+    domain: Domain | None
+    raster: RasterGeometry | None = None
+    catchment: CatchmentGeometry | None = None
+    channel_exits: ChannelExits | None = None
+    column: CellColumn | None = None
+
+    def __repr__(self) -> str:
+        """Name each part on one short line. Type a part to read it whole."""
+        return summary("Geometry", members(self))
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class Properties:
+    """The hydraulic properties of the model.
+
+    ``profiles`` maps a ``[flow.param]`` id to its ``FieldParam`` (K, Sy, Ss
+    and the others), in SI with its vertical profile, in the declared order.
+    Each backend samples them on its own grid through ``map_flow_properties``.
+    ``overrides`` maps a property name to a value per cell set by
+    ``Model.with_properties``. A backend passes it to
+    ``resolve_flow_property_runtime_overrides`` with its grid, and it wins over
+    the profiles.
+    """
+
+    profiles: Mapping[str, Any]
+    overrides: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "profiles", _frozen(self.profiles))
+        object.__setattr__(self, "overrides", _frozen(self.overrides))
+
+    def __repr__(self) -> str:
+        """Give the value of each property, one per line."""
+        rows = [(name, _property_text(profile)) for name, profile in self.profiles.items()]
+        rows += [(name, "one value per cell, set by with_properties") for name in self.overrides]
+        return summary("Properties", rows)
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        """Pickle the two mappings as dicts, which the constructor makes read-only again."""
+        return (Properties, (dict(self.profiles), dict(self.overrides)))
+
+
+def _property_text(profile: Any) -> str:
+    """Say one property in a few words: its value and unit, or how it varies."""
+    # A repr never raises, so a stand-in without these members still prints.
+    if getattr(profile, "kind", None) == "homogeneous":
+        text = f"{profile.value:g} {profile.unit}".removesuffix(" -")
+    elif getattr(profile, "kind", None) == "raster":
+        text = f"map {profile.raster_map}, {profile.mean} mean over each cell"
+    else:
+        by_zone = getattr(profile, "values_by_key", None) or {}
+        text = f"{len(by_zone)} values by zone" if by_zone else one_line(profile)
+    varies = getattr(profile, "has_vertical_variation", False)
+    return f"{text}, with a vertical profile" if varies else text
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class ModelTime:
+    """When the model runs.
+
+    ``grid`` is the resolved time grid of ``[simulation.time]``, period
+    lengths in seconds, or ``None`` for a steady run without one. ``regime``
+    is ``steady`` or ``transient``. ``first_period_steady`` makes the first
+    period of a transient run steady.
+    """
+
+    grid: Any
+    regime: FlowRegime
+    first_period_steady: bool
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "regime", normalize_flow_regime(self.regime))
+
+    @classmethod
+    def from_flow(cls, flow: Flow, grid: Any) -> ModelTime:
+        """The regime and the first period of a bound ``Flow`` on ``grid``."""
+        return cls(grid=grid, regime=flow.flow_regime, first_period_steady=flow.first_period_steady)
+
+
+@dataclass(frozen=True, slots=True)
+class ModelOptions:
+    """The four settings of ``[solver]`` that every backend reads the same way.
+
+    ``sink_fill`` fills the DEM sinks before the top is sampled.
+    ``drain_band_depth_m`` is the depth in metres of the band below the top
+    where the drains sit. ``drain_bed_thickness_m`` is the thickness in metres
+    of the drain bed, and ``drain_conductance_floor_m2_s`` the smallest drain
+    conductance in m2/s.
+    """
+
+    sink_fill: bool
+    drain_band_depth_m: float
+    drain_bed_thickness_m: float
+    drain_conductance_floor_m2_s: float
+
+    @classmethod
+    def from_settings(cls, solver: Any) -> ModelOptions:
+        """Read the four settings off a ``[solver]`` section by name."""
+        return cls(
+            sink_fill=bool(solver.sink_fill),
+            drain_band_depth_m=float(solver.drain_band_depth_m),
+            drain_bed_thickness_m=float(solver.drain_bed_thickness_m),
+            drain_conductance_floor_m2_s=float(solver.drain_conductance_floor_m2_s),
+        )
+
+
+@dataclass(frozen=True, slots=True, kw_only=True, eq=False)
+class Model:
+    """What a flow backend solves, frozen for the whole run.
+
+    ``boundaries`` holds the typed ``[flow.bc]`` payloads and the active ids,
+    with a read-only ``conditions``. ``recharge`` and ``etp`` are in m/s with
+    their factor applied, and ``wells`` maps a well id to its payload with the
+    flux in m3/s. ``lakes``, ``sfr`` and ``flow_barriers`` are the payloads the
+    data step bound, by id. They keep the units the user wrote for
+    ``bedleak`` (``bedleak_unit``), ``streambed_k`` (``streambed_k_unit``) and
+    a barrier's ``hydchr``, ``k`` and ``thickness``, which MODFLOW 6 converts
+    when it builds the package. ``active_sinks_sources`` lists the sink and
+    source families the run builds. ``initial`` is one of the five start
+    states of ``hydromodpy.model.initial.state``. ``native_recharge`` is the
+    forcing at the step of its source that the recharge binder read, in m/s,
+    for a global solver that integrates it; ``None`` when no source gives
+    one, which is every meshed backend today.
+    """
+
+    geometry: Geometry
+    properties: Properties
+    boundaries: BoundaryConditionBundle
+    recharge: FlowRechargeConfig | None
+    etp: FlowEtpConfig | None
+    native_recharge: NativeSeries | None = None
+    wells: Mapping[str, FlowWellConfig]
+    lakes: Mapping[str, Mapping[str, Any]]
+    sfr: Mapping[str, Mapping[str, Any]]
+    flow_barriers: Mapping[str, Mapping[str, Any]]
+    active_sinks_sources: tuple[str, ...]
+    initial: InitialState
+    time: ModelTime
+    options: ModelOptions
+
+    def __repr__(self) -> str:
+        """Say the model in a few lines: its size, its periods, its properties and its terms."""
+        cells, grid = self.geometry.cells, self.time.grid
+        steady = ", first period steady" if self.time.first_period_steady else ""
+        parts = ["no cell mesh" if cells is None else f"{cells.n_cells} cells"]
+        # A steady run with no [simulation.time] has a grid with no window.
+        window = getattr(grid, "window", None)
+        if window is not None:
+            dates = f"{window.start:%Y-%m-%d} to {window.end:%Y-%m-%d}"
+            parts.append(f"{grid.nper} periods from {dates}")
+        profiles = self.properties.profiles.items()
+        return summary(
+            f"Model: {', '.join(parts)}, {self.time.regime}{steady}",
+            [
+                (
+                    "properties",
+                    ", ".join(f"{k} = {_property_text(v)}" for k, v in profiles) or "none",
+                ),
+                ("boundaries", ", ".join(self.boundaries.active_ids) or "none"),
+                ("active_sinks_sources", ", ".join(self.active_sinks_sources) or "none"),
+                ("recharge", one_line(self.recharge)),
+                ("wells", one_line(self.wells)),
+                ("lakes", one_line(self.lakes)),
+                ("sfr", one_line(self.sfr)),
+                ("flow_barriers", one_line(self.flow_barriers)),
+            ],
+        )
+
+    def __post_init__(self) -> None:
+        for name in ("wells", "lakes", "sfr", "flow_barriers"):
+            object.__setattr__(self, name, _frozen(getattr(self, name)))
+        object.__setattr__(self, "active_sinks_sources", tuple(self.active_sinks_sources))
+        if not isinstance(self.boundaries.conditions, MappingProxyType):
+            object.__setattr__(
+                self,
+                "boundaries",
+                BoundaryConditionBundle(
+                    conditions=_frozen(self.boundaries.conditions),
+                    active_ids=tuple(self.boundaries.active_ids),
+                ),
+            )
+        if not isinstance(self.initial, INITIAL_STATE_TYPES):
+            raise TypeError(
+                "Model.initial is one of "
+                f"{', '.join(cls.__name__ for cls in INITIAL_STATE_TYPES)}; "
+                f"got {type(self.initial).__name__}."
+            )
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        """Pickle the mappings as dicts, which the constructor makes read-only again.
+
+        A read-only mapping does not pickle, and a worker of a parallel
+        calibration sends the models of the solves it keeps over a pipe.
+        """
+        members = {member.name: getattr(self, member.name) for member in fields(self)}
+        for name in ("wells", "lakes", "sfr", "flow_barriers"):
+            members[name] = dict(members[name])
+        members["boundaries"] = BoundaryConditionBundle(
+            conditions=dict(self.boundaries.conditions),
+            active_ids=self.boundaries.active_ids,
+        )
+        return (_rebuild_model, (members,))
+
+    def with_properties(self, **values: Any) -> Model:
+        """A new model whose per-cell overrides gain ``values``, by property name.
+
+        The names are those ``resolve_flow_property_runtime_overrides`` reads:
+        K, Kv, Sy, Ss, K22, angle1, angle2, angle3 or their output names. An
+        other name is refused. A value is one number, one per planar cell or
+        one per model cell. The backend checks its size and range on its grid.
+        """
+        refuse_unknown_override_names(values)
+        merged = {**self.properties.overrides, **values}
+        return replace(
+            self, properties=Properties(profiles=self.properties.profiles, overrides=merged)
+        )
+
+    def with_profiles(self, profiles: Mapping[str, Any]) -> Model:
+        """A new model whose property profiles named in ``profiles`` are replaced.
+
+        ``profiles`` maps a ``[flow.param]`` id to its new ``FieldParam``, as
+        :func:`hydromodpy.model.flow.flow_profiles` returns it. Every other
+        member, the other profiles and the per-cell overrides are the objects of
+        this model, so a backend that compares members by identity sees only the
+        replaced properties change. An id this model has no profile for is
+        refused: a new property is no replacement.
+        """
+        unknown = sorted(set(profiles) - set(self.properties.profiles))
+        if unknown:
+            raise ValueError(
+                f"Model.with_profiles replaces the profiles {', '.join(self.properties.profiles)}; "
+                f"{', '.join(unknown)} is none of them. Declare it in [flow] param_list."
+            )
+        merged = {
+            name: profiles.get(name, profile) for name, profile in self.properties.profiles.items()
+        }
+        return replace(
+            self, properties=Properties(profiles=merged, overrides=self.properties.overrides)
+        )
+
+    def with_initial(self, initial: InitialState) -> Model:
+        """A new model that starts from ``initial``."""
+        return replace(self, initial=initial)
+
+
+def _rebuild_model(members: dict[str, Any]) -> Model:
+    """The ``Model`` a pickle holds, built again by its constructor."""
+    return Model(**members)
+
+
+def _steady_recharge(
+    recharge: FlowRechargeConfig | None, strategy: SteadyStateStrategy
+) -> FlowRechargeConfig | None:
+    """The recharge of a steady start: the time mean, or the prescribed rate on every period.
+
+    A prescribed rate replaces the values too, because ``first_clim`` alone is
+    read only for a sequence payload. It is written in the payload unit and
+    drops a per-cell field, which would win over it.
+    """
+    if recharge is None:
+        return None
+    if strategy.rate_m_s is None:
+        return recharge.model_copy(update={"first_clim": "mean"})
+    payload_units = str(getattr(recharge, "units", "m/s") or "m/s")
+    rate = strategy.rate_m_s / factor_to_m_per_s(payload_units)
+    return recharge.model_copy(
+        update={"values": rate, "first_clim": rate, "heterogeneous_source": None}
+    )
+
+
+def _averaged_over_periods(payloads: Mapping[str, Any], period_lengths: Any) -> Mapping[str, Any]:
+    """The payloads with every per-period forcing replaced by its duration-weighted mean.
+
+    The data step resolves lake and SFR forcings to one value per run period.
+    The steady model has one period, so it reads their mean. The payloads are
+    copied first, so the run's own model keeps its series.
+    """
+    if period_lengths is None or not payloads:
+        return payloads
+    averaged = copy.deepcopy(dict(payloads))
+    compact_pre_resolved_forcings(averaged, period_lengths=list(period_lengths))
+    return averaged
+
+
+def _whole_simulation(model: Model) -> Model:
+    """The model an auxiliary solve derives from: ``initial.over`` in a chain, else ``model``.
+
+    The first window of a chain starts as the run in one piece does, so its
+    steady solve and its cycles read the forcings of the whole simulation,
+    which ``SteadyStart.over`` and ``CyclicStart.over`` carry. The properties
+    stay those of ``model``, which holds the per-cell overrides of the run.
+    """
+    over = getattr(model.initial, "over", None)
+    if over is None:
+        return model
+    if not isinstance(over, Model):
+        raise TypeError(
+            f"{type(model.initial).__name__}.over is the Model of the whole simulation; "
+            f"got {type(over).__name__}."
+        )
+    return replace(over, properties=model.properties)
+
+
+def steady_variant(model: Model, *, start: HeadRule | None = None) -> Model:
+    """The model of the auxiliary steady solve, a new object.
+
+    One period spanning the run (``single_period_mean_forcing_time_grid``), a
+    steady regime, and the lake, SFR and barrier forcings averaged over the run
+    periods. When ``model.initial`` is a ``SteadyStart`` the recharge follows
+    its strategy, else it is unchanged, as for the first cycle of a spin-up
+    that starts from the steady state. The solve starts from ``start``, the
+    top by default for every backend.
+
+    In the first window of a chain, the run is the whole simulation that
+    ``initial.over`` holds, so the steady state is the one of the run in one
+    piece.
+    """
+    source = _whole_simulation(model)
+    lengths = getattr(source.time.grid, "period_lengths_seconds", None)
+    recharge = source.recharge
+    if isinstance(model.initial, SteadyStart):
+        recharge = _steady_recharge(recharge, model.initial.strategy)
+    return replace(
+        source,
+        time=ModelTime(
+            grid=single_period_mean_forcing_time_grid(source.time.grid),
+            regime="steady",
+            first_period_steady=source.time.first_period_steady,
+        ),
+        recharge=recharge,
+        lakes=_averaged_over_periods(source.lakes, lengths),
+        sfr=_averaged_over_periods(source.sfr, lengths),
+        flow_barriers=_averaged_over_periods(source.flow_barriers, lengths),
+        initial=start if start is not None else HeadRule("top"),
+    )
+
+
+def cycle_variant(model: Model, seed: SolvedState | None) -> Model:
+    """The model of one spin-up cycle, a new object that starts from ``seed`` or the top.
+
+    The heads cycle, and so do the lake stages: a cycle that starts from
+    ``seed`` starts its lakes from ``seed.lake_stages``, and the first cycle
+    starts them from their ``initial_stage``. In the first window of a chain,
+    each cycle repeats the whole simulation that ``initial.over`` holds.
+    """
+    return replace(_whole_simulation(model), initial=seed if seed is not None else HeadRule("top"))
+
+
+def model_from_flow(
+    flow: Flow,
+    *,
+    geometry: Geometry,
+    time: ModelTime,
+    options: ModelOptions,
+    initial: InitialState | None = None,
+    property_maps: Mapping[str, Any] | None = None,
+) -> Model:
+    """The ``Model`` of a bound ``Flow``, its members the objects the flow holds.
+
+    ``initial`` defaults to the state ``[flow.ic]`` asks for. A restart passes
+    the ``PriorState`` it read instead. ``property_maps`` holds, by name, the maps
+    of ``[data.property_map]`` the raster profiles read; each such profile carries
+    its map in the model.
+    """
+    sinks_sources = flow.sinks_sources
+    maps = dict(property_maps or {})
+    profiles = {
+        name: profile.reading(maps[profile.raster_map])
+        if getattr(profile, "is_raster", False)
+        else profile
+        for name, profile in flow.parameters.items()
+    }
+    return Model(
+        geometry=geometry,
+        properties=Properties(profiles=profiles),
+        boundaries=boundary_condition_bundle_from_flow(flow),
+        recharge=sinks_sources.get("recharge"),
+        etp=sinks_sources.get("etp"),
+        native_recharge=flow.native_recharge,
+        wells=sinks_sources.get("wells"),
+        lakes=sinks_sources.get("lakes"),
+        sfr=sinks_sources.get("sfr"),
+        flow_barriers=sinks_sources.get("flow_barriers"),
+        active_sinks_sources=tuple(flow.active_sinks_sources),
+        initial=initial if initial is not None else initial_state_of(flow.initial_conditions),
+        time=time,
+        options=options,
+    )
+
+
+__all__ = [
+    "Geometry",
+    "Model",
+    "ModelOptions",
+    "ModelTime",
+    "Properties",
+    "cycle_variant",
+    "model_from_flow",
+    "steady_variant",
+]

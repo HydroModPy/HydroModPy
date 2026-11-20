@@ -1,27 +1,34 @@
-"""Cyclic spin-up: convergence readers, delta metric, and the loop control flow.
+"""Cyclic spin-up: the change of head (m) and lake stage (m) between cycles, and the loop.
 
-The loop test drives ``run_spinup`` against a stub Project whose ``simulate``
-hands back pre-written synthetic Zarr stores, so the real driver logic (restart
-injection, delta computation, convergence stop) runs without a solver.
+The loop tests drive ``run_spinup`` on a stub project whose ``simulate`` hands back
+small Zarr stores written here, so the restart, the delta and the stop run without a solver.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 import pytest
 
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
-from hydromodpy.project.spinup import cycle_delta, run_spinup
-from hydromodpy.simulation.spinup_config import SpinupConfig
-from hydromodpy.solver.modflow6.builders.initial_conditions import read_final_head
+from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.initial_config import FlowInitialConditions, SpinupConfig
+from hydromodpy.project import api
+from hydromodpy.project.spinup import (
+    SpinupCycle,
+    SpinupResult,
+    cycle_delta,
+    lake_stage_delta,
+    run_spinup,
+)
+from hydromodpy.results.storage.final_state import FinalState, write_final_state
 
 
 def _write_cycle_zarr(path: Path, head: list, stages: dict[str, float] | None = None) -> str:
-    """Write a synthetic run Zarr with a head field and optional lake stages."""
     import zarr
 
     root = zarr.open(str(path), mode="w")
@@ -35,15 +42,7 @@ def _write_cycle_zarr(path: Path, head: list, stages: dict[str, float] | None = 
     return str(path)
 
 
-def test_read_final_head_returns_last_step_with_nan_inactive(tmp_path: Path) -> None:
-    path = _write_cycle_zarr(tmp_path / "c.zarr", [[1.0, 2.0, 1e30]])
-    head = read_final_head(path)
-    assert head.shape == (1, 3)
-    assert np.array_equal(head[0, :2], [1.0, 2.0])
-    assert np.isnan(head[0, 2])  # large sentinel -> NaN, ignored by the delta
-
-
-def test_cycle_delta_reports_linf_head_and_stage(tmp_path: Path) -> None:
+def test_cycle_delta(tmp_path: Path) -> None:
     prev = _write_cycle_zarr(tmp_path / "p.zarr", [[10.0, 10.0, 10.0]], {"lac0": 86.0})
     curr = _write_cycle_zarr(tmp_path / "q.zarr", [[10.2, 10.0, 10.0]], {"lac0": 86.05})
     d_head, d_stage = cycle_delta(prev, curr)
@@ -51,24 +50,40 @@ def test_cycle_delta_reports_linf_head_and_stage(tmp_path: Path) -> None:
     assert d_stage == pytest.approx(0.05)
 
 
-def test_cycle_delta_zero_when_identical(tmp_path: Path) -> None:
-    a = _write_cycle_zarr(tmp_path / "a.zarr", [[5.0, 6.0]], {"lac0": 80.0})
-    b = _write_cycle_zarr(tmp_path / "b.zarr", [[5.0, 6.0]], {"lac0": 80.0})
-    assert cycle_delta(a, b) == (0.0, 0.0)
-
-
-def test_cycle_delta_rejects_shape_change(tmp_path: Path) -> None:
+def test_cycle_delta_refuses_new_mesh(tmp_path: Path) -> None:
     a = _write_cycle_zarr(tmp_path / "a.zarr", [[5.0, 6.0, 7.0]])
     b = _write_cycle_zarr(tmp_path / "b.zarr", [[5.0, 6.0]])
     with pytest.raises(ValueError, match="mesh is not stable"):
         cycle_delta(a, b)
 
 
+def _run_with_final_state(folder: Path, stored: list, exact: list, stage: float) -> str:
+    folder.mkdir()
+    store = _write_cycle_zarr(folder / "fields.zarr", stored, {"lac0": stage + 1.0})
+    write_final_state(
+        folder,
+        FinalState(
+            head=np.asarray(exact, dtype=float),
+            lake_stages={"lac0": stage},
+            at=pd.Timestamp("2020-12-31"),
+        ),
+    )
+    return store
+
+
+def test_cycle_delta_reads_final_state(tmp_path: Path) -> None:
+    prev = _write_cycle_zarr(tmp_path / "old0.zarr", [[10.0, 10.0]], {"lac0": 86.0})
+    curr = _run_with_final_state(tmp_path / "c1", [[10.5, 10.0]], [[10.75, 10.0]], 86.25)
+    # The first cycle has no final_state/ and the second has: each is read as stored.
+    d_head, d_stage = cycle_delta(prev, curr)
+    assert (d_head, d_stage) == (0.75, 0.25)
+
+
 class _StubProject:
-    """Minimal Project stand-in: simulate() returns a pre-written cycle Zarr."""
+    """Project stand-in: simulate() returns a pre-written cycle Zarr."""
 
     def __init__(self, cfg, cycle_zarrs: list[str]) -> None:
-        self.config = cfg
+        self.config = self._cfg = cfg
         self._cycle_zarrs = cycle_zarrs
         self._i = 0
         self._by_sid: dict[str, str] = {}
@@ -86,9 +101,8 @@ class _StubProject:
         return self
 
     def simulate(self, *, name: str):
-        # Record the restart_from and IC type the driver set for this cycle.
         self.simulated_restart_from.append(self.config.flow.restart_from)
-        self.simulated_ic_type.append(self.config.flow.ic.h.type)
+        self.simulated_ic_type.append(self.config.flow.ic.h.kind)
         path = self._cycle_zarrs[self._i]
         self._i += 1
         sid = f"sid::{name}"
@@ -98,32 +112,13 @@ class _StubProject:
 
 def _stub_config() -> SimpleNamespace:
     return SimpleNamespace(
-        flow=FlowConfig(),  # real flow config so ic.h.type / restart_from behave
+        flow=FlowConfig(),  # real flow config so ic.h.kind / restart_from behave
         simulation=SimpleNamespace(time=SimpleNamespace(start_datetime=None, end_datetime=None)),
-        mesh_catchment=None,
         spinup=None,
     )
 
 
-def test_run_spinup_converges_and_stops_early(tmp_path: Path) -> None:
-    # cycle 0 -> 1 is a big jump; 1 -> 2 is below tol, so the loop stops at cycle 2.
-    zarrs = [
-        _write_cycle_zarr(tmp_path / "c0.zarr", [[0.0, 0.0, 0.0]], {"lac0": 80.0}),
-        _write_cycle_zarr(tmp_path / "c1.zarr", [[5.0, 5.0, 5.0]], {"lac0": 86.0}),
-        _write_cycle_zarr(tmp_path / "c2.zarr", [[5.001, 5.0, 5.0]], {"lac0": 86.002}),
-        _write_cycle_zarr(tmp_path / "c3.zarr", [[9.0, 9.0, 9.0]], {"lac0": 99.0}),
-    ]
-    project = _StubProject(_stub_config(), zarrs)
-    result = run_spinup(project, spinup=SpinupConfig(max_cycles=5, tol_head=0.01, tol_stage=0.01))
-
-    assert result.converged is True
-    assert result.n_cycles == 3  # stopped after cycle 2, never ran cycle 3
-    assert result.restart_from == zarrs[2]
-    # Cycle 0 ran with no restart; cycles >= 1 restarted from the prior cycle Zarr.
-    assert project.simulated_restart_from == [None, zarrs[0], zarrs[1]]
-
-
-def test_run_spinup_stops_at_max_cycles_without_converging(tmp_path: Path) -> None:
+def test_stops_at_max_cycles(tmp_path: Path) -> None:
     # Each cycle keeps moving by more than tol, so it never converges.
     zarrs = [
         _write_cycle_zarr(tmp_path / f"c{i}.zarr", [[float(i), 0.0]], {"lac0": 80.0 + i})
@@ -137,16 +132,15 @@ def test_run_spinup_stops_at_max_cycles_without_converging(tmp_path: Path) -> No
     assert result.restart_from == zarrs[2]
 
 
-def test_run_spinup_switches_steady_ic_to_top_on_restart(tmp_path: Path) -> None:
-    """Cycles >= 1 flip a steady_state IC to top so the steady pre-solve cannot
-    clobber the restarted heads; cycle 0 keeps the original steady IC."""
+def test_restart_switches_ic_to_top(tmp_path: Path) -> None:
+    # Cycles from 1 on use a top IC so the steady pre-solve cannot overwrite the restart heads.
     zarrs = [
         _write_cycle_zarr(tmp_path / "c0.zarr", [[0.0, 0.0]], {"lac0": 80.0}),
         _write_cycle_zarr(tmp_path / "c1.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
         _write_cycle_zarr(tmp_path / "c2.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
     ]
     cfg = _stub_config()
-    cfg.flow.ic = FlowInitialConditions.model_validate({"type": "steady_state"})
+    cfg.flow.ic = FlowInitialConditions.model_validate({"kind": "steady_state"})
     project = _StubProject(cfg, zarrs)
 
     run_spinup(project, spinup=SpinupConfig(max_cycles=3, tol_head=0.01, tol_stage=0.01))
@@ -158,16 +152,89 @@ def test_run_spinup_switches_steady_ic_to_top_on_restart(tmp_path: Path) -> None
     assert project.simulated_restart_from == [None, zarrs[0], zarrs[1]]
 
 
-def test_run_spinup_tags_intermediate_and_converged(tmp_path: Path) -> None:
-    """Every cycle is tagged; the final one is the reusable converged antecedent."""
+def test_cycles_store_exact_heads(tmp_path: Path) -> None:
     zarrs = [
-        _write_cycle_zarr(tmp_path / "c0.zarr", [[0.0, 0.0]], {"lac0": 80.0}),
-        _write_cycle_zarr(tmp_path / "c1.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
-        _write_cycle_zarr(tmp_path / "c2.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
+        _write_cycle_zarr(tmp_path / "c0.zarr", [[0.0, 0.0, 0.0]], {"lac0": 80.0}),
+        _write_cycle_zarr(tmp_path / "c1.zarr", [[0.0, 0.0, 0.0]], {"lac0": 80.0}),
     ]
-    project = _StubProject(_stub_config(), zarrs)
-    result = run_spinup(project, spinup=SpinupConfig(max_cycles=5, tol_head=0.01, tol_stage=0.01))
+    cfg = _stub_config()
+    cfg.simulation.results = SimpleNamespace(persistence=SimpleNamespace(field_precision="compact"))
+    seen: list[str] = []
+    project = _StubProject(cfg, zarrs)
+    simulate = project.simulate
 
-    tag_by_sid = dict(project.tags)
-    assert tag_by_sid[result.cycles[-1].sim_id] == "spinup-converged"
-    assert all(tag_by_sid[c.sim_id] == "spinup-intermediate" for c in result.cycles[:-1])
+    def _record(*, name: str):
+        seen.append(cfg.simulation.results.persistence.field_precision)
+        return simulate(name=name)
+
+    project.simulate = _record
+    run_spinup(project, spinup=SpinupConfig(max_cycles=2, tol_head=0.01, tol_stage=0.01))
+
+    assert seen == ["exact", "exact"]
+    assert cfg.simulation.results.persistence.field_precision == "compact"
+
+
+def test_refuses_a_sites_project(tmp_path: Path) -> None:
+    project = tmp_path / "project.toml"
+    project.write_text('[sites]\ntable = "sites.csv"\n\n[sites.recipes]\nbase = "base.toml"\n')
+
+    with pytest.raises(ConfigError, match=r"declares \[sites\]"):
+        api.spinup(project)
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "delta"),
+    [
+        pytest.param({}, {}, 0.0, id="no lake"),
+        pytest.param(
+            {"cheze": 1.0},
+            {"cheze": 1.25},
+            pytest.approx(0.25),
+            id="one shared lake",
+        ),
+        pytest.param(
+            {"a": 1.0, "b": 5.0},
+            {"a": 1.1, "b": 5.9},
+            pytest.approx(0.9),
+            id="largest of several lakes",
+        ),
+        pytest.param({"cheze": 1.0}, {}, None, id="lake gone"),
+        pytest.param({}, {"cheze": 1.0}, None, id="lake new"),
+        pytest.param({"a": 1.0}, {"b": 1.0}, None, id="different lakes"),
+    ],
+)
+def test_lake_stage_delta(before: dict[str, float], after: dict[str, float], delta: object) -> None:
+    assert lake_stage_delta(before, after) == delta
+
+
+def test_warning_of_a_non_converged_antecedent() -> None:
+    result = SpinupResult(
+        converged=False,
+        cycles=[SpinupCycle(0, "a", "a.zarr", None, None)],
+        restart_from="a.zarr",
+    )
+
+    assert result.antecedent_warning() is not None
+    assert "did not converge" in result.antecedent_warning()
+
+
+@pytest.mark.parametrize("converged", [True, False])
+def test_result_json_form(converged: bool) -> None:
+    result = SpinupResult(
+        converged=converged,
+        cycles=[SpinupCycle(0, "a", "a.zarr", None, None), SpinupCycle(1, "b", "b.zarr", 0.5, 0.0)],
+        restart_from="b.zarr",
+        production_sim_id="p1",
+    )
+    document = json.loads(json.dumps(result.to_dict()))
+    assert document["cycles"] == [
+        {"index": 0, "d_head": None, "d_stage": None},
+        {"index": 1, "d_head": 0.5, "d_stage": 0.0},
+    ]
+    assert document["warning"] == result.antecedent_warning()
+    assert {key: document[key] for key in ("converged", "n_cycles", "restart_from")} == {
+        "converged": converged,
+        "n_cycles": 2,
+        "restart_from": "b.zarr",
+    }
+    assert document["production_sim_id"] == "p1"

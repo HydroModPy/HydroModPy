@@ -5,48 +5,62 @@ Hosts the helpers that write inputs to disk before the solver runs:
 - parameter writes via :func:`step_persist_params`
 - mesh persistence via :func:`step_persist_mesh`
 - geographic raster persistence via :func:`step_persist_geographic`
-- provenance fingerprints via :func:`step_write_provenance`
-- forcings persistence via :func:`step_persist_forcings`
+- provenance fingerprints and the loaded inputs of ``inputs.json`` via
+  :func:`step_write_provenance`
 
+The forcings are persisted by :mod:`~hydromodpy.workflow.steps.prepare_solver.forcings`.
 The functions stay free-standing so notebook helpers and the orchestrator
 prepared-run path keep importing them by name.
 """
 
 from __future__ import annotations
 
-import dataclasses
-import hashlib
-import json
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.core.exceptions import MeshError, PipelineError
+from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.portable import encode_workspace_path
+from hydromodpy.results.record.manifest import InputEntry
+from hydromodpy.results.storage.attempt import is_run_product
+from hydromodpy.results.storage.digests import path_size_bytes
+from hydromodpy.schema.sources import input_licence
+from hydromodpy.workflow.steps.data_description import (
+    LoadedRecord,
+    iter_loaded_records,
+    read_data_description,
+    record_input_files,
+    record_source_path,
+    sha256_file_or_none,
+    source_digests,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.physics.flow import Flow
-    from hydromodpy.results.catalog.protocol import SimulationStore
-    from hydromodpy.spatial.domain import Domain
+    from hydromodpy.model.domain.domain import Domain
+    from hydromodpy.model.model import Model
+    from hydromodpy.results.storage.run_store import RunStore
 
 logger = get_logger(__name__)
 
 
 def step_persist_params(
-    store: SimulationStore,
+    store: RunStore,
     sim_id: str,
-    flow: Flow,
+    profiles: Mapping[str, Any],
     *,
     domain: Domain | None = None,
 ) -> None:
-    """Write hydraulic parameters from a Flow object into the catalog."""
+    """Write the hydraulic parameter profiles of a ``Model`` into the catalog."""
     params: list[dict] = []
 
-    params_dict = getattr(flow, "parameters", None)
-    if params_dict:
-        for pid, fp in params_dict.items():
+    if profiles:
+        for pid, fp in profiles.items():
             kind = getattr(fp, "kind", "homogeneous")
             if kind == "homogeneous":
                 params.append(
@@ -56,6 +70,18 @@ def step_persist_params(
                         "value": getattr(fp, "value", None),
                         "unit": getattr(fp, "unit", ""),
                         "parameterization": "homogeneous",
+                    }
+                )
+            elif kind == "raster":
+                # One value per pixel, so no single value: the row names the map, and
+                # the field store holds the value of each cell.
+                params.append(
+                    {
+                        "param_name": pid,
+                        "zone_id": None,
+                        "value": None,
+                        "unit": getattr(fp, "unit", ""),
+                        "parameterization": f"map {getattr(fp, 'raster_map', '')}",
                     }
                 )
             else:
@@ -72,8 +98,9 @@ def step_persist_params(
                     )
 
     if domain is not None:
-        depth_model = getattr(domain, "depth_model", None)
-        thickness = getattr(depth_model, "thickness", None) if depth_model else None
+        # Only a constant-thickness depth model carries one number for the
+        # whole aquifer; a raster or a flat substratum has no scalar to write.
+        thickness = getattr(domain.config.depth_model, "thickness", None)
         if thickness is not None:
             params.append(
                 {
@@ -89,58 +116,76 @@ def step_persist_params(
         store.write_parameters(sim_id, params)
 
 
-def step_persist_mesh(ctx: WorkflowContext, sim_id: str) -> None:
-    """Write mesh topology into the simulation's Zarr."""
-    import numpy as np
+def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: RunStore) -> None:
+    """Write the cell mesh into the simulation's Zarr and its two family tables.
+
+    This is the only write of the mesh geometry: the solver extractors check
+    their grid against it and add the vertical part, never the vertices.
+    """
+    from hydromodpy.results.zarr_store.mesh_layout import (
+        cell_family_rows,
+        face_family_rows,
+        mesh_layout_from_cell_mesh,
+    )
 
     domain = ctx.setup.domain
     if domain is None:
         return
 
-    z_intf = np.asarray(domain.z_interfaces, dtype=float)
+    cell_mesh = ctx.setup.cell_mesh
+    if cell_mesh is None:
+        raise MeshError("step_persist_mesh: the mesh step built no cell mesh")
+    # The domain mean column under every cell, until the solver extractor
+    # replaces it with the interfaces of the solved model.
+    z_intf = np.tile(
+        np.asarray(domain.z_interfaces, dtype=float).reshape(-1, 1), (1, cell_mesh.n_cells)
+    )
+    summary = ctx.setup.mesh_summary or {}
+    # Three columns with z = 0: ``vertices`` is declared as "x y z".
+    xy = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
+    vertices = np.column_stack([xy, np.zeros(len(xy))])
 
-    mesh_planar = ctx.setup.mesh_planar
-    if mesh_planar is not None:
-        vertices = mesh_planar.points_xy
-        connectivity = mesh_planar.connectivity
-    else:
-        from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
-
-        support = getattr(domain.surface_topo, "support", None)
-        if support is None or support.nrows is None or support.ncols is None:
-            raise MeshError(
-                "step_persist_mesh: no Gmsh planar mesh and no raster support "
-                "on domain.surface_topo - cannot materialise a HydroMesh"
-            )
-        regular = RegularGrid(
-            shape=(int(support.nrows), int(support.ncols)),
-            dx=float(support.dx),
-            dy=float(support.dy),
-            origin=(float(support.xmin), float(support.ymax)),
-            n_layers=max(int(z_intf.size) - 1, 1),
-            crs=str(support.crs) if support.crs is not None else None,
-        )
-        hydro_mesh = regular.to_hydro_mesh()
-        vertices = hydro_mesh.vertices
-        connectivity = hydro_mesh.flat_connectivity
-
-    ctx.store.write_mesh(
+    store.write_mesh(
         sim_id,
         vertices=vertices,
-        face_node_connectivity=connectivity,
+        face_node_connectivity=cell_mesh.connectivity_rows,
         z_interfaces=z_intf,
+        structured_shape=cell_mesh.structured_shape,
+        layout=mesh_layout_from_cell_mesh(
+            cell_mesh,
+            request_hash=summary.get("request_hash", ""),
+            qa=summary.get("qa"),
+            library_versions=summary.get("library_versions"),
+        ),
     )
+    store.write_view(sim_id, "mesh_cell_families", cell_family_rows(cell_mesh))
+    store.write_view(sim_id, "mesh_face_families", face_family_rows(cell_mesh))
 
 
-def step_persist_geographic(ctx: WorkflowContext, sim_id: str) -> None:
+def step_persist_topography(model: Model | None, sim_id: str, *, store: RunStore) -> None:
+    """Write the ground of every cell before the solve, when the flow backend builds a column.
+
+    A run stopped here then draws its grid on the relief. The solver extractor
+    writes the ground again after the solve, so a lake bed the solver carves is
+    the ground the run keeps. A backend with no column writes it only then.
+    """
+    column = None if model is None else model.geometry.column
+    if column is None or not store.save_zarr:
+        return
+    fields = store.open_zarr(sim_id)
+    try:
+        fields.write_topography(column.top, n_cells=column.top.size)
+    finally:
+        fields.close()
+
+
+def step_persist_geographic(ctx: WorkflowContext, sim_id: str, *, store: RunStore) -> None:
     """Persist the geographic rasters (DEM, watershed masks) into the Zarr."""
-    from hydromodpy.spatial.geographic.store_ingestion import (
-        persist_geographic_to_store,
-    )
+    from hydromodpy.catchment.preprocess.store_ingestion import persist_geographic_to_store
 
     if ctx.setup.geographic is None:
         return
-    persist_geographic_to_store(ctx.setup.geographic, ctx.store, sim_id=sim_id)
+    persist_geographic_to_store(ctx.setup.geographic, store, sim_id=sim_id)
 
 
 # ---------------------------------------------------------------------------
@@ -148,33 +193,7 @@ def step_persist_geographic(ctx: WorkflowContext, sim_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _record_source_path(record: object) -> Path | None:
-    metadata = getattr(record, "metadata", None)
-    if isinstance(metadata, dict):
-        for key in ("source_path", "raster_path", "vector_path"):
-            value = metadata.get(key)
-            if value not in (None, ""):
-                return Path(str(value))
-    file_path = getattr(record, "file_path", None)
-    if file_path is not None:
-        return Path(file_path)
-    data = getattr(record, "data", None)
-    if isinstance(data, (str, Path)):
-        return Path(data)
-    return None
-
-
-def _sha256_file_or_none(path: Path | None) -> str | None:
-    if path is None or not path.is_file():
-        return None
-    digest = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _field_data_array(record: object) -> np.ndarray | None:
+def field_data_array(record: object) -> np.ndarray | None:
     data = getattr(record, "data", None)
     if isinstance(data, (str, Path)):
         return None
@@ -194,319 +213,162 @@ def _field_data_array(record: object) -> np.ndarray | None:
     return None
 
 
-def _hydrography_field_record(load_result: object) -> object | None:
-    from hydromodpy.spatial.geographic.core.hydrographic_network import (
-        HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-    )
+def _digests_the_load_already_computed(ctx: WorkflowContext) -> dict[str, str]:
+    """Return the source digests ``load_data`` wrote, keyed by path.
 
-    for record in getattr(load_result, "fields", None) or ():
-        if getattr(record, "variable", None) == HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME:
-            return record
-    return None
+    Hashing a 500 MB DEM twice per run buys nothing: the digest of a file is a
+    function of the file, and the one the load computed describes the bytes it
+    actually read. A run whose document is missing - a notebook calling this
+    helper on its own, a pipeline that skipped the load - simply finds nothing
+    here and hashes what it needs.
+    """
+    run_dir = getattr(ctx, "run_dir", None)
+    if run_dir is None:
+        return {}
+    return source_digests(read_data_description(Path(run_dir)))
 
 
-def _loader_name(scope_name: str, record: object) -> str:
-    return f"{scope_name}:{type(record).__name__}"
+def step_write_provenance(ctx: WorkflowContext, *, store: RunStore) -> None:
+    """Record provenance fingerprints and the ``inputs.json`` entry of each loaded variable.
 
-
-def step_write_provenance(ctx: WorkflowContext) -> None:
-    """Record provenance fingerprints for each loaded data variable."""
-    if ctx.store is None or ctx.sim_id is None:
+    The walk over the loaded scopes is the one ``load_data`` used to describe
+    itself, and the source digests are the ones it computed, so the rows
+    written here and the document it left cannot name a different set of inputs
+    nor disagree on their bytes. The same walk fills the inputs of the seal:
+    provider, request, path, digest, size and licence of every loaded record.
+    A record read from a product of the run (:func:`is_run_product`) keeps its
+    provenance row but is no input of the seal.
+    """
+    if ctx.sim_id is None:
         return
 
     import numpy as np
 
-    loaded = ctx.loaded_data
+    known_digests = _digests_the_load_already_computed(ctx)
+    workspace_root = getattr(getattr(ctx, "setup", None), "workspace", None)
+    anchor = getattr(workspace_root, "root", None)
+    project_root = getattr(workspace_root, "project_root", None)
     written = 0
-    for f in dataclasses.fields(loaded):
-        load_result = getattr(loaded, f.name, None)
-        if load_result is None:
-            continue
-
-        points = getattr(load_result, "points", None)
-        if points:
-            for rec in points:
-                try:
-                    arr = np.asarray(rec.data["value"].values, dtype="float64")
-                    source_path = _record_source_path(rec)
-                    ctx.store.write_provenance(
-                        ctx.sim_id,
-                        variable=f"{f.name}:{rec.variable}",
-                        source_ref=str(getattr(rec, "source", "")),
-                        data=arr,
-                        source_type="data_manager",
-                        source_sha256=_sha256_file_or_none(source_path),
-                        loader_name=_loader_name(f.name, rec),
-                        loader_version="v1",
-                        period_start=getattr(rec, "date_start", None),
-                        period_end=getattr(rec, "date_end", None),
-                    )
-                    written += 1
-                except Exception as exc:
-                    raise PipelineError(f"Provenance failed for {f.name}:{rec.variable}") from exc
-
-        fields = getattr(load_result, "fields", None)
-        if fields:
-            for rec in fields:
-                try:
-                    source_path = _record_source_path(rec)
-                    arr = _field_data_array(rec)
-                    if arr is None and source_path is not None and source_path.is_file():
-                        arr = np.frombuffer(source_path.read_bytes(), dtype="uint8")
-                    if arr is None:
-                        continue
-                    ctx.store.write_provenance(
-                        ctx.sim_id,
-                        variable=f"{f.name}:{rec.variable}",
-                        source_ref=str(getattr(rec, "source", "")),
-                        data=arr,
-                        source_type="data_manager",
-                        source_sha256=_sha256_file_or_none(source_path),
-                        loader_name=_loader_name(f.name, rec),
-                        loader_version="v1",
-                        period_start=getattr(rec, "date_start", None),
-                        period_end=getattr(rec, "date_end", None),
-                    )
-                    written += 1
-                except Exception as exc:
-                    raise PipelineError(
-                        f"Provenance failed for field {f.name}:{rec.variable}"
-                    ) from exc
+    for item in iter_loaded_records(ctx.loaded_data):
+        rec = item.record
+        label = f"{item.scope}:{item.variable}"
+        try:
+            source_path = record_source_path(rec)
+            if item.kind == "point":
+                arr = np.asarray(rec.data["value"].values, dtype="float64")
+            else:
+                arr = field_data_array(rec)
+                if arr is None and source_path is not None and source_path.is_file():
+                    arr = np.frombuffer(source_path.read_bytes(), dtype="uint8")
+                if arr is None:
+                    continue
+            digest = known_digests.get(str(source_path)) if source_path is not None else None
+            digest = digest or sha256_file_or_none(source_path)
+            store.write_provenance(
+                ctx.sim_id,
+                variable=label,
+                source_ref=str(getattr(rec, "source", "")),
+                data=arr,
+                source_type="data_manager",
+                source_sha256=digest,
+                loader_name=item.loader_name,
+                loader_version="v1",
+                period_start=getattr(rec, "date_start", None),
+                period_end=getattr(rec, "date_end", None),
+            )
+            for input_path, provider in record_input_files(item.record, source_path):
+                if is_run_product(input_path, project_root):
+                    continue
+                input_digest = (
+                    digest
+                    if input_path == source_path
+                    else known_digests.get(str(input_path)) or sha256_file_or_none(input_path)
+                )
+                store.record_input(
+                    ctx.sim_id,
+                    _loaded_input_entry(
+                        item,
+                        source_path=input_path,
+                        sha256=input_digest,
+                        anchor=anchor,
+                        provider=provider,
+                    ),
+                )
+            written += 1
+        except Exception as exc:
+            # Whatever a record raised, the run stops and names the record.
+            prefix = (
+                "Provenance failed for" if item.kind == "point" else "Provenance failed for field"
+            )
+            raise PipelineError(f"{prefix} {label}") from exc
 
     if written:
         logger.debug("Wrote %d provenance records for sim %s", written, ctx.sim_id)
 
 
-# Gridded forcing families reduced to a watershed-mean station series at
-# persist time. The catchment discharge derivation reads runoff back from
-# Zarr forcing/ when no stream network routes it.
-_WATERSHED_MEAN_FORCINGS = frozenset({"runoff"})
-_WATERSHED_MEAN_STATION = "_watershed"
+def _loaded_input_entry(
+    item: LoadedRecord,
+    *,
+    source_path: Path | None,
+    sha256: str | None,
+    anchor: Path | str | None,
+    provider: str | None = None,
+) -> InputEntry:
+    """Return the ``inputs.json`` entry of one file a loaded record was read from.
 
-
-def _watershed_mean_series(load_result: object):
-    """Reduce a gridded forcing family to one tz-naive watershed-mean series."""
-    import pandas as pd
-
-    from hydromodpy.spatial.field.aggregation import extract_homogeneous_series_from_fields
-
-    try:
-        series = extract_homogeneous_series_from_fields(load_result)
-    except Exception:
-        logger.debug("Watershed-mean reduction failed", exc_info=True)
-        return None
-    if series is None or len(series) == 0:
-        return None
-    idx = pd.DatetimeIndex(series.index)
-    if idx.tz is not None:
-        idx = idx.tz_convert("UTC").tz_localize(None)
-    series.index = idx
-    return series
-
-
-def step_persist_forcings(ctx: WorkflowContext) -> None:
-    """Persist input forcings into the Zarr ``forcing/`` group."""
-    if ctx.store is None or ctx.sim_id is None:
-        return
-
-    import numpy as np
-    import pandas as pd
-
-    sz = ctx.store.open_zarr(ctx.sim_id)
-    loaded = ctx.loaded_data
-    written = 0
-
-    try:
-        for f in dataclasses.fields(loaded):
-            obj = getattr(loaded, f.name, None)
-            if obj is None:
-                continue
-
-            if hasattr(obj, "encoded_codes") and hasattr(obj, "encoded_to_zone"):
-                try:
-                    codes = np.asarray(obj.encoded_codes)
-                    sz.write_forcing_field(
-                        "geology_codes",
-                        codes,
-                        unit="",
-                        source=getattr(obj, "source_kind", "raster"),
-                    )
-                    forcing = sz.root.require_group("forcing")
-                    geo_grp = forcing.require_group("geology_meta")
-                    geo_grp.attrs["zone_mapping"] = json.dumps(
-                        {str(k): str(v) for k, v in obj.encoded_to_zone.items()}
-                    )
-                    geo_grp.attrs["zone_keys"] = list(obj.zone_keys)
-                    transform = getattr(obj, "transform", None)
-                    if transform is not None:
-                        geo_grp.attrs["transform"] = list(float(v) for v in transform)[:6]
-                    if obj.crs is not None:
-                        geo_grp.attrs["crs"] = str(obj.crs)
-                    geo_grp.attrs["cell_samples_per_axis"] = int(
-                        getattr(obj, "default_cell_samples_per_axis", 8)
-                    )
-                    geo_grp.attrs["source_kind"] = str(getattr(obj, "source_kind", "raster"))
-
-                    mesh = getattr(ctx, "setup", None)
-                    mesh_planar = getattr(mesh, "mesh_planar", None) if mesh else None
-                    if mesh_planar is not None:
-                        try:
-                            disc = obj.on_mesh(mesh_planar)
-                            fractions = getattr(disc, "fractions_by_zone", {})
-                            for zone_key, frac_array in fractions.items():
-                                safe_key = zone_key.replace("/", "_").replace(" ", "_")
-                                sz.write_forcing_field(
-                                    f"geology_frac_{safe_key}",
-                                    np.asarray(frac_array, dtype="float64"),
-                                    unit="fraction",
-                                    source=f"geology:{zone_key}",
-                                )
-                            written += 1
-                        except Exception:
-                            logger.debug("Failed to persist geology zone fractions")
-
-                    written += 1
-                except Exception:
-                    logger.debug("Failed to persist geology forcing")
-                continue
-
-            if f.name == "hydrography":
-                try:
-                    record = _hydrography_field_record(obj)
-                    if record is not None:
-                        arr = _field_data_array(record)
-                        if arr is not None and arr.size > 0:
-                            from hydromodpy.spatial.geographic.core.hydrographic_network import (
-                                HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-                            )
-
-                            sz.write_forcing_field(
-                                HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-                                arr,
-                                unit=getattr(record, "unit", ""),
-                                source=getattr(record, "source", ""),
-                            )
-                            written += 1
-                        _persist_reference_hydrographic_feature(ctx, obj)
-                except Exception:
-                    logger.debug("Failed to persist hydrography forcing")
-                continue
-
-            points = getattr(obj, "points", None)
-            if points:
-                for rec in points:
-                    try:
-                        df = rec.data
-                        timestamps = pd.to_datetime(df["datetime"]).values
-                        values = df["value"].values.astype("float64")
-                        station = getattr(rec, "station_id", None) or f.name
-                        sz.write_forcing_timeseries(
-                            f.name,
-                            station,
-                            timestamps,
-                            values,
-                            unit=getattr(rec, "unit", ""),
-                            source=getattr(rec, "source", ""),
-                        )
-                        written += 1
-                    except Exception:
-                        logger.debug(
-                            "Failed to persist forcing %s:%s",
-                            f.name,
-                            getattr(rec, "station_id", "?"),
-                        )
-
-            fields_list = getattr(obj, "fields", None)
-            if fields_list:
-                for rec in fields_list:
-                    try:
-                        arr = _field_data_array(rec)
-                        if arr is None:
-                            continue
-                        sz.write_forcing_field(
-                            f"{f.name}_{rec.variable}",
-                            arr,
-                            unit=getattr(rec, "unit", ""),
-                            source=getattr(rec, "source", ""),
-                        )
-                        written += 1
-                    except Exception:
-                        logger.debug(
-                            "Failed to persist forcing field %s:%s",
-                            f.name,
-                            getattr(rec, "variable", "?"),
-                        )
-
-            # A gridded family has no station to land under
-            # forcing/<var>/<station>; its watershed mean keeps a
-            # station-shaped copy so post-processing (catchment discharge)
-            # can read the forcing back. Same reduction as the SFR / LAK
-            # forcing binders, so both accountings stay consistent.
-            if f.name in _WATERSHED_MEAN_FORCINGS and fields_list and not points:
-                series = _watershed_mean_series(obj)
-                if series is not None:
-                    try:
-                        sz.write_forcing_timeseries(
-                            f.name,
-                            _WATERSHED_MEAN_STATION,
-                            np.asarray(series.index.values, dtype="datetime64[ns]"),
-                            series.to_numpy(dtype="float64"),
-                            unit=getattr(fields_list[0], "unit", "") or "",
-                            source="watershed_mean",
-                        )
-                        written += 1
-                    except Exception:
-                        logger.debug("Failed to persist watershed-mean forcing %s", f.name)
-    finally:
-        sz.close()
-
-    if written:
-        logger.debug("Persisted %d forcing datasets for sim %s", written, ctx.sim_id)
-
-
-def _persist_reference_hydrographic_feature(
-    ctx: WorkflowContext,
-    hydrography_load_result: object,
-) -> bool:
-    """Persist the imported hydrography vector as one canonical feature."""
-    if ctx.store is None or ctx.sim_id is None:
-        return False
-
-    from hydromodpy.spatial.geographic.core.hydrographic_network import (
-        HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-        HydrographicNetwork,
+    The provider is *provider*, else the source slug of the record; its
+    licence is the one the sidecar of the file states, undetermined for a
+    record with no file. The request is what the record covers: its station,
+    its period, its box. The path is written relative to the workspace when
+    the file sits under it.
+    """
+    rec = item.record
+    source = provider or str(getattr(rec, "source", "") or "")
+    request: dict[str, Any] = {}
+    station = getattr(rec, "station_id", None)
+    if station not in (None, ""):
+        request["station"] = str(station)
+    start, end = getattr(rec, "date_start", None), getattr(rec, "date_end", None)
+    if start is not None or end is not None:
+        request["period"] = [_iso_or_none(start), _iso_or_none(end)]
+    bbox = getattr(rec, "bbox", None)
+    if bbox is not None:
+        request["bbox"] = [float(value) for value in bbox]
+    licence = UNDETERMINED_LICENSE if source_path is None else input_licence(source_path).spdx
+    exists = source_path is not None and source_path.exists()
+    return InputEntry(
+        variable=f"{item.scope}:{item.variable}",
+        provider=source or "unknown",
+        request=request,
+        fetched_at=(
+            datetime.fromtimestamp(source_path.stat().st_mtime, tz=UTC) if exists else None
+        ),
+        path=_portable_path(source_path, anchor),
+        sha256=sha256,
+        bytes=path_size_bytes(source_path) if exists else None,
+        license=licence,
     )
 
-    features = getattr(getattr(ctx, "setup", None), "geographic_features", None)
-    network = (
-        getattr(features, "reference_hydrographic_network", None) if features is not None else None
-    )
-    if network is None:
-        network = HydrographicNetwork.from_hydrography_load_result(hydrography_load_result)
 
-    vector_path = getattr(network, "vector_path", None)
-    if vector_path in (None, "") or not Path(str(vector_path)).exists():
-        return False
+def _iso_or_none(value: Any) -> str | None:
+    isoformat = getattr(value, "isoformat", None)
+    return None if value is None else (isoformat() if callable(isoformat) else str(value))
 
+
+def _portable_path(source_path: Path | None, anchor: Path | str | None) -> str:
+    """The location of the bytes, relative to the workspace when it holds them."""
+    if source_path is None:
+        return ""
+    if anchor is None:
+        return str(source_path)
     try:
-        gdf = network.read_vector()
-        if gdf is None or gdf.empty:
-            return False
-        if gdf.crs is None and getattr(network, "crs", None) not in (None, ""):
-            gdf = gdf.set_crs(str(network.crs), allow_override=True)
-        ctx.store.write_geographic_feature(
-            ctx.sim_id,
-            HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-            gdf,
-        )
-        return True
-    except Exception:
-        logger.debug("Failed to persist hydrographic network reference feature")
-        return False
+        return encode_workspace_path(Path(anchor), source_path)
+    except ValueError:
+        return str(source_path)
 
 
 __all__ = (
-    "step_persist_forcings",
+    "field_data_array",
     "step_persist_geographic",
     "step_persist_mesh",
     "step_persist_params",

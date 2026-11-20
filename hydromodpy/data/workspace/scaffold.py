@@ -1,0 +1,526 @@
+"""Workspace scaffolding.
+
+Called by ``hmp workspace init`` to create the HydroModPy workspace: one
+``data/<variable>/`` folder per variable, a shared cache, and a ``projects/``
+directory.
+
+Called by ``hmp project new <project>`` to create a project inside the workspace.
+
+Each ``data/<variable>/`` folder is a flat drop zone. The provider is encoded
+in the file NAME, never in the directory: ``<variable>_custom_*`` for files the
+user provides, ``<variable>_<api>_*`` for files HydroModPy downloads from an
+API. Both live side by side.
+The runtime data loaders read these folders directly
+(``hydromodpy.data.loading.store.DataStore``). The data cache is the sidecar
+``<file>.json`` that a run writes next to each file it fetches. A file read by
+a ``[data.<name>]`` source with ``source = "file"`` is read in place and has no
+sidecar: it is no row of the cache.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from hydromodpy.core.io.filesystem import check_project_root
+from hydromodpy.core.state.layout import CONFIGS_DIRNAME, PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.names import check_name
+from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, VariableSpec
+
+DEFAULT_ROOT = Path.home() / "hydromodpy"
+
+INPUTS_DIRNAME = "inputs"
+"""The folder of a project that holds the files its user brings."""
+
+
+def variable_folders() -> tuple[str, ...]:
+    """The names of the folders ``data/<variable>/`` that a workspace holds, one per variable."""
+    return tuple(VARIABLE_SPECS)
+
+
+_README_HEADER = """\
+# data/{name}/ - {label}
+
+Drop your `{name}` files in this folder. HydroModPy reads them directly: the
+provider is encoded in the file NAME, not in a subfolder.
+
+- `{prefix}_custom_*`  -> files you provide
+- `{prefix}_<api>_*`   -> files HydroModPy downloads from an API (do not edit)
+
+Files whose name contains `EXAMPLE` are templates shipped by
+`hmp workspace init`. They are never loaded as data: replace them with your own
+files using the same naming, or delete them.
+"""
+
+_README_POINT_BODY = """\
+## Accepted formats
+
+| role      | format                       | file name                                          |
+|-----------|------------------------------|----------------------------------------------------|
+| chronicle | CSV (`datetime,value`)       | `{prefix}_custom_<ID>_<start>_<end>_<freq>.csv`     |
+| locations | CSV, SHP, GPKG, or GeoJSON   | `{prefix}_custom_LOC.csv` (or `.shp`/`.gpkg`/`.geojson`) |
+
+- CSV location columns: `id,x,y,crs,unit` (one row per station).
+- Vector location files carry an `id` attribute; the CRS comes from the geometry.
+- `<freq>` is a pandas offset: `D` daily, `ME` month-end, `YE` year-end.
+
+## Wire it in your run TOML
+
+    [[data.{name}.sources]]
+    source = "file"
+    path = "data/{name}"
+
+## Example files in this folder
+
+- `{prefix}_custom_LOC.csv` - empty template, add one row per station.
+- `{prefix}_custom_EXAMPLE_20000101_20000131_D.csv` - chronicle format.
+"""
+
+_README_GRID_BODY = """\
+## Accepted formats
+
+| role          | format                     | file name                                       |
+|---------------|----------------------------|-------------------------------------------------|
+| stations      | CSV (`datetime,value`)     | `{prefix}_custom_<ID>_<start>_<end>_<freq>.csv` + `{prefix}_custom_LOC.csv` |
+| grid, dynamic | NetCDF (`.nc`)             | `{prefix}_custom_<name>.nc`                      |
+| grid, static  | GeoTIFF (`.tif`)           | `{prefix}_custom_<name>.tif`                     |
+
+NetCDF needs a `crs` attribute and a `nodata` value. GeoTIFF needs its CRS and
+nodata in the file.
+
+## Wire it in your run TOML
+
+    [[data.{name}.sources]]
+    source = "file"
+    path = "data/{name}"                                 # directory of station CSVs
+    # path = "data/{name}/{prefix}_custom_my_grid.nc"    # or a single grid file
+
+## Example files in this folder
+
+- `{prefix}_custom_LOC.csv` + `{prefix}_custom_EXAMPLE_20000101_20000131_D.csv` - station mode.
+- `{prefix}_custom_EXAMPLE.nc` - dynamic grid. `{prefix}_custom_EXAMPLE.tif` - static grid.
+"""
+
+_README_DEM_BODY = """\
+## Accepted formats
+
+| format                | file name                       |
+|-----------------------|---------------------------------|
+| GeoTIFF (`.tif`/`.tiff`) | `dem_custom_<name>.tif`      |
+| Esri ASCII (`.asc`)   | `dem_custom_<name>.asc`         |
+| NetCDF (`.nc`)        | `dem_custom_<name>.nc`          |
+
+Each file must carry its CRS: GeoTIFF tags, a `.prj` sidecar for `.asc`, or a
+`crs` attribute for `.nc`.
+
+## Wire it in your run TOML
+
+    [[data.dem.sources]]
+    source = "file"
+    path = "data/dem/dem_custom_my_dem.tif"   # a file, or "data/dem" for a directory
+
+## Example files in this folder
+
+- `dem_custom_EXAMPLE.tif`, `dem_custom_EXAMPLE.asc`, `dem_custom_EXAMPLE.nc`.
+"""
+
+_README_RASTER_BODY = """\
+## Accepted formats
+
+| format                   | file name                         |
+|--------------------------|-----------------------------------|
+| GeoTIFF (`.tif`/`.tiff`) | `{prefix}_custom_<name>.tif`      |
+| Esri ASCII (`.asc`)      | `{prefix}_custom_<name>.asc`      |
+
+One band, in meters. Each file should carry its CRS: GeoTIFF tags, or a `.prj`
+sidecar for `.asc`. A file without one is read in `default_crs` of its source
+(EPSG:2154 unless set), with a warning.
+
+## Wire it in your run TOML
+
+    [[data.{name}.sources]]
+    source = "file"
+    path = "data/{name}/{prefix}_custom_my_file.tif"
+
+## Example files in this folder
+
+- `{prefix}_custom_EXAMPLE.tif`, `{prefix}_custom_EXAMPLE.asc`.
+"""
+
+_README_GEOLOGY_BODY = """\
+## Accepted formats
+
+| type   | format                   | notes                                             |
+|--------|--------------------------|---------------------------------------------------|
+| vector | SHP, GPKG, GeoJSON       | needs `code_field` (attribute holding geology codes) |
+| raster | GeoTIFF (`.tif`/`.tiff`) | numeric class per pixel                           |
+| points | CSV (`x,y,geology_code`) | interpolated to polygons (Voronoi)                |
+
+## Wire it in your run TOML
+
+    [[data.geology.sources]]
+    source = "file"
+    path = "data/geology/geology_custom_my_map.gpkg"
+    code_field = "CODE"                       # vector sources only
+
+## Example files in this folder
+
+- `geology_custom_EXAMPLE.gpkg`, `.shp`, `.geojson` - vector, attribute `CODE`.
+- `geology_custom_EXAMPLE.tif` - raster classes. `geology_custom_EXAMPLE.csv` - Voronoi points.
+"""
+
+_README_HYDROGRAPHY_BODY = """\
+## Accepted formats
+
+| type   | format                   | notes                          |
+|--------|--------------------------|--------------------------------|
+| vector | SHP, GPKG, GeoJSON       | lines (stream network) or polygons |
+| raster | GeoTIFF (`.tif`/`.tiff`) | stream mask                    |
+
+## Wire it in your run TOML
+
+    [[data.hydrography.sources]]
+    source = "file"
+    path = "data/hydrography/hydrography_custom_my_network.gpkg"
+
+## Example files in this folder
+
+- `hydrography_custom_EXAMPLE.gpkg`, `.shp`, `.geojson` - vector network.
+- `hydrography_custom_EXAMPLE.tif` - raster mask.
+"""
+
+_README_CROSSINGS_BODY = """\
+## Accepted formats
+
+| type   | format             | notes                                                        |
+|--------|--------------------|--------------------------------------------------------------|
+| vector | SHP, GPKG, GeoJSON | lines or points, with a `kind` column                        |
+
+`kind` is one of `road`, `railway`, `bridge`, `weir`, `dam`, `other`. `name` and
+`drop_m` (drop of a weir or a dam, in m) are read when present.
+
+## Wire it in your run TOML
+
+    [[data.crossings.sources]]
+    source = "file"
+    path = "data/crossings/crossings_custom_my_roads.gpkg"
+
+## Example files in this folder
+
+- `crossings_custom_EXAMPLE.gpkg` - a road and a weir, with their `kind`.
+"""
+
+_README_TABLE_BODY = """\
+## Accepted formats
+
+| format                       | file name                              |
+|------------------------------|----------------------------------------|
+| CSV (`stage,volume,sarea`)   | `{prefix}_custom_<lake_id>.csv`        |
+| Parquet                      | `{prefix}_custom_<lake_id>.parquet`    |
+
+`stage` (m) must be strictly increasing per lake; `volume` (m3) and `sarea`
+(m2) must be non-negative. A `lake_id` column is optional: when omitted it is
+taken from the file name.
+
+## Wire it in your run TOML
+
+    [[data.{name}.sources]]
+    source = "file"
+    path = "data/{name}/{prefix}_custom_lac0.csv"
+    lake_id = "lac0"
+
+## Example files in this folder
+
+- `{prefix}_custom_EXAMPLE.csv` - stage/volume/sarea abacus.
+"""
+
+_README_FOOTER = """\
+## Cache listing
+
+- `hmp data ls --variable {name}` - list the rows of the cache, one per fetched file.
+"""
+
+_README_BODY = {
+    "point": _README_POINT_BODY,
+    "grid": _README_GRID_BODY,
+    "dem": _README_DEM_BODY,
+    "raster": _README_RASTER_BODY,
+    "geology": _README_GEOLOGY_BODY,
+    "hydrography": _README_HYDROGRAPHY_BODY,
+    "table": _README_TABLE_BODY,
+    "crossings": _README_CROSSINGS_BODY,
+}
+
+
+def _render_readme(name: str, spec: VariableSpec) -> str:
+    body = _README_BODY[spec.category]
+    parts = (_README_HEADER, body, _README_FOOTER)
+    prefix = spec.file_prefix or name
+    return "\n".join(part.format(name=name, prefix=prefix, label=spec.label) for part in parts)
+
+
+PROJECT_TOML_TEMPLATE = """\
+# ===========================================================================
+# HydroModPy - Project configuration
+# ===========================================================================
+# Project : {project_name}
+#
+# This file defines shared settings for all runs in this project:
+# geographic support, domain, data sources, and flow parameters.
+#
+# Run files (run_*.toml) inherit from this file via:
+#   base_config = "project.toml"
+# ===========================================================================
+
+# The defaults this file keeps. A file with no edition keeps those of 2.0 too.
+edition = "2.0"
+
+[geographic]
+source_mode = "synthetic"
+# Synthetic mode has no DEM to read a CRS from, so it is spelled out here.
+# Without it, spatial exports (GeoTIFF) have no coordinate system to write.
+crs_project = "EPSG:2154"
+
+[geographic.synthetic]
+case_id = "{project_name}_synthetic"
+
+[geographic.synthetic.grid]
+length_x = "1000 m"
+length_y = "1000 m"
+nx = 20
+ny = 20
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 20.0
+right_to_left_amplitude = 5.0
+
+[data]
+types = []
+
+[domain]
+
+[domain.depth_model]
+# Also "flat_substratum" (one elevation), or "raster_substratum" and
+# "raster_thickness" to read an elevation or a thickness from [[data.substratum.sources]].
+kind = "constant_thickness"
+thickness = "50 m"
+
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+# Water enters as recharge and leaves through drains at the land surface, where
+# the water table reaches it. The mound between the two is about R L^2 / (2 K b):
+# 0.9 m here, and it follows K.
+
+[flow.bc.drainage]
+
+[flow.param.K.field]
+kind = "homogeneous"
+value = "1.0e-4 m/s"
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+value = "0.12 -"
+
+[flow.sinks_sources.recharge]
+values = 0.8
+units = "mm/day"
+
+[display]
+# Figures rendered at the end of every run in this project. This shortlist
+# only needs the mesh and the steady-state head field, so it renders on the
+# synthetic demo with no observation data. "hmp config figures" shows every
+# registered figure and what result each one needs.
+on_error = "warn"  # log a figure that fails to render and keep going
+
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+preset = "water_budget"
+
+[[export]]
+# Writes the head as a GeoTIFF under runs/<run>/exports/, so the first result
+# is something you can open in QGIS, not just numbers in a log.
+variable = "head"
+"""
+
+RUN_TOML_TEMPLATE = """\
+# ===========================================================================
+# HydroModPy - Run configuration
+# ===========================================================================
+# Run : {run_name}
+# Inherits from : project.toml
+# ===========================================================================
+
+base_config = "project.toml"
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "{run_name}"
+description = "Scaffolded synthetic steady-flow run under a uniform recharge."
+
+[simulation.time]
+start_datetime = "2000-01-01T00:00:00"
+end_datetime = "2000-12-31T00:00:00"
+step_value = "1 year"
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow_nwt"]
+"""
+
+
+EXAMPLE_PROJECT_NAME = "example"
+
+PROJECTS_README = """\
+# projects/ - your HydroModPy projects
+
+Each project lives in its own subfolder here, e.g. `projects/example/`. You
+work *inside* a project folder, never directly in `projects/`.
+
+A project folder holds:
+
+- `project.toml` - shared settings (geographic, domain, data, flow).
+- `run_*.toml`      - one runnable configuration each, inheriting the above.
+
+Create a new project:
+
+    hmp project new <name>
+
+Then run it:
+
+    hmp run projects/<name>/run_demo.toml
+
+`projects/example/` is a ready-to-run synthetic demo. Copy it or start fresh.
+"""
+
+PROJECT_GITIGNORE = """\
+# HydroModPy generated artifacts - do not edit or commit.
+# Internal runtime (index, trash, scratch, logs) lives under .hmp/.
+.hmp/
+runs/
+sessions/
+"""
+
+
+def scaffold(root_dir: str | Path | None = None, *, with_examples: bool = True) -> Path:
+    """Create the HydroModPy workspace folder layout.
+
+    Layout::
+
+        <workspace>/
+        |-- data/
+        |   |-- hydrometry/
+        |   |   |-- README.md
+        |   |   |-- hydrometry_custom_LOC.csv
+        |   |   |-- hydrometry_custom_EXAMPLE_20000101_20000131_D.csv
+        |   |-- geology/
+        |   |   |-- README.md
+        |   |   |-- geology_custom_EXAMPLE.gpkg / .shp / .geojson / .tif / .csv
+        |   |-- dem/ ...
+        |-- projects/
+        |   |-- README.md                 (how projects are organized)
+        |   |-- example/                  (ready-to-run synthetic demo project)
+        |   |   |-- project.toml
+        |   |   |-- run_demo.toml
+
+    Each ``data/<variable>/`` folder ships a README plus one example file per
+    accepted input format. ``projects/`` gets a README and an ``example/``
+    starter project so the ``projects/<name>/`` convention is obvious. Example
+    files carry the ``EXAMPLE`` id token and are never loaded as data.
+    Idempotent for user files: existing READMEs and data files are never
+    overwritten. Pass ``with_examples=False`` to skip the (geospatial) data
+    examples and the example project.
+    """
+    root = Path(root_dir).expanduser().resolve() if root_dir else DEFAULT_ROOT
+    root.mkdir(parents=True, exist_ok=True)
+
+    data_root = root / "data"
+    data_root.mkdir(parents=True, exist_ok=True)
+    (root / "projects").mkdir(parents=True, exist_ok=True)
+
+    for name, spec in VARIABLE_SPECS.items():
+        var_dir = data_root / name
+        var_dir.mkdir(parents=True, exist_ok=True)
+
+        readme = var_dir / "README.md"
+        if not readme.exists():
+            readme.write_text(_render_readme(name, spec), encoding="utf-8")
+
+        if with_examples:
+            from hydromodpy.data.workspace.example_files import write_variable_examples
+
+            write_variable_examples(
+                var_dir,
+                category=spec.category,
+                file_prefix=spec.file_prefix or name,
+                unit=spec.unit,
+            )
+
+    projects_readme = root / "projects" / "README.md"
+    if not projects_readme.exists():
+        projects_readme.write_text(PROJECTS_README, encoding="utf-8")
+
+    if with_examples:
+        # A ready-to-run demo so the projects/<name>/ convention is obvious:
+        # work inside a project subfolder, not directly in projects/.
+        create_project(root, EXAMPLE_PROJECT_NAME)
+
+    return root
+
+
+def create_project(workspace_root: Path, name: str) -> Path:
+    """Create a new project inside the workspace.
+
+    Structure::
+
+        projects/<name>/
+            project.toml   <- base template
+            run_demo.toml  <- executable template
+            inputs/        <- the files the user brings to the project
+            configs/       <- the configurations the project keeps
+
+    The name is the name of a folder: lower case letters, digits, ``_`` and
+    ``-``, forty characters at most, no name Windows reserves. A name that breaks
+    the rule is refused with a :class:`~hydromodpy.core.exceptions.ConfigError`
+    that proposes one. A project folder too long for Windows is refused the
+    same way, before anything is created. Returns the project directory path.
+    """
+    check_name(name, what="project")
+    workspace_root = Path(workspace_root).expanduser().resolve()
+    project_dir = workspace_root / "projects" / name
+    check_project_root(project_dir)
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / INPUTS_DIRNAME).mkdir(exist_ok=True)
+    (project_dir / CONFIGS_DIRNAME).mkdir(exist_ok=True)
+
+    project_toml = project_dir / PROJECT_MARKER_FILENAME
+    if not project_toml.exists():
+        project_toml.write_text(
+            PROJECT_TOML_TEMPLATE.format(project_name=name),
+            encoding="utf-8",
+        )
+
+    run_toml = project_dir / "run_demo.toml"
+    if not run_toml.exists():
+        run_toml.write_text(
+            RUN_TOML_TEMPLATE.format(run_name="demo"),
+            encoding="utf-8",
+        )
+
+    gitignore = project_dir / ".gitignore"
+    if not gitignore.exists():
+        gitignore.write_text(PROJECT_GITIGNORE, encoding="utf-8")
+
+    return project_dir

@@ -1,0 +1,144 @@
+# How water leaves the aquifer
+
+Water enters the saturated zone as recharge and leaves it through a few exits.
+Each exit is a boundary package of the solver: a drain where the water table
+reaches the ground, a fixed head at the sea, a stream that routes what it
+receives, a lake that stores it. The laws are those of MODFLOW. These pages give
+the way HydroModPy builds each exit, and how the cells where the water table
+reaches the surface become a simulated network. The keys of a routed network and
+of a lake are in {doc}`../reference/parameters/flow/sinks_sources/sfr` and
+{doc}`../reference/parameters/flow/sinks_sources/lakes`.
+
+:::{note}
+**Scope.** MODFLOW 6 builds every exit below. MODFLOW-NWT builds the drains, the
+sea, the side heads and the evapotranspiration package, and no stream, lake or
+water mover: a file that declares a stream network or a lake with another solver in
+{toml}`solver.backend` is refused when it is read, with the solvers that honor it. The Boussinesq solver has its own surface exchange, on
+{doc}`boussinesq`.
+:::
+
+::::{dropdown} Notation of this page
+Heads and elevations are in meters above the datum. A flux through a cell is in
+m³/s, a flux per unit of area in m/s. Every symbol of the site is on
+{doc}`notation`.
+
+```{hmp-notation}
+```
+::::
+
+(exits-table)=
+## The exits in one table
+
+| Exit | Law | MODFLOW 6 | MODFLOW-NWT | Switched on by | Page |
+|---|---|---|---|---|---|
+| Drain at the ground surface | one-sided, head dependent | DRN | DRN | a `[flow.bc.drainage]` table | {doc}`exits/drains-and-et` |
+| Evapotranspiration from the water table | linear in depth | EVTA | EVT | a `[flow.sinks_sources.etp]` table, or a negative recharge | {doc}`exits/drains-and-et` |
+| Sea | fixed head | CHD | BAS and CHD | a `[flow.bc.ocean]` table | {doc}`exits/head-boundaries` |
+| River head, lateral heads | fixed head | CHD | lateral heads only | a `[flow.bc.stream]` table, `[flow.bc.west_side]` and the other sides | {doc}`exits/head-boundaries` |
+| Lake or reservoir | storage, head dependent bed and banks | LAK | none | a `[flow.sinks_sources.lakes.<id>]` table | {doc}`exits/lakes` |
+| Stream network | routed flow, head dependent streambed | SFR | none | a `[flow.sinks_sources.sfr.<id>]` table | {doc}`exits/streams-and-mover` |
+| Transfer between exits | a rule on a provider flow | MVR | none | a mover key of an exit | {doc}`exits/streams-and-mover` |
+
+Wells are a prescribed flux and not an exit. Recharge is not an exit either, but
+the evapotranspiration is drawn by an exit package, so both are on
+{doc}`exits/drains-and-et`.
+
+```{eval-rst}
+.. plot:: theory/figures/exits_column.py
+   :alt: Cross-section of five columns of three layers. The first holds a fixed head in every layer, the second a drain below the top and the extinction depth of the evapotranspiration, the third a stream reach with its bed inside its cell, the last two a lake over an inactive top layer with a vertical and a bank connection.
+
+   One cross-section, five columns, each with the exit the build gives it. A fixed
+   head holds every layer of its column. A drain sits at the top of its cell, or
+   half a band lower. A reach replaces the drain of its cell and keeps its bed
+   inside the cell. A lake makes its top layer inactive and exchanges with the
+   cells below and beside it.
+```
+
+Where the water goes once a drain has released it, and why a mesh needs a
+routing surface of its own, is on {doc}`exits/routing-on-the-mesh`. Which cells
+count as flowing streams is on {doc}`exits/simulated-network`.
+
+(exits-order)=
+## The order the build assembles them
+
+The order matters, because each exit masks the others.
+
+1. The lake cells are made inactive in their top layers, so that every other
+   exit sees the aquifer without them.
+2. The fixed heads are placed: sea, river, sides.
+3. The descent $D$ is built from the model top, the fixed-head cells and the
+   lakes.
+4. The recharge and the evapotranspiration are written, with no recharge on a
+   lake cell.
+5. The drains are written on every cell, minus the cells that host a reach or a
+   lake bed.
+6. The lake, then the stream network, then the water mover, which names the
+   packages above.
+
+In the code: `run_pre_processing`.
+
+(exits-budget)=
+## The budget closes
+
+The budget is the one of MODFLOW: each package reports its flow into the cells,
+$\Phi_{n,p}$, positive into the aquifer, and the terms close against the change
+of storage. The solver prints the percent discrepancy of the sum, and the
+options that bound it are on {doc}`solvers`. The budget terms are those of
+{cite:t}`langevin2017`. The input of each package is in the
+[MODFLOW 6 input and output guide](https://modflow6.readthedocs.io/en/latest/mf6io.html).
+
+HydroModPy stores the terms as `recharge`, `evapotranspiration`, `drain`,
+`drain_to_mover`, `stream`, `lake`, `constant_head`, `well` and `storage`. The
+part of the drain handed to the mover leaves the aquifer through its own record
+and enters the stream or the lake as water from the mover, so the package budgets
+of SFR and LAK close the rest.
+
+## Assumptions common to every exit
+
+- A drain acts on the top layer. A fixed head acts on every layer of its column.
+  A reach and a lake exchange with the cells that hold them.
+- The recharge, the rain and the ETP are constant over a stress period.
+- Water routed by the mover reaches its receiver in the same period.
+- No overland flow is solved. A drain that is not routed discharges where it is,
+  and the water leaves the model there. The water balance counts it, and no
+  surface routing carries it on.
+
+```{toctree}
+:maxdepth: 1
+
+exits/head-boundaries
+exits/routing-on-the-mesh
+exits/drains-and-et
+exits/lakes
+exits/streams-and-mover
+exits/simulated-network
+```
+
+## Parameters of this page
+
+```{hmp-params}
+flow.bc.<name>.enabled
+flow.sinks_sources.recharge.enabled
+solver.backend
+```
+
+Example 04 declares the drains alone:
+
+```{hmp-resolved} flow.bc
+:config: 04_streamflow_intermittence_in_transient/project.toml
+```
+
+## In the code
+
+| What | Where |
+|---|---|
+| The order of the build | `hydromodpy/solver/modflow6/build.py` |
+| What a file may say about an exit | `hydromodpy/model/boundaries/boundary_condition_registry.py`, `hydromodpy/model/sinks_sources/` |
+
+## See also
+
+- {doc}`soil-reservoir` and {doc}`forcing`: the recharge and the ETP that reach
+  the exits.
+- {doc}`downslope-distance`: how a simulated network is scored against a mapped
+  one.
+- {doc}`solvers`: the stress packages each solver builds.

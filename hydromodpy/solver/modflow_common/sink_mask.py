@@ -8,52 +8,60 @@ simulated seepage cells are among them.
 
 The mask is measured on the surface the model actually solves on, not on the
 raw DEM the geographic step read. A raster conditioned on its own grid grows
-new pits once it is resampled onto a mesh with a different neighbourhood, so
+new pits once it is resampled onto a mesh with a different neighborhood, so
 the only support that answers the question the drain package asks is the mesh
 top itself. Nothing is written to disk and nothing is moved: the topography the
 solver receives is untouched, only the drain conductance changes.
 
-**The neighbourhood is the four shared faces, and the count depends on it.**
+**The neighborhood is the four shared faces, and the count depends on it.**
 Same top, same flood, same seed, only the graph changes::
 
     rook  (4 shared faces, what MODFLOW connects)   2 753 cells   4.56 %
-    queen (8 neighbours, the D8 convention)         1 280 cells   2.12 %
+    queen (8 neighbors, the D8 convention)         1 280 cells   2.12 %
 
 A factor of 2.15, which is the whole gap with the 2.30 % a raster fill reports
 on the same DEM: a raster fill routes in D8, hence queen. Rook is the right
 answer to THIS question. A structured MODFLOW grid connects four faces, so a
-cell whose only lower neighbour lies on a diagonal genuinely cannot pass its
+cell whose only lower neighbor lies on a diagonal genuinely cannot pass its
 water on. The split by support rules out clipping as the cause: 5.14 % inside
 the catchment against 4.12 % in the buffer.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 import numpy as np
 
-from hydromodpy.core.depression_filling import fill_depressions_on_graph
-from hydromodpy.core.field_routing import (
+from hydromodpy.catchment.drainage.filling import fill_depressions_on_graph
+from hydromodpy.catchment.drainage.graph import (
     cell_adjacency_from_face_connectivity,
     domain_edge_cells,
 )
+from hydromodpy.mesh.planar.geometry import padded_rows
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 __all__ = ("closed_depression_mask", "resolve_sink_mask")
 
 
-def closed_depression_mask(solver_mesh: SolverMesh) -> np.ndarray:
+def closed_depression_mask(
+    solver_mesh: SolverMesh, *, covered_cells: Iterable[int] = ()
+) -> np.ndarray:
     """Return the cells of the mesh top no descent leaves the domain from.
 
     A priority flood seeded on every cell water can leave the mesh through
-    raises the closed depressions and nothing else. Inactive cells carry a
-    non-finite elevation, so the flood neither crosses them nor raises them:
-    the boundary of the active region is the escape.
+    raises the closed depressions and nothing else. Closed columns (no active
+    cell, or a lake footprint in ``covered_cells``) carry a non-finite
+    elevation, so the flood neither crosses them nor raises them: the boundary
+    of the open surface is the escape.
 
     Parameters
     ----------
     solver_mesh
         The mesh the flow model is built on. Its top is the surface flooded and
         its planar connectivity is the graph the flood walks.
+    covered_cells
+        Columns a lake covers, closed like inactive ones.
 
     Returns
     -------
@@ -66,9 +74,10 @@ def closed_depression_mask(solver_mesh: SolverMesh) -> np.ndarray:
         When the mesh carries no active cell, or no cell water can leave
         through, so the flood would raise the whole surface.
     """
-    connectivity = _rectangular_connectivity(solver_mesh)
+    planar = solver_mesh.planar_mesh
+    connectivity = padded_rows(planar.flat_connectivity, n_nodes=planar.n_nodes)
     top = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
-    active = ~np.asarray(solver_mesh.inactive_mask[0], dtype=bool).reshape(-1)
+    active = ~solver_mesh.closed_surface(covered_cells)
     surface = np.where(active & np.isfinite(top), top, np.nan)
     finite = np.isfinite(surface)
     if not finite.any():
@@ -99,6 +108,7 @@ def resolve_sink_mask(
     *,
     sink_fill: bool,
     model_name: str,
+    covered_cells: Iterable[int] = (),
 ) -> np.ndarray | None:
     """Return the sink mask this model must use, or ``None`` when off.
 
@@ -109,23 +119,6 @@ def resolve_sink_mask(
     if not sink_fill:
         return None
     try:
-        return closed_depression_mask(solver_mesh)
+        return closed_depression_mask(solver_mesh, covered_cells=covered_cells)
     except ValueError as exc:
         raise ValueError(f"model {model_name!r}: {exc}") from exc
-
-
-def _rectangular_connectivity(solver_mesh: SolverMesh) -> np.ndarray:
-    """Return the planar face-node connectivity as one ``(n_cells, k)`` array.
-
-    A ragged polygon block is padded with -1, the missing-node marker both mesh
-    graph builders already skip.
-    """
-    connectivity = solver_mesh.planar_mesh.flat_connectivity
-    if isinstance(connectivity, np.ndarray) and connectivity.ndim == 2:
-        return connectivity.astype(np.int64, copy=False)
-    rows = [np.asarray(row, dtype=np.int64).reshape(-1) for row in connectivity]
-    width = max((row.size for row in rows), default=0)
-    padded = np.full((len(rows), width), -1, dtype=np.int64)
-    for index, row in enumerate(rows):
-        padded[index, : row.size] = row
-    return padded

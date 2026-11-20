@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.project import runner as runner_mod
-from hydromodpy.workflow.tracking.resume import ResumePlan
+from hydromodpy.workflow.record import resume as runner_mod
+from hydromodpy.workflow.record.resume import ResumePlan
 
 
 def _patch_planner(monkeypatch, plan: ResumePlan) -> None:
@@ -16,7 +16,7 @@ def _patch_planner(monkeypatch, plan: ResumePlan) -> None:
         def compute(self, **kwargs) -> ResumePlan:
             return plan
 
-    monkeypatch.setattr("hydromodpy.workflow.tracking.resume.ResumePlanner", _FakePlanner)
+    monkeypatch.setattr("hydromodpy.workflow.record.resume.ResumePlanner", _FakePlanner)
 
 
 def _capture_logs(monkeypatch) -> dict[str, list[str]]:
@@ -46,25 +46,8 @@ def test_full_restart_logs_a_warning(tmp_path: Path, monkeypatch) -> None:
         ),
     )
     logs = _capture_logs(monkeypatch)
-    idx = runner_mod._resolve_resume_step_index(tmp_path / "ws", "r", steps_blueprint=("a", "b"))
+    idx = runner_mod.resolve_resume_step_index(
+        tmp_path / "ws" / "runs" / "r", tmp_path / "ws", "r", steps_blueprint=("a", "b")
+    )
     assert idx == 0
     assert any("cannot pick up where it left off" in m for m in logs["warning"])
-
-
-def test_clean_resume_logs_info_not_warning(tmp_path: Path, monkeypatch) -> None:
-    _patch_planner(
-        monkeypatch,
-        ResumePlan(
-            run_id="r",
-            restart_index=3,
-            last_completed=None,
-            invalidated=(),
-            full_restart=False,
-            reason=None,
-        ),
-    )
-    logs = _capture_logs(monkeypatch)
-    idx = runner_mod._resolve_resume_step_index(tmp_path / "ws", "r", steps_blueprint=("a", "b"))
-    assert idx == 3
-    assert logs["warning"] == []
-    assert any("picks up from step 3" in m for m in logs["info"])

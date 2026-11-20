@@ -1,71 +1,50 @@
-# 01 - Simplified example presented in the paper
+# Example 01: the Canut catchment, the case of the paper
 
-Canut catchment (Brittany, EPSG:2154), extracted from the regional 75 m DEM
-by outlet snapping. **Steady-state** groundwater flow, five layers that
-thicken with depth, hydraulic conductivity and storage **decaying
-exponentially with depth**, solved with **MODFLOW 6**, followed by particle
-tracking.
+The Canut catchment (Ille-et-Vilaine), 25 km² cut out of a regional 75 m DEM. Steady state under
+350 mm/year of recharge, a 50 m aquifer in five layers that thicken with depth, K and Sy that
+fall as exp(-depth / 20 m), seepage at the ground surface, and particles that show where the
+seepage water comes from. MODFLOW 6 solves the flow and its particle tracking PRT follows the
+water. A run takes about a minute.
 
-This is the paper's running example: delineation, a layered aquifer with a
-depth profile, and residence-time trajectories.
+## The files
 
-## Run
+- `project.toml`: the model, its figures and its exports.
+- `py1_run_and_plot.py`: plays `project.toml` step by step in a `hmp.Lab`. After `load_data` it
+  draws the regime of the Canut from the gauge, 1990 to 2019. After `prepare_solver` it draws the
+  mesh on the relief and prints, for each of the five layers, its thickness and the K and Sy
+  that MODFLOW 6 will read, each taken at the top of the layer. It then solves, keeps the model
+  as a run and asks the run for two more figures: K from north to south, and the water-table
+  depth under the particle tracks.
+
+The DEM, the mapped streams and the gauge are read from the shared `data/` folder of the
+workspace. The model reads only the DEM. The streams and the gauge are drawn and exported.
+
+## Commands
+
+From this folder:
 
 ```bash
-hmp run examples/projects/01_simplified_example_presented_in_the_paper/project.toml
-
-# residence times from the trajectories, via the Python API
-python examples/projects/01_simplified_example_presented_in_the_paper/run_manual.py
-
-hmp viz gallery examples/projects/01_simplified_example_presented_in_the_paper/project.toml
+hmp run project.toml
+python py1_run_and_plot.py
+hmp export canut_example_01 --list
 ```
 
-Runtime: about 4 s (catchment ~9300 cells, 5 layers, 300 particles).
+Run the file twice and nothing is computed the second time. The script keeps a run of its own
+each time it is played, so it writes the next version, `canut_example_01_v2`.
 
-## Data
+## What a run writes
 
-| File | Family | Role |
-|---|---|---|
-| `dem/DEM_armorican_massif.tif` | dem | regional 75 m DEM (covers the Canut) |
-| synthetic recharge | recharge | steady-state average recharge, 0.96 mm/d (350 mm/year) |
+- `runs/canut_example_01/figures/`: the catchment card, the mesh on the topography, K from west
+  to east and Sy from north to south, the water table, its depth with the seepage cells, a
+  section from north to south, the drain flow and the flow it accumulates downstream, the
+  particle tracks alone and over the travel time to the exit, and the distribution of the
+  travel times.
+- `runs/canut_example_01/exports/`: the catchment, its box and the mapped streams as
+  GeoPackage, the DEM, the water table, its depth, the seepage cells and the drain flow as
+  GeoTIFF, the water budget as CSV, and the particle tracks as GeoPackage, one line per
+  particle with its travel time.
+- `summary/`: the figures the script draws, outside the sealed run.
 
-## Depth profile
-
-Surface conductivity (2e-5 m/s) decays as `exp(-depth / 20 m)`: about half
-at 14 m, a floor at 1e-3 of the surface value. This is the signature of a
-fractured bedrock aquifer (conductive weathered zone at the surface,
-impermeable sound bedrock at depth). Expressed with
-`[flow.param.K.field_vertical_profile]` mode `exponential`.
-
-## Figures
-
-| Figure | What it shows |
-|---|---|
-| `watershed_id_card` | catchment identity card |
-| `mesh_map` | solver grid colored by topography |
-| `piezometric_map` | watertable elevation |
-| `watertable_depth_map` | watertable depth + seepage |
-| `seepage_map` | seepage zones |
-| `particle_tracks` | tracks colored by travel time |
-| `cross_section` | topography / watertable / 5 thickening layers cross section |
-| `simulated_active_network` | active draining cells |
-| `water_budget` | budget per component |
-
-## Particle tracking: forward
-
-MODFLOW 6 PRT only tracks particles downstream: they are released over the
-domain and end where the watertable outcrops, which gives recharge to
-seepage residence times. The legacy script tracked backward from the
-seepage zones; see example 00 for the switch to NWT + MODPATH if backward
-tracking is needed.
-
-`run_manual.py` reads the trajectories and summarizes the residence-time
-distribution (median ~1 year, p90 ~7 years for this parameter set).
-
-## Not ported from the legacy script
-
-The interactive 3D visualization and the clickable cross section from the
-original script are inherently interactive; they are not part of the
-registry's static figures. The observed discharge signature (interannual
-Q/A) and the geology maps belong to the `overview` workflow (see examples
-04 and 05 for data).
+PRT tracks forward only. Each particle starts in a cell of the box and ends where the water
+leaves the aquifer, most often in a seepage cell, so the tracks that end in the seepage cells
+show where their water comes from.

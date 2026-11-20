@@ -2,23 +2,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.units import factor_to_m2_per_s
-from hydromodpy.core.units.volumetric_flow import (
+from hydromodpy.core.units.quantities import (
     convert_to_m3_per_s,
+    factor_to_m2_per_s,
+    forcing_units,
     normalize_m3_per_s_unit,
 )
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow_common.drain_conductance import (
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.base.drain_conductance import (
     drain_discharge_band,
     hk_fallback_drain_conductance,
 )
-from hydromodpy.solver.modflow_grid.grid_context import grid_reference_from_solver_mesh
-from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import forcing_units
+from hydromodpy.solver.modflow_grid.discretization_spatial import grid_reference_from_solver_mesh
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (
@@ -46,8 +45,10 @@ def build_drainage_spd(
 
     Conductance policy:
     - If drainage BC value > 0: use this explicit conductance.
-    - Otherwise: derive conductance from ``hk * cell_area / top_layer_thickness``
-      (m2/s), shared with the MODFLOW 6 backend.
+    - Otherwise: derive conductance from ``hk * cell_area / drain_bed_thickness_m``
+      (m2/s), shared with the MODFLOW 6 backend. ``drain_bed_thickness_m`` is the
+      clogging-layer thickness (decimeters to a meter), not the model layer
+      thickness.
     - With ``sink_fill=True``: cells in a closed depression receive zero
       conductance, so the ponded water they hold has no invented outlet.
 
@@ -57,9 +58,9 @@ def build_drainage_spd(
 
     Returns ``None`` when drainage is not activated.
     """
-    if not adapter._is_bc_active("drainage"):
+    if not adapter.model.boundaries.is_active("drainage"):
         return None
-    drainage_boundary = adapter._boundary_conditions.get("drainage")
+    drainage_boundary = adapter.model.boundaries.get("drainage")
     if drainage_boundary is None:
         return None
 
@@ -116,16 +117,14 @@ def build_drainage_spd(
 def build_well_stress_period_data(
     adapter: FlowToModflowAdapter,
 ) -> dict[int, list[list[float]]]:
-    """Normalize flow wells into MODFLOW WEL stress-period format."""
+    """Normalize the wells of the model into MODFLOW WEL stress-period format."""
     if adapter.nper <= 0:
         return {}
 
-    active = getattr(adapter.flow, "active_sinks_sources", [])
-    if "wells" not in active:
+    if "wells" not in adapter.model.active_sinks_sources:
         return {}
 
-    sinks_sources = getattr(adapter.flow, "sinks_sources", {})
-    wells = sinks_sources.get("wells", {}) if isinstance(sinks_sources, Mapping) else {}
+    wells = adapter.model.wells
     if not wells:
         return {}
 
@@ -145,7 +144,11 @@ def build_well_stress_period_data(
                     f"flow.sinks_sources.wells.{well_id} uses coordinate-based addressing "
                     "but solver grid geometry is unavailable"
                 )
-            cell = well.resolve_cell(grid)
+            layer, row, col = well.resolve_cell(grid)
+            if layer is None:
+                flat = row * int(adapter.solver_mesh.ncol) + col
+                layer = max(int(adapter.solver_mesh.top_active_layer()[flat]), 0)
+            cell = (layer, row, col)
         forcing = getattr(well, "forcing", None)
         if forcing is not None:
             raw_values = resolve_period_values_from_forcing(

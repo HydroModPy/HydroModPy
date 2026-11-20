@@ -22,6 +22,7 @@ def run_boussinesq_dupuit_divide_river_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> object:
     """Run the steady Dupuit divide-river case through the PETSc VI backend."""
     metadata = load_case_metadata(CASE_DIR)
@@ -34,6 +35,7 @@ def run_boussinesq_dupuit_divide_river_case(
         case_id=CASE_ID,
         caller_file=caller_file,
         timeout=timeout,
+        public_solver_label=public_solver_label,
         nx=NX,
         ny=NY,
         length_x_m=LENGTH_X_M,
@@ -44,9 +46,7 @@ def run_boussinesq_dupuit_divide_river_case(
         storage_coefficient=0.1,
         flow_section={
             "flow_regime": "steady",
-            "ic": {"type": "custom", "value": river_head_m + 4.0},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["east_side"],
+            "ic": {"kind": "custom", "value": river_head_m + 4.0},
             "sinks_sources": {
                 "recharge": {
                     "values": mm_day_to_m_s(float(reference_cfg["recharge_mm_day"])),

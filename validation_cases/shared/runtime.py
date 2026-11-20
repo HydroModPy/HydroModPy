@@ -13,7 +13,6 @@ import sys
 import tempfile
 import time
 import tomllib
-import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,71 +20,88 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.io.filesystem import WINDOWS_PATH_LIMIT
+from hydromodpy.core.state.names import MAX_NAME_LENGTH, fold_name
 from validation_cases.shared.loaders import load_case_metadata
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-_WINDOWS_VALIDATION_PATH_LIMIT = 240
-_VALIDATION_GENERATED_PATH_HEADROOM = 96
-_VALIDATION_COMPONENT_LENGTHS = (28, 24, 20, 16, 12)
+VALIDATION_FIELD_PRECISION = "exact"
+"""Field precision of every validation run store.
 
-_NWT_VALIDATION_PROFILE_SIMPLE = """[modflownwt.runtime.nwt]
-version = "mfnwt"
-listunit = 2
-verbose = false
-headtol = 1e-6
-fluxtol = 1e-4
-maxiterout = 500
-thickfact = 1e-5
-linmeth = 1
-iprnwt = 0
-ibotav = 1
-options = "SIMPLE"
-continue_run = false
-backflag = 0
-stoptol = 1e-10
-
-[modflownwt.runtime.dis]
-itmuni = 1
-
-[modflownwt.runtime.bas]
-hnoflo = -9999.0
-
-[modflownwt.runtime.upw]
-iphdry = 1
-hdry = -100.0
-layvka = 1
-
-[modflownwt.runtime.evt]
-nevtop = 3
-ievt = 1
-ipakcb = 1
-
-[modflownwt.runtime.oc]
-compact = true
-
-[modflownwt.runtime.wel]
-ipakcb = 1
-
-[modflownwt.runtime.lmt]
-output_file_name = "mt3d_link.ftl"
-extension = "lmt8"
-output_format = "unformatted"
-
-[modflownwt.process_specific]
-vka = 1.0
-exdp = "1.0 m"
+A validation compares solver heads with a reference at full precision. The
+default ``compact`` storage keeps 16 mantissa bits: between 4 m and 8 m two
+nearly equal heads can end one step of 6.1e-5 m apart, and the cross-row
+spread of a steady case then reads 2.4e-5 m or more against thresholds of
+5e-6 m to 2e-5 m.
 """
 
-_NWT_VALIDATION_PROFILE_COMPLEX = """[modflownwt.runtime.nwt]
+_VALIDATION_SIM_NAME_LENGTH = MAX_NAME_LENGTH
+"""Cap of the ``[simulation] name`` a validation run gets, which names its model folder.
+
+It is the longest run name the rule of a run name takes.
+"""
+_VALIDATION_COMPONENT_LENGTHS = (28, 24, 20, 16, 12)
+
+# What a run writes below its project root, part by part. Every part is the
+# longest the product builds.
+# "/.hmp/scratch": hydromodpy.core.state.scratch.scratch_root_for.
+_SCRATCH_ROOT_PART = len("/.hmp/scratch")
+# "/<label>.p<pid>": paths.run_scratch keeps 24 label characters. A Windows
+# process id is a DWORD, 10 digits at most.
+_RUN_FOLDER_PART = len("/") + 24 + len(".p") + 10
+# "/<model>/<model>.flow_properties.npz": the solver folder is named after the
+# model, and both solvers name every file after it: mf6_output_name gives the
+# requested name on every system. The flow property sidecar
+# (build.FLOW_PROPERTY_SIDECAR_SUFFIX) is the longest suffix put after the name.
+_MODEL_FILE_SUFFIX = len(".flow_properties.npz")
+# "/_cyc49/cyc49/cyc49.flow_properties.npz": the deepest file of a MODFLOW 6
+# cyclic spin-up (flow.ic.max_cycles <= 50), inside the model folder.
+_SPINUP_FILE_PART = len("/_cyc49/cyc49/cyc49.flow_properties.npz")
+# "/_preprocessing/geographic/watershed_box_buff_dem.tif": the longest file
+# the run preprocessing writes beside the model (paths.PREPROCESSING_DIRNAME),
+# measured: its names come from the geographic attributes.
+_PREPROCESSING_FILE_PART = len("/_preprocessing/geographic/watershed_box_buff_dem.tif")
+
+
+def run_generated_path_length(model_name_length: int) -> int:
+    """Return the longest path a run writes below its project root.
+
+    It covers the run's solver tree, which mf6.exe and mfnwt.exe open. The
+    catalog store under ``runs/`` is left out: only Python writes it, and
+    Python opens long paths on Windows.
+    """
+    model_part = len("/") + model_name_length
+    deepest = max(
+        model_part + max(len("/") + model_name_length + _MODEL_FILE_SUFFIX, _SPINUP_FILE_PART),
+        _PREPROCESSING_FILE_PART,
+    )
+    return _SCRATCH_ROOT_PART + _RUN_FOLDER_PART + deepest
+
+
+_VALIDATION_GENERATED_PATH_HEADROOM = run_generated_path_length(_VALIDATION_SIM_NAME_LENGTH)
+
+# One MODFLOW-NWT profile for every validation case that sets one. The run is
+# in seconds, so both closures are absolute, in m and m3/s.
+# - linmeth = 2 (chi-MD), options = COMPLEX. GMRES (linmeth = 1) left the deep
+#   Brutsaert recession frozen at a -200 % rate budget: it did not reduce the
+#   residual and NWT took the near-zero update as converged. chi-MD with SIMPLE
+#   froze the same recession at day 70. This profile moves the other cases by
+#   6e-5 m at most.
+# - fluxtol = 1e-10 m3/s, three decades below the smallest discharge a case
+#   compares (4e-7 m3/s), so a solve that leaves the residual in place fails
+#   instead of passing. The former 1e-4 m3/s was a whole case budget.
+# - headtol = 1e-9 m, three decades below the head change of one time step
+#   at the end of the deep Brutsaert recession (4e-6 m).
+_NWT_VALIDATION_PROFILE = """[solver.modflow_nwt.runtime.nwt]
 version = "mfnwt"
 listunit = 2
 verbose = false
-headtol = 1e-6
-fluxtol = 1e-4
+headtol = 1e-9
+fluxtol = 1e-10
 maxiterout = 1000
 thickfact = 1e-5
-linmeth = 1
+linmeth = 2
 iprnwt = 0
 ibotav = 1
 options = "COMPLEX"
@@ -93,55 +109,77 @@ continue_run = false
 backflag = 0
 stoptol = 1e-10
 
-[modflownwt.runtime.dis]
+[solver.modflow_nwt.runtime.dis]
 itmuni = 1
 
-[modflownwt.runtime.bas]
+[solver.modflow_nwt.runtime.bas]
 hnoflo = -9999.0
 
-[modflownwt.runtime.upw]
+[solver.modflow_nwt.runtime.upw]
 iphdry = 1
 hdry = -100.0
 layvka = 1
 
-[modflownwt.runtime.evt]
+[solver.modflow_nwt.runtime.evt]
 nevtop = 3
 ievt = 1
 ipakcb = 1
 
-[modflownwt.runtime.oc]
+[solver.modflow_nwt.runtime.oc]
 compact = true
 
-[modflownwt.runtime.wel]
+[solver.modflow_nwt.runtime.wel]
 ipakcb = 1
 
-[modflownwt.runtime.lmt]
+[solver.modflow_nwt.runtime.lmt]
 output_file_name = "mt3d_link.ftl"
 extension = "lmt8"
 output_format = "unformatted"
 
-[modflownwt.process_specific]
+[solver.modflow_nwt.process_specific]
 vka = 1.0
 exdp = "1.0 m"
 """
 
 _VALIDATION_PROFILES_BY_SOLVER_AND_CASE: dict[str, dict[str, str]] = {
     "modflow_nwt": {
-        "boussinesq_fixed_head_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "boussinesq_uniform_recharge_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "boussinesq_sloping_substratum_constant_thickness_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "boussinesq_sloping_substratum_fixed_head_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "boussinesq_sloping_substratum_uniform_recharge_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "brutsaert_recession_linearized_deep_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "brutsaert_recession_boussinesq_thin_1d": _NWT_VALIDATION_PROFILE_COMPLEX,
-        "dupuit_divide_river_1d": _NWT_VALIDATION_PROFILE_COMPLEX,
-        "dupuit_fixed_head_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "dupuit_uniform_recharge_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "linearized_unconfined_drainage_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "linearized_unconfined_hillslope_drainage_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "linearized_unconfined_boundary_piecewise_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+        case_name: _NWT_VALIDATION_PROFILE
+        for case_name in (
+            "boussinesq_divide_fixed_head_piecewise_k_1d",
+            "boussinesq_fixed_head_piecewise_k_1d",
+            "boussinesq_uniform_recharge_piecewise_k_1d",
+            "boussinesq_sloping_substratum_constant_thickness_1d",
+            "boussinesq_sloping_substratum_fixed_head_1d",
+            "boussinesq_sloping_substratum_uniform_recharge_1d",
+            "boussinesq_hillslope_interception_1d",
+            "boussinesq_hillslope_recharge_step_interception_1d",
+            "dupuit_seepage_limit_1d",
+            "brutsaert_recession_linearized_deep_1d",
+            "brutsaert_recession_boussinesq_thin_1d",
+            "dupuit_divide_river_1d",
+            "dupuit_fixed_head_1d",
+            "dupuit_uniform_recharge_1d",
+            "linearized_unconfined_drainage_1d",
+            "linearized_unconfined_hillslope_drainage_1d",
+            "linearized_unconfined_boundary_piecewise_1d",
+        )
     },
 }
+
+
+def _validation_profile_block(solver_name: str, case_name: str) -> str | None:
+    """Return the runtime profile of a solver for one case, or None.
+
+    A scenario key such as ``modflow_nwt_scaled_down`` is a variant of the
+    solver whose name it starts with, and runs with the profile of that solver.
+    """
+    by_case = _VALIDATION_PROFILES_BY_SOLVER_AND_CASE.get(solver_name)
+    if by_case is None:
+        parents = [
+            key for key in _VALIDATION_PROFILES_BY_SOLVER_AND_CASE if solver_name.startswith(key)
+        ]
+        by_case = _VALIDATION_PROFILES_BY_SOLVER_AND_CASE[max(parents, key=len)] if parents else {}
+    return by_case.get(case_name)
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -264,24 +302,29 @@ def _dump_toml(payload: Mapping[str, Any]) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
-def _rmtree_onerror(func, path, exc_info) -> None:
-    """Retry one failed ``rmtree`` step after clearing a read-only bit."""
-    del exc_info
+def _add_owner_bits(path: str, bits: int) -> None:
+    """Add ``bits`` to the mode of ``path``, keeping the bits it already has."""
     try:
-        os.chmod(path, stat.S_IWRITE)
+        os.chmod(path, stat.S_IMODE(os.lstat(path).st_mode) | bits)
     except OSError:
-        # Some filesystems or locked files may reject a direct read-only bit change.
-        # Try a permissive fallback before giving the retry loop another chance.
-        try:
-            os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
-        except OSError:
-            pass
-    try:
-        func(path)
-    except OSError:
-        # Intentionally let the caller retry; this is common on Windows when
-        # binaries still hold temporary locks during directory cleanup.
+        # A mode that cannot change is left to the retry loop.
         pass
+
+
+def _rmtree_onerror(func, path, exc_info) -> None:
+    """Retry one failed ``rmtree`` removal after giving the owner write access.
+
+    A failed scan or open is raised again once the owner can read and search
+    the directory: the retry loop of the caller then runs ``rmtree`` again.
+    Bits are only added, so a directory never loses its read or search bit.
+    """
+    if func not in (os.unlink, os.remove, os.rmdir):
+        _add_owner_bits(path, stat.S_IRWXU)
+        raise exc_info[1]
+    _add_owner_bits(os.path.dirname(path), stat.S_IRWXU)
+    _add_owner_bits(path, stat.S_IWRITE)
+    # A second failure goes to the retry loop: on Windows a binary can still hold a lock.
+    func(path)
 
 
 def remove_tree_with_retry(
@@ -359,13 +402,17 @@ class ValidationRunResult:
 
 
 def _short_validation_name(value: str | Path, *, max_length: int = 28) -> str:
-    """Return a deterministic filesystem-friendly validation folder name."""
+    """Return a deterministic filesystem-friendly validation folder name.
+
+    A cut that ends on ``_`` or ``-`` drops it, so the name never holds ``__``
+    before its digest, which a run name refuses.
+    """
     text = str(value).strip()
     if len(text) <= max_length:
         return text
     digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:10]
     keep = max_length - len(digest) - 1
-    return f"{text[:keep]}_{digest}"
+    return f"{text[:keep].rstrip('_-')}_{digest}"
 
 
 def _resolve_path_best_effort(path: Path) -> Path:
@@ -386,10 +433,25 @@ def _fallback_validation_results_root(base_out_path: str) -> Path:
 
 
 def _windows_path_budget_exceeded(path: Path, *, headroom: int = 0) -> bool:
-    """Return True when *path* is likely to exceed Windows path limits."""
+    """Return True when *path* plus *headroom* characters is too long on Windows."""
     if os.name != "nt":
         return False
-    return len(str(path)) + int(headroom) >= _WINDOWS_VALIDATION_PATH_LIMIT
+    return len(str(path)) + int(headroom) > WINDOWS_PATH_LIMIT
+
+
+def budgeted_dir_name(parent: Path, name: str, *, generated_length: int) -> str:
+    """Return *name*, shortened until a run below ``parent / name`` fits on Windows.
+
+    ``generated_length`` is what the run writes below that folder. When no
+    length fits, the shortest name is returned and the solver guard reports
+    the path it cannot open.
+    """
+    candidate = name
+    for component_length in _VALIDATION_COMPONENT_LENGTHS:
+        if not _windows_path_budget_exceeded(parent / candidate, headroom=generated_length):
+            return candidate
+        candidate = _short_validation_name(name, max_length=component_length)
+    return candidate
 
 
 def _candidate_validation_results_dir(
@@ -535,11 +597,11 @@ def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
     Returns ``(store, sim_id)`` on success, ``(None, None)`` on failure.
     The caller is responsible for closing the store when done.
     """
-    from hydromodpy.core.state.paths import catalog_path_for
+    from hydromodpy.core.state.layout import catalog_path_for
 
     if not catalog_path_for(project_path).exists():
         return None, None
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     store = Catalog(project_path)
     sims = store.list_simulations()
@@ -576,7 +638,13 @@ def write_validation_fields_to_store(
     solver_name: str,
     flow_regime: str = "steady",
 ) -> tuple[Any, str | None]:
-    """Write in-memory validation field series to a Catalog."""
+    """Write in-memory validation field series as a sealed run of *out_path*.
+
+    The run is claimed under ``runs/`` the way the pipeline claims one, its
+    fields are written at full precision, it is sealed as completed and its
+    attempt is closed. No index is opened. Returns the sealed store, open for
+    reading, and the run id; the caller closes the store.
+    """
     payloads = _normalize_validation_field_series(fields)
     if not payloads:
         return None, None
@@ -588,36 +656,46 @@ def write_validation_fields_to_store(
     )
     n_cells = int(shape_reference.size)
     n_timesteps = max(len(series) for series in payloads.values())
-    sim_id = str(uuid.uuid4())
 
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.core.config_kit.persistence import PersistenceConfig
+    from hydromodpy.results.storage.attempt import claim_run_directory, close_sealed_attempt
+    from hydromodpy.results.storage.run_facts import RunFacts
+    from hydromodpy.results.storage.run_store import RunStore
+    from hydromodpy.results.storage.sealing import seal_completed
 
-    store = Catalog(out_path)
-    registration = store.register_simulation(
-        sim_id,
-        project=Path(out_path).name,
+    project_root = Path(out_path)
+    project = project_root.name
+    # The code makes this name from a folder name: folded, then held to the rule of a run name.
+    name = _short_validation_name(
+        fold_name(f"{project}_{solver_name}"), max_length=_VALIDATION_SIM_NAME_LENGTH
+    )
+    claim = claim_run_directory(project_root, name, case_id=name, project=project)
+    facts = RunFacts(
+        sim_id=claim.sim_id,
+        name=claim.name,
+        case_id=name,
+        project=project,
+        attempt=claim.attempt,
+        attempt_id=claim.attempt_id,
+        created_at=claim.started_at,
+        started_at=claim.started_at,
         solver=solver_name,
-        name=f"{Path(out_path).name}_{solver_name}",
         solver_category="distributed",
         flow_regime=flow_regime,
         n_cells=n_cells,
         n_layers=1,
         n_timesteps=n_timesteps,
     )
-    if registration.zarr is not None:
-        registration.zarr.close()
-
-    if shape_reference.ndim == 2:
-        nrow, ncol = shape_reference.shape
-        store.write_geographic_metadata(
-            sim_id,
-            {
-                "nrow": int(nrow),
-                "ncol": int(ncol),
-            },
-        )
-
+    persistence = PersistenceConfig(field_precision=VALIDATION_FIELD_PRECISION)
+    store = RunStore.open(
+        claim.run_dir, facts=facts, persistence=persistence, workspace=project_root
+    )
+    sim_id = store.sim_id
     try:
+        store.create_zarr(n_cells=n_cells, n_layers=1)
+        if shape_reference.ndim == 2:
+            nrow, ncol = shape_reference.shape
+            store.write_geographic_metadata(sim_id, {"nrow": int(nrow), "ncol": int(ncol)})
         for variable, series in payloads.items():
             for write_index, (_time_key, values) in enumerate(series):
                 store.write_field(
@@ -631,8 +709,10 @@ def write_validation_fields_to_store(
     except Exception:
         store.close()
         raise
-
-    return store, sim_id
+    run_dir = store.run_dir
+    seal_completed(store)
+    close_sealed_attempt(run_dir)
+    return RunStore.open(run_dir, persistence=persistence), sim_id
 
 
 def run_example_script(
@@ -648,9 +728,7 @@ def run_example_script(
     """Run one HydroModPy launcher script as a subprocess."""
     env = os.environ.copy()
     env[out_env_var] = str(out_path)
-    env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
-    env["HMP_AUTO_REGISTER_PROJECT"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
@@ -658,7 +736,7 @@ def run_example_script(
 
     run_args = [] if script_args is None else list(script_args)
     if os.environ.get("HMP_COVERAGE"):
-        wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
+        wrapper = Path(__file__).resolve().parents[2] / "tools" / "ci" / "coverage_runner.py"
         command = [sys.executable, str(wrapper), str(script_path), *run_args]
     else:
         command = [sys.executable, str(script_path), *run_args]
@@ -696,6 +774,28 @@ def _format_subprocess_failure(
     return message
 
 
+def _absolute_input_paths(node: Any, case_dir: Path) -> Any:
+    """Return ``node`` with each relative ``path``, ``path_file`` or ``*_path`` value made absolute.
+
+    ``hmp run --base <out>`` resolves a relative path against the output folder,
+    while a case writes its input paths relative to its own folder, toward a
+    file of the case or of ``validation_cases/shared``. Output folders still
+    follow ``--base``.
+    """
+    if isinstance(node, Mapping):
+        fixed: dict[str, Any] = {}
+        for key, value in node.items():
+            is_path_key = key in ("path", "path_file") or key.endswith("_path")
+            if is_path_key and isinstance(value, str) and value and not Path(value).is_absolute():
+                fixed[key] = (case_dir / value).resolve().as_posix()
+            else:
+                fixed[key] = _absolute_input_paths(value, case_dir)
+        return fixed
+    if isinstance(node, list):
+        return [_absolute_input_paths(item, case_dir) for item in node]
+    return node
+
+
 def _build_validation_launcher_config(
     *,
     case_dir: Path,
@@ -709,7 +809,7 @@ def _build_validation_launcher_config(
     """
     metadata = load_case_metadata(case_dir)
     base_config_name = str(metadata.get("base_config", "")).strip()
-    profile_block = _VALIDATION_PROFILES_BY_SOLVER_AND_CASE.get(solver_name, {}).get(case_dir.name)
+    profile_block = _validation_profile_block(solver_name, case_dir.name)
 
     use_base = bool(base_config_name)
     base_config_path = case_dir / base_config_name if use_base else None
@@ -733,12 +833,20 @@ def _build_validation_launcher_config(
     # ``[simulation] name`` is the run identity (``run_id`` was removed by the
     # simulation-management v2 schema); it must stay unique per solver.
     case_id = str(metadata.get("case_id", case_dir.name))
-    stable_name = _short_validation_name(f"{case_id}_{solver_name}", max_length=48)
+    stable_name = _short_validation_name(
+        f"{case_id}_{solver_name}", max_length=_VALIDATION_SIM_NAME_LENGTH
+    )
     sim_section = merged_payload.setdefault("simulation", {})
     sim_section["name"] = stable_name
+    # A run reads [simulation.results.persistence]; the top-level
+    # [persistence] table does not reach the run catalog.
+    results_section = sim_section.setdefault("results", {})
+    persistence_section = results_section.setdefault("persistence", {})
+    persistence_section.setdefault("field_precision", VALIDATION_FIELD_PRECISION)
 
     if "workflow" not in merged_payload:
         raise ValueError(f"{config_path} must define [workflow] or inherit it from base_config.")
+    merged_payload = _absolute_input_paths(merged_payload, case_dir)
 
     tmp_name = f".__validation_runtime_{config_path.stem}_{solver_name}_{os.getpid()}.toml"
     tmp_path = case_dir / tmp_name
@@ -829,22 +937,18 @@ def run_launcher_validation_case(
     )
 
     env = os.environ.copy()
-    env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
-    env["HMP_AUTO_REGISTER_PROJECT"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
 
-    # Validation runs never persist ``hydromodpy.lock``: the lockfile would
-    # land inside ``validation_cases/<case>/`` and pollute git status after
-    # every test invocation. Reproducibility info already lives in the case
-    # config and result store.
+    out_path.mkdir(parents=True, exist_ok=True)
     command = [
         sys.executable,
         "-m",
         "hydromodpy",
         "run",
-        "--no-lock",
         str(run_config_path),
+        "--base",
+        str(out_path),
     ]
 
     try:

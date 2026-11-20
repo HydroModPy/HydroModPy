@@ -1,0 +1,172 @@
+# From a zone map to the cells
+
+A property such as $K$ is given per zone of a map: geology classes, bands, rings, or the
+zones of a raster. It can also be given by a raster that holds its own value in each pixel.
+The solver needs one value per cell and per layer. This page gives the rule that turns
+each of them into the cell values, what that rule means for the conductivity, and a worked
+example. The keys of a value per zone or per pixel are in
+{doc}`[flow.param] <../../reference/parameters/flow/param>`.
+
+::::{dropdown} Notation of this page
+```{hmp-notation}
+```
+::::
+
+(transfer-rule)=
+## The rule
+
+A parameter with one value is spread over every cell. A parameter that points to a zone
+map through its `field_spatial_id` is mapped in three steps.
+
+1. **Find the zones of the cell.** $F_{c,z}$ is the share of the area of $c$ that lies in
+   zone $z$, among the area that lies in a zone. It comes from the first of three sources
+   that applies. A mesh engine whose faces lie on the contacts gives each cell its zone
+   whole. A vector map gives the exact area of each zone polygon in the cell. Any other map
+   (a raster, the analytical bands and rings) is sampled: $n_s$ points per axis of the cell,
+   each taking the zone that contains it, and $F_{c,z}$ is the share of the points that
+   fall in $z$.
+2. **Leave out what no zone covers.** An area, or a point, outside every zone of a geology
+   map or of a raster map is left out of the count.
+3. **Average, then scale with depth.** The value of the cell in layer $j$ is
+
+$$
+u_{c,j} = f(d_j)\,\sum_{z} F_{c,z}\,v_z ,
+\qquad \sum_z F_{c,z} = 1 ,
+$$ (eq-cell-value)
+
+with $v_z$ the value of zone $z$ and $f(d_j)$ the depth factor {eq}`eq-depth-factor` at
+the depth of the middle of layer $j$. A parameter with one value $v$ gives
+$u_{c,j} = f(d_j)\,v$.
+
+A sampled $F_{c,z}$ is an estimate of the share of the area of $c$ that lies in $z$. Its
+resolution is $1 / n_s^2$ of the cell: a zone that covers less than that may get no
+point. The same rule applies to every property, $K$, $S_y$, $S_s$ or the porosity. The
+two MODFLOW solvers apply it per layer; the Boussinesq solver applies it once, at the
+depth $d = 0$, because it has one layer. In the code: `FieldParam.to_mesh_field`.
+
+A zone of the map with no value in the parameter stops the run, with a message that
+names the missing keys. A cell that no zone reaches gets
+$\sum_z F_{c,z} = 0$, so a value of zero, and a zero $K$ on an active cell is refused.
+
+(transfer-raster)=
+## A raster with a value per pixel
+
+A parameter written `kind = "raster"` reads a map declared under
+{toml}`data.property_map.sources`, by its `name`. Each pixel holds a value in the `unit` of
+the parameter, and the cell takes the mean of the pixels it covers.
+
+1. **Read the pixels under the cell.** The cell is sampled on a lattice of points as for a
+   zone map, but their number follows the pixels: about two per pixel along a side of the
+   median cell, between 4 and 16 per axis. Each point reads the pixel that contains it.
+   The points are moved into the CRS of the map first, so a map in another CRS than the
+   mesh is read where it lies and its pixels are never resampled. This works on any cell
+   shape, a square of a regular grid, a triangle or a Voronoi polygon.
+2. **Leave out what the map does not cover.** A point outside the map or on a nodata pixel
+   is left out. A cell with no point left gets a value of zero, so an active cell outside
+   the map is refused, with the name of the map.
+3. **Average, then scale with depth.** The mean is set by `mean`. `arithmetic` adds the
+   values, `geometric` takes the exponential of the mean of their logarithms, and
+   `harmonic` takes the inverse of the mean of their inverses. A conductivity takes the
+   geometric mean unless told, any other property the arithmetic mean. The two last means
+   take positive values only, so a pixel at or below zero under a cell stops the run. The
+   depth factor $f(d_j)$ then applies as for a zone map.
+
+On a regular grid whose cells are the pixels of the map, each cell takes its pixel
+exactly. A map of values is not calibrated, and a calibration of a parameter read from a
+map is refused before the first run.
+
+(transfer-conductivity)=
+## What the rule means for the conductivity
+
+{eq}`eq-cell-value` is an arithmetic mean weighted by area, the upper bound of the
+equivalent conductivity of a cell cut by several zones; the harmonic mean is the lower
+bound, and a random mix lies between {cite:p}`renard1997`. A cell that holds a thin layer
+of low $K$ across the flow therefore conducts more in the model than in the ground.
+
+Between two cells, the conductance {eq}`eq-conductance` joins the two cell values in
+series. A contrast that follows the cell faces is represented in series; a contrast
+inside a cell is represented in parallel.
+
+(transfer-example)=
+## A worked example
+
+Three cells of a row, two zones, $v_A = 10^{-5}$ m/s and $v_B = 10^{-7}$ m/s, no depth
+factor. The interface between the zones crosses the middle cell.
+
+| Cell | $F_{c,A}$ | $F_{c,B}$ | $u_c$ by {eq}`eq-cell-value` | harmonic mean, for comparison |
+|---|---|---|---|---|
+| 1 | 1 | 0 | $1.0 \times 10^{-5}$ m/s | $1.0 \times 10^{-5}$ m/s |
+| 2 | 0.5 | 0.5 | $5.05 \times 10^{-6}$ m/s | $1.98 \times 10^{-7}$ m/s |
+| 3 | 0 | 1 | $1.0 \times 10^{-7}$ m/s | $1.0 \times 10^{-7}$ m/s |
+
+For a flow along the row, across the interface, the middle cell conducts about 25 times
+more than its harmonic mean. Refining the mesh at the interface, or aligning the cell
+faces with it, removes the mixed cell.
+
+```{eval-rst}
+.. plot:: theory/figures/f2c_zones.py
+   :alt: Nine square cells cut by a vertical zone boundary with their sample points, and the cell conductivity against the share of zone A.
+   :caption: The example above, three rows of it, run through the code. Left: the sample
+      points of each cell (:math:`n_s = 8` per axis, the default) take the color of
+      their zone, and :math:`F_{c,A}` counts them. Right: the value
+      ``FieldParam.to_mesh_field`` gives each cell (dots) lies on the arithmetic mean;
+      the harmonic mean (dashed) is the value for a flow across the boundary. Look at the
+      middle cells: :math:`5.05 \times 10^{-6}` m/s against
+      :math:`1.98 \times 10^{-7}` m/s.
+```
+
+## Assumptions
+
+- A cell holds one value of each property per layer.
+- The zone of a point is the zone of the map that contains it; the map is not smoothed.
+- The depth factor is the same function in every zone.
+
+## Limits
+
+- **Arithmetic mean only for zones.** The aggregation of a zone map is `weighted_average`;
+  no geometric or harmonic option exists. A raster with a value per pixel has the three
+  means.
+- **A sampled share for a raster.** For a raster map and for the analytical bands and rings,
+  $F_{c,z}$ is counted on $n_s$ points per axis, not computed from the exact intersection of
+  the cell and the zone. A vector map gives the exact intersection.
+- **Same rule on every grid.** A coarse structured grid and a fine irregular mesh mix the
+  zones differently, so two runs that share a zone map do not share their cell values.
+  Compare them on the same grid, or report the grid with the result.
+
+## Parameters of this page
+
+```{hmp-params}
+flow.param.K.field.value
+flow.param.K.field.map
+flow.param.K.field.mean
+flow.param.K.field_vertical_profile.kind
+data.geology.cell_samples_per_axis
+domain.supports.<name>.default_cell_samples_per_axis
+```
+
+## Checked by
+
+```{hmp-tested-by}
+hydromodpy.model.properties.field_param
+hydromodpy.model.properties.cell_sampling
+hydromodpy.model.properties.raster_cells
+hydromodpy.model.domain.spatial_support
+hydromodpy.model.properties.property_table
+```
+
+## In the code
+
+| What | Where |
+|---|---|
+| The weighted average and the depth factor | `hydromodpy/model/properties/field_param.py` (`FieldParam.to_mesh_field`), `hydromodpy/model/properties/vertical_profile.py` (`vertical_factor`, `mesh_vertical_factor`) |
+| The shares of each zone in a cell | `hydromodpy/model/properties/zone_fractions.py` (`zone_fractions`) |
+| The sampled shares | `hydromodpy/model/domain/support_fields.py` (`on_mesh`), `hydromodpy/model/properties/geology_field.py` (`GeologyField.on_mesh`) |
+| The sample points of a cell | `hydromodpy/model/properties/cell_sampling.py` (`sample_points_in_cell`) |
+| The mean of a raster of values on each cell | `hydromodpy/model/properties/raster_cells.py` (`raster_cells`, `read_property_maps`) |
+| The mapping, for the three solvers | `hydromodpy/model/properties/property_table.py` (`map_flow_properties`): per layer for MODFLOW, once for Boussinesq |
+
+## See also
+
+- {doc}`../groundwater-flow`: the properties in the flow equation, and the depth factor.
+- {doc}`../mesh`: the cells the values land on.
+- {doc}`../../reference/parameters/flow/param`: give a value per zone or per pixel.

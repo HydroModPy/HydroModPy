@@ -13,12 +13,12 @@ all their predecessors live in earlier cohorts. The default
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from hydromodpy.core.contracts.workflow_step import step_depends_on, step_name
 from hydromodpy.core.exceptions import WorkflowDAGCycleError
+from hydromodpy.workflow.step import step_depends_on, step_name
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,13 +123,7 @@ class WorkflowDAG:
         return tuple(edges)
 
 
-def topological_cohorts(steps: Iterable[Any]) -> tuple[tuple[Any, ...], ...]:
-    """Shortcut returning Kahn cohorts for an iterable of workflow steps."""
-    return WorkflowDAG(tuple(steps)).topological_order()
-
-
 __all__ = (
     "StepEdge",
     "WorkflowDAG",
-    "topological_cohorts",
 )

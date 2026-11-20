@@ -7,7 +7,7 @@ forwards execution so that both ``hmp`` / ``hydromodpy`` scripts and
 
 from __future__ import annotations
 
-from hydromodpy.cli import main
+from hydromodpy.cli.main import main
 
 __all__ = ("main",)
 

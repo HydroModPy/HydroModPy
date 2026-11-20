@@ -26,7 +26,6 @@ def _build_metric_lines(comparison) -> tuple[str, ...]:
         f"Radial head-profile RMSE: {comparison.rms_error:.4f} m",
         f"Radial head-profile max abs error: {comparison.max_error:.4f} m",
         f"Azimuthal spread: {comparison.azimuthal_spread:.4f} m",
-        f"Ocean head max abs error: {comparison.ocean_head_max_error:.2e} m",
         f"Minimum land freeboard: {comparison.land_clearance_min:.4f} m",
     )
 

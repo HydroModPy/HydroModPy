@@ -3,10 +3,16 @@
 DuckDB opens the catalog file with a single-writer lock. When a concurrent
 process is also open on the same file, the second caller raises
 ``duckdb.IOException`` with a message about a conflicting lock. We retry
-with exponential backoff so short-lived contention (e.g. ``hmp catalog ls``
+with exponential backoff so short-lived contention (e.g. ``hmp ls``
 running while ``hmp run`` commits) resolves transparently.
 
-Only ``duckdb.IOException`` is retried. Other exceptions propagate.
+Only that lock-contention ``duckdb.IOException`` is retried. Any other
+``duckdb.Error`` raised while opening a file that is actually there - a
+truncated write, a torn journal replay, on-disk corruption - is not a race
+to wait out, so it is reraised at once as
+:class:`~hydromodpy.core.exceptions.CatalogUnreadableError` instead of
+DuckDB's own trace. A missing path is a different, already legible failure
+and propagates unwrapped.
 
 The open is also where a write-ahead log left by an unclean shutdown is
 checkpointed back into the database file (see :func:`_absorb_stale_wal`).
@@ -18,12 +24,14 @@ import functools
 import random
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
-from typing import TypeVar
+from typing import NoReturn, TypeVar
 
 import duckdb
 
+from hydromodpy.core.exceptions import CatalogUnreadableError, WriteConflictError
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -54,6 +62,10 @@ _ATTACH_CONFLICT_SNIPPETS = (
     "already attached",
 )
 
+# DuckDB refuses a second connection to a file this process already holds when
+# the two do not share a mode, such as one read-only and one read-write.
+_MODE_CONFLICT_SNIPPETS = ("different configuration",)
+
 F = TypeVar("F", bound=Callable[..., object])
 
 
@@ -63,7 +75,33 @@ def _is_lock_contention(exc: duckdb.IOException) -> bool:
     return any(snippet in message for snippet in _LOCK_ERROR_SNIPPETS)
 
 
-def _is_attach_path_conflict(exc: duckdb.BinderException) -> bool:
+def _raise_open_failure(db_path: str, exc: duckdb.Error) -> NoReturn:
+    """Raise for a DuckDB open failure that is not lock contention.
+
+    Wrapped into :class:`CatalogUnreadableError` when the file is actually
+    there and DuckDB still refused to open it - a missing path is a
+    different, already legible failure and propagates unwrapped.
+    """
+    if db_path != ":memory:" and Path(db_path).exists():
+        message = str(exc).lower()
+        if any(snippet in message for snippet in _MODE_CONFLICT_SNIPPETS):
+            raise WriteConflictError(
+                f"The index '{db_path}' is already open in this process in another mode. "
+                "A read-only and a read-write catalog of one project cannot be open at once: "
+                "close the first one, or open both the same way. The file is not damaged."
+            ) from exc
+        raise CatalogUnreadableError(db_path) from exc
+    raise exc
+
+
+# Newer DuckDB raises ResourceInUseException where older releases raise BinderException.
+_ATTACH_CONFLICTS = (
+    duckdb.BinderException,
+    getattr(duckdb, "ResourceInUseException", duckdb.BinderException),
+)
+
+
+def _is_attach_path_conflict(exc: duckdb.Error) -> bool:
     """Return whether ``exc`` says this process already holds that database file."""
     message = str(exc).lower()
     return any(snippet in message for snippet in _ATTACH_CONFLICT_SNIPPETS)
@@ -129,7 +167,7 @@ def _absorb_stale_wal(
 
 
 def _precreate_with_block_size(db_path: str, block_size: int) -> None:
-    """Materialise a new DuckDB file with ``block_size`` before the real open.
+    """Materialize a new DuckDB file with ``block_size`` before the real open.
 
     ATTACHes the not-yet-existing file with the requested block size and
     checkpoints so the header records it; subsequent plain ``connect()`` calls
@@ -138,7 +176,7 @@ def _precreate_with_block_size(db_path: str, block_size: int) -> None:
     DuckDB registers attached database files process-wide, and the entry
     outlives the file: a connection still open on a path someone deleted keeps
     that path claimed although it is gone from disk. Sizing blocks is a
-    footprint optimisation, never a reason to refuse a connection, so that one
+    footprint optimization, never a reason to refuse a connection, so that one
     conflict is skipped and the caller falls through to a plain open. Every
     other failure propagates.
     """
@@ -147,7 +185,7 @@ def _precreate_with_block_size(db_path: str, block_size: int) -> None:
     try:
         tmp.execute(f"ATTACH '{escaped}' (BLOCK_SIZE {int(block_size)})")
         tmp.execute("CHECKPOINT")
-    except duckdb.BinderException as exc:
+    except _ATTACH_CONFLICTS as exc:
         if not _is_attach_path_conflict(exc):
             raise
         logger.debug(
@@ -200,7 +238,7 @@ def connect_with_retry(
             return connection
         except duckdb.IOException as exc:
             if not _is_lock_contention(exc):
-                raise
+                _raise_open_failure(db_path, exc)
             last_exc = exc
             if attempt == retries - 1:
                 break
@@ -213,6 +251,8 @@ def connect_with_retry(
                 retries,
                 sleep_for,
             )
+        except duckdb.Error as exc:
+            _raise_open_failure(db_path, exc)
     assert last_exc is not None
     raise last_exc
 
@@ -258,3 +298,24 @@ def with_lock_retry(
         return wrapper  # type: ignore[return-value]
 
     return decorator
+
+
+@contextmanager
+def attach_read_only(
+    connection: duckdb.DuckDBPyConnection, db_path: str | Path, alias: str
+) -> Iterator[None]:
+    """ATTACH ``db_path`` read-only under ``alias`` for the block, then DETACH it.
+
+    The alias is detached on exit, even on failure, so the connection stays clean.
+    """
+    if not all(ch.isalnum() or ch == "_" for ch in alias):
+        raise ValueError(f"Invalid attach alias: {alias!r}")
+    path_literal = str(Path(db_path)).replace("'", "''")
+    connection.execute(f"ATTACH '{path_literal}' AS {alias} (READ_ONLY)")
+    try:
+        yield
+    finally:
+        try:
+            connection.execute(f"DETACH {alias}")
+        except duckdb.Error:
+            pass  # the attach is gone with the connection

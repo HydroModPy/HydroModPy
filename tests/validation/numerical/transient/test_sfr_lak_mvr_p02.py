@@ -1,5 +1,7 @@
 """SFR + LAK + MVR validation against ex-gwf-lak-p02 (Merritt & Konikow 2000).
 
+Compared with: the final lake stages published for the MODFLOW 6 example ex-gwf-lak-p02 (Merritt and Konikow 2000), 116.98 and 111.93 ft.
+
 The HMP package-agnostic MVR seam (MoverRecord -> build_mvr_period_records ->
 mover_package_count -> packages list, the exact assembly ``build.py`` performs)
 drives the upstream example's four transfers: two SFR -> LAK feeds and two
@@ -23,6 +25,14 @@ from validation_cases.numerical.transient.sfr_lak_mvr.case import (
     load_tolerances,
     run_sfr_lak_mvr_scenario,
 )
+
+NOT_APPLICABLE = {
+    "modflow_nwt": "MODFLOW-NWT has no mover package and HydroModPy builds no LAK or SFR on it. The case validates the HydroModPy MVR record seam that feeds MODFLOW 6.",
+    "modflow6_irregular_tri": "The MVR seam sees no mesh, and the published 116.98 and 111.93 ft stages hold only on the upstream 27x17 rectilinear grid, whose SFR reaches are addressed by [lay, row, col], which HydroModPy refuses on unstructured grids.",
+    "modflow6_voronoi": "The MVR seam sees no mesh, and the published 116.98 and 111.93 ft stages hold only on the upstream 27x17 rectilinear grid, whose SFR reaches are addressed by [lay, row, col], which HydroModPy refuses on unstructured grids.",
+    "boussinesq": "The Boussinesq solver has no lake, SFR or mover package: lake and sfr boundaries list modflow6 as their only backend. The case validates the MVR record seam that feeds MODFLOW 6.",
+    "boussinesq_local": "The Boussinesq solver has no lake, SFR or mover package: lake and sfr boundaries list modflow6 as their only backend. The case validates the MVR record seam that feeds MODFLOW 6.",
+}
 
 
 @pytest.mark.validation

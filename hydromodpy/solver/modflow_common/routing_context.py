@@ -1,4 +1,10 @@
-"""Solver-aligned hydrologic routing products built from a solver DEM."""
+"""Solver-aligned hydrologic routing products built from a solver DEM.
+
+This module keeps its own raster D8 pointer on the solver-grid DEM, conditioned
+by ``dem_correc_type``. It does not read the descent D
+(:mod:`hydromodpy.catchment.drainage.descent`): mass transfer and MT3DMS accumulation trace
+point sources down the Whitebox pointer, and stay on it until they are migrated.
+"""
 
 from __future__ import annotations
 
@@ -6,10 +12,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
+from hydromodpy.catchment.algorithms.flow_products import build_regional_flow_products
+from hydromodpy.catchment.terrain.port import CappedBreach
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
+    from hydromodpy.catchment.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,8 +36,22 @@ def build_solver_routing_context(
     dem_correc_type: str,
     crs_project: str | None = None,
     backend: WhiteboxWorkflowsBackend | None = None,
+    engine_id: str | None = None,
+    capped_breach: CappedBreach | None = None,
 ) -> SolverRoutingContext:
-    """Build flow-correction and D8 routing rasters from one solver DEM."""
+    """Build flow-correction and D8 routing rasters from one solver DEM.
+
+    ``engine_id`` is the one the geographic configuration named. The solver
+    routes over its own DEM, but over the same terrain: two engines on the two
+    sides would send the reaches of a stream package down a different talweg
+    from the one the catchment was delineated with. ``capped_breach`` is the same
+    kind of carry-over: the limits of ``dem_correc_type = "capped_breach"``, which
+    that method cannot run without.
+
+    A DEM declared ``conditioned`` arrives here as ``provided``, the regional
+    method; the solver grid is its own template, which is filled with ``fill``,
+    because ``condition_dem`` refuses ``provided``.
+    """
     dem_in = Path(dem_path)
     if not dem_in.exists():
         raise FileNotFoundError(f"Solver DEM raster not found: {dem_in}")
@@ -38,12 +59,15 @@ def build_solver_routing_context(
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    method = "fill" if dem_correc_type == "provided" else dem_correc_type
     products = build_regional_flow_products(
-        dem_init_path=dem_in,
+        dem_path=dem_in,
         dem_out_dir_path=out_dir,
-        dem_correc_type=str(dem_correc_type),
+        dem_correc_type=str(method),
         crs_project=crs_project,
         backend=backend,
+        engine_id=engine_id,
+        capped_breach=capped_breach,
     )
     return SolverRoutingContext(
         dem_path=str(dem_in),

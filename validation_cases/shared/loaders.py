@@ -11,9 +11,17 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config, merge_toml_payloads
 
 logger = get_logger(__name__)
+
+# The public name every backend's extractor writes for a constant-head record,
+# declared in `hydromodpy.results.field_registry`. The raw MODFLOW labels
+# ("CONSTANT HEAD", "CHD") stopped reaching the store the day the extractors
+# started mapping both vocabularies onto one name, and a lookup written against
+# a name nobody writes is a lookup that never matches.
+_CONSTANT_HEAD_COMPONENT = "constant_head"
 
 
 def _legacy_npy_enabled() -> bool:
@@ -56,20 +64,80 @@ def load_npy_time_series_arrays(
     return indices, arrays
 
 
+class _DualMeshError(ValueError):
+    """A Voronoi dual was read without, or against the wrong, node positions."""
+
+
+def cell_polygon_areas(store: Any, sim_id: str) -> np.ndarray:
+    """Return the plan area of every solver cell of one run, in m2."""
+    areas = []
+    for ring in load_cell_polygons(store=store, sim_id=sim_id):
+        x, y = ring[:, 0], ring[:, 1]
+        areas.append(0.5 * abs(float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))))
+    return np.asarray(areas, dtype=float)
+
+
+def dual_column_index(node_x: np.ndarray, *, xmin: float, xmax: float, ncol: int) -> np.ndarray:
+    """Return the equal-width column of each node abscissa, clipped to ``0..ncol-1``."""
+    dx = (float(xmax) - float(xmin)) / int(ncol)
+    return np.clip(((np.asarray(node_x, dtype=float) - float(xmin)) / dx).astype(int), 0, ncol - 1)
+
+
+def dual_column_profile(
+    values: np.ndarray,
+    *,
+    node_x: np.ndarray,
+    cell_area: np.ndarray,
+    xmin: float | None,
+    xmax: float | None,
+    ncol: int,
+) -> np.ndarray:
+    """Bin the cell values of a Voronoi dual by node abscissa onto ``ncol`` columns.
+
+    A Voronoi dual holds each head at its node, so a cell belongs to the column
+    of its node, not of its polygon. Each column is the area-weighted mean of
+    its cells, and a column with no node is filled by index. ``xmin`` and
+    ``xmax`` default to the node extent. ``values`` is one value per cell, or
+    one row of them per output time.
+    """
+    node_x = np.asarray(node_x, dtype=float)
+    lo = float(node_x.min()) if xmin is None else float(xmin)
+    hi = float(node_x.max()) if xmax is None else float(xmax)
+    column = dual_column_index(node_x, xmin=lo, xmax=hi, ncol=ncol)
+    weight = np.asarray(cell_area, dtype=float)
+    rows = np.atleast_2d(np.asarray(values, dtype=float))
+    norm = np.bincount(column, weights=weight, minlength=int(ncol))
+    filled = norm > 0.0
+    index = np.flatnonzero(filled).astype(float)
+    profiles = np.empty((rows.shape[0], int(ncol)), dtype=float)
+    for row_index, row in enumerate(rows):
+        total = np.bincount(column, weights=row * weight, minlength=int(ncol))
+        profiles[row_index] = np.interp(
+            np.arange(int(ncol), dtype=float), index, total[filled] / norm[filled]
+        )
+    return profiles[0] if np.ndim(values) == 1 else profiles
+
+
 def _aggregate_triangles_to_grid(
     data: np.ndarray,
     target_shape: tuple[int, ...],
     store: Any,
     sim_id: str,
+    cell_centers: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Collapse unstructured triangle-cell values onto an x-profile grid.
+    """Collapse unstructured cell values onto an x-profile grid.
 
-    Used when the store contains per-cell data from a triangular mesh but
-    the comparison expects a structured ``(nrow, ncol)`` grid. The triangles
-    are projected onto a 1D x-profile (mean over cells whose centroid falls
+    Used when the store contains per-cell data from an unstructured mesh but
+    the comparison expects a structured ``(nrow, ncol)`` grid. The cells are
+    projected onto a 1D x-profile (mean over cells whose centroid falls
     in each x-bin, with nearest-value fill for empty bins) and the same
     profile is repeated across all rows. That keeps the cross-row spread
     exactly zero, matching the dimensional assumption of 1D validation cases.
+
+    A Voronoi dual needs ``cell_centers``, the node of each cell (see
+    :func:`run_dual_cell_centers`). Its cells are then binned by node abscissa
+    and weighted by polygon area. Without them a polygon mesh is refused,
+    because the vertex mean is not where the dual holds its heads.
     """
     if len(target_shape) != 2:
         return data
@@ -79,6 +147,26 @@ def _aggregate_triangles_to_grid(
         sz = store.open_zarr(sim_id)
         vertices = sz.root["mesh"]["vertices"][:]
         connectivity = sz.root["mesh"]["face_node_connectivity"][:]
+        if cell_centers is not None:
+            flat = np.asarray(data, dtype=float).reshape(-1)
+            if np.shape(cell_centers)[0] != flat.size:
+                raise _DualMeshError(
+                    f"{np.shape(cell_centers)[0]} cell centres for {flat.size} cell values."
+                )
+            profile = dual_column_profile(
+                flat,
+                node_x=np.asarray(cell_centers, dtype=float)[:, 0],
+                cell_area=cell_polygon_areas(store, sim_id),
+                xmin=None,
+                xmax=None,
+                ncol=int(ncol),
+            )
+            return np.repeat(profile.reshape(1, -1), nrow, axis=0)
+        if int(np.max(np.sum(np.asarray(connectivity) >= 0, axis=1))) > 3:
+            raise _DualMeshError(
+                "The run holds polygon cells (a Voronoi dual), whose heads sit at their nodes, "
+                "not at their vertex mean. Pass cell_centers=run_dual_cell_centers(result)."
+            )
         centroids_x = np.mean(vertices[connectivity, 0], axis=1).astype(float)
         node_x = np.asarray(vertices[:, 0], dtype=float)
         x_min = float(node_x.min())
@@ -109,6 +197,8 @@ def _aggregate_triangles_to_grid(
                 profile[valid_idx],
             )
         return np.repeat(profile.reshape(1, -1), nrow, axis=0)
+    except _DualMeshError:
+        raise
     except Exception:
         logger.debug("Triangle-to-grid aggregation failed, returning raw data")
         return data
@@ -152,7 +242,9 @@ def load_case_metadata(case_dir: Path) -> dict:
 
 def load_case_config(case_dir: Path, filename: str) -> dict:
     """Load one case-local config file with optional ``base_config`` support."""
-    return load_toml_with_base_config(case_dir / filename)
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+
+    return load_toml_with_base_config(case_dir / filename, root=ROOT_CONFIG)
 
 
 def merge_case_flow_section(
@@ -205,6 +297,291 @@ def _reshape_to_expected(
     return values
 
 
+def case_config_mesh_bundle_dir(case_dir: Path, config: Mapping[str, object]) -> Path | None:
+    """Return the folder of the triangulation a case config reads in ``[mesh.triangle] path``.
+
+    The mesh bundle of a validation case sits next to its ``mesh_2d.msh``. The path is
+    relative to the case folder, like every path of the config.
+    """
+    mesh = config.get("mesh")
+    triangle = mesh.get("triangle") if isinstance(mesh, Mapping) else None
+    path_raw = str(triangle.get("path", "")).strip() if isinstance(triangle, Mapping) else ""
+    if path_raw == "":
+        return None
+    mesh_path = Path(path_raw).expanduser()
+    if not mesh_path.is_absolute():
+        mesh_path = (case_dir / mesh_path).resolve()
+    return mesh_path.parent
+
+
+def resolve_case_mesh_bundle_dir(
+    case_dir: Path,
+    metadata: Mapping[str, object],
+    solver: str | None,
+) -> Path | None:
+    """Return the mesh bundle a solver config reads in ``[mesh.triangle] path``, or None."""
+    config_files = metadata.get("config_files")
+    solver_name = str(solver or "").strip().lower()
+    if not isinstance(config_files, Mapping) or solver_name == "":
+        return None
+    config_name = str(config_files.get(solver_name, "")).strip()
+    if config_name == "":
+        return None
+    return case_config_mesh_bundle_dir(case_dir, load_case_config(case_dir, config_name))
+
+
+def _read_bundle_table(bundle_dir: Path, name: str) -> np.ndarray:
+    """Read one CSV table of a mesh bundle as a structured array."""
+    return np.genfromtxt(
+        Path(bundle_dir) / name, delimiter=",", names=True, dtype=None, encoding="utf-8"
+    )
+
+
+def bundle_cell_centers(bundle_dir: Path, n_cells: int) -> tuple[np.ndarray, str]:
+    """Return the ``(n_cells, 2)`` solver cell centers of one mesh bundle and the dual kind.
+
+    A triangle grid (``grid_dual = "triangle"``) keeps one cell per bundle
+    triangle, centered on its centroid. A Voronoi dual (``grid_dual = "voronoi"``)
+    has one cell per bundle node, and the node is the cell center. The cell
+    count tells the two apart.
+    """
+    cells = _read_bundle_table(bundle_dir, "cells.csv")
+    if cells.size == int(n_cells):
+        centers = np.column_stack([cells["centroid_x"], cells["centroid_y"]])
+        return np.asarray(centers, dtype=float), "triangle"
+    nodes = _read_bundle_table(bundle_dir, "nodes.csv")
+    if nodes.size == int(n_cells):
+        return np.asarray(np.column_stack([nodes["x"], nodes["y"]]), dtype=float), "voronoi"
+    raise ValueError(
+        f"{n_cells} solver cells match neither the {cells.size} triangles nor the "
+        f"{nodes.size} nodes of the mesh bundle {bundle_dir}."
+    )
+
+
+def dual_cell_centers(bundle_dir: Path | None, n_cells: int) -> np.ndarray | None:
+    """Return the node of each cell when ``n_cells`` cells are the Voronoi dual of a bundle.
+
+    Return None for a triangle grid, a structured grid, or a cell count that
+    matches neither the bundle triangles nor its nodes.
+    """
+    if bundle_dir is None:
+        return None
+    if _read_bundle_table(bundle_dir, "cells.csv").size == int(n_cells):
+        return None
+    if _read_bundle_table(bundle_dir, "nodes.csv").size != int(n_cells):
+        return None
+    centers, _ = bundle_cell_centers(bundle_dir, n_cells)
+    return centers
+
+
+def run_dual_cell_centers(
+    result: Any, metadata: Mapping[str, object] | None = None
+) -> np.ndarray | None:
+    """Return the ``(n_cells, 2)`` node of each cell of a Voronoi-dual run, or None.
+
+    This is the opt-in test of a strip comparison. It reads the mesh bundle that
+    the config of ``result.solver_name`` points at, and compares its node count
+    with the cell count of the stored run. A triangle, structured or Boussinesq
+    run gives None, and its comparison is untouched.
+    """
+    store = getattr(result, "store", None)
+    sim_id = getattr(result, "sim_id", None)
+    case_dir = getattr(result, "case_dir", None)
+    if store is None or sim_id is None or case_dir is None:
+        return None
+    case_dir = Path(case_dir)
+    case_metadata = load_case_metadata(case_dir) if metadata is None else metadata
+    bundle_dir = resolve_case_mesh_bundle_dir(
+        case_dir, case_metadata, getattr(result, "solver_name", None)
+    )
+    if bundle_dir is None:
+        return None
+    sz = store.open_zarr(sim_id)
+    try:
+        mesh = sz.root["mesh"] if "mesh" in sz.root else {}
+        if "face_node_connectivity" not in mesh:
+            return None
+        n_cells = int(mesh["face_node_connectivity"].shape[0])
+    finally:
+        sz.close()
+    return dual_cell_centers(bundle_dir, n_cells)
+
+
+def _nearest_cell_history_to_grid(
+    history: np.ndarray,
+    centers: np.ndarray,
+    *,
+    nx: int,
+    ny: int,
+    x_min: float,
+    x_max: float,
+    y_min: float,
+    y_max: float,
+) -> np.ndarray:
+    """Give each structured cell the value of the solver cell with the nearest center.
+
+    For a Voronoi dual the nearest center is the cell that holds the point, so
+    each structured cell reads the solver cell under its center. Rows run from
+    ``y_min`` up, like ``interpolate_bundle_history_to_structured_grids``.
+    """
+    from scipy.spatial import cKDTree
+
+    x_centers = x_min + (np.arange(int(nx), dtype=float) + 0.5) * (x_max - x_min) / float(nx)
+    y_centers = y_min + (np.arange(int(ny), dtype=float) + 0.5) * (y_max - y_min) / float(ny)
+    xx, yy = np.meshgrid(x_centers, y_centers)
+    _, nearest = cKDTree(np.asarray(centers, dtype=float)).query(
+        np.column_stack([xx.ravel(), yy.ravel()])
+    )
+    data = np.asarray(history, dtype=float).reshape(-1, len(centers))
+    return data[:, nearest].reshape(data.shape[0], int(ny), int(nx))
+
+
+def nearest_cell_grid(
+    values: np.ndarray,
+    centers: np.ndarray,
+    *,
+    nx: int,
+    ny: int,
+    x_min_m: float,
+    x_max_m: float,
+    y_min_m: float,
+    y_max_m: float,
+) -> np.ndarray:
+    """Give each cell of a ``ny x nx`` grid the value of the solver cell with the nearest center.
+
+    Rows run from ``y_min_m`` up, like the other regridding helpers.
+    """
+    return _nearest_cell_history_to_grid(
+        np.asarray(values, dtype=float).reshape(1, -1),
+        centers,
+        nx=nx,
+        ny=ny,
+        x_min=x_min_m,
+        x_max=x_max_m,
+        y_min=y_min_m,
+        y_max=y_max_m,
+    )[0]
+
+
+def _regrid_bundle_history(
+    history: np.ndarray,
+    *,
+    bundle_dir: Path,
+    nx: int,
+    ny: int,
+    x_min_m: float | None,
+    x_max_m: float | None,
+    y_min_m: float | None,
+    y_max_m: float | None,
+    collapse_y_to_x_profile: bool = False,
+    store: Any = None,
+    sim_id: str | None = None,
+) -> np.ndarray:
+    """Project one time-cell history of a mesh-bundle run onto a ``ny x nx`` grid.
+
+    A triangle grid goes through ``interpolate_bundle_history_to_structured_grids``.
+    A Voronoi dual reads, for each structured cell, the solver cell under its center.
+    A Voronoi dual collapsed to an x-profile bins its cells by node abscissa,
+    weighted by polygon area, and so needs ``store`` and ``sim_id``.
+    """
+    from validation_cases.shared.gmsh_irregular_strip import (
+        interpolate_bundle_history_to_structured_grids,
+    )
+
+    data = np.asarray(history, dtype=float)
+    n_cells = int(data.shape[-1])
+    nodes = dual_cell_centers(bundle_dir, n_cells)
+    if collapse_y_to_x_profile and nodes is not None:
+        if store is None or sim_id is None:
+            raise _DualMeshError("Collapsing a Voronoi dual needs the store and sim_id of the run.")
+        profile = dual_column_profile(
+            data.reshape(-1, n_cells),
+            node_x=nodes[:, 0],
+            cell_area=cell_polygon_areas(store, sim_id),
+            xmin=x_min_m,
+            xmax=x_max_m,
+            ncol=int(nx),
+        )
+        return np.repeat(profile[:, None, :], int(ny), axis=1)
+    if collapse_y_to_x_profile or _read_bundle_table(bundle_dir, "cells.csv").size == n_cells:
+        return interpolate_bundle_history_to_structured_grids(
+            data,
+            bundle_dir=bundle_dir,
+            nx=nx,
+            ny=ny,
+            x_min_m=x_min_m,
+            x_max_m=x_max_m,
+            y_min_m=y_min_m,
+            y_max_m=y_max_m,
+            collapse_y_to_x_profile=collapse_y_to_x_profile,
+        )
+    centers, _ = bundle_cell_centers(bundle_dir, n_cells)
+    return _nearest_cell_history_to_grid(
+        data,
+        centers,
+        nx=nx,
+        ny=ny,
+        x_min=float(np.min(centers[:, 0])) if x_min_m is None else float(x_min_m),
+        x_max=float(np.max(centers[:, 0])) if x_max_m is None else float(x_max_m),
+        y_min=float(np.min(centers[:, 1])) if y_min_m is None else float(y_min_m),
+        y_max=float(np.max(centers[:, 1])) if y_max_m is None else float(y_max_m),
+    )
+
+
+def load_cell_polygons(*, store: Any, sim_id: str) -> list[np.ndarray]:
+    """Return the plan-view ``(n_vertices, 2)`` polygon of every solver cell of one run."""
+    sz = store.open_zarr(sim_id)
+    try:
+        vertices = np.asarray(sz.root["mesh"]["vertices"][:], dtype=float)[:, :2]
+        faces = np.asarray(sz.root["mesh"]["face_node_connectivity"][:], dtype=int)
+    finally:
+        sz.close()
+    return [vertices[row[row >= 0]] for row in faces]
+
+
+def load_cell_centers(*, store: Any, sim_id: str) -> np.ndarray:
+    """Return the ``(n_cells, 2)`` center of every solver cell of one run, as the mesh stored it."""
+    sz = store.open_zarr(sim_id)
+    try:
+        x = np.asarray(sz.root["mesh"]["face_x"][:], dtype=float)
+        y = np.asarray(sz.root["mesh"]["face_y"][:], dtype=float)
+    finally:
+        sz.close()
+    return np.column_stack([x, y])
+
+
+def structured_cell_polygons(
+    *,
+    x_min: float,
+    x_max: float,
+    y_min: float,
+    y_max: float,
+    nrow: int,
+    ncol: int,
+) -> list[np.ndarray]:
+    """Return one square per cell of a regular grid, row by row from the northern row.
+
+    This is the order in which the result store lists the cells of a structured grid.
+    """
+    xs = np.linspace(float(x_min), float(x_max), int(ncol) + 1)
+    ys = np.linspace(float(y_max), float(y_min), int(nrow) + 1)
+    return [
+        np.array([(xs[j], ys[i]), (xs[j + 1], ys[i]), (xs[j + 1], ys[i + 1]), (xs[j], ys[i + 1])])
+        for i in range(int(nrow))
+        for j in range(int(ncol))
+    ]
+
+
+def map_polygons_payload(
+    polygons: list[np.ndarray], *, origin_x: float, origin_y: float
+) -> list[list[tuple[float, float]]]:
+    """Shift cell polygons to ``(origin_x, origin_y)`` and round them to 0.01 m for a figure."""
+    return [
+        [(round(float(x) - origin_x, 2), round(float(y) - origin_y, 2)) for x, y in polygon]
+        for polygon in polygons
+    ]
+
+
 def _load_last_array_from_store(
     *,
     observable_name: str,
@@ -241,7 +618,7 @@ def _load_last_array_from_store(
         n_timesteps = int(grp["head"].shape[0]) if "head" in grp else 0
     except Exception as exc:
         raise RuntimeError(
-            f"ResultStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
+            f"RunStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
         ) from exc
     finally:
         if sz is not None:
@@ -256,7 +633,7 @@ def _load_last_array_from_store(
         raw = store.query_field(sim_id, observable_name, n_timesteps - 1)
     except Exception as exc:
         raise RuntimeError(
-            f"ResultStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
+            f"RunStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
         ) from exc
     values = np.asarray(raw, dtype=float)
     if values.ndim == 2 and values.shape[0] == 1:
@@ -312,21 +689,27 @@ def load_field_on_expected_grid(
         )
 
     config_payload = load_case_config(case_dir, config_name)
-    mesh_input = config_payload.get("mesh_input")
-    if not isinstance(mesh_input, Mapping):
+    bundle_dir = case_config_mesh_bundle_dir(case_dir, config_payload)
+    if bundle_dir is None or values.ndim != 1 or len(expected_shape) != 2:
         raise AssertionError(
             f"Unexpected shape for {observable_name}: {values.shape} != {expected_shape}"
         )
 
-    bundle_dir_raw = str(mesh_input.get("bundle_dir", "")).strip()
-    if bundle_dir_raw == "" or values.ndim != 1 or len(expected_shape) != 2:
-        raise AssertionError(
-            f"Unexpected shape for {observable_name}: {values.shape} != {expected_shape}"
+    if collapse_y_to_x_profile and dual_cell_centers(bundle_dir, values.size) is not None:
+        regridded = _regrid_bundle_history(
+            values,
+            bundle_dir=bundle_dir,
+            nx=int(expected_shape[1]),
+            ny=int(expected_shape[0]),
+            x_min_m=x_min_m,
+            x_max_m=x_max_m,
+            y_min_m=y_min_m,
+            y_max_m=y_max_m,
+            collapse_y_to_x_profile=True,
+            store=store,
+            sim_id=sim_id,
         )
-
-    bundle_dir = Path(bundle_dir_raw).expanduser()
-    if not bundle_dir.is_absolute():
-        bundle_dir = (case_dir / bundle_dir).resolve()
+        return timestep, np.asarray(regridded[0], dtype=float)
 
     if collapse_y_to_x_profile:
         cells = np.genfromtxt(
@@ -365,11 +748,7 @@ def load_field_on_expected_grid(
         tiled = np.repeat(profile.reshape(1, -1), int(expected_shape[0]), axis=0)
         return timestep, np.asarray(tiled, dtype=float)
 
-    from validation_cases.shared.gmsh_irregular_strip import (
-        interpolate_bundle_history_to_structured_grids,
-    )
-
-    regridded = interpolate_bundle_history_to_structured_grids(
+    regridded = _regrid_bundle_history(
         values,
         bundle_dir=bundle_dir,
         nx=int(expected_shape[1]),
@@ -382,6 +761,14 @@ def load_field_on_expected_grid(
     return timestep, np.asarray(regridded[0], dtype=float)
 
 
+def load_last_cell_values(*, observable_name: str, store: Any, sim_id: str | None) -> np.ndarray:
+    """Return the flat per-cell values of one observable at the last stored timestep."""
+    _, values = _load_last_array_from_store(
+        observable_name=observable_name, store=store, sim_id=sim_id
+    )
+    return np.asarray(values, dtype=float).reshape(-1)
+
+
 def load_field(
     *,
     store: Any = None,
@@ -389,13 +776,14 @@ def load_field(
     observable_name: str,
     timestep: int = -1,
     expected_shape: tuple[int, ...] | None = None,
+    cell_centers: np.ndarray | None = None,
 ) -> tuple[int, np.ndarray]:
     """Load one spatial field from the result store.
 
     Parameters
     ----------
-    store : ResultStore, optional
-        Open :class:`~hydromodpy.results.store.ResultStore` instance.
+    store : RunStore, optional
+        Open :class:`~hydromodpy.results.storage.run_store.RunStore` instance.
     sim_id : str, optional
         Simulation identifier inside *store*.
     observable_name : str
@@ -408,6 +796,10 @@ def load_field(
         but a different shape, reshape it.  This bridges the flat
         per-cell vectors returned by the Catalog with the
         ``(nrow, ncol)`` grids expected by validation comparisons.
+    cell_centers : np.ndarray, optional
+        ``(n_cells, 2)`` node of each cell of a Voronoi-dual run, from
+        :func:`run_dual_cell_centers`. It makes the x-profile collapse bin the
+        cells by node abscissa. Leave it out for a triangle or structured run.
 
     Returns
     -------
@@ -466,11 +858,12 @@ def load_field(
                 eff_shape,
                 store,
                 sim_id,
+                cell_centers,
             )
         return int(resolved_ts), data
     except Exception as exc:
         raise RuntimeError(
-            f"ResultStore query failed for variable '{observable_name}' (sim_id={sim_id})."
+            f"RunStore query failed for variable '{observable_name}' (sim_id={sim_id})."
         ) from exc
 
 
@@ -546,11 +939,7 @@ def load_time_series_fields(
                 and data[:1].size > 0
             ):
                 if mesh_bundle_dir is not None and len(tuple(eff_shape)) == 2:
-                    from validation_cases.shared.gmsh_irregular_strip import (
-                        interpolate_bundle_history_to_structured_grids,
-                    )
-
-                    data = interpolate_bundle_history_to_structured_grids(
+                    data = _regrid_bundle_history(
                         data,
                         bundle_dir=Path(mesh_bundle_dir),
                         nx=int(eff_shape[1]),
@@ -560,6 +949,8 @@ def load_time_series_fields(
                         y_min_m=y_min_m,
                         y_max_m=y_max_m,
                         collapse_y_to_x_profile=collapse_y_to_x_profile,
+                        store=store,
+                        sim_id=sim_id,
                     )
                 else:
                     data = _aggregate_triangle_history_to_grid(
@@ -577,7 +968,7 @@ def load_time_series_fields(
 
     # Try DuckDB timeseries (scalar per timestep, e.g. outlet discharge).
     try:
-        ts = store.query_timeseries(sim_id, "_catchment", observable_name)
+        ts = store.query_timeseries(sim_id, CATCHMENT, observable_name)
         values = np.asarray(ts.values, dtype=float)
         indices = np.arange(values.shape[0], dtype=int)
         return indices, values
@@ -591,18 +982,40 @@ def load_time_series_fields(
     # so no unit conversion is applied here - callers are responsible for
     # interpreting the values in the model's native units.
     if "outlet_discharge" in observable_name:
+        budgets = None
         try:
             budgets = store.query_budget(sim_id)
-            if not budgets.empty:
-                chd_names = ("constant head", "chd")
-                chd = budgets[budgets["component"].str.lower().isin(chd_names)]
-                if not chd.empty:
-                    chd_sorted = chd.sort_values("timestep")
-                    values = np.asarray(chd_sorted["flux_out"].values, dtype=float)
-                    indices = np.arange(values.shape[0], dtype=int)
-                    return indices, values
         except Exception as exc:
             errors.append(exc)
+        if budgets is not None and not budgets.empty:
+            chd = budgets[budgets["component"].str.lower() == _CONSTANT_HEAD_COMPONENT]
+            # The catchment zone is a second support of the same records, the
+            # basin of D inside the domain, and not a second boundary. A flux
+            # across a boundary of the model is read on the domain row.
+            chd = chd[chd["zone_id"].astype(str) != CATCHMENT]
+            if chd.empty:
+                raise RuntimeError(
+                    f"'{observable_name}' asks for the flux across a constant-head "
+                    f"boundary and the budget of sim {sim_id} carries no "
+                    f"'{_CONSTANT_HEAD_COMPONENT}' record; components present: "
+                    f"{sorted(budgets['component'].astype(str).unique())}."
+                )
+            # One record lumps every constant-head cell of one zone, so it answers
+            # a question about one named side only while the model holds a single
+            # constant-head boundary. Where the store does tell two apart, refuse:
+            # handing back a total under one side's name is the silent answer.
+            zones = sorted(chd["zone_id"].astype(str).unique())
+            if len(zones) > 1 or bool(chd["timestep"].duplicated().any()):
+                raise RuntimeError(
+                    f"'{observable_name}' names one boundary while the budget of sim "
+                    f"{sim_id} carries {len(chd)} constant-head records over "
+                    f"{len(zones)} zone(s) and {chd['timestep'].nunique()} timesteps; "
+                    "a per-boundary discharge is not readable from a lumped total."
+                )
+            chd_sorted = chd.sort_values("timestep")
+            values = np.asarray(chd_sorted["flux_out"].values, dtype=float)
+            indices = np.arange(values.shape[0], dtype=int)
+            return indices, values
 
     cause = errors[-1] if errors else None
     raise RuntimeError(

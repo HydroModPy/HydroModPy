@@ -1,29 +1,9 @@
-"""Public ``Project`` facade and its helper subsystems.
+"""The top of the package tree: the public verbs, a project, and how its runs are launched.
 
-The :class:`Project` class is the high-level entry point for interactive
-Python usage. The submodules below split its responsibilities so the
-facade stays focused on the public verbs:
-
-- :mod:`.facade` -- the :class:`Project` class itself
-- :mod:`.runner` -- internal runner backing ``simulate`` / ``calibrate`` / ``sweep``
-- :mod:`.catalog` -- catalog access and lifecycle helper
-- :mod:`.accessors` -- read-only accessors exposed on ``project.data`` and ``project.runs``
-- :mod:`.phases` -- model-phase verbs (``configure``, ``build_geographic``, ...)
-- :mod:`.dispatch` -- workflow and calibration dispatch adapters
+:mod:`.api` holds the fifteen verbs that ``hydromodpy`` and ``hmp`` expose.
+:mod:`.facade` holds :class:`~hydromodpy.project.facade.Project`,
+:mod:`.runner` the runner behind ``simulate`` and ``calibrate``, and
+:mod:`.accessors` the read-only accessors of a project and its catalog. This
+module imports nothing, so ``import hydromodpy.project.environment`` loads that
+module alone. The page of the package in the developer docs is the map of the package.
 """
-
-from __future__ import annotations
-
-from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccessor
-from hydromodpy.project.catalog import ProjectCatalog
-from hydromodpy.project.facade import Project
-from hydromodpy.project.runner import DEFAULT_RUN_NAME_TEMPLATE, ProjectRunner
-
-__all__ = [
-    "DEFAULT_RUN_NAME_TEMPLATE",
-    "Project",
-    "ProjectCatalog",
-    "ProjectDataAccessor",
-    "ProjectRunner",
-    "ProjectRunsAccessor",
-]

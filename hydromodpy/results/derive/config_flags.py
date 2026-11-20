@@ -1,137 +1,234 @@
-"""Which ``[simulation.results]`` option persists which stored field.
+"""What a run kept of the per-cell budget, and what to tell a reader who misses a field.
 
-Two kinds of option decide what a run keeps. A ``results.derived`` flag
-persists one derived field: the flag and the field share a name everywhere
-except the seepage mask (flag ``seepage_areas``, field ``seepage_mask``). The
-raw budget fields share a single switch, ``results.budget.spatial_fields``,
-and their list is read from :mod:`hydromodpy.results.field_registry` so a new
-``budget/<name>`` entry is covered without touching this module.
+Every derived field is rebuilt on read from the per-cell budget terms of the
+store. By default a run keeps all of them, so a field is missing only because
+the model does not produce it, and that is a quiet skip. With
+``[simulation.results] keep_per_cell_budget = false`` a run keeps only the
+terms its consumers read. A reader that then misses a field has something to
+act on, and the store says which case it is: the ``policy`` and ``kept_terms``
+attributes of its ``budget/`` group (:func:`hydromodpy.core.budget.terms.kept_budget`),
+never the configuration.
 
-Consumers use this map in both directions of the same question: the workflow
-turns a flag on when a requested figure needs the field, and the renderer
-names the option to enable when a field a figure needs is absent. The second
-direction also covers a field the run computed as an intermediate and dropped
-(the per-cell budget forced on by reconciliation): re-rendering it needs a new
-solve, which the message has to say instead of skipping in silence.
+``keep_per_cell_budget`` is the only option left. A field that reads no budget
+term (a head, a static parameter) has no option.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any, Protocol
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-from hydromodpy.results.field_registry import FIELD_REGISTRY
+from hydromodpy.core.budget.terms import (
+    POLICY_ALL,
+    POLICY_CONSUMERS,
+    KeptBudget,
+    budget_terms_for,
+)
 
-DERIVED_FIELD_FLAGS: dict[str, str] = {
-    "watertable_elevation": "watertable_elevation",
-    "watertable_depth": "watertable_depth",
-    "seepage_mask": "seepage_areas",
-    "release_flux": "release_flux",
-    "accumulation_flux": "accumulation_flux",
-    "release_accumulation_flux": "release_accumulation_flux",
-    "outflow_drain": "outflow_drain",
-    "concentration_seepage": "concentration_seepage",
-    "mass_seepage": "mass_seepage",
-    "mass_accumulated": "mass_accumulated",
-}
+if TYPE_CHECKING:
+    from hydromodpy.results.run.view import Run
 
-# Dotted path, relative to ``[simulation.results]``, of the per-cell budget
-# switch. It is the only option controlling every raw ``budget/<name>`` field.
-BUDGET_SPATIAL_OPTION = "budget.spatial_fields"
+#: The one option of ``[simulation.results]`` that decides what the budget keeps.
+KEEP_BUDGET_OPTION = "keep_per_cell_budget"
 
 
-def _budget_field_options() -> dict[str, str]:
-    """Registry fields stored under ``budget/``, mapped to their one switch."""
-    return {
-        name: BUDGET_SPATIAL_OPTION
-        for name, descriptor in FIELD_REGISTRY.items()
-        if descriptor.zarr_path.startswith("budget/")
-    }
+@dataclass(frozen=True, slots=True)
+class MissingBudget:
+    """Why a run lacks fields it could have kept.
 
+    ``kept`` is what the store declares, None for a store written before it
+    declared anything. ``terms`` are the per-cell terms the missing fields read
+    that the run did not keep (every term the fields read, for such a store).
+    """
 
-# Every field an option of ``[simulation.results]`` decides to persist, mapped
-# to that option as a dotted path.
-FIELD_CONFIG_OPTIONS: dict[str, str] = {
-    **{field: f"derived.{flag}" for field, flag in DERIVED_FIELD_FLAGS.items()},
-    **_budget_field_options(),
-}
-
-
-def derived_flag_for(field: str) -> str | None:
-    """Return the ``results.derived`` flag persisting ``field``, or None."""
-    return DERIVED_FIELD_FLAGS.get(field)
-
-
-def config_option_for(field: str) -> str | None:
-    """Return the ``[simulation.results]`` option persisting ``field``, or None."""
-    return FIELD_CONFIG_OPTIONS.get(field)
+    kept: KeptBudget | None
+    fields: tuple[str, ...]
+    terms: tuple[str, ...]
 
 
 def option_hint(option: str) -> str:
-    """Render a dotted option as the TOML line that enables it."""
-    section, _, key = option.rpartition(".")
-    return f"[simulation.results.{section}] {key} = true"
+    """Render an option as the TOML line that sets it."""
+    return f"[simulation.results] {option} = true"
 
 
-def enable_options_hint(options: Iterable[str]) -> str:
-    """One actionable sentence naming the options to enable and the re-run."""
+def enable_options_hint(options: Iterable[str], *, level: str = "result") -> str:
+    """One actionable sentence naming what to declare or set, and the re-run.
+
+    A kept calibration trial is ``research``: it keeps only the terms its
+    criterion reads whatever its configuration sets, so the sentence names
+    ``hmp replay`` instead of an option a run of it never left aside.
+    """
+    if level == "research":
+        return (
+            "This run is a kept calibration trial: it keeps only the budget terms "
+            "its criterion reads. hmp replay <run> writes it at the result level."
+        )
     lines = ", ".join(option_hint(option) for option in options)
     return (
-        f"Set {lines} and run the simulation again: this field is written "
-        "during the run, not on read."
+        "Declare a figure or an [[export]] that reads the field, or set "
+        f"{lines} (the default), and run the simulation again: the per-cell budget "
+        "is kept during the run, not on read."
     )
 
 
-class SupportsHasField(Protocol):
-    """Minimal run interface needed to tell a missing field from a flag-off one."""
+def _level_of_run(run: Run) -> str:
+    """Return the level of the run a message talks about.
 
-    def has_field(self, variable: str) -> bool: ...
-
-
-def missing_field_options(fields: Iterable[str], run: SupportsHasField) -> list[str]:
-    """``[simulation.results]`` options that would have kept a field ``run`` lacks.
-
-    Separates the two reasons a consumer skips a run. A run that does not
-    fit the request (no lake, no particles, another solver) misses fields no
-    option controls and stays a quiet skip. A field that only a disabled
-    option would have kept is a result the run was asked for and did not
-    store, which must be visible.
+    A ``Run`` reads it from its lineage. A lighter stand-in that only answers
+    ``has_field`` carries no lineage and is read at the ``result`` level, like
+    a run with no lineage.
     """
-    options = {
-        config_option_for(name)
-        for name in fields
-        if config_option_for(name) is not None and not run.has_field(name)
-    }
-    return sorted(str(option) for option in options)
+    from hydromodpy.results.run.sealed import lineage_of
+    from hydromodpy.results.run.view import Run
+    from hydromodpy.results.storage.kept import level_of
+
+    if not isinstance(run, Run):
+        return "result"
+    return level_of(lineage_of(run))
 
 
-def log_missing_field(logger: Any, run: SupportsHasField, field: str, what: str) -> None:
-    """Log one skipped consumer, loudly when a config option would have kept the field.
+def diagnose_missing(fields: Iterable[str], run: Run) -> MissingBudget | None:
+    """Tell whether a run lacks fields because it did not keep their budget terms.
 
-    ``what`` names the artefact that is being skipped, for example
-    ``"metrics for run x"``.
+    None when nothing is actionable: every field is present, reads no budget
+    term, or reads terms the run kept (a term kept with no array is a term the
+    model does not produce, which no option changes). A store that declares no
+    policy (written before the attributes existed) is actionable for every
+    missing field that reads a budget term: it was written before the budget
+    was kept by default. Unless it holds no head: a lumped run never had a
+    per-cell budget to keep, so nothing is actionable.
     """
-    options = missing_field_options([field], run)
-    if options:
-        logger.warning(
-            "Skipping %s: field '%s' is not in the store. %s",
-            what,
-            field,
-            enable_options_hint(options),
+    missing = [
+        name for name in dict.fromkeys(fields) if budget_terms_for(name) and not run.has_field(name)
+    ]
+    if not missing:
+        return None
+    from hydromodpy.results.run.geographic import has_head_of, kept_budget_of
+
+    kept = kept_budget_of(run)
+    needed = {term for name in missing for term in budget_terms_for(name)}
+    if kept is None:
+        if not has_head_of(run):
+            return None
+        return MissingBudget(None, tuple(missing), tuple(sorted(needed)))
+    if kept.policy != POLICY_CONSUMERS:
+        return None
+    lacking = needed - set(kept.terms)
+    if not lacking:
+        return None
+    return MissingBudget(kept, tuple(missing), tuple(sorted(lacking)))
+
+
+def missing_field_explanation(fields: Iterable[str], run: Run) -> str:
+    """Say what the run kept, which terms the missing fields need, and what to do.
+
+    Empty when the miss is not actionable (see :func:`diagnose_missing`).
+    """
+    problem = diagnose_missing(fields, run)
+    if problem is None:
+        return ""
+    hint = enable_options_hint([KEEP_BUDGET_OPTION], level=_level_of_run(run))
+    if problem.kept is None:
+        return (
+            "This run was written before the per-cell budget was kept by default, so the "
+            f"terms it needs ({', '.join(problem.terms)}) were not stored. {hint}"
         )
-        return
-    logger.debug("Skipping %s: field '%s' is not available for this run.", what, field)
+    kept = ", ".join(problem.kept.terms) or "none"
+    return (
+        f"This run kept only the per-cell budget terms its consumers read ({kept}); "
+        f"{', '.join(problem.fields)} also needs {', '.join(problem.terms)}. {hint}"
+    )
+
+
+# Fields built from the water that leaves the aquifer at the surface. Their
+# per-cell terms come from the one table of ``core.budget.terms``, minus the
+# recharge some of them also read, which is an entry and not an exit.
+_EXIT_FIELDS = (
+    "release_flux",
+    "release_accumulation_flux",
+    "drain_accumulation_flux",
+    "outflow_drain",
+)
+
+
+def _exit_terms_of(field: str) -> tuple[str, ...]:
+    """Return the budget terms through which water leaves the aquifer for ``field``."""
+    return tuple(term for term in budget_terms_for(field) if term != "recharge")
+
+
+def _model_has_no_exit(run: Any, terms: tuple[str, ...], has_budget_term: bool) -> bool:
+    """Say whether the run proves its model has none of the exit ``terms``.
+
+    A store that declares its policy proves it when it kept the whole budget and
+    holds some term of it (the extractors stamp ``all`` with no term when no
+    budget was read, which proves nothing), or when it kept every exit term and
+    wrote no array for them. A store that declares nothing is read as before:
+    some budget term is there, no exit one. A plan that kept other terms only
+    says nothing about the exits.
+    """
+    from hydromodpy.results.run.geographic import kept_budget_of
+
+    kept = kept_budget_of(run)
+    if kept is None or kept.policy == POLICY_ALL:
+        return has_budget_term
+    return all(term in kept.terms for term in terms)
+
+
+def no_surface_exit_reason(run: Any, required_fields: Iterable[str]) -> str | None:
+    """Say why a field built on the surface outflow cannot exist in ``run``, or None.
+
+    Only answers when the store proves the model has no exit. A model without
+    drain, stream, lake or surface excess releases no groundwater at the
+    surface, so ``release_flux`` and the fields routed from it do not exist. No
+    results option can change that, so a consumer that skips is not asked to
+    act. A run that kept only the terms its consumers read (the ``consumers``
+    policy) may lack the exit terms because the plan never asked for them: that
+    is not "no exit", and the answer is None.
+    """
+    from hydromodpy.results.field_registry import FIELD_REGISTRY
+
+    fields = [name for name in required_fields if name in _EXIT_FIELDS]
+    if not fields:
+        return None
+    has_field = getattr(run, "has_field", None)
+    if has_field is None:
+        return None
+    try:
+        missing = [name for name in fields if not has_field(name)]
+        if not missing:
+            return None
+        has_budget_term = any(
+            has_field(name, subgroup="budget")
+            for name, descriptor in FIELD_REGISTRY.items()
+            if descriptor.zarr_path.startswith("budget/")
+        )
+        for name in missing:
+            terms = _exit_terms_of(name)
+            if any(has_field(term, subgroup="budget") for term in terms):
+                continue
+            if not _model_has_no_exit(run, terms, has_budget_term):
+                return None
+            exits = (
+                "drain, stream, lake or surface excess"
+                if name in ("release_flux", "release_accumulation_flux")
+                else "drain"
+            )
+            return (
+                f"the model has no {exits}, so no groundwater leaves the aquifer "
+                f"that way and the run has no {name}"
+            )
+    except (TypeError, RuntimeError, KeyError, OSError):
+        return None
+    return None
 
 
 __all__ = [
-    "BUDGET_SPATIAL_OPTION",
-    "DERIVED_FIELD_FLAGS",
-    "FIELD_CONFIG_OPTIONS",
-    "SupportsHasField",
-    "config_option_for",
-    "derived_flag_for",
+    "KEEP_BUDGET_OPTION",
+    "MissingBudget",
+    "diagnose_missing",
     "enable_options_hint",
-    "log_missing_field",
-    "missing_field_options",
+    "missing_field_explanation",
+    "no_surface_exit_reason",
     "option_hint",
 ]

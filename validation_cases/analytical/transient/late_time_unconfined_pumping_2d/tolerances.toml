@@ -1,8 +1,19 @@
+# MODFLOW-NWT and MODFLOW 6 on the same 101 x 101 grid share these bounds.
 [space_time]
-rmse = 0.03
-max_abs_error = 0.08
-azimuthal_spread = 5e-4
+rmse = 0.009
+max_abs_error = 0.02
+azimuthal_spread = 1e-5
 
 [final_time]
-rmse = 0.02
-max_abs_error = 0.03
+rmse = 0.011
+max_abs_error = 0.02
+
+[doc]
+reason = """
+Twice the error measured against the Theis drawdown, MODFLOW-NWT and MODFLOW 6
+alike: space-time RMSE 4.4e-3 m, max error 9.8e-3 m, final RMSE 5.3e-3 m. The
+azimuthal spread bound is ten times the MODFLOW 6 head closure, 1e-6 m: the
+grid is symmetric about the well. Until 2026-10-09 the reference evaluated E1
+by an asymptotic series that is wrong between u = 1 and 8, which doubled the
+space-time error at the outer monitor points.
+"""

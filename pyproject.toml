@@ -1,22 +1,23 @@
 [build-system]
-requires = ["setuptools>=65.0", "wheel"]
+# 77 is the first setuptools that reads an SPDX string in project.license.
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodpy"
-version = "2.0.0a1"
+version = "2.0.0"
 description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = "EPL-2.0"
 authors = [
     { name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com" },
-    { name = "Ronan Abherve", email = "ronan.abherve@gmail.com" },
+    { name = "Ronan Abherve", email = "ronan.abherve@inrae.fr" },
     { name = "Jean-Raynald de Dreuzy", email = "jean-raynald.de-dreuzy@univ-rennes.fr" },
 ]
 maintainers = [
     { name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com" },
-    { name = "Ronan Abherve", email = "ronan.abherve@gmail.com" },
+    { name = "Ronan Abherve", email = "ronan.abherve@inrae.fr" },
     { name = "Bastien Boivin", email = "bastien.boivin@proton.me" },
 ]
 keywords = [
@@ -29,10 +30,13 @@ keywords = [
     "catchment",
     "queryable-results",
 ]
+# Linux x86_64 is the supported platform. macOS and Windows are best effort until
+# their CI is green. whitebox-workflows 1.3.5 ships wheels for manylinux_2_35
+# x86_64, macOS arm64 and win_amd64 only.
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -42,32 +46,40 @@ classifiers = [
 ]
 
 dependencies = [
-    "contextily>=1.7.0,<2",
     "flopy>=3.10.0,<4",
     "geopandas>=1.1.3,<2",
-    "h5py>=3.16.0,<4",
     "imageio>=2.37.3,<3",
     "matplotlib>=3.10.8,<4",
     "meshio>=5.3.5,<6",
     "netCDF4>=1.7.4,<2",
     "numpy>=2.4.4,<3",
+    "packaging>=23",
+    # Stays below 3: the stored-session read-back returns NaN where it returned
+    # None (tests/regression/frozen_runs), measured on pandas 3.1.0 on 2026-11-03.
     "pandas>=2.3.3,<3",
-    "Pillow>=12.0.0,<13",
+    # 13.0.0 is the first version with the 2026 security fixes.
+    "Pillow>=13.0.0,<14",
+    # Optuna 5 changes the TPE defaults (constant liar), so a calibration result moves.
     "optuna>=4.8.0,<5",
+    # Plotly 7 embeds slider frames differently: only one image is left in the HTML.
     "plotly>=6.7.0,<7",
     "pint>=0.25.3,<1",
-    "pydantic-pint>=0.4,<1",
-    "pyarrow>=23.0.1,<24",
+    "pydantic-pint>=0.6,<1",
+    "py7zr>=1.0,<2",
+    "pyarrow>=23.0.1,<27",
     "pyproj>=3.7.2,<4",
     "rasterio>=1.4.0,<2",
     "requests>=2.32.5,<3",
     "rioxarray>=0.19,<1",
     "scikit-learn>=1.8.0,<2",
     "scipy>=1.17.1,<2",
-    "shapely>=2,<3",
+    "shapely>=2.1,<3",
+    "threadpoolctl>=3.1,<4",
+    "whitebox-workflows==1.3.5",
     "xarray>=2026.4.0,<2027",
     "xugrid>=0.15.2,<1",
     "pydantic>=2.13.3,<3",
+    # DuckDB 2 refuses to reopen a deleted index path this process still holds.
     "duckdb>=1.5.2,<2",
     "dask>=2026.3.0,<2027",
     "rich>=13.9.4,<16",
@@ -78,56 +90,59 @@ dependencies = [
     "universal_pathlib>=0.2,<1",
     "pandera>=0.31.1,<1",
     "platformdirs>=4,<5",
-    "filelock>=3.13,<4",
+    "filelock>=3.13,<5",
     "argcomplete>=3.5,<4",
 ]
 
 [project.optional-dependencies]
 calibration = ["cma>=4.4.4,<5", "cmaes>=0.12.0,<1"]
-delineation = ["whitebox-workflows>=1.3.5,<2"]
 mesh = ["gmsh>=4.15.2,<5"]
-duckdb = ["duckdb"]
-metrics = ["psutil", "pynvml"]
+metrics = ["psutil"]
 mf6api = [
-    "modflowapi @ git+https://github.com/HydroModPy/modflowapi.git@hydromodpy",
-    "xmipy @ git+https://github.com/HydroModPy/xmipy.git@hydromodpy",
+    "modflowapi>=0.2",
+    "xmipy>=1.5",
 ]
-all = ["duckdb", "psutil", "pynvml"]
 viz = [
     "datashader>=0.16,<1",
     "lttb>=0.3,<1",
 ]
-fair = [
-    "pystac>=1.10,<2",
-    "stac-validator>=3.5,<5",
+# pystac checks a STAC item of the annex view, so it serves only a checkout.
+fair = ["pystac>=1.10,<2"]
+sftp = ["paramiko>=3.4,<5"]
+# Every functional extra. The test, docs, ide and dev extras are for contributors.
+all = ["hydromodpy[calibration,mesh,mf6api,viz,fair,metrics,sftp]"]
+test = [
+    # pytest 9.2 failed the CI when it came out, on 2026-11-05.
+    "pytest<9.2",
+    "pytest-xdist",
+    "pytest-timeout",
+    "pytest-cov",
+    "coverage[toml]>=7.10",
+    "pyyaml",
+    "jsonschema>=4.0",
+    "pyinstrument>=5.0,<6",
+    "hypothesis>=6.100,<7",
+    # The conformance tests of the RO-Crate and STAC exports validate with these.
     "rocrate>=0.10,<1",
+    "stac-validator>=3.5,<5",
 ]
-test = ["pytest", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.0", "pyyaml", "jsonschema>=4.0", "pyinstrument>=5.0,<6", "hypothesis>=6.100,<7"]
-performance = ["pytest-benchmark>=5.0,<6", "uuid-utils>=0.10,<1", "polars>=1.0,<2"]
+performance = ["pytest-benchmark>=5.0,<6"]
 profiling = ["pyinstrument>=5.0,<6"]
 docs = [
-    "sphinx>=7.0,<8",
-    "myst-parser",
+    "sphinx>=9.0,<9.1",
+    "myst-parser>=5.1,<6",
     "sphinx-autobuild",
-    "readthedocs-sphinx-ext",
-    "pydata-sphinx-theme==0.17.1",
-    "sphinx-design",
+    "pydata-sphinx-theme==0.23.0",
+    "sphinx-design>=0.7",
     "sphinx-copybutton",
-    "sphinx-polyversion>=1.0",
-    "sphinxcontrib-plantuml",
-    "autodoc-pydantic>=2.0",
-    "sphinx-codeautolink",
     "sphinxcontrib-bibtex",
-    "sphinx-autodoc-typehints<3",
-    "sphinxext-rediraffe",
-    "sphinx-favicon<1.1",
+    "sphinx-favicon>=1.1",
     "sphinx-sitemap",
     "sphinx-last-updated-by-git",
     "sphinxext-opengraph",
-    "sphinx-lint",
-    "doc8",
+    "sphinxext-rediraffe",
+    "pagefind[bin]>=1.5",
 ]
-docs-uml = ["erdantic"]
 ide = [
     "ipykernel",
     "ipython",
@@ -136,19 +151,62 @@ ide = [
     "spyder>=6.0",
     "spyder-kernels",
 ]
-viewer3d = ["pyvista"]
 dev = [
-    "ruff>=0.15",
+    # The same version as the pre-commit hook and main-ci.yml.
+    "ruff==0.17.6",
     "pre-commit>=4.0",
+    "mypy>=1.13",
+    "types-requests",
 ]
 
 [project.scripts]
-hmp = "hydromodpy.cli:main"
-hydromodpy = "hydromodpy.cli:main"
+hmp = "hydromodpy.cli.main:main"
+hydromodpy = "hydromodpy.cli.main:main"
 
-# The "hydromodpy.solver" and "hydromodpy.solver.extractor" entry-point groups
-# are the out-of-tree plugin surface. In-tree backends are declared once, in
-# hydromodpy.solver.base.registry, so a backend never carries two names.
+# Eight entry-point groups are the out-of-tree plugin surface. Each is read by
+# one instance of hydromodpy.core.plugin_registry.PluginRegistry, and the
+# in-tree classes are declared once, in the same module, so a plugin never
+# carries two names. An entry-point name must equal the id its class declares,
+# and a name this build already ships is refused.
+#
+# "hydromodpy.solver" and "hydromodpy.solver.extractor" are read by
+# hydromodpy.solver.base.registry.solvers and .extractors. A backend is named
+# <process_type>_<name>, for example flow_modflow6, and its adapter class
+# declares the attributes the solver port lists.
+#
+# "hydromodpy.data.source" is read by hydromodpy.data.source.registry.data_sources.
+# A source is named <section>_<source_id>, for example hydrography_osm.
+#
+# "hydromodpy.export.format" is read by
+# hydromodpy.results.exporters.registry.export_formats. It names an export
+# format or run view, for example stac or prov.
+#
+# "hydromodpy.terrain.engine" is read by
+# hydromodpy.catchment.terrain.registry.terrain_engines. It is what
+# [geographic] terrain_engine names, so a flow-routing engine is substituted
+# from outside without a patch to this package.
+#
+# "hydromodpy.mesh.engine" is read by hydromodpy.mesh.registry.mesh_engines. It
+# is what [mesh] engine names, so a mesh engine (catchment, regular, triangle
+# and voronoi ship in-tree) is substituted the same way.
+#
+# "hydromodpy.calibration.evaluator" is read by
+# hydromodpy.calibration.evaluation.registry.evaluators. It turns a parameter
+# sample into a cost and is named by [calibration] evaluator. A global model is
+# a solver backend named by [solver] backend, not an evaluator: it registers on
+# the "hydromodpy.solver" group above.
+#
+# "hydromodpy.calibration.optimizer" is read by
+# hydromodpy.calibration.optim.optimizer.optimizers. It is the search method
+# that [calibration] method names, so an optimizer is substituted the same way.
+#
+# The two entries below point at hydromodpy_annex, which the wheel does not
+# ship. They resolve from a checkout only. From a wheel the registry lists
+# stac and prov as unavailable and says why.
+
+[project.entry-points."hydromodpy.export.format"]
+stac = "hydromodpy_annex.export.stac:StacItemView"
+prov = "hydromodpy_annex.export.prov:ProvView"
 
 [project.urls]
 Homepage = "https://docs.hydromodpy.fr/"
@@ -162,43 +220,57 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["hydromodpy*"]
-exclude = ["hydromodpy_annex*"]
+exclude = ["hydromodpy_annex*", "hydromodpy_server*"]
 
 [tool.setuptools.package-data]
 hydromodpy = ["py.typed"]
-"hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
-"hydromodpy.data.common.administrative" = ["*.gpkg"]
-"hydromodpy.cli.commands.dev.manage.static" = ["*.html"]
+# The process descriptions ship inside the wheel: a shim reads them with
+# importlib.resources to learn what it can invoke, without importing anything.
+"hydromodpy.schema.processes" = ["*.json"]
+# The example catalog ships in the wheel so `hmp example list` answers offline
+# and can only promise what the installed version knows about.
+"hydromodpy.project.examples" = ["catalog.toml"]
+# The register of changes is read by schema/changes.py: the bugs that label a run,
+# the defaults of each edition and the rows of the migration. The phrases of the
+# check codes, in English and in French, are read by config/check.py.
+"hydromodpy.schema" = ["changes.toml", "phrases.toml"]
+# The keys only a pre-release of 2.0 wrote, refused by config/config_migration.py.
+"hydromodpy.config" = ["prerelease_forms.txt"]
+# The tested table of the calibration protocols, read by calibration.protocols.base.
+"hydromodpy.calibration" = ["protocols/tested_backends.toml"]
+# The JSON Schemas of the stored formats, generated from the results models.
+"hydromodpy.schema.results" = ["*.json"]
+# The SLURM job templates of `hmp campaign array`, read by importlib.resources.
+"hydromodpy.project.launch.templates" = ["*.sh"]
+"hydromodpy.catchment.administrative" = ["*.gpkg"]
+# TeX Gyre Heros and its licence, registered by display/theme.py, and the table
+# of the former figure names, read by display/request.py.
+"hydromodpy.display" = ["fonts/*.ttf", "fonts/*.txt", "retired_figures.toml"]
+# The curated CF v85 standard-name list is read at runtime by cf_validation.py.
+"hydromodpy.results.zarr_store.data" = ["*.txt"]
 
 [tool.coverage.run]
 source = [
     "hydromodpy.core",
     "hydromodpy.schema",
     "hydromodpy.config",
-    "hydromodpy.spatial",
-    "hydromodpy.physics",
+    "hydromodpy.catchment",
+    "hydromodpy.mesh",
+    "hydromodpy.model",
     "hydromodpy.data",
-    "hydromodpy.catalog",
     "hydromodpy.results",
-    "hydromodpy.simulation",
     "hydromodpy.solver",
     "hydromodpy.calibration",
     "hydromodpy.display",
-    "hydromodpy.analysis",
     "hydromodpy.workflow",
     "hydromodpy.project",
     "hydromodpy.cli",
 ]
 parallel = true
+# Measure every Python child a test starts: scenario, pool worker, server.
+patch = ["subprocess"]
 omit = [
-    "hydromodpy/**/cases/*",
-    "hydromodpy/**/examples/*",
-    "hydromodpy/validity_frame/*",
-    "hydromodpy/validity_frame/**/*",
-    "hydromodpy/physics/hydrology/pyhelp/*",
-    "hydromodpy/physics/hydrology/pyhelp/**/*",
     "examples/*",
-    "examples_legacy/*",
     "validation_cases/*",
     "hydromodpy_annex/*",
     "docs/*",
@@ -213,7 +285,8 @@ exclude_lines = [
     "if __name__ == .__main__.",
     "if TYPE_CHECKING:",
     "raise NotImplementedError",
-    "\\.\\.\\.",
+    "^\\s*\\.\\.\\.\\s*$",
+    ":\\s*\\.\\.\\.\\s*$",
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -226,11 +299,9 @@ line-length = 100
 extend-exclude = [
     "hydromodpy.egg-info",
     "docs",              # Sphinx conf + doc examples aren't production code
-    "bin",
     ".venv",
     "build",
     "dist",
-    "*.ipynb",           # skip notebooks (stray scratch files like Test_delete.ipynb)
 ]
 
 [tool.ruff.lint]
@@ -244,6 +315,7 @@ select = [
     "UP",    # pyupgrade (modernize syntax for your target Python)
     "B",     # flake8-bugbear (likely-bug patterns)
     "TID251", # flake8-tidy-imports banned-api (block stdlib logging.getLogger)
+    "SLF001", # private member access; enforced in hydromodpy/data and display only, see per-file-ignores
 ]
 
 ignore = [
@@ -252,13 +324,19 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# No module of hydromodpy/data or hydromodpy/display reads a private attribute
+# of another. The rest of the repository is not held to it yet.
+"!hydromodpy/{data,display}/**" = ["SLF001"]
 # Package __init__ files commonly re-export symbols and set up paths.
-"__init__.py" = ["F401", "E402", "TID251"]
+"__init__.py" = ["E402", "TID251"]
 # Logging subsystem is the canonical wrapper around stdlib `logging.getLogger`.
 "hydromodpy/core/logging.py" = ["TID251"]
-# core/progress is imported by core/logging (console handler); importing
+# core/console/progress is imported by core/logging (console handler); importing
 # get_logger back would be circular.
-"hydromodpy/core/progress.py" = ["TID251"]
+"hydromodpy/core/console/progress.py" = ["TID251"]
+# core/console/ndjson is imported by core/console/progress, itself imported by
+# core/logging; same circularity as core/console/progress.py above.
+"hydromodpy/core/console/ndjson.py" = ["TID251"]
 # Tests can use idiomatic pytest patterns: bare pytest.raises(Exception),
 # zip without strict=, kept assignments for readability, etc.
 "tests/**/*.py" = ["E402", "F401", "B011", "B017", "B905", "F841"]
@@ -272,24 +350,21 @@ ignore = [
 "validity_frame/**" = ["UP042"]
 # Annex: legacy/peripheral code, minimal linting.
 "hydromodpy_annex/**" = ["E402", "F401", "B006", "B007"]
-# Demo / validation scripts: lenient, they're not production code.
-"hydromodpy/**/cases/**" = ["E402", "F401", "B007"]
-"hydromodpy/**/examples/**" = ["E402", "F401", "B007"]
+# Validation scripts: lenient, they're not production code.
 "validation_cases/**" = ["E402", "F401", "B007", "B905"]
 "examples/**" = ["E402", "F401", "B007"]
 # CLI shells can do argparse-style late imports.
 "hydromodpy/cli/**" = ["E402"]
 # Pydantic `model_rebuild(_types_namespace=...)` pattern: forward refs are
 # resolved at runtime via an explicit namespace dict, so ruff can't see them
-# with static analysis. Known-good, silencing F821 in these files.
-"hydromodpy/data/data_managers_config.py" = ["F821"]
+# with static analysis. Known-good, silencing F821 in this file.
 "hydromodpy/config/hydromodpy_config.py" = ["F821"]
 # MODFLOW-NWT solver subtree: import ordering and double-docstring license
 # headers are handled separately from this release cleanup.
 "hydromodpy/solver/modflow_nwt/**" = ["E402"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["hydromodpy", "hydromodpy_annex"]
+known-first-party = ["hydromodpy", "hydromodpy_annex", "hydromodpy_server"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Force every module-level logger to go through hydromodpy.core.logging.get_logger
@@ -304,7 +379,6 @@ known-first-party = ["hydromodpy", "hydromodpy_annex"]
 # when the real import sits under `if TYPE_CHECKING:`.
 runtime-evaluated-base-classes = [
     "pydantic.BaseModel",
-    "pydantic_settings.BaseSettings",
 ]
 
 [tool.ruff.format]
@@ -316,7 +390,7 @@ line-ending = "auto"
 # Also format code blocks inside docstrings (``>>>`` examples etc.).
 docstring-code-format = true
 docstring-code-line-length = 80
-# User-managed project scripts: kept in sync with mypy's exclude list above
+# User-managed project scripts: kept in sync with mypy's exclude list below
 # so users own the layout of their own examples without auto-reformatting.
 exclude = ["examples/projects/**"]
 
@@ -333,7 +407,6 @@ warn_unused_ignores = true
 plugins = ["pydantic.mypy"]
 exclude = [
     "hydromodpy_annex/",
-    "_archive/",
     "examples/projects/",
     "tests/",
 ]
@@ -349,9 +422,6 @@ module = [
     "xarray.*",
     "xugrid.*",
     "whitebox_workflows.*",
-    "vedo.*",
-    "ultraplot.*",
-    "pyvista.*",
     "gmsh.*",
     "cma.*",
     "optuna.*",
@@ -360,9 +430,6 @@ module = [
     "dask.*",
     "tomlkit.*",
     "tomli_w.*",
-    "matplotlib_scalebar.*",
-    "colormap.*",
-    "contextily.*",
     "imageio.*",
 ]
 ignore_missing_imports = true

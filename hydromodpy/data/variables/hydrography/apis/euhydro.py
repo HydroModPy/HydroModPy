@@ -1,13 +1,32 @@
-"""Fetch hydrography from the EU-Hydro River Network Database (EEA Discomap)."""
+"""Fetch hydrography from the EU-Hydro River Network Database (EEA Discomap).
+
+``fetch`` serves the hydrography variable. :class:`EuHydroSource` puts the
+same function behind the data-source port. Continental where the
+other two ``features`` sources are national, and the one whose request is not a
+single call: the adapter's provider function discovers the feature layers of a
+MapServer group, then pages each of them. The port sees one question and one
+answer, which is what lets a caller ask the three the same way.
+
+``euhydro_page_size`` carries its provider's name because the flat
+``[[data.hydrography.sources]]`` section already spent ``page_size`` on BD
+Topage, and the generic binder hands a source the section field its constructor
+names. The prefix belongs to the section, not to this class, and it goes when
+the section becomes a tagged union.
+"""
 
 from __future__ import annotations
 
-import geopandas as gpd
-import pandas as pd
+from typing import TYPE_CHECKING, Any, ClassVar
 
-from hydromodpy.core.io.http_client import get_default_client
+from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
+from hydromodpy.data.variables.hydrography.apis.features import FeatureSource
+
+if TYPE_CHECKING:
+    import geopandas as gpd
+
+    from hydromodpy.core.io.fetch import HTTPClient
+    from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 logger = get_logger(__name__)
 
@@ -19,9 +38,14 @@ _TIMEOUT = 300
 _PAGING_GUARD = 2_000_000
 
 
-def _mapserver_pjson() -> dict:
-    r = get_default_client().get(BASE_URL, params={"f": "pjson"}, timeout=_TIMEOUT)
+def _get(url: str, params: dict[str, Any], *, client: HTTPClient) -> Any:
+    r = client.get(url, params=params, timeout=_TIMEOUT)
     r.raise_for_status()
+    return r
+
+
+def _mapserver_pjson(*, client: HTTPClient) -> dict:
+    r = _get(BASE_URL, {"f": "pjson"}, client=client)
     return r.json()
 
 
@@ -46,13 +70,12 @@ def _feature_layer_ids_in_group(ms: dict, group_name: str) -> list[int]:
     return sorted(set(ids))
 
 
-def _layer_name(layer_id: int) -> str:
-    r = get_default_client().get(
+def _layer_name(layer_id: int, *, client: HTTPClient) -> str:
+    r = _get(
         f"{BASE_URL}/{layer_id}",
-        params={"f": "pjson"},
-        timeout=_TIMEOUT,
+        {"f": "pjson"},
+        client=client,
     )
-    r.raise_for_status()
     return r.json().get("name", str(layer_id))
 
 
@@ -61,6 +84,8 @@ def _query_page_geojson(
     bbox_wgs84: tuple[float, float, float, float],
     offset: int,
     limit: int,
+    *,
+    client: HTTPClient,
 ) -> dict:
     lon_min, lat_min, lon_max, lat_max = bbox_wgs84
     url = f"{BASE_URL}/{layer_id}/query"
@@ -78,8 +103,7 @@ def _query_page_geojson(
         "resultRecordCount": limit,
         "orderByFields": "OBJECTID",
     }
-    r = get_default_client().get(url, params=params, timeout=_TIMEOUT)
-    r.raise_for_status()
+    r = _get(url, params, client=client)
     data = r.json()
     if isinstance(data, dict) and "error" in data:
         raise RuntimeError(f"ArcGIS error for layer {layer_id}: {data['error']}")
@@ -91,13 +115,17 @@ def _fetch_layer(
     bbox_wgs84: tuple[float, float, float, float],
     page_size: int,
     label: str,
+    *,
+    client: HTTPClient,
 ) -> gpd.GeoDataFrame:
     """Download features for a single layer with pagination."""
+    import geopandas as gpd
+
     features: list = []
     offset = 0
 
     while True:
-        data = _query_page_geojson(layer_id, bbox_wgs84, offset, page_size)
+        data = _query_page_geojson(layer_id, bbox_wgs84, offset, page_size, client=client)
         batch = data.get("features", [])
         features.extend(batch)
         got = len(batch)
@@ -117,15 +145,20 @@ def _fetch_layer(
 def fetch(
     config: HydrographySourceConfig,
     bbox_wgs84: tuple[float, float, float, float],
+    *,
+    client: HTTPClient,
 ) -> gpd.GeoDataFrame:
     """Download EU-Hydro features inside *bbox_wgs84*.
 
     Returns a GeoDataFrame in EPSG:4326.
     """
+    import geopandas as gpd
+    import pandas as pd
+
     group_name = config.group_name
     page_size = config.euhydro_page_size
 
-    ms = _mapserver_pjson()
+    ms = _mapserver_pjson(client=client)
     layer_ids = _feature_layer_ids_in_group(ms, group_name)
     logger.info("[EU-Hydro] feature layers under '%s': %s", group_name, layer_ids)
 
@@ -133,12 +166,12 @@ def fetch(
         logger.warning("No EU-Hydro feature layers found for group '%s'.", group_name)
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
-    names = {lid: _layer_name(lid) for lid in layer_ids}
+    names = {lid: _layer_name(lid, client=client) for lid in layer_ids}
 
     gdfs: list[gpd.GeoDataFrame] = []
     for lid in layer_ids:
         lname = names.get(lid, str(lid))
-        gdf = _fetch_layer(lid, bbox_wgs84, page_size, label=lname)
+        gdf = _fetch_layer(lid, bbox_wgs84, page_size, label=lname, client=client)
         if not gdf.empty:
             gdf["layer_id"] = lid
             gdf["layer_name"] = lname
@@ -151,3 +184,63 @@ def fetch(
     combined = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True), crs="EPSG:4326")
     logger.info("[EU-Hydro] fetched %d features total", len(combined))
     return combined
+
+
+DEFAULT_GROUP_NAME = "River_Net_lines"
+DEFAULT_PAGE_SIZE = 1000
+"""The two defaults ``HydrographySourceConfig`` declares for this source.
+
+Repeated here rather than imported, for the reason BD Topage gives: the
+vocabulary stays importable without pydantic.
+``test_the_declared_defaults_match_the_config`` keeps the two in step.
+"""
+
+
+class EuHydroSource(FeatureSource):
+    """The EEA EU-Hydro river network, served by the Discomap MapServer."""
+
+    source_id: ClassVar[str] = "euhydro"
+
+    def __init__(
+        self,
+        *,
+        group_name: str = DEFAULT_GROUP_NAME,
+        euhydro_page_size: int = DEFAULT_PAGE_SIZE,
+    ) -> None:
+        if not isinstance(group_name, str) or not group_name.strip():
+            raise DataRequestError(f"EU-Hydro group_name={group_name!r} is empty.")
+        if (
+            not isinstance(euhydro_page_size, int)
+            or isinstance(euhydro_page_size, bool)
+            or euhydro_page_size < 1
+        ):
+            raise DataRequestError(
+                f"EU-Hydro euhydro_page_size={euhydro_page_size!r} is not a positive whole "
+                "number; a page of zero features never advances and the paging loop would "
+                "not end."
+            )
+        self.group_name = group_name
+        self.euhydro_page_size = euhydro_page_size
+
+    def download(
+        self, bbox: tuple[float, float, float, float], *, client: HTTPClient
+    ) -> gpd.GeoDataFrame:
+        from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
+
+        config = HydrographySourceConfig(
+            source="euhydro",
+            group_name=self.group_name,
+            euhydro_page_size=self.euhydro_page_size,
+        )
+        return fetch(config, bbox, client=client)
+
+    def metadata(self) -> dict[str, Any]:
+        return {"group_name": self.group_name}
+
+
+__all__ = [
+    "DEFAULT_GROUP_NAME",
+    "DEFAULT_PAGE_SIZE",
+    "EuHydroSource",
+    "fetch",
+]

@@ -1,1 +1,0 @@
-"""Humidity API adapters."""

@@ -4,6 +4,12 @@ This directory holds the automated tests for HydroModPy. It is split into
 five release tiers plus focused auxiliary tiers with different purposes,
 budgets, and selection rules.
 
+The tests fall in five families. Kernels in tables live in `unit/<package>/`,
+one file per module. Scenarios live in `scenarios/`, port tests in
+`ports/test_<port>.py`, refusal tables in `refusals/test_<family>.py`, and the
+architecture gates in `unit/architecture/`. `regression/` and `validation/`
+stand beside them.
+
 ## Layout
 
 ```
@@ -14,15 +20,23 @@ tests/
 ├── regression/                  # golden-reference tests for full workflows
 │   ├── fast/                    # routine non-regression tier
 │   ├── extensive/               # deeper end-to-end non-regression tier
+│   ├── frozen_runs/             # a run and a session as 2.0.0 stored them, never edited
+│   ├── frozen_documents/        # documents written before the 2.0.0 tag, read or refused by name
+│   ├── frozen_replay/           # one MODFLOW 6 run that must replay bit for bit
 │   └── reference/               # committed golden JSON files
 ├── validation/                  # scientific benchmarks (analytical, MMS)
 │   ├── analytical/
 │   │   ├── steady/
 │   │   └── transient/
 │   └── numerical/
+├── characterization/            # what a produced run offers a reader, plus the
+│                                # double-execution comparator
 ├── e2e/                         # subprocess-level command scenarios
+├── processes/                   # several processes on one folder, Linux and Windows
+├── scenarios/                   # twenty-eight synthetic projects played by the real pipeline
 ├── performance/                 # pytest-benchmark storage-wrapper benchmarks
-├── contract/                    # compatibility contracts across implementations
+├── ports/                       # one file per port registry, parametrized on its names
+├── refusals/                    # refusal tables: input, class, code, sentence
 └── _helpers/                    # pytest-local helpers and shared builders
 ```
 
@@ -38,6 +52,12 @@ tests/
 | `regression/fast` | ≤ 5 min | Full launcher/pipeline workflows on mini fixtures, compared to committed golden signatures. | `pytest tests/regression/fast/` |
 | `regression/extensive` | ≤ 30 min | Deeper end-to-end golden checks with heavier fixtures. | `pytest tests/regression/extensive/` |
 | `validation` | ≤ 30 min | Numerical results vs analytical / MMS references with documented tolerances. | `pytest tests/validation/` |
+| `regression/frozen_replay` | ≤ 1 min | One frozen MODFLOW 6 run on 434 triangles, replayed by `hmp replay` from a copy and classed `bit`, once without gmsh. The weekly job replays it on another processor, and `HMP_REPLAY_REPORT` names the file where the test writes the class and the gaps it measured. | `pytest tests/regression/frozen_replay -q` |
+| `processes` | 300 s per test | Tests that start several processes on one project, store, index or data folder. Children start with `spawn` only, so the tier runs on Linux and Windows, and the weekly job plays it on Windows. | `pytest tests/processes -q` |
+| `scenarios` | ≤ 10 min under `-n 8` | Twenty-eight small synthetic projects, each played once by the real pipeline in a child process. The list is the `SCENARIOS` tuple of `tests/scenarios/test_harness.py`. | `pytest tests/scenarios/` or `pytest -m scenario` |
+| `ports` | 900 s per test | One file per port registry (solver, source, terrain, mesh, optimizer, evaluator, figure, export), parametrized on its names. A missing binary is a skip unless `HMP_REQUIRE_BINARIES` is set. | `pytest tests/ports/` |
+| `refusals` | 60 s per test | One row per refused input, with its class, its code and the sentence that names the new form. | `pytest tests/refusals/` |
+| `characterization` | ≤ 1 min | One real `hmp run` on a committed example project, read back only through the file formats a stranger would use. Holds exactly five `xfail(strict=True)` cases, one per claim the code makes and does not honour; a strict xfail that starts passing fails the tier, which is how a repaired claim gets noticed. | `pytest tests/characterization/` |
 
 ## Markers
 
@@ -61,15 +81,21 @@ Declared in the repository-root `pytest.ini`:
 | `coverage`    | long-running coverage-focused test |
 | `solver_sanity` | benchmark built directly on the solver SDK (e.g. flopy); validates the external solver against an analytical reference, **not** the hydromodpy pipeline |
 | `e2e`         | end-to-end pipeline scenarios |
+| `scenario`    | a synthetic project played by the real pipeline (auto-applied to `tests/scenarios/`) |
 | `performance` | performance baseline benchmarks |
 | `unit`        | unit-tier tests, auto-applied by path |
+| `characterization` | characterization-tier tests, auto-applied by path |
+| `processes` | tests that start several processes on one folder, auto-applied to `tests/processes/` |
+| `ports` | port tests, auto-applied to `tests/ports/` |
+| `refusals` | refusal tables, auto-applied to `tests/refusals/` |
 | `boussinesq`  | Boussinesq solver specific test |
 | `network`     | requires network access |
 | `binary`      | requires a solver binary on `PATH` |
-| `gpu`         | requires a GPU at runtime |
 | `allow_subprocess` | permits subprocess calls inside `unit/` |
 | `timeout`     | per-test timeout in seconds |
 | `xdist_group` | pytest-xdist worker grouping |
+| `whitebox`    | drives the Whitebox native binding, auto-applied to the files of `_WHITEBOX_XDIST_GROUP_TEST_FILES` in `tests/conftest.py`; the workflows run `-m "not whitebox"` in parallel, then `-m whitebox` in a serial session |
+| `windows`     | proves a Windows behaviour; skipped elsewhere with one reason, and a failure when it skips under `HMP_REQUIRE_WINDOWS` |
 
 The `fast`/`extensive` markers under `tests/regression/` are auto-applied
 based on the file's subdirectory (see `tests/conftest.py`).
@@ -92,6 +118,18 @@ pytest tests/regression/extensive/ -q -n 1
 # Validation - all analytical cases
 pytest tests/validation/ -q
 
+# Characterization - one real run, read back from disk
+pytest tests/characterization/ -q
+
+# Several processes on one folder
+pytest tests/processes -q
+
+# The frozen MODFLOW 6 run, replayed bit for bit
+pytest tests/regression/frozen_replay -q
+
+# Double-execution comparator on the four frozen projects (about one minute)
+python -m tests.characterization.comparator --frozen --report ~/hmp-parity.md
+
 # Marker selection
 pytest -m "regression and fast" -q
 pytest -m "validation and steady" -q
@@ -103,14 +141,14 @@ pytest tests/unit/ -q -n auto
 pytest tests/regression/fast/ -q -n auto
 ```
 
-The `hmp` CLI wraps the most common invocations:
+In a source checkout, `python -m tools.dev test` wraps the most common invocations:
 
 ```bash
-hmp test unit                # → pytest tests/unit/
-hmp test regression --fast   # → pytest tests/regression/fast/
-hmp test regression --fast --intercomparison
-hmp test regression --extensive
-hmp test regression --update-goldens
+python -m tools.dev test unit                # → pytest tests/unit/
+python -m tools.dev test regression --fast   # → pytest tests/regression/fast/
+python -m tools.dev test regression --fast --intercomparison
+python -m tools.dev test regression --extensive
+python -m tools.dev test regression --update-goldens
 ```
 
 ## Environment
@@ -123,6 +161,7 @@ tree clean:
 | `HMP_TEST_SCRATCH_ROOT` | `/tmp/hydromodpy_tests/` | Shared scratch root; set this to redirect all test artifacts. |
 | `HMP_COVERAGE`          | unset | When `1`, enables coverage collection during regression runs. |
 | `PYTEST_DEBUG_TEMPROOT`        | `<scratch>/pytest` | Points pytest's `tmp_path` generator inside the scratch root. |
+| `HMP_REQUIRE_WINDOWS`   | unset | When set, a test marked `windows` that skips fails instead. The weekly Windows job sets it. |
 
 The conftest sets `TMPDIR`/`TMP`/`TEMP` to a subdirectory of the scratch root
 so spawned subprocesses inherit the same cleanup policy.
@@ -179,7 +218,7 @@ parses the shared table for tests that need a named tolerance.
 
 ## Writing new tests
 
-- **unit/** - one importable module under test, one behaviour per test,
+- **unit/** - one importable module under test, one behavior per test,
   2 s target. The hard limit enforced by `tests/conftest.py` is a 60 s
   per-test timeout; anything that needs more must carry `@pytest.mark.slow`,
   which takes it out of the push gate. No external binaries. Use `tmp_path`
@@ -213,13 +252,26 @@ The active GitHub Actions gates are split across `.github/workflows/`:
 
 - **main-ci.yml** - PR + push gate: quality (ruff), secrets, architecture,
   a `--collect-only` gate over the whole tree, fast / unit (`-m "not slow"`) /
-  contract / integration / regression-fast tiers, package-smoke, typing.
-- **ci-nightly.yml** - nightly extensive regression, validation (not petsc),
-  integration with coverage.
+  ports / refusals / scenarios / integration / regression-fast tiers, the
+  coverage floor of each sub-package (`tools/ci/coverage_floors.toml`), the
+  proof that removed tests lose nothing (`tools/ci/proof.py`), package-smoke,
+  typing.
+- **ci-nightly.yml** - nightly extensive regression, validation (not petsc; the
+  petsc variants run in ci-nightly-petsc.yml), integration with coverage.
+- **ci-nightly-petsc.yml** - nightly PETSc validation variants
+  (`tests/validation -m petsc`, conda env with petsc4py), uploads
+  `validation-results-petsc-<branch>`.
 - **ci-weekly.yml** - cross-OS unit + fast-regression + analytical, serial
-  e2e, full regression.
+  e2e, full regression, the frozen MODFLOW 6 replay with one and four BLAS
+  threads, the package proof of the week, and every `windows` test on
+  Windows under `HMP_REQUIRE_WINDOWS`.
 - **perf.yml** - pytest-benchmark drift gate over `tests/performance/`.
 - **petsc-smoke.yml** - Linux PETSc Boussinesq smoke subset (conda env).
+
+`python tools/ci/local.py run --out <dir> [--job <job>]` replays the Linux,
+Python 3.13 steps of the workflows on a local machine, with one log per step
+and a `status` file. `python tools/ci/local.py list` prints the steps it plays
+and, for every other step, the reason it is not played locally.
 
 Validation, extensive regression, and e2e are not part of the fast
 PR-blocking suite; run validation manually before a release with

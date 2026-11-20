@@ -3,26 +3,104 @@
 Splits the heavy ``ModflowNwt.pre_processing`` body into a free
 function that mutates the solver instance in place. The solver class
 stays a thin lifecycle facade.
+
+It scales the rates to the solver time unit and checks that the layers connect.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 import flopy
 import numpy as np
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
+from hydromodpy.solver.modflow_common.time_units import seconds_per_itmuni
 
-from .diagnostics import check_water_flow_connectivity
 from .flow_to_modflow_adapter import FlowModflowInputs
-from .payloads.rates import ITMUNI_TO_SECONDS, scale_rate_payload
 
 if TYPE_CHECKING:
     from .nwt_solver import ModflowNwt
 
 logger = get_logger(__name__)
+
+
+def scale_rate_payload(payload: object, factor: float) -> object:
+    """Scale a recharge / EVT rate payload by ``factor``.
+
+    Handles the three shapes produced by ``flow_to_modflow_adapter``:
+    a scalar (steady-state), a 2D ndarray (one map for the whole run),
+    or a ``{kper: scalar | ndarray}`` mapping (one entry per stress
+    period). Returns ``None`` unchanged so the caller can keep its
+    existing skip logic.
+    """
+    if payload is None:
+        return None
+    if isinstance(payload, Mapping):
+        return {kper: scale_rate_payload(value, factor) for kper, value in payload.items()}
+    if isinstance(payload, np.ndarray):
+        return payload * factor
+    return float(payload) * factor
+
+
+def _neighbor(values: np.ndarray, axis: int, step: int, fill) -> np.ndarray:
+    """``values`` of the neighbor ``step`` cells away along ``axis``, ``fill`` past the edge."""
+    out = np.full_like(values, fill)
+    src = [slice(None)] * values.ndim
+    dst = [slice(None)] * values.ndim
+    if step < 0:
+        dst[axis], src[axis] = slice(1, None), slice(None, -1)
+    else:
+        dst[axis], src[axis] = slice(None, -1), slice(1, None)
+    out[tuple(dst)] = values[tuple(src)]
+    return out
+
+
+def check_water_flow_connectivity(grid: np.ndarray) -> list[tuple[int, int, int]]:
+    """The ``(layer, row, col)`` of the cells that cannot exchange water with a neighbor.
+
+    ``grid`` is ``(layers + 1, rows, cols)``, the top and bottom elevations of the
+    MODFLOW grid (``mf.modelgrid.top_botm``). A cell with at least one active
+    neighbor in its row or column is reported when the elevation range of none
+    of them overlaps its own. Cells are listed layer first, then row, then column.
+    """
+    top, bottom = grid[:-1], grid[1:]
+    active = ~(np.isnan(top) | np.isnan(bottom))
+    has_neighbor = np.zeros_like(active)
+    can_flow = np.zeros_like(active)
+    for axis, step in ((1, -1), (1, 1), (2, -1), (2, 1)):
+        n_active = _neighbor(active, axis, step, False)
+        n_top = _neighbor(top, axis, step, np.nan)
+        n_bottom = _neighbor(bottom, axis, step, np.nan)
+        has_neighbor |= n_active
+        can_flow |= n_active & (bottom <= n_top) & (top >= n_bottom)
+    problematic = active & has_neighbor & ~can_flow
+    return [(int(z), int(y), int(x)) for z, y, x in np.argwhere(problematic)]
+
+
+def _upw_vertical_conductivity(
+    solver: ModflowNwt, flow_inputs: FlowModflowInputs, si_to_solver: float
+) -> tuple[int | np.ndarray, float | np.ndarray]:
+    """Return the ``(layvka, vka)`` the UPW package reads.
+
+    A flow that sets ``Kv`` gives UPW the vertical conductivity itself: ``LAYVKA = 0``
+    in every layer and ``VKA = Kv``. Otherwise the ``[solver.modflow_nwt]`` settings
+    stand: ``LAYVKA`` and ``VKA``, a ratio of K to Kv with their defaults. The ratio
+    and a ``Kv`` both set the vertical conductivity, so a ratio other than 1 beside a
+    ``Kv`` is refused, as MODFLOW 6 does.
+    """
+    if flow_inputs.kv is None:
+        return solver._params.runtime.upw.layvka, solver._params.process_specific.vka
+    ratio = float(solver._params.process_specific.vka)
+    if ratio != 1.0:
+        raise ConfigError(
+            f"A flow Kv and a vertical anisotropy ratio vka={ratio} both set the vertical "
+            "conductivity of MODFLOW-NWT. Remove one of them."
+        )
+    return np.zeros(solver.nlay, dtype=int), flow_inputs.kv * si_to_solver
 
 
 def assemble_flopy_packages(
@@ -37,7 +115,7 @@ def assemble_flopy_packages(
     (``hk``, ``sy``, ``ss``, ``laytype``, ``laywet``, ``recharge``,
     ``drain_array``, ``prob_cells``).
     """
-    si_to_solver = ITMUNI_TO_SECONDS.get(solver.dis_itmuni, 1.0)
+    si_to_solver = seconds_per_itmuni(solver.dis_itmuni)
 
     solver.drain_array = flow_inputs.drain_array
 
@@ -67,6 +145,7 @@ def assemble_flopy_packages(
     solver.ss = flow_inputs.ss
     solver.ss_value = flow_inputs.ss_value
 
+    layvka, vka = _upw_vertical_conductivity(solver, flow_inputs, si_to_solver)
     solver.upw_hdry = solver._params.runtime.upw.hdry
     solver.upw = flopy.modflow.ModflowUpw(
         solver.mf,
@@ -75,10 +154,10 @@ def assemble_flopy_packages(
         hk=solver.hk,
         sy=solver.sy,
         ss=solver.ss,
-        vka=solver._params.process_specific.vka,
+        vka=vka,
         iphdry=solver._params.runtime.upw.iphdry,
         hdry=solver.upw_hdry,
-        layvka=solver._params.runtime.upw.layvka,
+        layvka=layvka,
         extension="upw",
         unitnumber=None,
         noparcheck=False,
@@ -108,11 +187,11 @@ def assemble_flopy_packages(
 
     if rch_data_solver is not None:
         solver.rch = flopy.modflow.ModflowRch(solver.mf, rech=rch_data_solver)
-    # Store the processed RCH schedule so post-processing can read it
-    # back without going through the flow object. Format: dict
-    # {kper: rate [L/T]} in solver time units, mirroring what was fed
-    # to ModflowRch. None when recharge is not active.
-    solver.recharge = rch_data_solver
+    # Keep each period's own rate, as MODFLOW 6 holds it, for the network criterion
+    # to read. The package holds the first_clim rate in a steady period, and a mean
+    # read from it counts that rate twice over. Format: dict {kper: rate [L/T]} in
+    # solver time units. None when recharge is not active.
+    solver.recharge = scale_rate_payload(flow_inputs.recharge_own_rates, si_to_solver)
 
     # DRN is applied to all the surface of the model: enables seepage on the top layer
     if flow_inputs.drn_spd is not None:
@@ -138,17 +217,9 @@ def assemble_flopy_packages(
             stress_period_data=wel_spd_solver,
         )
 
-    stress_period_data: dict[tuple[int, int], list[str]] = {}
-    for kper in range(solver.nper):
-        kstp = int(solver.nstp[kper])
-        if kstp > 1:
-            for ts in range(kstp):
-                stress_period_data[(kper, ts)] = ["save head", "save budget"]
-        else:
-            stress_period_data[(kper, 0)] = ["save head", "save budget"]
     solver.oc = flopy.modflow.ModflowOc(
         solver.mf,
-        stress_period_data=stress_period_data,
+        stress_period_data=output_control_words(solver.nstp),
         extension=["oc", "hds", "cbc"],
         unitnumber=None,
         compact=solver._params.runtime.oc.compact,
@@ -169,4 +240,24 @@ def assemble_flopy_packages(
             solver.prob_cells = len(problematic_cells)
 
 
-__all__ = ["assemble_flopy_packages"]
+def output_control_words(nstp: object) -> dict[tuple[int, int], list[str]]:
+    """Return the OC words of every saved ``(kper, kstp)``.
+
+    A period cut into several steps saves every step: the particle tracking
+    reads them, and the extractor stores the head of the last step and the
+    mean of the step fluxes, weighted by their length. MODFLOW prints the
+    budget at the end of each period only, so each of those steps prints its
+    budget too, for the mass balance to average the same steps. A period of
+    one step keeps the words it always had.
+    """
+    words: dict[tuple[int, int], list[str]] = {}
+    for kper, count in enumerate(int(value) for value in nstp):
+        if count > 1:
+            for kstp in range(count):
+                words[(kper, kstp)] = ["save head", "save budget", "print budget"]
+        else:
+            words[(kper, 0)] = ["save head", "save budget"]
+    return words
+
+
+__all__ = ["assemble_flopy_packages", "output_control_words"]

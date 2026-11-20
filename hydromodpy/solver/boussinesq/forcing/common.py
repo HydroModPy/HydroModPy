@@ -4,51 +4,47 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from numbers import Real
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.time import validate_recharge_coverage
-from hydromodpy.physics.flow.boundary_condition_registry import (
-    boundary_conditions_mapping_from_flow,
-    is_boundary_condition_active,
-)
-from hydromodpy.physics.forcing.validation import (
+from hydromodpy.core.time.window import validate_recharge_coverage
+from hydromodpy.model.forcing.steady_periods import apply_first_clim, one_period_rate, steady_flags
+from hydromodpy.model.forcing.validation import (
+    complete_period_table,
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
-    GmshSupportMetadata,
-    build_gmsh_support_metadata,
-)
+
+if TYPE_CHECKING:
+    from hydromodpy.model.model import Model
+
+
+def steady_period_flags(model: Model, nper: int) -> np.ndarray:
+    """Return which periods a Boussinesq run solves steady.
+
+    Every period of a steady run. Period 0 of a transient run when
+    ``model.time.first_period_steady`` is true, as in MODFLOW. The rate rule
+    (``first_clim``) and the transient driver both read these flags.
+    """
+    return steady_flags(
+        nper=int(nper),
+        flow_regime=model.time.regime,
+        first_period_steady=model.time.first_period_steady,
+    )
 
 
 class ForcingCommonMixin:
     """Shared helpers reused across forcing-resolution specializations."""
 
     mesh: object
-    flow: object
-    time_grid: object
-    mesh_bundle: object | None
-    planar_mesh_loader: object
-    support_metadata: GmshSupportMetadata | None
+    inputs: Model
 
-    def runtime_mesh_support(self) -> GmshSupportMetadata | None:
-        """Return runtime support metadata when available."""
-        if self.support_metadata is not None:
-            return self.support_metadata
-        if self.mesh_bundle is not None:
-            return build_gmsh_support_metadata(self.mesh_bundle)
-        return None
-
-    def require_runtime_mesh_support(self, *, label: str) -> GmshSupportMetadata:
-        """Return runtime support metadata or raise a clear support-resolution error."""
-        support = self.runtime_mesh_support()
-        if support is None:
-            raise ValueError(
-                f"{label} requires runtime gmsh support metadata but mesh support is unavailable."
-            )
-        return support
+    @property
+    def time_grid(self) -> object:
+        """The resolved time grid of the model, ``None`` for a steady run without one."""
+        return self.inputs.time.grid
 
     @staticmethod
     def boundary_attr(boundary: object, field_name: str, default=None):
@@ -107,15 +103,7 @@ class ForcingCommonMixin:
 
     def planar_mesh_for_forcing(self):
         """Return the planar mesh used to discretize spatial forcings."""
-        planar_mesh = getattr(self.mesh, "planar_mesh", None)
-        if planar_mesh is not None:
-            return planar_mesh
-        if self.mesh_bundle is None:
-            raise RuntimeError(
-                "Spatial forcings require either one runtime planar mesh or one "
-                "mesh bundle exposing mesh_path."
-            )
-        return self.planar_mesh_loader(self.mesh_bundle.mesh_path)
+        return self.mesh.planar_mesh
 
     def boundary_value_series(
         self,
@@ -127,9 +115,7 @@ class ForcingCommonMixin:
         """Resolve one boundary condition to one head value per period."""
         forcing = getattr(boundary, "forcing", None)
         if forcing is not None:
-            from hydromodpy.physics.flow.time_forcing import (
-                resolve_period_values_from_forcing,
-            )
+            from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 
             return np.asarray(
                 resolve_period_values_from_forcing(
@@ -170,44 +156,63 @@ class ForcingCommonMixin:
             )
         ensure_non_negative_numeric_payload(payload, label=label)
         if isinstance(payload, Mapping):
-            series = np.zeros(nper, dtype=float)
-            for raw_key, raw_value in payload.items():
-                if isinstance(raw_key, bool) or not isinstance(raw_key, Real):
-                    raise TypeError(f"{label} mapping keys must be integer period indices.")
-                kper = int(raw_key)
-                if float(raw_key) != float(kper):
-                    raise TypeError(f"{label} mapping keys must be integer period indices.")
-                if kper < 0 or kper >= int(nper):
-                    raise ValueError(f"{label} mapping key {kper} is outside [0, {int(nper) - 1}].")
-                series[kper] = float(raw_value)
-            return series
+            table = complete_period_table(payload, nper=int(nper), label=label)
+            series = np.asarray([float(value) for value in table.values()], dtype=float)
+            return self.apply_first_clim_to_series(series, first_clim=first_clim)
         if self.is_scalar_number(payload):
-            return np.full(nper, float(payload), dtype=float)
+            return self.apply_first_clim_to_series(
+                np.full(nper, float(payload), dtype=float), first_clim=first_clim
+            )
 
         sequence = self.payload_to_sequence(payload, label=label)
         if sequence.size == 1:
-            return np.full(nper, float(sequence[0]), dtype=float)
-        if sequence.size != int(nper):
-            if int(nper) != 1:
-                raise ValueError(
-                    f"{label} length ({int(sequence.size)}) must be 1 or match nper ({int(nper)})."
-                )
-
-        series = np.zeros(nper, dtype=float)
-        if first_clim == "mean":
-            series[0] = float(np.mean(sequence))
-        elif first_clim == "first":
-            series[0] = float(sequence[0])
-        elif self.is_scalar_number(first_clim):
-            series[0] = float(first_clim)
+            own = np.full(nper, float(sequence[0]), dtype=float)
+        elif sequence.size == int(nper):
+            own = sequence.astype(float, copy=True)
+        elif int(nper) == 1:
+            # A record longer than a one-period run gives that period its mean,
+            # or its first value when the period is steady under "first".
+            steady = bool(self.boussinesq_steady_flags(1)[0])
+            record_lengths = getattr(self.time_grid, "record_lengths_seconds", None)
+            own = np.asarray(
+                [
+                    one_period_rate(
+                        sequence, steady=steady, first_clim=first_clim, durations=record_lengths
+                    )
+                ],
+                dtype=float,
+            )
         else:
             raise ValueError(
-                "flow.sinks_sources.recharge.first_clim must be 'mean', 'first', "
-                "or a numeric value."
+                f"{label} length ({int(sequence.size)}) must be 1 or match nper ({int(nper)})."
             )
-        for kper in range(1, int(nper)):
-            series[kper] = float(sequence[kper])
-        return series
+        return self.apply_first_clim_to_series(own, first_clim=first_clim)
+
+    def boussinesq_steady_flags(self, nper: int) -> np.ndarray:
+        """Return which periods this run solves steady (see :func:`steady_period_flags`)."""
+        return steady_period_flags(self.inputs, nper)
+
+    def period_durations(self, nper: int) -> np.ndarray:
+        """Return the length of each period, in seconds.
+
+        A run built without a time grid has periods without dates: they count
+        as equally long.
+        """
+        lengths = getattr(self.time_grid, "period_lengths_seconds", None)
+        if lengths is None:
+            return np.ones(int(nper), dtype=float)
+        return np.asarray(lengths, dtype=float).reshape(-1)
+
+    def apply_first_clim_to_series(self, own: np.ndarray, *, first_clim: object) -> np.ndarray:
+        """Give every steady period the ``first_clim`` rate, keep the transient ones."""
+        nper = int(own.size)
+        ruled = apply_first_clim(
+            {kper: own[kper] for kper in range(nper)},
+            steady=self.boussinesq_steady_flags(nper),
+            first_clim=first_clim,
+            durations=self.period_durations(nper),
+        )
+        return np.asarray([float(ruled[kper]) for kper in range(nper)], dtype=float)
 
     @staticmethod
     def simple_period_series(
@@ -271,19 +276,16 @@ class ForcingCommonMixin:
         )
 
     def recharge_config(self) -> object | None:
-        """Return the recharge config object when the flow contract provides one."""
-        sinks_sources = getattr(self.flow, "sinks_sources", {})
-        if not isinstance(sinks_sources, Mapping):
-            return None
-        return sinks_sources.get("recharge")
+        """Return the recharge config object of the model, ``None`` when it has none."""
+        return self.inputs.recharge
 
     def boundary_conditions_mapping(self) -> Mapping[str, object]:
-        """Return the boundary-condition mapping from the flow contract."""
-        return boundary_conditions_mapping_from_flow(self.flow)
+        """Return the boundary conditions of the model by id."""
+        return self.inputs.boundaries.conditions
 
     def is_bc_active(self, bc_id: str) -> bool:
-        """Return whether one boundary id is active in the current flow setup."""
-        return is_boundary_condition_active(self.flow, bc_id)
+        """Return whether one boundary id is active in the model."""
+        return self.inputs.boundaries.is_active(bc_id)
 
 
-__all__ = ["ForcingCommonMixin"]
+__all__ = ["ForcingCommonMixin", "steady_period_flags"]

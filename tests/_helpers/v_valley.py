@@ -21,13 +21,13 @@ from typing import Literal
 
 import numpy as np
 
-from hydromodpy.core.field_routing import accumulate_on_downhill_graph
-from hydromodpy.core.topographic_distance import (
+from hydromodpy.catchment.drainage.distance import (
     DownslopeMetric,
     build_downslope_metric,
     downslope_distance_to_mask,
     mean_downslope_distance,
 )
+from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
 from tests._helpers.ugrid_meshes import quad_mesh
 
 N_ROWS = 61
@@ -52,7 +52,6 @@ THRESHOLDS = np.logspace(0.0, np.log10(float(N_CELLS)), 36)
 
 # Half-width, as a threshold factor, of the log window the criterion slope is
 # measured over: the root divided by four up to the root times four.
-SLOPE_WINDOW_FACTOR = 4.0
 
 ObservedCase = Literal["aligned", "hole", "shifted", "truncated"]
 
@@ -197,27 +196,3 @@ def crossing_thresholds(d_so: np.ndarray, d_os: np.ndarray) -> list[float]:
 def interpolate_at(values: np.ndarray, threshold: float) -> float:
     """Read a swept quantity at an interpolated threshold, in log space."""
     return float(np.interp(np.log10(threshold), np.log10(THRESHOLDS), values))
-
-
-def criterion_slope(d_so: np.ndarray, d_os: np.ndarray, root: float) -> float:
-    """Slope of the signed gap over a fixed log window centred on the root.
-
-    The window has the same width whatever the support, which is what makes two
-    supports comparable. A one-interval finite difference across the bracketing
-    interval does not: the signed gap is a staircase, so that difference reports
-    the height of one step over the width of one grid cell, and it ranks the two
-    supports the wrong way round.
-    """
-    signed_gap = d_so - d_os
-    log_thresholds = np.log(THRESHOLDS)
-    half_width = np.log(SLOPE_WINDOW_FACTOR)
-    inside = (
-        np.isfinite(signed_gap)
-        & (log_thresholds >= np.log(root) - half_width)
-        & (log_thresholds <= np.log(root) + half_width)
-    )
-    if int(inside.sum()) < 3:
-        raise ValueError("the log window around the root holds fewer than three defined points.")
-    values = signed_gap[inside]
-    span = log_thresholds[inside][-1] - log_thresholds[inside][0]
-    return float(abs(values[-1] - values[0]) / span)

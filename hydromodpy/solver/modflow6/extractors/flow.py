@@ -1,43 +1,85 @@
-"""Output adapter for MODFLOW 6 flow solver results."""
+"""Output adapter for MODFLOW 6 flow solver results.
+
+``Modflow6OutputAdapter`` reads the heads, the time axis, the mass balance of the
+listing, the surface elevation, and the lake and stream series into the store.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from hydromodpy.core import progress
-from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
+from hydromodpy.core.console import progress
+from hydromodpy.core.exceptions import MeshError, NothingThereError, SolverInputError
+from hydromodpy.core.fields.vertical_column import (
+    VERTICAL_LAYOUT_COLUMN_FRACTIONS,
+    layer_interfaces,
+)
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.core.time.window import time_grid_start
 from hydromodpy.core.units.time import (
     CF_EPOCH,
     CF_TIME_UNITS,
     cf_time_axis_seconds,
     factor_to_seconds,
 )
-from hydromodpy.solver.modflow6.build import mf6_safe_name
+from hydromodpy.results.storage.final_state import FinalState, write_final_state
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import SolverRun
+from hydromodpy.solver.modflow6.build import FLOW_PROPERTY_SIDECAR_SUFFIX
+from hydromodpy.solver.modflow6.builders.lake import LAK_STAGE_SUFFIX, read_final_lake_stages
+from hydromodpy.solver.modflow6.builders.sfr import SFR_STAGE_SUFFIX, read_final_sfr_stages
+from hydromodpy.solver.modflow6.extractors.budget import extract_budget
+from hydromodpy.solver.modflow6.extractors.face_flow import extract_face_flows
+from hydromodpy.solver.modflow6.extractors.grid_check import (
+    grb_geometry,
+    verify_grid_against_store,
+)
+from hydromodpy.solver.modflow6.extractors.lake import (
+    build_lake_records,
+    final_lake_stages,
+    read_lake_abacus,
+    read_lake_meta,
+)
 from hydromodpy.solver.modflow6.extractors.sfr import (
     SfrObsSpec,
+    SfrReachGeometry,
     build_sfr_columns,
+    reach_number,
     read_sfr_meta,
+    sfr_station_id,
 )
-from hydromodpy.solver.modflow_common.budget_components import (
-    canonical_budget_component,
-    is_scalar_budget_component,
+from hydromodpy.solver.modflow6.support.computational_top import read_ground_sidecar
+from hydromodpy.solver.modflow6.support.names import mf6_safe_name
+from hydromodpy.solver.modflow_common.boundary_roles import read_constant_head_roles
+from hydromodpy.solver.modflow_common.budget_policy import record_budget_policy
+from hydromodpy.solver.modflow_common.descent_store import (
+    DescentRecord,
+    descent_sidecar_path,
+    read_descent_sidecar,
+    write_descent_sidecar_to_store,
 )
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
+from hydromodpy.solver.modflow_common.flow_run import end_of_last_period, final_state_head
+from hydromodpy.solver.modflow_common.period_steps import (
+    group_steps_by_stamp,
+    period_mean_balance,
+)
+from hydromodpy.solver.modflow_common.time_units import resolve_solver_time_unit
 
 logger = get_logger(__name__)
 
 
-def _seconds_per_time_unit(time_units: str) -> float:
-    """Seconds per MF6 TDIS TIME_UNITS token; UNKNOWN/blank means seconds (1.0)."""
-    token = (time_units or "").strip().upper()
-    if token in ("", "UNKNOWN"):
-        return 1.0
-    return factor_to_seconds(token)
+def _vertical_layout_of(model: Any) -> str:
+    """Return how the layers of the ``Model`` were built, the default for a run without one."""
+    if model is None:
+        return VERTICAL_LAYOUT_COLUMN_FRACTIONS
+    return model.geometry.domain.config.layers.vertical_layout
 
 
 def _listing_path(solver_output_dir: Path, model_name: str) -> Path:
@@ -58,7 +100,7 @@ def _streambed_face_arrays(
 
     A cross-section drawn against the land surface alone cannot say whether a
     reach is connected: MODFLOW switches on ``rtp - streambed_thickness``, which
-    sits metres lower. These two arrays put that threshold in the store.
+    sits meters lower. These two arrays put that threshold in the store.
     """
     spec = read_sfr_meta(solver_output_dir / f"{model_name}.sfr.meta.json")
     if spec is None or not spec.reaches:
@@ -78,6 +120,19 @@ def _streambed_face_arrays(
     return top, threshold
 
 
+def _reach_row(network_id: str, reach: SfrReachGeometry) -> dict[str, Any]:
+    """One row of ``sfr_reaches``: the reach under the number the TOML writes for it."""
+    row = asdict(reach)
+    number = reach_number(row.pop("ifno"))
+    return {
+        "reach_id": sfr_station_id(network_id, reach.ifno),
+        "network_id": network_id,
+        "reach": number,
+        **row,
+        "downstream": [reach_number(ifno) for ifno in reach.downstream],
+    }
+
+
 def _write_sfr_reach_geometry(sim_id: str, store: Any, spec: SfrObsSpec) -> None:
     """Persist the resolved reach geometry the MODFLOW scratch files take away.
 
@@ -87,7 +142,7 @@ def _write_sfr_reach_geometry(sim_id: str, store: Any, spec: SfrObsSpec) -> None
     """
     if not spec.reaches:
         return
-    rows = [{"network_id": spec.network_id, **asdict(reach)} for reach in spec.reaches]
+    rows = [_reach_row(spec.network_id, reach) for reach in spec.reaches]
     try:
         store.write_view(sim_id, "sfr_reaches", rows)
     except Exception:
@@ -106,19 +161,36 @@ def _budget_field(row: Any, names: tuple[str, ...] | None, key: str) -> float:
     return float(row[key]) if names is not None and key in names else 0.0
 
 
-def _read_time_units(tdis_path: Path) -> str:
-    """Return the MF6 TDIS TIME_UNITS option."""
-    if not tdis_path.is_file():
-        return "SECONDS"
+def _basin_the_build_left(
+    solver_output_dir: Path, *, n_cells: int
+) -> tuple[DescentRecord | None, str]:
+    """The descent record holding the build's basin, else None and why there is none."""
+    sidecar = descent_sidecar_path(solver_output_dir)
+    if sidecar is None:
+        return None, "no descent sidecar"
     try:
-        with tdis_path.open("r", encoding="utf-8") as fh:
-            for raw in fh:
-                tokens = raw.strip().split()
-                if len(tokens) >= 2 and tokens[0].upper() == "TIME_UNITS":
-                    return tokens[1].upper()
-    except OSError:
-        return "SECONDS"
-    return "SECONDS"
+        record = read_descent_sidecar(sidecar)
+    except ValueError as exc:
+        return None, f"an unreadable descent sidecar: {exc}"
+    if record is None or record.basin is None:
+        return None, "a sidecar written before the basin was stored"
+    if int(record.basin.size) != int(n_cells):
+        return None, f"a basin of {int(record.basin.size)} cells on a mesh of {int(n_cells)}"
+    return record, ""
+
+
+def _stream_constant_head_mask(
+    solver_output_dir: Path, model_name: str, *, n_cells: int
+) -> np.ndarray | None:
+    """Cells whose constant head carries the stream role, from the build sidecar.
+
+    None when the run built no stream-role constant head, or when the sidecar
+    does not describe this grid.
+    """
+    roles = read_constant_head_roles(solver_output_dir, model_name)
+    if roles is None or not roles.has_role("stream") or int(roles.n_cells) != int(n_cells):
+        return None
+    return roles.mask_for("stream")
 
 
 def _read_start_datetime(tdis_path: Path) -> str | None:
@@ -157,7 +229,7 @@ def _write_time_coordinate(
     if writer is None:
         raise TypeError("Simulation store must implement write_time().")
     start = _read_start_datetime(tdis_path) or start_datetime
-    factor = _seconds_per_time_unit(time_units)
+    factor = factor_to_seconds(time_units)
     relative = np.asarray(times, dtype=float) * factor
     values = cf_time_axis_seconds(relative, start)
     writer(sim_id, values, epoch=CF_EPOCH, units=CF_TIME_UNITS)
@@ -170,28 +242,41 @@ class Modflow6OutputAdapter:
     ``{model_name}.cbc`` in MODFLOW 6 format.
     """
 
+    process_type = "flow"
     solver_name = "modflow6"
-    category = "distributed"
 
-    def extract(
-        self,
-        sim_id: str,
-        solver_output_dir: Path,
-        store: Any,
-        *,
-        model_name: str | None = None,
-        budget_spatial_fields: bool = False,
-        start_datetime: object | None = None,
-    ) -> None:
-        """Read MF6 .hds and .cbc files and write into the store."""
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Read the ``.hds`` and ``.cbc`` files of a solved run and write its fields into the store.
+
+        ``retention.budget`` says which per-cell budget terms go under
+        ``budget/``. The lumped budget table holds every term whatever it says.
+        The vertical layout, as ``[domain.layers]`` gives it, and the start date
+        come from the ``Model`` of the run; the store keeps the layout on
+        ``mesh/``. A run without a ``Model`` takes the default layout and no date.
+
+        The files are found by the ``.hds`` in the output folder, never by the
+        name of the slot: a rerun keeps the file names of the build it started
+        from.
+
+        The extraction ends by writing ``final_state/`` of the run folder: the
+        last record of the head file read in double precision, the stage of
+        each lake from its stage file and, when SFR routes with storage, the
+        stage of each reach. The run or the window that starts from this one
+        reads it back.
+        """
         import flopy.utils.binaryfile as bf
 
-        solver_output_dir = Path(solver_output_dir)
-        if model_name is None:
-            hds_files = list(solver_output_dir.glob("*.hds"))
-            if not hds_files:
-                raise FileNotFoundError(f"No .hds file in {solver_output_dir}")
-            model_name = hds_files[0].stem
+        sim_id = store.sim_id
+        budget_terms = retention.budget
+        start_datetime = time_grid_start(
+            None if solver_run.model is None else solver_run.model.time.grid
+        )
+        vertical_layout = _vertical_layout_of(solver_run.model)
+        solver_output_dir = Path(solver_run.output_dir)
+        hds_files = list(solver_output_dir.glob("*.hds"))
+        if not hds_files:
+            raise NothingThereError(f"No .hds file in {solver_output_dir}")
+        model_name = hds_files[0].stem
 
         hds_path = solver_output_dir / f"{model_name}.hds"
         cbc_path = solver_output_dir / f"{model_name}.cbc"
@@ -203,22 +288,19 @@ class Modflow6OutputAdapter:
         tdis_path = solver_output_dir / f"{model_name}.tdis"
         if not tdis_path.is_file():
             tdis_path = next(iter(solver_output_dir.glob("*.tdis")), tdis_path)
-        time_units = _read_time_units(tdis_path)
+        time_units = resolve_solver_time_unit(solver_output_dir, model_name)
         # MF6 emits fluxes in length^3 per TDIS time unit; convert to m3/s.
-        seconds_per_time_unit = _seconds_per_time_unit(time_units)
+        seconds_per_time_unit = factor_to_seconds(time_units)
         _write_time_coordinate(store, sim_id, times, time_units, tdis_path, start_datetime)
 
         try:
             head0 = head_file.get_data(totim=times[0])
-            grid_shape: tuple[int, int] | None = None
             if head0.ndim == 3:
                 nlay, nrow, ncol = head0.shape
                 n_cells = nrow * ncol
-                grid_shape = (int(nrow), int(ncol))
             elif head0.ndim == 2:
                 nlay = 1
                 n_cells = int(head0.size)
-                grid_shape = tuple(int(v) for v in head0.shape)
             else:
                 nlay = 1
                 n_cells = head0.size
@@ -250,28 +332,50 @@ class Modflow6OutputAdapter:
                     handle.update(completed=t1)
 
             if cbc_path.exists():
-                self._extract_budget(
+                extract_budget(
                     sim_id,
                     store,
                     cbc_path,
                     times,
                     kstpkpers,
-                    spatial_fields=budget_spatial_fields,
+                    budget_terms=budget_terms,
                     nlay=nlay,
                     n_cells=n_cells,
                     seconds_per_time_unit=seconds_per_time_unit,
                     catchment_mask=self._catchment_cell_mask(
                         sim_id, store, solver_output_dir, n_cells=n_cells
                     ),
+                    stream_constant_head_mask=_stream_constant_head_mask(
+                        solver_output_dir, model_name, n_cells=n_cells
+                    ),
                 )
+                if retention.face_flows:
+                    extract_face_flows(
+                        sim_id,
+                        store,
+                        cbc_path,
+                        solver_output_dir,
+                        stamps=[(int(kstp) + 1, int(kper) + 1) for kstp, kper in kstpkpers],
+                        seconds_per_time_unit=seconds_per_time_unit,
+                        precision=store.persistence.field_precision,
+                    )
+            else:
+                record_budget_policy(store, sim_id, budget_terms, ())
 
             lst_path = _listing_path(solver_output_dir, model_name)
             if lst_path.exists():
                 self._extract_mass_balance(
-                    sim_id, store, lst_path, seconds_per_time_unit=seconds_per_time_unit
+                    sim_id,
+                    store,
+                    lst_path,
+                    stamp_keys=[(int(kstp), int(kper)) for kstp, kper in kstpkpers],
+                    seconds_per_time_unit=seconds_per_time_unit,
                 )
 
-            self._extract_lake_series(
+            final_head = final_state_head(
+                head_file.get_data(totim=times[-1]), nlay=nlay, n_cells=n_cells
+            )
+            lake_stages = self._extract_lake_series(
                 sim_id,
                 store,
                 solver_output_dir,
@@ -299,6 +403,19 @@ class Modflow6OutputAdapter:
         finally:
             head_file.close()
 
+        write_final_state(
+            Path(store.run_dir_for(sim_id)),
+            FinalState(
+                head=final_head,
+                lake_stages=lake_stages,
+                sfr_stages=_final_sfr_stages(solver_output_dir),
+                at=end_of_last_period(
+                    _read_start_datetime(tdis_path) or start_datetime,
+                    float(times[-1]) * seconds_per_time_unit,
+                ),
+            ),
+        )
+
         self._write_surface_elevation(
             sim_id,
             store,
@@ -306,196 +423,8 @@ class Modflow6OutputAdapter:
             model_name,
             nlay,
             n_cells,
-            grid_shape=grid_shape,
+            vertical_layout=vertical_layout,
         )
-
-    def _extract_budget(
-        self,
-        sim_id: str,
-        store: Any,
-        cbc_path: Path,
-        times: list,
-        kstpkpers: list,
-        *,
-        spatial_fields: bool = False,
-        nlay: int = 1,
-        n_cells: int = 0,
-        seconds_per_time_unit: float = 1.0,
-        catchment_mask: np.ndarray | None = None,
-    ) -> None:
-        """Extract cell budget data from MF6 .cbc file.
-
-        Fluxes are divided by ``seconds_per_time_unit`` so the stored values are
-        m3/s regardless of the TDIS time unit (m3/s = flux / seconds_per_time_unit).
-        """
-        from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
-
-        cbb = Mf6CellBudgetReader(cbc_path)
-        catchment_cells = np.flatnonzero(catchment_mask) if catchment_mask is not None else None
-        if catchment_cells is not None and catchment_cells.size == 0:
-            # A row of zeros under a name that claims to be the catchment reads
-            # as a dry basin instead of as a missing mask.
-            catchment_cells = None
-        try:
-            # Intercell face flows and the specific-discharge velocity are not
-            # scalar budget terms; skip them before reading or summing.
-            components = [
-                name for name in cbb.unique_record_names() if is_scalar_budget_component(name)
-            ]
-            component_rank = {name: rank for rank, name in enumerate(components)}
-
-            n_timesteps = len(times)
-            # One sequential pass over the file-order record index. Per-record
-            # get_data(text, kstpkper, totim) calls rebuild a full boolean mask of
-            # the index each time, which is quadratic over a long chronicle.
-            timestep_by_kstpkper = {
-                (int(kstp) + 1, int(kper) + 1): t for t, (kstp, kper) in enumerate(kstpkpers)
-            }
-            # The cbc file is time-major, so budget spatial fields are streamed in
-            # time slabs shared across the components: the slab is sized so all
-            # components together stay under one field-slab budget rather than
-            # holding every component's full (nper, nlay, ncpl) stack in RAM.
-            budget_slab = max(1, slab_steps(nlay, n_cells) // max(1, len(components)))
-            seen: set[tuple[str, int]] = set()
-            warned_duplicate: set[str] = set()
-            created_fields: set[str] = set()
-            ranked_records: list[tuple[int, int, dict]] = []
-            slab_stacks: dict[str, np.ndarray] = {}
-            window_t0 = 0
-
-            def _flush_window(t0: int) -> None:
-                for comp, stack in slab_stacks.items():
-                    comp_key = canonical_budget_component(comp)
-                    try:
-                        if comp not in created_fields and t0 != 0:
-                            # First write of a variable must start at offset 0;
-                            # prime the full array for a component that only
-                            # appears past the first slab (rare for per-step terms).
-                            primer = np.full((1, *stack.shape[1:]), np.nan, dtype="float64")
-                            store.write_field_stack(
-                                sim_id,
-                                comp_key,
-                                primer,
-                                n_timesteps=n_timesteps,
-                                timestep_offset=0,
-                                subgroup="budget",
-                            )
-                        store.write_field_stack(
-                            sim_id,
-                            comp_key,
-                            stack,
-                            n_timesteps=n_timesteps,
-                            timestep_offset=t0,
-                            subgroup="budget",
-                        )
-                        created_fields.add(comp)
-                    except Exception:
-                        logger.debug(
-                            "Skipped write_field_stack for MF6 budget '%s'", comp, exc_info=True
-                        )
-                slab_stacks.clear()
-
-            with progress.task("Extracting budget terms", total=len(cbb.records)) as handle:
-                for idx, record in enumerate(cbb.records):
-                    handle.advance()
-                    component = record.text
-                    rank = component_rank.get(component)
-                    if rank is None:
-                        continue
-                    t = timestep_by_kstpkper.get((record.kstp, record.kper))
-                    if t is None:
-                        continue
-                    key = (component, t)
-                    if key in seen:
-                        # Several packages of one type share the record name; keep
-                        # the first record like the historical data[0] read did.
-                        if component not in warned_duplicate:
-                            logger.warning(
-                                "MF6 budget has multiple '%s' package records per timestep; "
-                                "keeping the first (aggregate views may undercount).",
-                                component,
-                            )
-                            warned_duplicate.add(component)
-                        continue
-                    if spatial_fields and t >= window_t0 + budget_slab:
-                        _flush_window(window_t0)
-                        window_t0 = (t // budget_slab) * budget_slab
-                    try:
-                        arr = cbb.read_record(idx)
-                    except Exception as exc:
-                        logger.debug(
-                            "Could not read MF6 budget '%s' at t=%d: %s", component, t, exc
-                        )
-                        continue
-                    seen.add(key)
-                    if hasattr(arr, "dtype") and arr.dtype.names is not None:
-                        arr = self._recarray_to_grid(arr, nlay, n_cells)
-                    field = None
-                    if hasattr(arr, "shape") and arr.ndim >= 1:
-                        flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
-                        flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
-                        field = self._as_cell_grid(arr, nlay, n_cells)
-                    else:
-                        flux_in = 0.0
-                        flux_out = 0.0
-                    canonical = canonical_budget_component(component)
-                    ranked_records.append(
-                        (
-                            t,
-                            rank,
-                            {
-                                "timestep": t,
-                                "zone_id": "0",
-                                "component": canonical,
-                                "flux_in": flux_in,
-                                "flux_out": abs(flux_out),
-                                "unit": "m3/s",
-                            },
-                        )
-                    )
-                    if catchment_cells is not None and field is not None:
-                        # The row above spans the model domain. On a buffered
-                        # box that is not what a gauge at the outlet sees, and
-                        # the per-cell field is dropped right after unless
-                        # spatial_fields is on. Summing the basin here, where
-                        # the array is already in memory, is what lets a run
-                        # carry a catchment-supported budget for free.
-                        in_basin = field[:, catchment_cells]
-                        ranked_records.append(
-                            (
-                                t,
-                                rank,
-                                {
-                                    "timestep": t,
-                                    "zone_id": CATCHMENT_BUDGET_ZONE,
-                                    "component": canonical,
-                                    "flux_in": float(np.maximum(in_basin, 0).sum())
-                                    / seconds_per_time_unit,
-                                    "flux_out": abs(float(np.minimum(in_basin, 0).sum()))
-                                    / seconds_per_time_unit,
-                                    "unit": "m3/s",
-                                },
-                            )
-                        )
-                    if spatial_fields:
-                        if field is not None:
-                            stack = slab_stacks.get(component)
-                            if stack is None:
-                                slab_len = min(budget_slab, n_timesteps - window_t0)
-                                stack = np.full((slab_len, *field.shape), np.nan, dtype="float64")
-                                slab_stacks[component] = stack
-                            if stack.shape[1:] == field.shape:
-                                stack[t - window_t0] = field / seconds_per_time_unit
-
-            _flush_window(window_t0)
-
-            # Keep the historical order: time-major, then component declaration order.
-            ranked_records.sort(key=lambda item: (item[0], item[1]))
-            budget_records = [record for _, _, record in ranked_records]
-            if budget_records:
-                store.write_budgets(sim_id, budget_records)
-        finally:
-            cbb.close()
 
     def _extract_lake_series(
         self,
@@ -509,7 +438,7 @@ class Modflow6OutputAdapter:
         time_units: str,
         seconds_per_time_unit: float,
         start_datetime: object | None = None,
-    ) -> None:
+    ) -> dict[str, float]:
         """Read the LAK obs CSV into per-lake (lake_id, totim) timeseries.
 
         Per-lake stage / volume / surface-area, the lake-aquifer exchange and the
@@ -519,20 +448,20 @@ class Modflow6OutputAdapter:
         ``_extract_budget``. Stage / volume / surface-area keep their native units;
         rate terms are scaled to m3/s. Without the sidecar the model has no lake
         and this is a no-op.
-        """
-        from hydromodpy.solver.modflow6.extractors.lake import (
-            build_lake_records,
-            final_lake_stages,
-            read_lake_meta,
-        )
 
+        It returns the final stage of each lake, ``{}`` without a lake. They are
+        read from the binary stage file, in double precision, where the
+        observation file keeps ten significant digits, and from the series
+        only when the stage file is absent.
+        """
         spec = read_lake_meta(solver_output_dir / f"{model_name}.lak.meta.json")
         if spec is None:
-            return
+            return {}
+        final_stages: dict[str, float] = {}
         with progress.status("Building lake timeseries"):
             obs_path = solver_output_dir / spec.obs_csv
             calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
-            factor = _seconds_per_time_unit(time_units)
+            factor = factor_to_seconds(time_units)
             calendar_times: np.ndarray | None = None
             if calendar_anchor is not None:
                 relative = np.asarray(times, dtype=float) * factor
@@ -564,6 +493,10 @@ class Modflow6OutputAdapter:
                         lake_zarr.close()
             if budgets:
                 store.write_budgets(sim_id, budgets)
+        lake_ids = [entry.lake_id for entry in spec.entries if entry.quantity == "stage"]
+        stage_files = sorted(solver_output_dir.glob(f"*{LAK_STAGE_SUFFIX}"))
+        exact = read_final_lake_stages(stage_files[0], lake_ids) if stage_files else None
+        return final_stages if exact is None else exact
 
     def _extract_lake_abacus(
         self,
@@ -578,8 +511,6 @@ class Modflow6OutputAdapter:
         per lake) and persists each lake under the per-sim Zarr ``lake_abacus``
         group for the comparison figure. A no-op when the model has no carved lake.
         """
-        from hydromodpy.solver.modflow6.extractors.lake import read_lake_abacus
-
         spec = read_lake_abacus(solver_output_dir / f"{model_name}.lake_abacus.json")
         if spec is None:
             return
@@ -626,7 +557,7 @@ class Modflow6OutputAdapter:
         with progress.status("Building SFR timeseries"):
             obs_path = solver_output_dir / spec.obs_csv
             calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
-            factor = _seconds_per_time_unit(time_units)
+            factor = factor_to_seconds(time_units)
             calendar_times: np.ndarray | None = None
             if calendar_anchor is not None:
                 relative = np.asarray(times, dtype=float) * factor
@@ -650,54 +581,29 @@ class Modflow6OutputAdapter:
                 store.write_budgets(sim_id, budgets)
             _write_sfr_reach_geometry(sim_id, store, spec)
 
-    @staticmethod
-    def _recarray_to_grid(
-        rec: np.ndarray,
-        nlay: int,
-        n_cells: int,
-    ) -> np.ndarray:
-        """Convert a MF6 stress-package recarray to a full grid array.
-
-        MF6 stress packages store sparse records with 1-based ``node``
-        IDs and ``q`` flux values.  This scatters them into a dense
-        ``(nlay, n_cells)`` array. Vector records (DATA-SPDIS) are excluded
-        upstream by ``is_scalar_budget_component`` and never reach here.
-        """
-        names = rec.dtype.names
-        q = np.asarray(
-            rec["q"] if names is not None and "q" in names else rec[names[-1]], dtype="float64"
-        )
-
-        if n_cells == 0:
-            return q
-
-        nodes = np.asarray(rec["node"], dtype="int64") if "node" in names else None
-        out = np.zeros((nlay, n_cells), dtype="float64")
-        if nodes is not None:
-            idx = nodes - 1
-            lay = idx // n_cells
-            cell = idx % n_cells
-            valid = (lay >= 0) & (lay < nlay) & (cell >= 0) & (cell < n_cells)
-            np.add.at(out, (lay[valid], cell[valid]), q[valid])
-        else:
-            n = min(len(q), n_cells)
-            out[0, :n] = q[:n]
-        return out
-
     def _extract_mass_balance(
         self,
         sim_id: str,
         store: Any,
         lst_path: Path,
         *,
+        stamp_keys: Sequence[tuple[int, int]],
         seconds_per_time_unit: float = 1.0,
     ) -> None:
         """Parse MODFLOW 6 listing file for mass balance summary.
 
         MF6 splits storage into specific storage (STO-SS, confined) and specific
         yield (STO-SY, unconfined); total storage flux = STO-SS + STO-SY. Totals
-        and storage scale to m3/s like the budget fluxes; PERCENT_DISCREPANCY is
-        unitless and must not be scaled.
+        and storage scale to m3/s like the budget fluxes. The discrepancy is
+        recomputed from IN-OUT, the listing prints its own column rounded to
+        0.01 %.
+
+        The build prints the budget of every time step. ``stamp_keys`` are the
+        0-based ``(kstp, kper)`` of the saved heads: each stamp takes the mean
+        of the steps it closes, weighted by their length, and its discrepancy
+        is recomputed from those means, as MF6 does,
+        ``100 (in - out) / ((in + out) / 2)``. A stamp that closes one step
+        keeps that step's row.
         """
         try:
             from flopy.utils import Mf6ListBudget
@@ -707,39 +613,41 @@ class Modflow6OutputAdapter:
             if inc is not None:
                 names = inc.dtype.names
                 spt = seconds_per_time_unit
+                rows = [
+                    {
+                        "total_in": _budget_field(row, names, "TOTAL_IN"),
+                        "total_out": _budget_field(row, names, "TOTAL_OUT"),
+                        "storage_in": _budget_field(row, names, "STO-SS_IN")
+                        + _budget_field(row, names, "STO-SY_IN"),
+                        "storage_out": _budget_field(row, names, "STO-SS_OUT")
+                        + _budget_field(row, names, "STO-SY_OUT"),
+                        "in_minus_out": _budget_field(row, names, "IN-OUT"),
+                    }
+                    for row in inc
+                ]
+                groups = group_steps_by_stamp(
+                    [(int(row["time_step"]), int(row["stress_period"])) for row in inc],
+                    [float(row["tslen"]) for row in inc],
+                    stamp_keys,
+                )
                 records = []
-                for t in range(len(inc)):
-                    row = inc[t]
-                    storage_in = (
-                        _budget_field(row, names, "STO-SS_IN")
-                        + _budget_field(row, names, "STO-SY_IN")
-                    ) / spt
-                    storage_out = (
-                        _budget_field(row, names, "STO-SS_OUT")
-                        + _budget_field(row, names, "STO-SY_OUT")
-                    ) / spt
+                for group in groups:
+                    if not group.positions:
+                        continue
+                    mean = period_mean_balance([rows[i] for i in group.positions], group.weights)
                     records.append(
                         {
-                            "timestep": t,
-                            "total_in": _budget_field(row, names, "TOTAL_IN") / spt,
-                            "total_out": _budget_field(row, names, "TOTAL_OUT") / spt,
-                            "storage_in": storage_in,
-                            "storage_out": storage_out,
-                            "percent_error": _budget_field(row, names, "PERCENT_DISCREPANCY"),
+                            "timestep": group.stamp,
+                            "total_in": mean["total_in"] / spt,
+                            "total_out": mean["total_out"] / spt,
+                            "storage_in": mean["storage_in"] / spt,
+                            "storage_out": mean["storage_out"] / spt,
+                            "percent_error": mean["percent_error"],
                         }
                     )
                 store.write_mass_balances(sim_id, records)
         except Exception:
             logger.warning("Could not parse MF6 listing file %s", lst_path)
-
-    @staticmethod
-    def _as_cell_grid(arr: Any, nlay: int, n_cells: int) -> np.ndarray | None:
-        """Reshape one budget record to ``(nlay, n_cells)``, None when it does not fit."""
-        if arr.size == nlay * n_cells:
-            return np.asarray(arr).reshape(nlay, n_cells)
-        if arr.ndim == 1 and arr.size == n_cells:
-            return np.asarray(arr).reshape(1, n_cells)
-        return None
 
     def _catchment_cell_mask(
         self,
@@ -749,19 +657,46 @@ class Modflow6OutputAdapter:
         *,
         n_cells: int,
     ) -> np.ndarray | None:
-        """Cells of the delineated catchment, None when it cannot be placed.
+        """Cells of the catchment budget zone, None when it cannot be placed.
 
-        Read from the GRB rather than from the persisted mesh: the mesh reaches
-        Zarr only in ``_write_surface_elevation``, which runs after the budget.
-        Both come from the same file, so the two masks agree cell for cell.
-        A run without a watershed, without a CRS or on a synthetic domain keeps
-        the domain-wide row alone, exactly as before.
+        The zone is the basin of D the build left in the descent sidecar. The
+        budget is computed before the Zarr store is written, so the sidecar is
+        the one place the basin can be read from at this point. A basin that is
+        only the largest one of a domain with neither outlet nor polygon is no
+        catchment: the domain-wide row stands alone, as on any synthetic
+        domain.
+
+        A build that left no basin (no sidecar, a sidecar written before the
+        basin was stored, an unreadable one) keeps the old support
+        ``polygon_centroid`` and says so: the cells whose center the delineated
+        watershed covers, read from the GRB rather than from the persisted mesh.
+        The extractor checks the two against each other afterwards, so the mask
+        agrees with the stored cells. A run without a watershed or a CRS keeps
+        the domain-wide row alone.
         """
-        try:
-            from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
-                cell_polygons,
-                vector_cell_mask,
+        record, reason = _basin_the_build_left(solver_output_dir, n_cells=n_cells)
+        if record is not None:
+            if record.basin_rule == "largest_basin":
+                return None
+            logger.info(
+                "Budget zone '%s' for sim %s: the basin of D, %d of %d cells (%.3f km2).",
+                CATCHMENT,
+                sim_id,
+                int(record.basin.sum()),
+                n_cells,
+                float(record.basin_area_m2) / 1.0e6,
             )
+            return np.asarray(record.basin, dtype=bool)
+        logger.warning(
+            "Budget zone '%s' for sim %s: the build left no basin of D (%s), so the zone "
+            "keeps the old support 'polygon_centroid'.",
+            CATCHMENT,
+            sim_id,
+            reason,
+        )
+        try:
+            from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
+            from hydromodpy.mesh.planar.geometry import cell_polygons
 
             watershed = store.read_geographic_feature(sim_id, "watershed")
             if watershed is None or watershed.empty:
@@ -799,7 +734,7 @@ class Modflow6OutputAdapter:
             return None
         logger.info(
             "Budget zone '%s' for sim %s: %d of %d cells.",
-            CATCHMENT_BUDGET_ZONE,
+            CATCHMENT,
             sim_id,
             int(mask.sum()),
             n_cells,
@@ -815,97 +750,79 @@ class Modflow6OutputAdapter:
         nlay: int,
         n_cells: int,
         *,
-        grid_shape: tuple[int, int] | None = None,
+        vertical_layout: str = VERTICAL_LAYOUT_COLUMN_FRACTIONS,
     ) -> None:
-        """Write mesh topology and surface elevation for derived variables."""
+        """Check the solved grid against the stored mesh and add the vertical geometry.
+
+        The mesh itself was written once, before the run. The grid file is
+        compared with it and a difference stops the run: nothing is sealed on
+        cells it does not belong to. What is added is what the solved model
+        knows: ``topography``, the interfaces of every cell (``z_interfaces``,
+        ``(n_layers + 1, n_cells)``), ``layer_thickness`` and the ``idomain`` of
+        the grid file, lake mask included. The top of the grid file is the
+        computational top, so the interfaces start from the ground the build
+        left beside the model; a missing ground file is an error.
+        """
+        if not getattr(store, "save_zarr", True):
+            return
         try:
             grb_files = list(solver_output_dir.glob("*.dis.grb")) + list(
                 solver_output_dir.glob("*.disv.grb")
             )
-            grid_type = None
-            vertices = None
-            face_node_connectivity = None
-            if grb_files:
-                from flopy.mf6.utils import MfGrdFile
-
-                grd = MfGrdFile(str(grb_files[0]))
-                grid_type = str(getattr(grd, "grid_type", "") or "").lower() or None
-                top_raw = getattr(grd, "top1d", None)
-                if top_raw is None:
-                    top_raw = grd.top
-                bot_raw = getattr(grd, "bot1d", None)
-                if bot_raw is None:
-                    bot_raw = grd.bot
-                top = np.asarray(top_raw, dtype="float64").ravel()[:n_cells]
-                botm = np.asarray(bot_raw, dtype="float64")
-                botm_per_layer = (
-                    botm.reshape(nlay, n_cells) if botm.size == nlay * n_cells else None
-                )
-                if botm_per_layer is not None:
-                    z_flat = np.concatenate([top[:1], botm_per_layer[:, 0]])
-                else:
-                    z_flat = np.array([float(top.mean()), float(top.mean()) - 10.0])
-                geometry = self._mesh_geometry_from_grid(grd, n_cells=n_cells)
-                if geometry is not None:
-                    vertices, face_node_connectivity = geometry
-            else:
+            if not grb_files:
                 return
+            from flopy.mf6.utils import MfGrdFile
 
-            if face_node_connectivity is None:
-                geometry = self._structured_mesh_geometry_from_shape(
-                    store,
-                    sim_id,
-                    n_cells=n_cells,
-                    grid_shape=grid_shape,
+            grd = MfGrdFile(str(grb_files[0]))
+            grid_type = str(getattr(grd, "grid_type", "") or "").lower() or None
+            top_raw = getattr(grd, "top1d", None)
+            if top_raw is None:
+                top_raw = grd.top
+            bot_raw = getattr(grd, "bot1d", None)
+            if bot_raw is None:
+                bot_raw = grd.bot
+            top = read_ground_sidecar(
+                solver_output_dir,
+                written_top=np.asarray(top_raw, dtype="float64").ravel()[:n_cells],
+            )
+            botm = np.asarray(bot_raw, dtype="float64")
+            if botm.size != nlay * n_cells:
+                raise SolverInputError(
+                    f"the grid file of sim {sim_id} holds {botm.size} cell bottoms, "
+                    f"not {nlay} layers of {n_cells} cells."
                 )
-                if geometry is not None:
-                    vertices, face_node_connectivity = geometry
-
-            if vertices is None or face_node_connectivity is None:
-                return
-            structured_shape = self._structured_shape_from_vertices(vertices, n_cells=n_cells)
-            # Only fall back to a real 2D rectangle. For DISV the head array is
-            # (nlay, 1, ncpl), so grid_shape is the degenerate (1, ncpl); applying
-            # it would persist a bogus structured_shape=(1, ncpl) for genuinely
-            # unstructured meshes. Leaving it None makes them persist as null.
-            if (
-                structured_shape is None
-                and grid_shape is not None
-                and int(grid_shape[0]) > 1
-                and int(grid_shape[1]) > 1
-                and int(grid_shape[0]) * int(grid_shape[1]) == int(n_cells)
-            ):
-                structured_shape = (int(grid_shape[0]), int(grid_shape[1]))
-            # Pre-conditioning top (written by the builder as a sidecar) lets the
-            # conditioning-impact map show how much the fill/breach moved the top.
-            topography_reference = None
-            ref_files = list(solver_output_dir.glob("*.conditioning_ref.npy"))
-            if ref_files:
-                ref = np.asarray(np.load(ref_files[0]), dtype="float64").ravel()[:n_cells]
-                if ref.size == top.size:
-                    topography_reference = ref
+            interfaces = layer_interfaces(top, botm.reshape(nlay, n_cells))
+            idomain = np.asarray(grd.idomain).reshape(nlay, n_cells)
 
             sz = store.open_zarr(sim_id)
             try:
+                verify_grid_against_store(grd, sz.root, sim_id=sim_id)
                 streambed = _streambed_face_arrays(solver_output_dir, model_name, n_cells)
-                sz.write_mesh(
-                    vertices=vertices,
-                    face_node_connectivity=face_node_connectivity,
-                    z_interfaces=z_flat,
+                sz.write_topography(
                     topography=top,
-                    topography_reference=topography_reference,
-                    layer_thickness=_layer_thickness(top, botm_per_layer),
+                    z_interfaces=interfaces,
+                    n_cells=n_cells,
+                    n_layers=nlay,
+                    layer_thickness=interfaces[:-1] - interfaces[1:],
+                    idomain=idomain,
+                    vertical_layout=vertical_layout,
                     streambed_top=None if streambed is None else streambed[0],
                     streambed_connection=None if streambed is None else streambed[1],
                     grid_type=grid_type,
-                    structured_shape=structured_shape,
+                )
+                _write_flow_properties(sz, solver_output_dir, n_cells=n_cells)
+                write_descent_sidecar_to_store(
+                    sz, solver_output_dir, sim_id=sim_id, n_cells=n_cells
                 )
             finally:
                 sz.close()
+        except (SolverInputError, MeshError):
+            raise
         except Exception:
             logger.warning(
-                "Could not write the mesh and surface elevation for sim %s; every map, "
-                "section and water-table depth of this run reads them.",
+                "Could not write the surface elevation for sim %s; the run keeps the ground "
+                "written before the solve, without a lake bed the solver carved, and every "
+                "map, section and water-table depth of this run reads it.",
                 sim_id,
                 exc_info=True,
             )
@@ -916,171 +833,37 @@ class Modflow6OutputAdapter:
         *,
         n_cells: int,
     ) -> tuple[np.ndarray, np.ndarray] | None:
-        """Return UGRID vertices/connectivity from a FloPy MfGrdFile."""
-        verts = getattr(grid, "verts", None)
-        iverts = getattr(grid, "iverts", None)
-        if verts is not None and iverts is not None:
-            vertices = np.asarray(verts, dtype="float64")
-            if vertices.ndim == 2 and vertices.shape[1] == 2:
-                vertices = np.column_stack([vertices, np.zeros(vertices.shape[0])])
-            connectivity = Modflow6OutputAdapter._padded_face_connectivity(
-                iverts,
-                n_cells=n_cells,
-            )
-            if connectivity is not None:
-                return vertices, connectivity
-
+        """Return UGRID vertices and padded connectivity from a FloPy MfGrdFile, None if it has none."""
         try:
-            modelgrid = grid.modelgrid
-            xvertices = np.asarray(modelgrid.xvertices, dtype="float64")
-            yvertices = np.asarray(modelgrid.yvertices, dtype="float64")
-        except Exception:
+            vertices_xy, connectivity = grb_geometry(grid)
+        except MeshError:
             return None
-
-        if xvertices.ndim != 2 or yvertices.shape != xvertices.shape:
+        if connectivity.shape[0] != int(n_cells):
             return None
-        nrow = int(xvertices.shape[0] - 1)
-        ncol = int(xvertices.shape[1] - 1)
-        if nrow <= 0 or ncol <= 0 or nrow * ncol != int(n_cells):
-            return None
-        vertices = np.column_stack(
-            [
-                xvertices.ravel(),
-                yvertices.ravel(),
-                np.zeros(xvertices.size, dtype="float64"),
-            ]
-        )
-        return vertices, Modflow6OutputAdapter._structured_face_connectivity(nrow, ncol)
-
-    @staticmethod
-    def _padded_face_connectivity(
-        iverts: Any,
-        *,
-        n_cells: int,
-    ) -> np.ndarray | None:
-        """Convert ragged MF6 iverts lists to padded UGRID connectivity."""
-        rows: list[list[int]] = []
-        for row in list(iverts)[: int(n_cells)]:
-            cleaned = [int(node) for node in row if int(node) >= 0]
-            if len(cleaned) > 1 and cleaned[0] == cleaned[-1]:
-                cleaned = cleaned[:-1]
-            if len(cleaned) < 3:
-                rows.append([])
-            else:
-                rows.append(cleaned)
-        if len(rows) != int(n_cells) or not any(rows):
-            return None
-        width = max(len(row) for row in rows)
-        connectivity = np.full((int(n_cells), width), -1, dtype="int32")
-        for cell_id, row in enumerate(rows):
-            if row:
-                connectivity[cell_id, : len(row)] = row
-        return connectivity
-
-    @staticmethod
-    def _structured_face_connectivity(nrow: int, ncol: int) -> np.ndarray:
-        """Return quadrilateral face connectivity for a structured grid."""
-        nc = int(ncol) + 1
-        connectivity = np.empty((int(nrow) * int(ncol), 4), dtype="int32")
-        for row in range(int(nrow)):
-            for col in range(int(ncol)):
-                cell_id = row * int(ncol) + col
-                node_id = row * nc + col
-                connectivity[cell_id] = (
-                    node_id,
-                    node_id + 1,
-                    node_id + nc + 1,
-                    node_id + nc,
-                )
-        return connectivity
-
-    @staticmethod
-    def _structured_shape_from_vertices(
-        vertices: np.ndarray | None,
-        *,
-        n_cells: int,
-    ) -> tuple[int, int] | None:
-        """Infer a regular grid shape from rectangular UGRID vertices."""
-        if vertices is None:
-            return None
-        values = np.asarray(vertices, dtype="float64")
-        if values.ndim != 2 or values.shape[0] == 0 or values.shape[1] < 2:
-            return None
-        unique_x = np.unique(np.round(values[:, 0], decimals=9))
-        unique_y = np.unique(np.round(values[:, 1], decimals=9))
-        ncol = int(unique_x.size - 1)
-        nrow = int(unique_y.size - 1)
-        if nrow > 0 and ncol > 0 and nrow * ncol == int(n_cells):
-            return nrow, ncol
-        return None
-
-    @staticmethod
-    def _structured_mesh_geometry_from_shape(
-        store: Any,
-        sim_id: str,
-        *,
-        n_cells: int,
-        grid_shape: tuple[int, int] | None,
-    ) -> tuple[np.ndarray, np.ndarray] | None:
-        """Build rectangular UGRID geometry when the GRB lacks vertices."""
-        shape = grid_shape
-        if shape is None or int(shape[0]) * int(shape[1]) != int(n_cells):
-            side = int(np.sqrt(int(n_cells)))
-            shape = (side, side) if side * side == int(n_cells) else None
-        if shape is None:
-            return None
-
-        nrow, ncol = int(shape[0]), int(shape[1])
-        try:
-            sz = store.open_zarr(sim_id)
-            try:
-                _, meta = sz.read_geographic_raster("watershed_dem")
-            finally:
-                sz.close()
-            transform = meta["transform"]
-            geographic_metadata = store.read_geographic_metadata(sim_id)
-            geo_rows = int(geographic_metadata.get("nrow", nrow))
-            geo_cols = int(geographic_metadata.get("ncol", ncol))
-            xmin = float(transform[2])
-            xmax = xmin + geo_cols * float(transform[0])
-            ymax = float(transform[5])
-            ymin = ymax + geo_rows * float(transform[4])
-        except Exception:
-            xmin, xmax = 0.0, float(ncol)
-            ymin, ymax = 0.0, float(nrow)
-
-        x_edges = np.linspace(xmin, xmax, ncol + 1, dtype="float64")
-        y_edges = np.linspace(ymax, ymin, nrow + 1, dtype="float64")
-        xx, yy = np.meshgrid(x_edges, y_edges)
-        vertices = np.column_stack(
-            [
-                xx.ravel(),
-                yy.ravel(),
-                np.zeros(xx.size, dtype="float64"),
-            ]
-        )
-        return vertices, Modflow6OutputAdapter._structured_face_connectivity(nrow, ncol)
-
-    def derive(
-        self,
-        sim_id: str,
-        store: Any,
-        config: dict | None = None,
-    ) -> None:
-        """Compute derived variables from stored head fields."""
-        from hydromodpy.simulation.extraction.derivation.derived import compute_derived
-
-        cfg = config or {}
-        compute_derived(sim_id, store, cfg)
+        vertices = np.column_stack([vertices_xy, np.zeros(vertices_xy.shape[0])])
+        return vertices, connectivity
 
 
-def _layer_thickness(top: np.ndarray, botm_per_layer: np.ndarray | None) -> np.ndarray | None:
-    """Return the ``(n_layers, n_faces)`` thickness from the model top and bottoms.
+def _final_sfr_stages(solver_output_dir: Path) -> dict[int, float]:
+    """Return the final stage of each reach, ``{}`` unless SFR routes with storage."""
+    stage_files = sorted(solver_output_dir.glob(f"*{SFR_STAGE_SUFFIX}"))
+    return read_final_sfr_stages(stage_files[0]) if stage_files else {}
 
-    ``None`` when the grid file did not expose per-layer bottoms, in which case
-    the mesh keeps only the reference ``z_interfaces`` column.
+
+def _write_flow_properties(sz: Any, solver_output_dir: Path, *, n_cells: int) -> None:
+    """Persist the conductivity and storage fields the builder left behind.
+
+    They are inputs, not results, and MODFLOW writes none of them back out.
+    Storing them next to the heads is what lets a section or a map show the
+    aquifer the run was actually given, and lets two runs be compared on the
+    parameters and not only on the answer.
     """
-    if botm_per_layer is None:
-        return None
-    interfaces = np.vstack([np.asarray(top, dtype="float64")[None, :], botm_per_layer])
-    return np.diff(interfaces, axis=0) * -1.0
+    sidecars = sorted(solver_output_dir.glob(f"*{FLOW_PROPERTY_SIDECAR_SUFFIX}"))
+    if not sidecars:
+        return
+    with np.load(sidecars[0]) as payload:
+        for variable in payload.files:
+            values = np.asarray(payload[variable], dtype="float64")
+            if values.ndim != 2 or values.shape[1] != n_cells:
+                continue
+            sz.write_static_field(variable, values, subgroup="derived")
