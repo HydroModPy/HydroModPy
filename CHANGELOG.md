@@ -18,6 +18,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
+## [v2.0.0] - 2026-11-20
+
 ### What to do when you update
 
 - A run or a session stored by a pre-release (2.0.0a5 and earlier) is refused. Run it again with this version.
@@ -1024,8 +1026,8 @@ Sizes come from example 04 unless another case is named. Runs of a pre-release a
 - With station_ids and max_stations both set, Hub'Eau hydrometry loaded only the first max_stations named stations that had data and never said so. max_stations now counts only the stations a search over the extent finds, and every named station is loaded.
 - Hub'Eau cache looked up cached series without product in the cache key. An entry whose product differed answered anyway.
 - A stress-period stamp was compared with the observed value at the stamp instead of the mean of the period it closes, so discharge scores (NSE, KGE, RMSE) of these runs are not comparable with later ones.
-- MF6 wells and sides were placed on the triangulation instead of the Voronoi dual cells, MODFLOW-NWT stored one slice per time step and read a wrong budget, and Boussinesq ignored the steady first period, the bed thickness of drains, the recharge rule of fixed-head cells and the sub-steps; fixed between c14c1b4c6 and 48d7db46e.
-- The MODFLOW 6 DISV took the ground as its top, so the top layer had an uneven thickness and heads under a varying thickness were off by 0.16 to 0.31 m on the Nancon; the DISV now carries a computation top, fixed between b1fa87021 and ec7f8de88.
+- MF6 wells and sides were placed on the triangulation instead of the Voronoi dual cells, MODFLOW-NWT stored one slice per time step and read a wrong budget, and Boussinesq ignored the steady first period, the bed thickness of drains, the recharge rule of fixed-head cells and the sub-steps; fixed between a8323c810 and eb4d34e2a.
+- The MODFLOW 6 DISV took the ground as its top, so the top layer had an uneven thickness and heads under a varying thickness were off by 0.16 to 0.31 m on the Nancon; the DISV now carries a computation top, fixed in 5d0d5bb87.
 - A run started from flow.restart_from read the last head of the earlier run as stored, rounded to 2^-17 under the compact precision, up to 0.8 mm on 100 m of head. It now reads final_state, in double precision.
 - The cyclic spin-up carried the heads from one cycle to the next and restarted every lake from its initial_stage, so the lake never settled. Each cycle now starts from the final stage of the previous one.
 - The percent_error of the water mass_balance of a stamp that closes one time step was copied from the PERCENT DISCREPANCY column of the listing, which MODFLOW prints to 0.01 %. It is now recomputed from IN - OUT and the totals, as for a stamp of several steps. On example 05 (Gouville, 366 daily steps) 365 steps read 0.00, they now read a median of 3.2e-4 %, and the largest stays 0.13 %.

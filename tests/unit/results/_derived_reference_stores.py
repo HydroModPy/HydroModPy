@@ -1,6 +1,6 @@
 """Small synthetic run stores the derived fields are checked on.
 
-Each store is built with Zarr calls that exist at d5f485f88 and at HEAD, and
+Each store is built with Zarr calls that exist at 5d0d5bb87 and at HEAD, and
 is deterministic on every platform: the base code and the current code read
 the very same store.
 ``fixtures/derived_at_d5f485f88/<kind>.npz`` holds what the base code derived

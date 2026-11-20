@@ -1,7 +1,7 @@
 """The physical range of a parameter, :mod:`hydromodpy.core.units.physical_bounds`.
 
 Every unconfined 1D benchmark in `validation_cases/` writes ``value = "1e-10 m-1"`` to say
-that the confined storage term is switched off. Once `d3b80ad99` split ``"<number> <unit>"``
+that the confined storage term is switched off. Once `3fa4d40c9` split ``"<number> <unit>"``
 into a float, that value met the old 1e-9 floor and 22 validation cases died at validation.
 The floor moved to 1e-12. It stays above zero because the same range bounds a log-space
 calibration search, and the ceiling did not move.

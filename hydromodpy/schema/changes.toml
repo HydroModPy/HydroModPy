@@ -324,23 +324,23 @@ since = "2.0.0"
 versions = "<2.0.0a1"
 quantities = ["metrics"]
 text = "A stress-period stamp was compared with the observed value at the stamp instead of the mean of the period it closes, so discharge scores (NSE, KGE, RMSE) of these runs are not comparable with later ones."
-commit = "e6c5e50f5"
+commit = "57b2917c2"
 
 [[bug]]
 id = "voronoi_nwt_boussinesq_fixes_2026_10_09"
 since = "2.0.0"
 versions = "<2.0.0a5"
 quantities = ["mesh@voronoi", "fluxes@modflow_nwt", "heads@boussinesq", "fluxes@boussinesq"]
-text = "MF6 wells and sides were placed on the triangulation instead of the Voronoi dual cells, MODFLOW-NWT stored one slice per time step and read a wrong budget, and Boussinesq ignored the steady first period, the bed thickness of drains, the recharge rule of fixed-head cells and the sub-steps; fixed between c14c1b4c6 and 48d7db46e."
-commit = "c14c1b4c6"
+text = "MF6 wells and sides were placed on the triangulation instead of the Voronoi dual cells, MODFLOW-NWT stored one slice per time step and read a wrong budget, and Boussinesq ignored the steady first period, the bed thickness of drains, the recharge rule of fixed-head cells and the sub-steps; fixed between a8323c810 and eb4d34e2a."
+commit = "a8323c810"
 
 [[bug]]
 id = "mf6_computation_top"
 since = "2.0.0"
 versions = "<2.0.0a5"
 quantities = ["heads@modflow6", "fluxes@modflow6"]
-text = "The MODFLOW 6 DISV took the ground as its top, so the top layer had an uneven thickness and heads under a varying thickness were off by 0.16 to 0.31 m on the Nancon; the DISV now carries a computation top, fixed between b1fa87021 and ec7f8de88."
-commit = "b1fa87021"
+text = "The MODFLOW 6 DISV took the ground as its top, so the top layer had an uneven thickness and heads under a varying thickness were off by 0.16 to 0.31 m on the Nancon; the DISV now carries a computation top, fixed in 5d0d5bb87."
+commit = "5d0d5bb87"
 
 # hmp project new of a pre-release wrote [[simulation.process]] type = "flow". The key is kind
 # since 2.0.0, so a project made by that release loads in this version with a warning.

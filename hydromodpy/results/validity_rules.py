@@ -70,7 +70,7 @@ The register is ``hydromodpy/schema/changes.toml``, read by
     versions = "<2.0.0a1"  # PEP 440 specifier set of the affected versions
     quantities = ["metrics"]  # tokens a run exposes, see run_quantities()
     text = "..."  # one sentence a reader can act on
-    commit = "e6c5e50f5"  # the commit that fixed it, optional
+    commit = "57b2917c2"  # the commit that fixed it, optional
 
 A run exposes its quantities as tokens: ``metrics`` when it carries a
 score, ``heads@<solver>`` and ``fluxes@<solver>`` for its solver,

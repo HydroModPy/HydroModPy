@@ -14,7 +14,7 @@ The canonical Dirichlet input below is ``prescribed_head_m_by_cell`` - the
 head value is assigned directly to the unknown of the boundary cell, not to
 the boundary edge midpoint. This is a deliberate simplification (one fewer
 unknown, no interface equation) inherited from the v0.6 runtime refactor
-(commit ``c4cb92b7``, J.-R. de Dreuzy, 2026-04-17) and enforced as
+(commit ``4892dc62``, J.-R. de Dreuzy, 2026-04-17) and enforced as
 mutually exclusive with ``boundary_head_m_by_edge`` at
 ``assembly/inputs.py:105``.
 

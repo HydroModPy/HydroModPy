@@ -114,7 +114,7 @@ def _lattice(river: bool = True, contact: bool = True) -> MeshRequest:
     ],
 )
 def test_dual_matches_the_golden(bundle: str) -> None:
-    """The golden froze the dual of 7b940dc91 (Qhull, 1 mm rounding): same faces, areas to 1e-5."""
+    """The golden froze the dual of 1865d4475 (Qhull, 1 mm rounding): same faces, areas to 1e-5."""
     golden = np.load(GOLDEN / f"old_dual_{bundle}.npz")
     cell_mesh = VoronoiMeshEngine().build(_read(bundle, seeds="triangulation"))
 
