@@ -5,7 +5,7 @@
 #   --root /project --host 0.0.0.0, with -e HMP_IMAGE_DIGEST=<digest>.
 
 # ---- Stage 1: build wheel ---------------------------------------------------
-FROM python:3.12-slim AS builder
+FROM python:3.15-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir build \
     && python -m build --wheel --outdir /build/dist
 
 # ---- Stage 2: runtime -------------------------------------------------------
-FROM python:3.12-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 # The tag is the only identity the image can hold. The digest cannot be inside
 # the image, so the operator passes it at start: docker run -e HMP_IMAGE_DIGEST=...
