@@ -145,8 +145,8 @@ def run_blocks(
             items=(
                 ("compact", Metric("Site", _site_name(run, gauge))),
                 ("standard", Metric("CRS", getattr(site, "crs", None) or "")),
-                ("standard", Metric("Outlet X", _num(getattr(site, "x_outlet", None)), "m")),
-                ("standard", Metric("Outlet Y", _num(getattr(site, "y_outlet", None)), "m")),
+                ("standard", Metric("Outlet X", _coordinate(getattr(site, "x_outlet", None)), "m")),
+                ("standard", Metric("Outlet Y", _coordinate(getattr(site, "y_outlet", None)), "m")),
                 ("standard", Metric("Window", _window(run))),
                 ("standard", Metric("Run cells", run.n_cells)),
                 ("standard", _configuration_table(run, config)),
@@ -700,6 +700,14 @@ def _method_paragraphs(texts: ReportTexts, *, without_label: bool) -> tuple[str,
 def _num(value: Any, digits: int = 4) -> str:
     try:
         return f"{float(value):.{digits}g}"
+    except (TypeError, ValueError):
+        return "" if value is None else str(value)
+
+
+def _coordinate(value: Any) -> str:
+    """Return a projected coordinate to the metre, which ``_num`` would round to 4 digits."""
+    try:
+        return f"{float(value):.0f}"
     except (TypeError, ValueError):
         return "" if value is None else str(value)
 

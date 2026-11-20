@@ -357,6 +357,9 @@ class ProjectRunner:
         first_model_step = model_phase_index(all_steps)
         changes = override_changes(project._cfg, set or {})
         cfg_run = project._cfg.with_changes(changes) if changes else project._cfg
+        if changes and project._environment is not None:
+            # A change of the run can name a file the declared document did not.
+            project._environment.require_document(cfg_run, project_root=project.root)
         start = from_idx
         if start is None and not head_only and self._is_model_phase_ready(cfg_run):
             start = first_model_step
@@ -706,6 +709,9 @@ class ProjectRunner:
 
         project = self._project
         cfg_run = project._cfg.with_changes(changes) if changes else project._cfg
+        if changes and project._environment is not None:
+            # A change of the run can name a file the declared document did not.
+            project._environment.require_document(cfg_run, project_root=project.root)
         moved = self._first_step_reading_a_moved_section(cfg_run)
         if moved is not None:
             self._drop_model_phase_from(moved)

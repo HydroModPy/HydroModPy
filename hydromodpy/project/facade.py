@@ -218,6 +218,7 @@ class Project:
             else find_data_workspace(project_root) or project_root
         )
         environment.check(project_root=project_root, workspace_root=workspace_root)
+        environment.require_document(self._cfg, project_root=project_root)
 
     def _ensure_model_built(self) -> None:
         """Build the model phase once, lazily, on first run or accessor use.

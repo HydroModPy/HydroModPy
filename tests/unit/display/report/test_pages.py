@@ -401,3 +401,10 @@ def test_a_figure_the_run_cannot_feed_is_not_drawn(tmp_path, draw_spy):
     assert draw_spy == []
     run.stations = lambda name, source: ["L1"]
     assert pages.report_request("lake_stage", run).station == "L1"
+
+
+@pytest.mark.parametrize(
+    ("value", "text"), [(348512.4, "348512"), (6790123.6, "6790124"), (None, "")]
+)
+def test_an_outlet_coordinate_keeps_the_metre(value, text):
+    assert pages._coordinate(value) == text

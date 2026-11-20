@@ -75,6 +75,23 @@ def held_tables_of(model: BaseModel) -> Mapping[str, BaseModel]:
     return {} if hook is None else hook()
 
 
+def paths_named_by(node: Any, trail: tuple[str | int, ...] = ()) -> Iterator[tuple[str, Path]]:
+    """Yield each path a validated document holds, with its dotted place, held tables included."""
+    if isinstance(node, Path):
+        yield ".".join(str(part) for part in trail), node
+    elif isinstance(node, BaseModel):
+        for name in type(node).model_fields:
+            yield from paths_named_by(getattr(node, name, None), (*trail, name))
+        for name, table in held_tables_of(node).items():
+            yield from paths_named_by(table, (*trail, name))
+    elif isinstance(node, Mapping):
+        for key, value in node.items():
+            yield from paths_named_by(value, (*trail, str(key)))
+    elif isinstance(node, (list, tuple)):
+        for index, value in enumerate(node):
+            yield from paths_named_by(value, (*trail, index))
+
+
 def written_tables_of(model: BaseModel) -> Mapping[str, BaseModel]:
     """Return the named tables an instance holds that are not defaults taken in silence."""
     hook = getattr(model, "written_tables", None)
@@ -356,6 +373,7 @@ __all__ = [
     "is_site_scoped",
     "iter_fields_by_profile",
     "named_tables_of",
+    "paths_named_by",
     "read_profile_from_schema",
     "resolve_profile",
     "site_scoped_paths",

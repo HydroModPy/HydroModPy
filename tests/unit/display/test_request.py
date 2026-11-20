@@ -251,3 +251,11 @@ def test_every_stored_at_is_a_step() -> None:
     from hydromodpy.results.field_registry import FIELD_REGISTRY
 
     assert {field.stored_at for field in FIELD_REGISTRY.values()} <= set(STEP_NAMES)
+
+
+def test_the_budget_stack_counts_the_stream_constant_head_once() -> None:
+    from hydromodpy.display.request import budget_terms
+
+    terms = budget_terms()
+    assert "constant_head" in terms
+    assert "constant_head_stream" not in terms

@@ -12,7 +12,9 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
+from hydromodpy.core.config_kit.introspect import paths_named_by
 from hydromodpy.core.exceptions import CredentialsError
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.state.portable import state_dir
@@ -67,6 +69,32 @@ class Environment:
             forbidden_roots=(Path(project_root), Path(workspace_root)),
         )
 
+    def require_document(self, cfg: Any, *, project_root: Path | str) -> None:
+        """Refuse a document that names a file outside the roots the call allows.
+
+        Every path of the validated document is checked before a step reads
+        it, read from the project root when it is relative, so a document
+        cannot reach a file of another project by a key no reader bounds.
+        ``[workspace]`` is left out, because the caller sets it and
+        :meth:`check` bounds the project root. ``flow.restart_from`` names a
+        run or a store by text, so its path is checked too. The refusal does
+        not depend on whether the file exists. Without named roots nothing is
+        checked.
+        """
+        if self.bounds.allowed_roots is None:
+            return
+        root = Path(project_root).expanduser().resolve()
+        for place, path in paths_named_by(cfg):
+            if place.split(".", 1)[0] == "workspace":
+                continue
+            self.bounds.require_path(_under(root, path), why=f"the file {place} names")
+        reference = getattr(getattr(cfg, "flow", None), "restart_from", None)
+        text = reference if isinstance(reference, str) else getattr(reference, "path", None)
+        if text and text.strip():
+            self.bounds.require_path(
+                _under(root, Path(text.strip())), why="the run flow.restart_from names"
+            )
+
     def require_chain(self, path: Path | str) -> None:
         """Refuse a TOML file whose ``base_config`` chain leaves the allowed roots.
 
@@ -116,6 +144,12 @@ class Environment:
         if self.bounds.max_download_bytes != DEFAULT_MAX_DOWNLOAD_BYTES:
             out += ["--max-download-bytes", str(self.bounds.max_download_bytes)]
         return tuple(out)
+
+
+def _under(root: Path, path: Path) -> Path:
+    """Return *path* as a reader opens it: as it is when absolute, else under *root*."""
+    path = path.expanduser()
+    return path if path.is_absolute() else root / path
 
 
 __all__ = [

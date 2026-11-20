@@ -910,6 +910,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Fixed
 
+- The `water_budget` figure stacks `constant_head` alone. It also stacked `constant_head_stream`, a part of it, so the stream-role constant head was counted twice. The monthly climatology of the overview reads `Mean daily rate (mm/d)`, since it draws the monthly mean of a daily forcing, and the report prints the outlet coordinates to the metre instead of `3.485e+05`.
 - A staged calibration passes the value an earlier phase froze, such as K, to every trial of the later phase. When that phase sampled profiles only, such as Sy, its trials and a run promoted from a kept solve solved at the value of the file. Run such a calibration again: its later phases, and the runs it promoted, change.
 - A section that crosses inactive cells, such as the nodata border of a DEM taken whole as the domain, leaves them out. It drew their sentinel base of -9999 m in the frame and in the label.
 - A map leaves the inactive cells of a domain blank. A DEM with a nodata border drew them at -9999 m and stretched the colour bar of the relief down to it.
@@ -1010,6 +1011,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Security
 
+- A call with allowed roots, as the server gives each project, checks every path its document names before a step reads it, and the run `flow.restart_from` names. Before, only the DEM, a file source, an export, a delivery and the `base_config` chain were checked, so a `mask_path` or a `values_table_path` could read a file of another organisation.
 - The HTTP server refuses a TOML file whose `base_config` chain leaves the project, before the file outside is read. An uploaded TOML could read the configuration of another organisation through `..` or an absolute `base_config`. `Environment.require_chain` holds the check.
 - `Pillow` now starts at 13.0.0, the first version with the 2026 security fixes.
 

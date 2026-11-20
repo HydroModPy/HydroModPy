@@ -145,9 +145,12 @@ def test_sampling_gap_breaks_the_line() -> None:
 def test_climatic_summary_bars() -> None:
     ax = draw(
         panels.render_climatic_summary,
-        monthly_precip=np.arange(1, 13, dtype=float),  # mm
-        monthly_etp=np.full(12, 2.5),  # mm
+        monthly_precip=np.arange(1, 13, dtype=float),  # mm/d
+        monthly_etp=np.full(12, 2.5),  # mm/d
     )
+
+    # The bars are monthly means of a daily forcing, not monthly totals.
+    assert ax.get_ylabel() == "Mean daily rate (mm/d)"
 
     assert [patch.get_height() for patch in ax.patches] == [*range(1, 13), *[2.5] * 12]
     assert ax.patches[0].get_facecolor()[:3] == pytest.approx(to_rgb(THEME.roles["inflow"]))

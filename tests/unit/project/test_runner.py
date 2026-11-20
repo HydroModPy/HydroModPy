@@ -59,6 +59,7 @@ class _StubProject:
         self.built = 0
         self._run_counter = 0
         self._no_display = True
+        self._environment = None
         self._config_path = root / "project.toml"
         # A real configuration: the runner copies it with the overrides folded in.
         self._cfg = _declared_config(root)

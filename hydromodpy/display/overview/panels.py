@@ -440,7 +440,7 @@ def render_climatic_summary(
         plotted += 1
 
     ax.set_title(title)
-    ax.set_ylabel("Mean (mm)")
+    ax.set_ylabel("Mean daily rate (mm/d)")
     static.style_axes(ax, theme)
     ax.xaxis.grid(False)
     ax.set_xticks(months)

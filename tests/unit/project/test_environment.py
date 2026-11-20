@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -153,3 +154,103 @@ def test_require_chain_bounds_each_base(tmp_path: Path, base: str, kept: bool) -
 
 def test_require_chain_without_roots_checks_nothing(tmp_path: Path) -> None:
     Environment().require_chain(_chain(tmp_path, "'../../other/secret.toml'"))
+
+
+def _basin(tmp_path: Path) -> tuple[Path, dict]:
+    """Write the scenario basin under ``tmp_path/project`` and return its folder and document."""
+    import tomllib
+
+    from tests.scenarios.factory import basin_files
+
+    project = tmp_path / "project"
+    for relative, text in basin_files(True).items():
+        (project / relative).parent.mkdir(parents=True, exist_ok=True)
+        (project / relative).write_text(text)
+    return project, tomllib.loads((project / "project.toml").read_text())
+
+
+def _with_mask(document: dict, mask: str) -> dict:
+    document["data"]["recharge"]["sources"][0]["mask_path"] = mask
+    return document
+
+
+MASKS = {
+    "a file of another project": ("{tmp}/other/mask.geojson", False),
+    "a missing file outside": ("{tmp}/nowhere/mask.geojson", False),
+    "a path that climbs": ("../other/mask.geojson", False),
+    "a system file": ("/etc/passwd", False),
+    "a file of the project": ("inputs/mask.geojson", True),
+}
+
+
+@pytest.mark.parametrize(("mask", "kept"), MASKS.values(), ids=MASKS.keys())
+def test_a_bounded_project_refuses_a_file_outside_its_roots(
+    tmp_path: Path, mask: str, kept: bool
+) -> None:
+    import hydromodpy as hmp
+
+    project, document = _basin(tmp_path)
+    (tmp_path / "other").mkdir()
+    (tmp_path / "other" / "mask.geojson").write_text("{}")
+    _with_mask(document, mask.format(tmp=tmp_path.as_posix()))
+    environment = Environment(bounds=Bounds(allowed_roots=(project,)))
+    if kept:
+        hmp.Project(document, base=project, environment=environment)
+        return
+    # One sentence whether the file exists or not, so nothing can be probed.
+    with pytest.raises(BoundsError, match="data.recharge.sources.0.mask_path names"):
+        hmp.Project(document, base=project, environment=environment)
+
+
+def test_a_change_of_the_run_is_bounded_too(tmp_path: Path) -> None:
+    import hydromodpy as hmp
+
+    project, document = _basin(tmp_path)
+    environment = Environment(bounds=Bounds(allowed_roots=(project,)))
+    opened = hmp.Project(document, base=project, environment=environment)
+    sources = _with_mask(document, "/etc/passwd")["data"]["recharge"]["sources"]
+    with pytest.raises(BoundsError, match="mask_path names"):
+        opened.simulate(set={"data.recharge.sources": sources}, dry_run=True)
+
+
+RESTARTS = {
+    "a run of the project": ("baseline", True),
+    "a store outside": ("{tmp}/other/runs/x/fields.zarr", False),
+    "a table form that climbs": ({"path": "../other/runs/x"}, False),
+}
+
+
+@pytest.mark.parametrize(("reference", "kept"), RESTARTS.values(), ids=RESTARTS.keys())
+def test_restart_from_is_bounded(tmp_path: Path, reference: Any, kept: bool) -> None:
+    from types import SimpleNamespace
+
+    from hydromodpy.model.flow_config import RestartReference
+
+    if isinstance(reference, dict):
+        reference = RestartReference(**reference)
+    else:
+        reference = reference.format(tmp=tmp_path.as_posix())
+    project = tmp_path / "project"
+    project.mkdir()
+    cfg = SimpleNamespace(flow=SimpleNamespace(restart_from=reference))
+    environment = Environment(bounds=Bounds(allowed_roots=(project,)))
+    if kept:
+        environment.require_document(cfg, project_root=project)
+        return
+    with pytest.raises(BoundsError, match="restart_from names"):
+        environment.require_document(cfg, project_root=project)
+
+
+def test_require_document_leaves_the_workspace_and_open_calls(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    document = {"workspace": {"root": tmp_path / "space"}, "mesh": {"path": Path("/etc/passwd")}}
+    Environment().require_document(document, project_root=project)
+    with pytest.raises(BoundsError, match="mesh.path names"):
+        Environment(bounds=Bounds(allowed_roots=(project,))).require_document(
+            document, project_root=project
+        )
+    del document["mesh"]
+    Environment(bounds=Bounds(allowed_roots=(project,))).require_document(
+        document, project_root=project
+    )

@@ -31,6 +31,7 @@ from pydantic import (
 )
 from pydantic.json_schema import SkipJsonSchema
 
+from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.types import Names, listed
@@ -890,11 +891,17 @@ def check_stems(requests: Iterable[FigureRequest]) -> None:
 
 
 def budget_terms() -> tuple[str, ...]:
-    """Return the per-cell budget terms of an aquifer, the ones ``budget`` draws."""
+    """Return the per-cell budget terms of an aquifer, the ones ``budget`` draws.
+
+    ``constant_head_stream`` is left out because it is a part of ``constant_head``,
+    so a stack of both would count the stream-role cells twice.
+    """
     return tuple(
         name
         for name, field in FIELD_REGISTRY.items()
-        if field.zarr_path.startswith(BUDGET_GROUP) and name not in NOT_AQUIFER_TERMS
+        if field.zarr_path.startswith(BUDGET_GROUP)
+        and name not in NOT_AQUIFER_TERMS
+        and name != STREAM_CONSTANT_HEAD_BUDGET
     )
 
 

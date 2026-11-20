@@ -34,7 +34,10 @@ The server has no authentication. Put it behind a proxy that authenticates each 
 organisation reach only its own path ``/v1/<org>/``. Inside one organisation, a call reads and
 writes only under its project: the server passes the project as the one allowed root of the
 call, and it refuses a path argument that is absolute or climbs with ``..``. A TOML file whose
-``base_config`` chain leaves the project is refused before the file outside is read.
+``base_config`` chain leaves the project is refused before the file outside is read. Every path
+the document names, such as a ``mask_path`` or a ``values_table_path``, and the run that
+:toml:`flow.restart_from` names, is checked against that root before any step reads it, so a file of
+another project is refused with the same sentence whether it exists or not.
 
 Routes
 ------
