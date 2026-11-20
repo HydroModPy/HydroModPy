@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.schema.changes import REGISTER, outlived, read
+from hydromodpy.schema.changes import REGISTER, config_outlived, config_removal_of, outlived, read
 
 HEAD = 'schema = "hydromodpy.changes.v1"\n'
 
@@ -103,6 +103,11 @@ FAULTS = {
         HEAD + '[[migration]]\ndocument = "config"\nold = "a.b"\ninstead = " "\nsince = "3.0.0"\n',
         "instead must be",
     ),
+    # A retired key refuses a live file at once, so a 3.0.0 file would stop loading in 3.1.
+    "a key retired after a first release": (
+        HEAD + '[[migration]]\ndocument = "config"\nold = "a.b"\ninstead = "x"\nsince = "3.1.0"\n',
+        "not retired after the first release",
+    ),
     "a value renamed to itself": (
         HEAD
         + '[[migration]]\ndocument = "config"\nkey = "a.b"\nold_value = "x"\nnew_value = "x"\n'
@@ -136,3 +141,20 @@ def test_all_faults_at_once() -> None:
 def test_unparsable_version() -> None:
     with pytest.raises(ValueError, match="is not a version"):
         outlived("2.0.0", "two")
+
+
+# A key moved after the first release of a major loads until the next major, so a file
+# written for 2.0.0 loads in every 2.x. A move in 2.0.0 is a pre-release form and keeps two minors.
+CONFIG_DELAYS = [
+    pytest.param("2.0.0", "2.2.0", id="pre-release form"),
+    pytest.param("2.0.1", "3.0.0", id="patch after the first release"),
+    pytest.param("2.3.0", "3.0.0", id="minor of the line"),
+    pytest.param("3.0.0", "3.2.0", id="first release of the next line"),
+]
+
+
+@pytest.mark.parametrize(("since", "refused_from"), CONFIG_DELAYS)
+def test_a_configuration_key_loads_through_its_major(since: str, refused_from: str) -> None:
+    assert config_removal_of(since) == refused_from
+    assert not config_outlived(since, "2.1.9" if since.startswith("2.0") else "2.9.0")
+    assert config_outlived(since, refused_from)

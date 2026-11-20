@@ -436,6 +436,9 @@ def test_window_findings_named(tmp_path, time, window, regime, named) -> None:
 
 PROTOCOL_WINDOWS = [
     pytest.param({"window": {"start": "2001-13-01"}}, "is not a date", id="bad date"),
+    # pandas read "01/02/2001" month first, and "2001" as its first of January.
+    pytest.param({"window": {"start": "01/02/2001"}}, "is not a date", id="day and month order"),
+    pytest.param({"window": {"end": "2001"}}, "is not a date", id="a year alone"),
     pytest.param({"steady_window": {"start": "2000-01-01"}}, "missing end", id="steady span"),
     pytest.param({"window": {"begin": "2001-01-01"}}, "begin", id="unknown bound"),
 ]

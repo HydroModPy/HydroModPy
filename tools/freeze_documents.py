@@ -41,6 +41,7 @@ Nothing runs this at test time: the test only reads what this wrote.
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import shutil
@@ -117,9 +118,12 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "dem.tif"
 snap_dist = "150 m"
 buff_area = "10%"
+
+[[data.dem.sources]]
+source = "file"
+path = "dem.tif"
 
 [simulation.time]
 start_datetime = "2000-01-01"
@@ -232,7 +236,7 @@ def _calibrate_lock_and_publish(work: Path) -> Path:
     island = write_project(work / "island", island_files("calage"))
     _hmp("calibrate", "calib.toml", cwd=island)
     _hmp("data", "lock", "--project", ".", cwd=island)
-    _hmp("publish", "calage", "--to", str(work / "pub" / "inputs"), "--with", "inputs", cwd=island)
+    _hmp("publish", "calage", "--to", str(work / "pub" / "inputs"), cwd=island)
     tar = str(work / "pub" / "calage.tar")
     _hmp("publish", "calage", "--to", tar, "--container", "tar", cwd=island)
     return island
@@ -602,7 +606,8 @@ def _expected_plan(project: Path) -> dict[str, Any]:
     plan_hash = (project / "plan" / "current").read_text(encoding="utf-8").strip()
     directory = project / "plan" / plan_hash
     plan = _json(directory / "plan.json")
-    cases = pq.read_table(directory / "cases.parquet").to_pylist()
+    with (directory / "cases.csv").open(encoding="utf-8", newline="") as handle:
+        cases = list(csv.DictReader(handle))
     return {
         "schema": plan["schema"],
         "plan_hash": plan_hash,
@@ -610,7 +615,7 @@ def _expected_plan(project: Path) -> dict[str, Any]:
         "budget": plan["budget"],
         "cases": sorted(row["case_id"] for row in cases),
         "case_tomls": sorted(path.name for path in directory.glob("*.toml")),
-        "sites": sorted(pq.read_table(directory / "sites.parquet").column("site").to_pylist()),
+        "sites": sorted({row["site"] for row in cases if row["site"]}),
     }
 
 
@@ -662,7 +667,7 @@ def _expected_job(root: Path) -> dict[str, Any]:
             "outputs": [entry["path"] for entry in outcome["outputs"]],
         },
         "manifest": {
-            "schema": manifest["schema"],
+            "manifest_version": manifest["manifest_version"],
             "profile": manifest["profile"],
             "artifacts": sorted(entry["path"] for entry in manifest["artifacts"]),
         },

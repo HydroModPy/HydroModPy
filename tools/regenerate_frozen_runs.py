@@ -69,13 +69,13 @@ RUN_ENV = {
 FROZEN_RUN_KEYS = "export__delete = true\n\n"
 FROZEN_RUN_TABLES = """
 [[export]]
-variables = "discharge"
+variable = "discharge"
 
 [display]
 dpi = 40
 
 [[display.figure]]
-preset = "water_budget"
+variable = "watertable_elevation"
 """
 
 CALIBRATION_TOML = """\

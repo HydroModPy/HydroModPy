@@ -1150,3 +1150,17 @@ since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "An export that fails after the seal no longer stops the figures: they are drawn, then the run exits with the export error. A figure with engine = [\"static\", \"interactive\"] writes its PNG and its HTML page during a run, where it wrote the PNG alone. A series of one period, on a steady run or in a window of one month, is skipped with its reason, where it drew an empty panel. hmp show <run> --figure <name> --time <date> draws that date and records it in figures/index.json, where it drew the default instant. No value of a run changes."
+
+[[recipe]]
+id = "dates_are_iso_8601_only"
+since = "2.0.0"
+effect = "refusal"
+quantities = []
+text = "A date of [simulation.time], of a steady_window and of a calibration window is a TOML date, a TOML datetime or an ISO 8601 string. start_datetime = 2003 and \"2003\" were read as 2003 seconds after 1970-01-01, and a window bound \"01/02/2003\" as 2 January. All three are refused with the form a date takes, and so are two bounds of which only one carries a UTC offset. No valid date changes."
+
+[[recipe]]
+id = "monthly_edges_counted_from_the_start"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["heads@modflow6", "fluxes@modflow6", "heads@modflow_nwt", "fluxes@modflow_nwt", "heads@boussinesq", "fluxes@boussinesq", "metrics"]
+text = "Each edge of a time grid with a step in months or years is the start plus k steps. A start on the 29th, 30th or 31st drifted, because each step was added to the previous edge: from 31 January the periods began on 28 February, 28 March and 28 April, and they now begin on 28 February, 31 March and 30 April. A start on the 1st to the 28th, and a step in days or hours, give the same grid as before."

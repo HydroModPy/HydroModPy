@@ -50,9 +50,9 @@ from hydromodpy.schema.changes import (
     REGISTER,
     Migration,
     Register,
+    config_outlived,
     editions,
     migrations_of,
-    outlived,
     prerelease_refusal,
 )
 
@@ -311,7 +311,7 @@ def _as_told(row: Migration, told: Sequence[str], *, sealed: bool) -> list[str]:
     """Mark what a live file is refused on: a key that left, or a form past its delay."""
     if sealed:
         return list(told)
-    late = row.shape == "retire" or outlived(row.since, __version__)
+    late = row.shape == "retire" or config_outlived(row.since, __version__)
     return [
         _Refused(change) if late and CANNOT_REWRITE not in change else change for change in told
     ]
@@ -453,7 +453,7 @@ def moved_paths(*, sealed: bool = False, register: Register = REGISTER) -> tuple
         for row in migrations_of("config", register)
         if row.shape == "move"
         and "[*]" not in str(row.old)
-        and (sealed or not outlived(row.since, __version__))
+        and (sealed or not config_outlived(row.since, __version__))
     )
 
 

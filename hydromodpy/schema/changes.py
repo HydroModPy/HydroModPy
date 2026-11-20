@@ -11,8 +11,10 @@ writes it during a run. A defect of the file raises :class:`ValueError` with one
 per fault, so a broken register stops the import, and every test with it.
 
 The delay of an old form is written here once: :data:`DELAY_MINORS` minor versions,
-the one that retired it included (:func:`removal_of`, :func:`outlived`). The
-configuration, the old Python names and the old command forms all read it.
+the one that retired it included (:func:`removal_of`, :func:`outlived`). The old
+Python names and the old command forms read it. A configuration key moved after
+2.0.0 loads until the next major version instead (:func:`config_removal_of`), so a
+file written for 2.0.0 loads in every 2.x, and such a key is never retired.
 """
 
 from __future__ import annotations
@@ -263,7 +265,22 @@ def _migration_errors(row: dict[str, Any], where: str) -> tuple[list[str], tuple
             errors.append(f"{where}: old and new are the same path")
     elif not (isinstance(row["instead"], str) and row["instead"].strip()):
         errors.append(f"{where}: instead must be a non-empty string")
+    elif document == "config" and _after_the_first_release(row.get("since")):
+        # A retired key refuses a live file at once, so a file written for 2.0.0 would stop loading.
+        errors.append(
+            f"{where}: a configuration key is not retired after the first release of its major "
+            "version; move it to the key that replaces it, or refuse an experimental key in its model"
+        )
     return errors, (document, "old", row["old"])
+
+
+def _after_the_first_release(since: object) -> bool:
+    """Whether *since* comes after the first release of its major version, such as 2.0.0."""
+    try:
+        moved = Version(str(since))
+    except InvalidVersion:
+        return False  # The version check of the row names this fault.
+    return moved.release > (moved.major, 0, 0)
 
 
 def _built(table: str, row: dict[str, Any]) -> Bug | Default | Recipe | Migration:
@@ -458,6 +475,28 @@ def outlived(since: str, version: str) -> bool:
     except InvalidVersion as exc:
         raise ValueError(f"{version!r} is not a version") from exc
     return reached >= Version(removal_of(since)).release[:2]
+
+
+def config_removal_of(since: str) -> str:
+    """Return the first version that refuses a live file writing a key moved in *since*.
+
+    A key moved after the first release of its major version keeps loading, with a
+    warning, until the next major version, so a file written for 2.0.0 loads in every
+    2.x. A key moved in a first release such as 2.0.0 is a form of its pre-releases and
+    keeps the delay of :data:`DELAY_MINORS`.
+    """
+    if _after_the_first_release(since):
+        return f"{Version(since).major + 1}.0.0"
+    return removal_of(since)
+
+
+def config_outlived(since: str, version: str) -> bool:
+    """Whether *version* refuses a live file writing a key moved in *since*."""
+    try:
+        reached = Version(version).release[:2]
+    except InvalidVersion as exc:
+        raise ValueError(f"{version!r} is not a version") from exc
+    return reached >= Version(config_removal_of(since)).release[:2]
 
 
 def prerelease_refusal(where: str, names: Sequence[str], *, rewritable: bool = True) -> str:

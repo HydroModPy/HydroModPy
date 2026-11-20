@@ -137,6 +137,18 @@ def test_bad_window_refusals(kwargs, match):
         resolve_simulation_time_window(_cfg(**kwargs))
 
 
+# A month counted from the start: 31 January, 28 February, 31 March, 30 April.
+def test_a_month_from_the_31st_keeps_its_day():
+    grid = resolve_simulation_time_grid(_cfg("2003-01-31", "2003-05-30", 1, "month"))
+    assert [str(t.date()) for t in grid.period_starts] == [
+        "2003-01-31",
+        "2003-02-28",
+        "2003-03-31",
+        "2003-04-30",
+    ]
+    assert grid.period_ends_exclusive[-1] == pd.Timestamp("2003-05-31")
+
+
 def test_dates_of_a_bad_window():
     cfg = _cfg(start="2020-02-01", end="2020-01-01")
     assert resolve_simulation_time_window_dates(cfg, strict=False) is None

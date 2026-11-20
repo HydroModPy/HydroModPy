@@ -516,7 +516,9 @@ rule. The seal of a job is the other profile of the run seal, at ``manifest_vers
 
 The rule is written once, in :mod:`hydromodpy.core.io.document_version`. Every later 2.x reads
 every 2.0.0 document. Each family of sealed documents declares a window next to its current
-version, the oldest version it reads and the current one, and the two are equal at 2.0.0. A
+version, the oldest version it reads and the current one. The two are equal at 2.0.0, except
+for ``manifest_version`` (3 to 4) and ``trials.jsonl`` (``hydromodpy.trial.v2`` to ``v3``),
+whose older form a pre-release wrote. A
 change that a reader can ignore (a new optional key, column or array) does not change the
 version. A change it cannot ignore raises the current version, keeps the oldest one and brings
 the reader of the old version with it. Nothing upgrades a stored document to another version:

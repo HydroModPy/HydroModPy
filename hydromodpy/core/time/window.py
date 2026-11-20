@@ -358,17 +358,14 @@ def _build_time_boundaries(window: ResolvedSimulationTimeWindow) -> list[pd.Time
         end,
         step_unit=window.step_unit,
     )
-    step_offset = _time_step_offset(
-        step_value=window.step_value,
-        step_unit=window.step_unit,
-    )
-
+    # Each edge is start + k steps, as chain_windows writes it: adding one month to the
+    # previous edge turned 31 January into 28 February, then 28 March.
     boundaries = [start]
-    current = start
-    while current < end_exclusive:
-        # Advancing by one canonical step guarantees deterministic boundaries.
-        current = current + step_offset
-        boundaries.append(current)
+    while boundaries[-1] < end_exclusive:
+        offset = _time_step_offset(
+            step_value=len(boundaries) * window.step_value, step_unit=window.step_unit
+        )
+        boundaries.append(start + offset)
 
     if boundaries[-1] != end_exclusive:
         # Reject partial trailing periods: periodization must exactly fit window.

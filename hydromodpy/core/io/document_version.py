@@ -10,8 +10,9 @@ what to do.
 
 A family of sealed documents declares a :class:`VersionWindow` next to its
 current constant, the oldest version it reads and the current one, so every
-later 2.x reads every document of the 2.0.0 release. The two bounds are equal at 2.0.0. The
-rule of a change, for the whole 2.x line:
+later 2.x reads every document of the 2.0.0 release. The two bounds are equal at 2.0.0,
+except for the run seal (3 to 4) and the trial journal (v2 to v3), whose older form a
+pre-release wrote. The rule of a change, for the whole 2.x line:
 
 - adding an optional field, column or array does not change the version, and
   an older reader ignores what it does not know;

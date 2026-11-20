@@ -274,6 +274,9 @@ BAD_WINDOWS = [
     # pandas reads an int as nanoseconds since 1970, a config never means that.
     pytest.param(1995, "2020-12-31", "simulation.time.start_datetime", id="a bare number"),
     pytest.param(pd.NaT, "2020-12-31", "simulation.time.start_datetime", id="not a time"),
+    # pandas read "01/02/2003" month first and "2003" as its first of January.
+    pytest.param("01/02/2003", "2020-12-31", "not a date", id="day and month order"),
+    pytest.param("2003", "2020-12-31", "not a date", id="a year alone"),
     pytest.param("2002-12-31", "2000-01-01", "not a forward window", id="backward window"),
 ]
 

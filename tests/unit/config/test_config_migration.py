@@ -505,6 +505,36 @@ def test_form_past_delay_refused(tmp_path: Path) -> None:
     )
 
 
+# A key moved after 2.0.0 keeps loading in every 2.x, so a file written for 2.0.0 loads in 2.9.
+LINE_REGISTER = read(
+    HEAD
+    + '[[migration]]\ndocument = "config"\nold = "old_table"\nnew = "new.table"\nsince = "2.1.0"\n'
+    + '[[migration]]\ndocument = "config"\nkey = "section.kind"\nold_value = "a"\n'
+    + 'new_value = "b"\nsince = "2.1.0"\n'
+)
+LINE_FILE = '[old_table]\nx = 1\n[section]\nkind = "a"\n'
+
+
+def test_a_file_of_2_0_0_loads_through_the_2_line(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(migration, "__version__", "2.9.0")
+
+    doc = tomllib.loads(LINE_FILE)
+
+    with pytest.warns(ConfigKeyRenamedWarning):
+        migrate_config_doc_on_load(doc, source=tmp_path / "project.toml", register=LINE_REGISTER)
+
+    assert doc == {"new": {"table": {"x": 1}}, "section": {"kind": "b"}}
+
+
+def test_the_next_major_refuses_it(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(migration, "__version__", "3.0.0")
+
+    with pytest.raises(ConfigValidationError, match="This old form is refused"):
+        migrate_config_doc_on_load(
+            tomllib.loads(LINE_FILE), source=tmp_path / "project.toml", register=LINE_REGISTER
+        )
+
+
 # Each row: the file text, the label of the key, and the document left after a sealed read
 # (None when the row has no drop and a sealed read refuses).
 RETIRED = [

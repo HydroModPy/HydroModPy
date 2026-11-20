@@ -58,7 +58,7 @@ def _refused_from(row: changes.Migration) -> str:
     """The version from which a live file is refused, ``-`` for a stored document."""
     if row.document != "config":
         return "-"
-    return row.since if row.shape == "retire" else changes.removal_of(row.since)
+    return row.since if row.shape == "retire" else changes.config_removal_of(row.since)
 
 
 def rows_of(table: str, register: Register) -> tuple[list[str], list[list[str]], list[int]]:

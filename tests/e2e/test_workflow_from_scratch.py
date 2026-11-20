@@ -148,6 +148,8 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         "data",
         "get",
         "dem",
+        "--source",
+        "bdalti",
         "--bbox=-1.17,48.4,-1.0,48.5",
         "--to",
         str(refused_out),

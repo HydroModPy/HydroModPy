@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase, write_resolved
 from hydromodpy.core.config_kit.field_metadata import field_metadata
@@ -18,6 +18,7 @@ from hydromodpy.core.config_kit.types import (
 )
 from hydromodpy.core.plugin_registry import check_registered_name
 from hydromodpy.core.state.names import fold_name, split_stem_version
+from hydromodpy.core.time.instant import calendar_instant
 from hydromodpy.core.time.window import parse_window_length, reject_invalid_step_value_spec
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.core.units.time import normalize_time_unit
@@ -194,6 +195,14 @@ class SimulationTimeConfig(HydroModelBase):
             raise ValueError("simulation.time.step_value must be a positive integer.")
         return value
 
+    @field_validator("start_datetime", "end_datetime", mode="before")
+    @classmethod
+    def _read_a_calendar_date(cls, value: object, info: ValidationInfo) -> object:
+        # Pydantic reads 2003 or "2003" as seconds since 1970, so the date is read here.
+        if value is None:
+            return value
+        return calendar_instant(value, f"simulation.time.{info.field_name}")
+
     @field_validator("window", mode="before")
     @classmethod
     def _validate_window(cls, value: object) -> object:
@@ -232,6 +241,11 @@ class SimulationTimeConfig(HydroModelBase):
             raise ValueError(
                 "simulation.time.start_datetime and simulation.time.end_datetime "
                 "are required when [simulation.time] is declared."
+            )
+        if (self.start_datetime.tzinfo is None) != (self.end_datetime.tzinfo is None):
+            raise ValueError(
+                "simulation.time.start_datetime and simulation.time.end_datetime must both "
+                "carry a UTC offset, or neither."
             )
         if (
             self.start_datetime is not None

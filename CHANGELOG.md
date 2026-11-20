@@ -212,6 +212,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `base_config` takes a list of files, such as `base_config = ["sites/nancon.toml", "experiments/steady.toml"]`, and each of them may inherit others. A file two bases inherit is read once. For each key the most derived file that writes it wins, and two files that do not inherit each other must agree, or the file is refused with both names and both values. The items they add with `__append` are all kept, bases first. `hmp config resolve FILE --origin` writes each value of the merged file with the file that set it.
 
 ### Changed
+- A TOML key renamed after 2.0.0 keeps loading, with a warning, until 3.0, so a file written for 2.0.0 loads in every 2.x. Inside the 2 line a stable key moves and is never removed, and `changes.toml` refuses a row that would remove one. A key that only a pre-release wrote keeps its delay and is refused from 2.2.0. Old Python names and old `hmp` commands keep the rule of two minor versions.
 - An overlay that inherits a file the run file also inherits no longer applies that file again over the run file. The file is read once, and the values of the run file hold.
 - The banner of a calibration protocol names its departures from the paper on one line, with the value of each, and `-v` says how each one departs. It took about forty lines.
 - A transient run whose `[flow.param]` declares no `Sy` or no `Ss` takes `Sy = 0.05` and `Ss = 1e-5 1/m` as homogeneous fields, with a warning that names them, where MODFLOW refused it. Declare `[flow.param.Sy.field]` and `[flow.param.Ss.field]` to set other values.
@@ -377,9 +378,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   entry-point name is compared with that join and never split. The entry-point groups keep their names.
 - Each registry module exposes its registry object and no module function: `solvers` and `extractors` in
   `hydromodpy.solver.base.registry`, `data_sources` in `hydromodpy.data.source.registry`, `mesh_engines` in
-  `hydromodpy.mesh.registry`, `terrain_engines` in `hydromodpy.catchment.terrain.registry`, `evaluators` in
-  `hydromodpy.calibration.evaluation.registry` and `forward_models` in
-  `hydromodpy.calibration.evaluation.forward_registry`. Write `mesh_engines.get(name)`, `terrain_engines.create(name)` or
+  `hydromodpy.mesh.registry`, `terrain_engines` in `hydromodpy.catchment.terrain.registry` and `evaluators` in
+  `hydromodpy.calibration.evaluation.registry`. Write `mesh_engines.get(name)`, `terrain_engines.create(name)` or
   `evaluators.register(cls)` where the module functions `get`, `create`, `register`, `unregister` and `load_plugins`
   were called, `mesh_engines.names()` for `list_*_ids()`,
   `mesh_engines.names(shipped_only=True)` for `builtin_*_ids()`, `name in mesh_engines.names()` for
@@ -1006,6 +1006,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The matching card of a calibration now reads the unit of K from the session journal (`bounds.<name>.units`) before the session config, so its axis no longer shows `K (-)` when the journal says `m/s`.
 - `hmp run` ends on `Run completed` and `next:` again, after the figures it draws, as the Get started page says. The figure summary came after them. The Quick start check keeps `HMP_EXAMPLES_SOURCE`, so CI fetches example 04 from the checkout before the tag exists.
 - `hmp.calibrate` takes a run request, which it failed on with `'NoneType' object has no attribute 'model_dump'`, and reads its `set`, `phase`, `name`, `resume`, `force` and `dry_run` as the keywords. `PlanDraft.to_dict()` of a plan with no `[sites]` gives no `lines` where it failed with an `AttributeError`, so a `dry_run` of `hmp.run` answers over the HTTP server.
+- A date of `[simulation.time]`, of a `steady_window` or of a calibration `window` is a TOML date or an ISO 8601 string. `start_datetime = 2003` and `"2003"` were read as 1970-01-01 00:33:23, and `"01/02/2003"` in a window as 2 January, so all three are refused, and so are two bounds of which only one carries a UTC offset.
 
 ### Security
 
@@ -1052,6 +1053,7 @@ Sizes come from example 04 unless another case is named. Runs of a pre-release a
 - A calibration with no pin on the protocol follows 1.3: the map is cut to the catchment and the network is rasterized from the heads of the observed streams. On the shipped mesh of example 04 every K and cost is the same, and the heads examined fall from 154 to 29. On 30 x 30, J at the best trial goes from 11.0 to 50.3 m.
 - catchment_mismatch changes meaning and enters no cost, and the number it held is now basin_mismatch. On the shipped mesh of 21 406 cells 0 becomes 0.37 %, and on 30 x 30 it becomes 11.0 %.
 - calibration.precision writes a relative fatol, so Nelder-Mead stops on the same simplex two trials earlier. On example 04 the calibrated Sy goes from 0.04411 to 0.04296 and 1 - nse_log from 0.083976 to 0.083988, with two solves less. K does not move.
+- Each edge of a time grid with a step in months or years is the start plus k steps. A start on the 29th, 30th or 31st drifted, because each step was added to the previous edge: from 31 January the periods began on 28 February, 28 March and 28 April, and they now begin on 28 February, 31 March and 30 April. A start on the 1st to the 28th, and a step in days or hours, give the same grid as before.
 <!-- numbers:end -->
 
 - No number moves for MODFLOW 6 on example 04 (the 55 arrays, `timeseries`, `budgets` and the 11 scores, NSE 0.9345), nor for a run with no override.

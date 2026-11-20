@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from hydromodpy.config.config_migration import PRERELEASE_FORMS, document_path
 from hydromodpy.core.version import __version__
-from hydromodpy.schema.changes import REGISTER, Register, migrations_of, outlived
+from hydromodpy.schema.changes import REGISTER, Register, config_outlived, migrations_of
 
 MIGRATES = "migrates"
 
@@ -42,7 +42,7 @@ def accepted_old_names(register: Register = REGISTER) -> dict[str, str]:
     return {
         document_path(str(row.old)): MIGRATES
         for row in migrations_of("config", register)
-        if row.shape == "move" and not outlived(row.since, __version__)
+        if row.shape == "move" and not config_outlived(row.since, __version__)
     }
 
 

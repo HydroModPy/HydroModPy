@@ -126,6 +126,27 @@ REFUSALS = [
         "end_datetime must be greater than or equal",
         id="inverted bounds",
     ),
+    # Pydantic would read 2003 or "2003" as seconds since 1970, so 2003 became 1970-01-01.
+    pytest.param(
+        {"time": ONE_DAY | {"start_datetime": 2003, "end_datetime": "2003-12-31"}},
+        "start_datetime = 2003 is not a date",
+        id="number as a date",
+    ),
+    pytest.param(
+        {"time": ONE_DAY | {"start_datetime": "2003"}},
+        "start_datetime = '2003' is not a date",
+        id="year as a date",
+    ),
+    pytest.param(
+        {"time": ONE_DAY | {"end_datetime": "01/02/2020"}},
+        "end_datetime = '01/02/2020' is not a date",
+        id="day and month order",
+    ),
+    pytest.param(
+        {"time": ONE_DAY | {"start_datetime": "2020-01-01T00:00:00+01:00"}},
+        "carry a UTC offset, or neither",
+        id="one bound with an offset",
+    ),
     pytest.param(
         {"time": ONE_DAY | {"step_value": "30 day", "step_unit": "hour"}},
         "unit conflicts with simulation.time.step_unit",

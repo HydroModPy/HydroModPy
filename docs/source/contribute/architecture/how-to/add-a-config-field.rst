@@ -176,13 +176,15 @@ fault at once, and ``--partial`` accepts a file that still lacks required keys.
 Rename, move or remove a key
 ----------------------------
 
-A stable key leaves under the rules of :doc:`/about/versions`, so it keeps loading for
-two minor versions. In one change:
+A stable key moves under the rules of :doc:`/about/versions`. A key moved after 2.0.0
+keeps loading until the next major version, and inside the 2 line a key is never removed,
+so a file written for 2.0.0 loads in every 2.x. In one change:
 
 1. Add a ``[[migration]]`` row of ``document = "config"`` to
    ``hydromodpy/schema/changes.toml``. Use ``old`` and ``new`` for a key or a table
    that moves, ``key``, ``old_value`` and ``new_value`` for a value that takes another
-   name, or ``old`` and ``instead`` for a key that leaves. ``since`` is the version
+   name, or ``old`` and ``instead`` for a key that leaves, which the register refuses after
+   the first release of a major version. ``since`` is the version
    that ships the change. Add ``rule`` when the row cannot say the whole change. It
    names a function of ``RULES`` in ``hydromodpy/config/config_migration.py``. A load
    then reads the old name with a warning, and ``hmp doctor --fix-config`` rewrites the
@@ -201,10 +203,10 @@ two minor versions. In one change:
 ``tests/unit/config/test_historical_configs.py`` reads real files of the published
 alphas from ``tests/unit/config/corpus/``, so a rename with no row fails there.
 
-A row stays in the register after its delay, which ends when the version of the
-package reaches ``since`` plus two minor versions. From then on a live file is refused
-with the new name, and a run sealed under the old name stays readable for the whole
-major line.
+A row stays in the register for good. A row of 2.0.0, whose old key only a pre-release
+wrote, has a delay that ends at 2.2.0, and from then on a live file is refused with the
+new name. A row of a later 2.x has no end inside the 2 line. A run sealed under the old
+name stays readable for the whole major line.
 
 Layer boundaries
 ----------------

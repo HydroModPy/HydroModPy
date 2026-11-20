@@ -21,6 +21,13 @@ and its provenance can be read by every later 2.x, and so can the keys of its fr
 `config.toml`. Only a major version can change this. A stored format can gain a new version
 inside the line, and the build that writes it then also reads the older ones.
 
+A calibration session you stored stays readable too. Its `session.json`, its phases, its
+`trials.jsonl` and its trial series are read and shown by every later 2.x, and the run it
+promoted is a stored run like any other. Resuming a session, running one more of its phases or
+promoting one of its trials again by replay needs the version that wrote it, because the
+session records the code that scored its trials. A later version refuses it with a sentence
+that says so.
+
 The index `.hmp/index.duckdb` is outside this promise, because it is derived from the run
 folders. `hmp catalog reindex` rebuilds it at any time.
 
@@ -29,12 +36,14 @@ folders. `hmp catalog reindex` rebuilds it at any time.
 This covers the name or the place of a TOML key, an `hmp` command or flag, a name of
 `hydromodpy.__all__` and the shape of a config table.
 
-The old name of a TOML key or table keeps working for two minor versions, the one that
-changes it included, when the change comes in 2.0.0 or later. A key renamed in 2.3 still loads
-in 2.3 and 2.4, and can go in 2.5. While it works it prints a warning that gives the old name
+The old name of a TOML key or table keeps working until the next major version when the change
+comes after 2.0.0, so a file written for 2.0.0 loads in every later 2.x. A key renamed in 2.3
+still loads in 2.4, 2.9 and every other 2.x, and can only go in 3.0. Inside the 2 line a stable
+key moves to the key that replaces it and is never removed, and the register of changes refuses
+a row that would remove one. An experimental key follows its own rule, below. While an old name works it prints a warning that gives the old name
 and the new one, once per key and per file. `hmp doctor --fix-config <file>` rewrites your file
 and the files it inherits, and keeps your comments. The changelog lists the rename under
-`Changed` with both names, and later its removal under `Removed`.
+`Changed` with both names.
 
 A key or a table that only a pre-release wrote (an alpha, a beta or a release candidate) is refused
 from 2.0.0. The message names every such key the file holds, at once. HydroModPy does not

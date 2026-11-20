@@ -41,7 +41,14 @@ from hydromodpy.core.version import __version__
 from hydromodpy.project import api
 from hydromodpy.results.record.forms import RULES as RUN_SEAL_RULES
 from hydromodpy.schema import changes
-from hydromodpy.schema.changes import REGISTER, REGISTER_FILENAME, migrations_of, outlived, read
+from hydromodpy.schema.changes import (
+    REGISTER,
+    REGISTER_FILENAME,
+    config_outlived,
+    migrations_of,
+    outlived,
+    read,
+)
 from hydromodpy.schema.job.seal import JOB_SEAL_RULES
 from tests._helpers.tolerances import TOLERANCES, tol
 from tests.conftest import _WHITEBOX_XDIST_GROUP_TEST_FILES
@@ -86,19 +93,23 @@ def test_a_surface_equals_its_snapshot(name: str) -> None:
     )
 
 
-def _without_their_entry(rows: list[str], entry_of: Callable[[str], Any]) -> list[str]:
+def _without_their_entry(
+    rows: list[str],
+    entry_of: Callable[[str], Any],
+    delay: Callable[[str, str], bool] = outlived,
+) -> list[str]:
     """Return the names of a ledger whose delay runs and that nothing keeps working."""
     return [
         row.split("\t")[0]
         for row in rows
-        if entry_of(row.split("\t")[0]) is None and not outlived(row.split("\t")[1], __version__)
+        if entry_of(row.split("\t")[0]) is None and not delay(row.split("\t")[1], __version__)
     ]
 
 
 def test_a_removed_toml_key_keeps_its_migration_until_its_delay_ends() -> None:
     """A row of the register or a line of ``prerelease_forms.txt`` keeps each key answered."""
     ledger = surface.read_rows(surface.SNAPSHOT_DIR / surface.REMOVED_TOML_KEYS)
-    missing = _without_their_entry(ledger, surface.toml_entry_for)
+    missing = _without_their_entry(ledger, surface.toml_entry_for, config_outlived)
     assert missing == [], (
         f"{missing} left the grammar and hydromodpy/schema/changes.toml has no row for them."
     )
@@ -905,27 +916,7 @@ _UNSET = "not set"
 # new field that would move a number needs a [[default]] row instead of a line here.
 # The baseline is the tree prepared for the 2.0.0 tag, so the table is empty until a field
 # is added after the tag.
-NEW_FIELDS: dict[str, tuple[Any, str]] = {
-    "display.figure": ([], "an empty list draws no figure of the new path"),
-    "display.presets": ({}, "an empty table adds no preset"),
-    "display.theme": ("default", "the default theme is the one the key preset already gave"),
-    "data.property_map": (_UNSET, "an unset table declares no map, and no parameter reads one"),
-    "flow.param.<id>.field.map": (None, "only a field of kind 'raster', new too, reads a map"),
-    "flow.param.<id>.field.mean": (_UNSET, "only a field of kind 'raster', new too, takes a mean"),
-    "flow.param.<id>.field_vertical_profile.depth_at": (
-        "middle",
-        "the middle of the layer is where every profile was read before the key",
-    ),
-    "flow.param.<id>.field_vertical_profile.characteristic_depth_high": (
-        _UNSET,
-        "unset, the decay length is characteristic_depth everywhere, as before",
-    ),
-    "flow.param.<id>.field_vertical_profile.ground_low": (_UNSET, "read only with the high length"),
-    "flow.param.<id>.field_vertical_profile.ground_high": (
-        _UNSET,
-        "read only with the high length",
-    ),
-}
+NEW_FIELDS: dict[str, tuple[Any, str]] = {}
 
 
 def _reviewed(path: str) -> tuple[Any, str] | None:

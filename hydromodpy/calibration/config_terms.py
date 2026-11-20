@@ -20,6 +20,7 @@ from hydromodpy.core.scoring.metric_table import (
     METRIC_SPECS,
     TRIAL_METRIC_NAMES,
 )
+from hydromodpy.core.time.instant import calendar_instant
 from hydromodpy.schema.changes import prerelease_refusal
 
 
@@ -157,18 +158,14 @@ class CalibWindow(HydroModelBase):
 
 
 def _parsed_bounds(window: CalibWindow) -> tuple[Any, Any]:
-    """Parse the window bounds into timestamps, raising on a bad date."""
+    """Parse the window bounds into timestamps, by the parser of ``[simulation.time]``."""
     import pandas as pd
 
     parsed = []
     for label, raw in (("start", window.start), ("end", window.end)):
-        if raw is None:
-            parsed.append(None)
-            continue
-        try:
-            parsed.append(pd.Timestamp(raw))
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"window {label}={raw!r} is not a date.") from exc
+        parsed.append(
+            None if raw is None else pd.Timestamp(calendar_instant(raw, f"window {label}"))
+        )
     return parsed[0], parsed[1]
 
 

@@ -18,7 +18,6 @@ that writes one of them in ``overrides`` too is refused when the file is read.
 
 from __future__ import annotations
 
-import datetime
 import re
 from collections.abc import Mapping
 from typing import Any
@@ -26,6 +25,7 @@ from typing import Any
 import pandas as pd
 
 from hydromodpy.calibration.config_phases import CalibPhaseDecl
+from hydromodpy.core.time.instant import calendar_instant
 
 
 def phase_overrides(phase: CalibPhaseDecl, document: Mapping[str, Any]) -> dict[str, Any]:
@@ -133,16 +133,11 @@ def _canonical_instant(value: Any, source: str) -> str:
     offset keeps its offset: dropping it would move the instant by that much,
     silently, and two offsets apart would collapse onto the same date.
 
-    Only a date, a datetime or a string is read. A bare number is not a
-    misspelling of an instant, it is a different kind of value, and pandas would
-    take it for nanoseconds since the epoch.
+    Only a date, a datetime or an ISO 8601 string is read, by the parser of
+    ``[simulation.time]``. A bare number would be taken for a count since the
+    epoch, and "01/02/2003" leaves the order of day and month to a guess.
     """
-    if not isinstance(value, (str, datetime.date, datetime.datetime, pd.Timestamp)):
-        raise ValueError(f"{source} is not an instant a steady phase can read: {value!r}.")
-    try:
-        stamp = pd.Timestamp(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{source} is not an instant a steady phase can read: {value!r}.") from exc
+    stamp = pd.Timestamp(calendar_instant(value, source))
     if stamp is pd.NaT:
         raise ValueError(f"{source} is not an instant a steady phase can read: {value!r}.")
     if stamp.tzinfo is None and stamp == stamp.normalize():
