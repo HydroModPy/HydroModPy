@@ -379,9 +379,9 @@ VARIABLE_SPECS: dict[str, VariableSpec] = {
         apply_simulation_window=False,
     ),
     "curve_number": VariableSpec(
-        config_module="hydromodpy.data.variables.user_rasters",
+        config_module="hydromodpy.data.variables.curve_number.config",
         config_class="CurveNumberConfig",
-        variable_module="hydromodpy.data.variables.user_rasters",
+        variable_module="hydromodpy.data.variables.curve_number.variable",
         variable_class="CurveNumberVariable",
         category="raster",
         kind="raster",

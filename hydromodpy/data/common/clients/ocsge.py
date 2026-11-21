@@ -81,9 +81,20 @@ def cover_polygons(archive: Path, bbox: tuple[float, float, float, float], cover
     return frame.to_crs("EPSG:2154") if frame.crs is not None else frame.set_crs("EPSG:2154")
 
 
+def archive_folder() -> Path:
+    """The folder of the department archives, in the user cache of HydroModPy.
+
+    The archives are raw downloads of about 200 MB that every family reading OCS GE
+    (sealed share, infiltration ratio, curve number) and every project share, so they
+    live once per machine and not in the data folder of a family.
+    """
+    from hydromodpy.core.state.portable import cache_dir
+
+    return Path(cache_dir()) / "ocsge"
+
+
 def department_archives(
     *,
-    output_dir: Path,
     bbox: tuple[float, float, float, float],
     year: int | None,
     bounds: Bounds | None = None,
@@ -99,7 +110,7 @@ def department_archives(
         raise DataProductError(
             f"No French department meets the box {bbox} (EPSG:2154): OCS GE covers France only."
         )
-    folder = Path(output_dir) / "ocsge_departments"
+    folder = archive_folder()
     folder.mkdir(parents=True, exist_ok=True)
     archives, editions = [], []
     with open_client(bounds=bounds) as http:
@@ -120,6 +131,18 @@ def department_archives(
     return archives, editions
 
 
+def ocsge_grid(bbox: tuple[float, float, float, float]):
+    """The 10 m grid of ``bbox`` (EPSG:2154): its transform, height and width."""
+    import numpy as np
+    from rasterio.transform import from_origin
+
+    xmin = np.floor(bbox[0] / PIXEL_M) * PIXEL_M
+    ymax = np.ceil(bbox[3] / PIXEL_M) * PIXEL_M
+    width = int(np.ceil((bbox[2] - xmin) / PIXEL_M))
+    height = int(np.ceil((ymax - bbox[1]) / PIXEL_M))
+    return from_origin(xmin, ymax, PIXEL_M, PIXEL_M), height, width
+
+
 def burn_map(
     target: Path,
     bbox: tuple[float, float, float, float],
@@ -132,15 +155,10 @@ def burn_map(
     import numpy as np
     import rasterio
     from rasterio.features import rasterize
-    from rasterio.transform import from_origin
 
     from hydromodpy.core.io.atomic_replace import staged_path
 
-    xmin = np.floor(bbox[0] / PIXEL_M) * PIXEL_M
-    ymax = np.ceil(bbox[3] / PIXEL_M) * PIXEL_M
-    width = int(np.ceil((bbox[2] - xmin) / PIXEL_M))
-    height = int(np.ceil((ymax - bbox[1]) / PIXEL_M))
-    transform = from_origin(xmin, ymax, PIXEL_M, PIXEL_M)
+    transform, height, width = ocsge_grid(bbox)
     shapes = list(shapes)
     grid = np.full((height, width), fill, dtype="float32")
     if shapes:
@@ -171,9 +189,11 @@ __all__ = [
     "OCSGE_ORIGIN",
     "PIXEL_M",
     "SEALED_COVERS",
+    "archive_folder",
     "burn_map",
     "cover_polygons",
     "department_archives",
     "edition",
     "editions",
+    "ocsge_grid",
 ]

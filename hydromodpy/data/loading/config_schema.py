@@ -32,6 +32,7 @@ from hydromodpy.data.variables.geology.config import GeologyConfig
 # importing anything at runtime.
 if TYPE_CHECKING:
     from hydromodpy.data.variables.crossings.config import CrossingsConfig
+    from hydromodpy.data.variables.curve_number.config import CurveNumberConfig
     from hydromodpy.data.variables.forcing_series import (
         EtpConfig,
         PrecipitationConfig,
@@ -61,7 +62,6 @@ if TYPE_CHECKING:
         WindConfig,
     )
     from hydromodpy.data.variables.user_rasters import (
-        CurveNumberConfig,
         LayerBaseConfig,
         PropertyMapConfig,
         SoilCapacityConfig,
@@ -256,8 +256,9 @@ class DataConfig(HydroModelBase):
     curve_number: Annotated[CurveNumberConfig | None, Profile.USER] = Field(
         default=None,
         description=(
-            "SCS curve number raster (AMC II), read by the soil reservoir in place of its "
-            "curve_number ([flow.sinks_sources.recharge.soil])."
+            "SCS curve number (AMC II), read by the soil reservoir in place of its "
+            "curve_number ([flow.sinks_sources.recharge.soil]): a raster, or a land cover "
+            "(OCS GE, WorldCover, a raster of a named legend) read in the GCN250 table."
         ),
     )
 

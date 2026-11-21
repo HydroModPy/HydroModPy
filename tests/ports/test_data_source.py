@@ -96,6 +96,11 @@ from hydromodpy.data.source.port import (
 )
 from hydromodpy.data.variables.crossings.apis.bdtopo import BdTopoCrossings
 from hydromodpy.data.variables.crossings.apis.roe import RoeCrossings
+from hydromodpy.data.variables.curve_number.from_land_cover import (
+    LandCoverCurveNumber,
+    OcsgeCurveNumber,
+    WorldcoverCurveNumber,
+)
 from hydromodpy.data.variables.dem.apis.ign_dem_fr import BdAltiDem, RgeAltiDem
 from hydromodpy.data.variables.geology.apis.brgm_1m import Brgm1m
 from hydromodpy.data.variables.geology.apis.brgm_50k import Brgm50k
@@ -479,6 +484,25 @@ BUILTIN_CASES: tuple[SourceCase, ...] = (
         provider_attr="fetch_ocsge_impervious",
         read_bbox=lambda args, kwargs: kwargs.get("bbox"),
         canned=_dem_canned,
+    ),
+    *(
+        SourceCase(
+            section="curve_number",
+            name=name,
+            build=build,
+            provider_module="hydromodpy.data.variables.curve_number.from_land_cover",
+            provider_attr=f"fetch_{name}_curve_number",
+            read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+            canned=_dem_canned,
+        )
+        for name, build in (
+            (
+                "land_cover",
+                lambda: LandCoverCurveNumber(path="lc.tif", nomenclature="clc", hsg="C"),
+            ),
+            ("ocsge", lambda: OcsgeCurveNumber(year=2023, hsg="C")),
+            ("worldcover", lambda: WorldcoverCurveNumber(hsg="C")),
+        )
     ),
     SourceCase(
         section="infiltration_ratio",

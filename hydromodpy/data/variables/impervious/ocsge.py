@@ -52,9 +52,7 @@ def fetch_ocsge_impervious(
     target = output_dir / f"impervious_ocsge_{year or 'latest'}_{digest}.tif"
     if target.exists() and not force_refresh:
         return target
-    archives, editions = department_archives(
-        output_dir=output_dir, bbox=bbox, year=year, bounds=bounds
-    )
+    archives, editions = department_archives(bbox=bbox, year=year, bounds=bounds)
     sealed = pd.concat([cover_polygons(a, bbox, SEALED_COVERS) for a in archives])
     return burn_map(target, bbox, ((g, 1.0) for g in sealed.geometry), fill=0.0, editions=editions)
 

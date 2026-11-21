@@ -34,11 +34,17 @@ _LOAD_STATE_FIELDS = {"loaded_plan_types"}
 # Sections that still choose a model of options by the value of ``source``.
 # Their tags are held equal to the registry by the test below, and the lot that
 # makes ``custom`` a source of the port lifts the exception.
-_UNION_SECTIONS = {"dem", "geology", "crossings", "impervious", "infiltration_ratio"}
+_UNION_SECTIONS = {
+    "dem",
+    "geology",
+    "crossings",
+    "impervious",
+    "infiltration_ratio",
+    "curve_number",
+}
 # Sections whose only sources are the user's own: ``file``, and ``url`` where the
 # section registers it. Their ``Literal`` tags are the registry's, like any other.
 _CUSTOM_ONLY_SECTIONS = {
-    "curve_number",
     "lake_abacus",
     "lake_bathymetry",
     "lake_geometry",
@@ -52,7 +58,7 @@ _CUSTOM_ONLY_SECTIONS = {
 }
 # Sources computed from the section alone or read from a local file.
 # They contact no host.
-_LOCAL_SOURCES = {"explore2", "synthetic", "constant", "file", "url"}
+_LOCAL_SOURCES = {"explore2", "synthetic", "constant", "file", "url", "land_cover"}
 
 
 def _families() -> dict[str, set[str]]:
@@ -195,10 +201,11 @@ def test_the_union_sections() -> None:
     which the registry does not hold yet, so an open string would need a case
     apart for them, rewritten by the same lot that lifts the exception.
     impervious keeps one because its ``year`` takes another type under each
-    provider.
+    provider, and so do the infiltration ratio and the curve number.
     """
     assert sorted(_UNION_SECTIONS) == [
         "crossings",
+        "curve_number",
         "dem",
         "geology",
         "impervious",

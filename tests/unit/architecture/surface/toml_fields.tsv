@@ -162,13 +162,24 @@ data.crossings.sources.source	Literal['url']	'url'	stable
 data.crossings.sources.url	str	<required>	stable
 data.curve_number	table | None	None	stable
 data.curve_number.sources	list[table]	<required>	stable
+data.curve_number.sources.classes	dict[str, int]	{}	stable
 data.curve_number.sources.default_crs	str	'EPSG:2154'	stable
+data.curve_number.sources.force_refresh	bool	False	stable
+data.curve_number.sources.hsg	Literal['A', 'B', 'C', 'D'] | None	None	stable
+data.curve_number.sources.hsg_path	Path | None	None	stable
 data.curve_number.sources.license	str | None	None	stable
+data.curve_number.sources.mask_path	Path | None	None	stable
+data.curve_number.sources.nomenclature	Literal['cci', 'worldcover', 'clc', 'custom']	<required>	stable
 data.curve_number.sources.path	Path	<required>	stable
 data.curve_number.sources.sha256	str | None	None	stable
 data.curve_number.sources.source	Literal['file']	'file'	stable
+data.curve_number.sources.source	Literal['land_cover']	'land_cover'	stable
+data.curve_number.sources.source	Literal['ocsge']	'ocsge'	stable
 data.curve_number.sources.source	Literal['url']	'url'	stable
+data.curve_number.sources.source	Literal['worldcover']	'worldcover'	stable
 data.curve_number.sources.url	str	<required>	stable
+data.curve_number.sources.year	Literal[2020, 2021]	2021	stable
+data.curve_number.sources.year	int	<required>	stable
 data.dem	table | None	None	stable
 data.dem.sources	list[table]	<required>	stable
 data.dem.sources.country	str	'FR'	stable

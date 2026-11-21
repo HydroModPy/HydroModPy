@@ -40,7 +40,14 @@ _BUILTIN_PATHS: dict[str, str] = {
     "crossings_roe": "hydromodpy.data.variables.crossings.apis.roe:RoeCrossings",
     "crossings_url": "hydromodpy.data.source.url:CrossingsUrl",
     "curve_number_file": "hydromodpy.data.source.file:CurveNumberFile",
+    "curve_number_land_cover": (
+        "hydromodpy.data.variables.curve_number.from_land_cover:LandCoverCurveNumber"
+    ),
+    "curve_number_ocsge": "hydromodpy.data.variables.curve_number.from_land_cover:OcsgeCurveNumber",
     "curve_number_url": "hydromodpy.data.source.url:CurveNumberUrl",
+    "curve_number_worldcover": (
+        "hydromodpy.data.variables.curve_number.from_land_cover:WorldcoverCurveNumber"
+    ),
     "dem_bdalti": "hydromodpy.data.variables.dem.apis.ign_dem_fr:BdAltiDem",
     "dem_file": "hydromodpy.data.source.file:DemFile",
     "dem_rgealti": "hydromodpy.data.variables.dem.apis.ign_dem_fr:RgeAltiDem",
@@ -134,7 +141,7 @@ _BUILTIN_PATHS: dict[str, str] = {
 }
 """Dotted paths to the in-tree source classes, imported on first lookup.
 
-The single declaration of what this build serves: 86 sources under 32 sections.
+The single declaration of what this build serves: 89 sources under 32 sections.
 Format ``"<module>:<class>"``, the one every registry of this repository uses.
 """
 

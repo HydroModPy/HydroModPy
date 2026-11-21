@@ -14,8 +14,8 @@ from pydantic import ValidationError
 
 from hydromodpy.core.exceptions import DataProductError
 from hydromodpy.data.common.clients.ocsge import edition
+from hydromodpy.data.common.clients.worldcover import tile_names, tile_url
 from hydromodpy.data.variables.impervious.config import ImperviousConfig
-from hydromodpy.data.variables.impervious.worldcover import tile_names, tile_url
 
 TILES = [
     pytest.param((-1.3, 48.2, -1.1, 48.5), ["N48W003"], id="the Nancon"),

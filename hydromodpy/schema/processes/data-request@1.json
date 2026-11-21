@@ -370,17 +370,37 @@
           },
           "CurveNumberConfig": {
             "additionalProperties": false,
-            "description": "SCS curve number raster, read by the soil reservoir.\n\nExample TOML::\n\n    [[data.curve_number.sources]]\n    source = \"file\"\n    path = \"soil/gcn250_amc2.tif\"",
+            "description": "SCS curve number raster, read by the soil reservoir.\n\nExample TOML::\n\n    [[data.curve_number.sources]]\n    source = \"ocsge\"\n    year = 2023\n    hsg = \"C\"",
             "properties": {
               "sources": {
-                "description": "Exactly one curve number raster. Each soil column takes the mean curve number of its SAFRAN cell inside the catchment, in place of curve_number.",
+                "description": "Exactly one curve number source. Each soil column takes the mean curve number of its SAFRAN cell inside the catchment, in place of curve_number. A source built from land cover leaves the sealed and built-up classes out, since [data.impervious] runs them off whole, and leaves water and snow out, which GCN250 gives no curve number.",
                 "items": {
-                  "anyOf": [
+                  "description": "One source of the curve number.",
+                  "discriminator": {
+                    "mapping": {
+                      "file": "#/$defs/FileCurveNumberSource",
+                      "land_cover": "#/$defs/LandCoverCurveNumberSource",
+                      "ocsge": "#/$defs/OcsgeCurveNumberSource",
+                      "url": "#/$defs/UrlCurveNumberSource",
+                      "worldcover": "#/$defs/WorldcoverCurveNumberSource"
+                    },
+                    "propertyName": "source"
+                  },
+                  "oneOf": [
                     {
                       "$ref": "#/$defs/FileCurveNumberSource"
                     },
                     {
                       "$ref": "#/$defs/UrlCurveNumberSource"
+                    },
+                    {
+                      "$ref": "#/$defs/LandCoverCurveNumberSource"
+                    },
+                    {
+                      "$ref": "#/$defs/WorldcoverCurveNumberSource"
+                    },
+                    {
+                      "$ref": "#/$defs/OcsgeCurveNumberSource"
                     }
                   ]
                 },
@@ -837,7 +857,7 @@
                   }
                 ],
                 "default": null,
-                "description": "SCS curve number raster (AMC II), read by the soil reservoir in place of its curve_number ([flow.sinks_sources.recharge.soil]).",
+                "description": "SCS curve number (AMC II), read by the soil reservoir in place of its curve_number ([flow.sinks_sources.recharge.soil]): a raster, or a land cover (OCS GE, WorldCover, a raster of a named legend) read in the GCN250 table.",
                 "x-hmp-profile": "user"
               }
             },
@@ -4163,6 +4183,139 @@
             "title": "LakeWithdrawalSourceConfig",
             "type": "object"
           },
+          "LandCoverCurveNumberSource": {
+            "additionalProperties": false,
+            "description": "A land cover raster of a named legend, turned into the curve number.",
+            "properties": {
+              "hsg": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "A",
+                      "B",
+                      "C",
+                      "D"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Hydrologic soil group of the whole area, A (low runoff potential) to D (high). Write it, or hsg_path, never both: HydroModPy picks no soil group for a site.",
+                "title": "Hsg",
+                "x-hmp-profile": "user"
+              },
+              "hsg_path": {
+                "anyOf": [
+                  {
+                    "format": "path",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Raster of the hydrologic soil group coded as HYSOGs250m (Ross et al. 2018, ORNL DAAC 1566): 1 to 4 for A to D, 11 to 14 for the wet groups A/D to D/D, read as D like GCN250 does. Any other value is no data.",
+                "title": "Hsg Path",
+                "x-hmp-profile": "user"
+              },
+              "classes": {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "description": "Classes of the land cover sent to another ESA CCI class than the shipped crosswalk, keyed by their code, such as { \"30\" = 11 } to read WorldCover grassland as managed meadow. 0 leaves a class out of the map. A class of the area that neither the crosswalk nor this table names is refused.",
+                "examples": [
+                  {
+                    "30": 11
+                  }
+                ],
+                "title": "Classes",
+                "type": "object",
+                "x-hmp-profile": "user"
+              },
+              "mask_path": {
+                "anyOf": [
+                  {
+                    "format": "path",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+                "site_scoped": true,
+                "title": "Mask Path",
+                "x-hmp-profile": "user"
+              },
+              "force_refresh": {
+                "default": false,
+                "description": "Build the map again instead of reading the cache.",
+                "examples": [
+                  false
+                ],
+                "title": "Force Refresh",
+                "type": "boolean",
+                "x-hmp-profile": "user"
+              },
+              "source": {
+                "const": "land_cover",
+                "default": "land_cover",
+                "description": "Discriminator tag selecting a land cover raster.",
+                "examples": [
+                  "land_cover"
+                ],
+                "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "path": {
+                "description": "Path to a land cover raster, one class code per pixel (GeoTIFF, ASC).",
+                "examples": [
+                  "data/input.csv"
+                ],
+                "format": "path",
+                "title": "Path",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "nomenclature": {
+                "description": "Legend of the raster: \"cci\" (ESA CCI LC), \"worldcover\" (ESA WorldCover), \"clc\" (Corine Land Cover level 3, such as 211), or \"custom\" for any other legend, whose every class classes then sends to an ESA CCI class.",
+                "enum": [
+                  "cci",
+                  "worldcover",
+                  "clc",
+                  "custom"
+                ],
+                "examples": [
+                  "cci"
+                ],
+                "title": "Nomenclature",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "default_crs": {
+                "default": "EPSG:2154",
+                "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
+                "examples": [
+                  "EPSG:2154"
+                ],
+                "title": "Default Crs",
+                "type": "string",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "path",
+              "nomenclature"
+            ],
+            "title": "LandCoverCurveNumberSource",
+            "type": "object"
+          },
           "LayerBaseConfig": {
             "additionalProperties": false,
             "description": "Top-level layer base variable configuration: one named raster per base.\n\nExample TOML::\n\n    [[data.layer_base.sources]]\n    source = \"file\"\n    name = \"weathered_base\"\n    path = \"data/layer_base/weathered_base.tif\"",
@@ -4466,6 +4619,115 @@
               "source"
             ],
             "title": "OceanicSourceConfig",
+            "type": "object"
+          },
+          "OcsgeCurveNumberSource": {
+            "additionalProperties": false,
+            "description": "OCS GE of the IGN, its covers sent to the ESA CCI pivot, 10 m, France.",
+            "properties": {
+              "hsg": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "A",
+                      "B",
+                      "C",
+                      "D"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Hydrologic soil group of the whole area, A (low runoff potential) to D (high). Write it, or hsg_path, never both: HydroModPy picks no soil group for a site.",
+                "title": "Hsg",
+                "x-hmp-profile": "user"
+              },
+              "hsg_path": {
+                "anyOf": [
+                  {
+                    "format": "path",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Raster of the hydrologic soil group coded as HYSOGs250m (Ross et al. 2018, ORNL DAAC 1566): 1 to 4 for A to D, 11 to 14 for the wet groups A/D to D/D, read as D like GCN250 does. Any other value is no data.",
+                "title": "Hsg Path",
+                "x-hmp-profile": "user"
+              },
+              "classes": {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "description": "Classes of the land cover sent to another ESA CCI class than the shipped crosswalk, keyed by their code, such as { \"30\" = 11 } to read WorldCover grassland as managed meadow. 0 leaves a class out of the map. A class of the area that neither the crosswalk nor this table names is refused.",
+                "examples": [
+                  {
+                    "30": 11
+                  }
+                ],
+                "title": "Classes",
+                "type": "object",
+                "x-hmp-profile": "user"
+              },
+              "mask_path": {
+                "anyOf": [
+                  {
+                    "format": "path",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+                "site_scoped": true,
+                "title": "Mask Path",
+                "x-hmp-profile": "user"
+              },
+              "force_refresh": {
+                "default": false,
+                "description": "Build the map again instead of reading the cache.",
+                "examples": [
+                  false
+                ],
+                "title": "Force Refresh",
+                "type": "boolean",
+                "x-hmp-profile": "user"
+              },
+              "source": {
+                "const": "ocsge",
+                "default": "ocsge",
+                "description": "Discriminator tag selecting the IGN OCS GE provider.",
+                "examples": [
+                  "ocsge"
+                ],
+                "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "year": {
+                "description": "Latest edition read in each department, up to this year. Written down so that a new edition of the IGN does not move a run.",
+                "examples": [
+                  2023
+                ],
+                "maximum": 2100,
+                "minimum": 2000,
+                "title": "Year",
+                "type": "integer",
+                "unit": "year",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "year"
+            ],
+            "title": "OcsgeCurveNumberSource",
             "type": "object"
           },
           "OcsgeImperviousSource": {
@@ -8408,6 +8670,115 @@
               "source"
             ],
             "title": "WindSourceConfig",
+            "type": "object"
+          },
+          "WorldcoverCurveNumberSource": {
+            "additionalProperties": false,
+            "description": "ESA WorldCover, its classes sent to the ESA CCI pivot, 10 m over the world.",
+            "properties": {
+              "hsg": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "A",
+                      "B",
+                      "C",
+                      "D"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Hydrologic soil group of the whole area, A (low runoff potential) to D (high). Write it, or hsg_path, never both: HydroModPy picks no soil group for a site.",
+                "title": "Hsg",
+                "x-hmp-profile": "user"
+              },
+              "hsg_path": {
+                "anyOf": [
+                  {
+                    "format": "path",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Raster of the hydrologic soil group coded as HYSOGs250m (Ross et al. 2018, ORNL DAAC 1566): 1 to 4 for A to D, 11 to 14 for the wet groups A/D to D/D, read as D like GCN250 does. Any other value is no data.",
+                "title": "Hsg Path",
+                "x-hmp-profile": "user"
+              },
+              "classes": {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "description": "Classes of the land cover sent to another ESA CCI class than the shipped crosswalk, keyed by their code, such as { \"30\" = 11 } to read WorldCover grassland as managed meadow. 0 leaves a class out of the map. A class of the area that neither the crosswalk nor this table names is refused.",
+                "examples": [
+                  {
+                    "30": 11
+                  }
+                ],
+                "title": "Classes",
+                "type": "object",
+                "x-hmp-profile": "user"
+              },
+              "mask_path": {
+                "anyOf": [
+                  {
+                    "format": "path",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+                "site_scoped": true,
+                "title": "Mask Path",
+                "x-hmp-profile": "user"
+              },
+              "force_refresh": {
+                "default": false,
+                "description": "Build the map again instead of reading the cache.",
+                "examples": [
+                  false
+                ],
+                "title": "Force Refresh",
+                "type": "boolean",
+                "x-hmp-profile": "user"
+              },
+              "source": {
+                "const": "worldcover",
+                "default": "worldcover",
+                "description": "Discriminator tag selecting the ESA WorldCover provider.",
+                "examples": [
+                  "worldcover"
+                ],
+                "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "year": {
+                "default": 2021,
+                "description": "Map read: 2020 (algorithm v100) or 2021 (v200). The two differ by their algorithm as much as by the ground, so a change between them is no trend.",
+                "enum": [
+                  2020,
+                  2021
+                ],
+                "examples": [
+                  2021
+                ],
+                "title": "Year",
+                "type": "integer",
+                "unit": "year",
+                "x-hmp-profile": "user"
+              }
+            },
+            "title": "WorldcoverCurveNumberSource",
             "type": "object"
           },
           "WorldcoverImperviousSource": {

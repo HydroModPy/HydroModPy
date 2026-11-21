@@ -64,9 +64,7 @@ def fetch_ocsge_infiltration_ratio(
     target = output_dir / f"infiltration_ratio_ocsge_{year or 'latest'}_{digest}.tif"
     if target.exists() and not force_refresh:
         return target
-    archives, editions = department_archives(
-        output_dir=output_dir, bbox=bbox, year=year, bounds=bounds
-    )
+    archives, editions = department_archives(bbox=bbox, year=year, bounds=bounds)
     covers = pd.concat([cover_polygons(archive, bbox) for archive in archives])
     covers = covers[~covers["code_cs"].isin(SEALED_COVERS)]
     values = covers["code_cs"].map(lambda code: ratio_of(str(code), ratios))

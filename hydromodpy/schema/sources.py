@@ -285,8 +285,9 @@ _ENTRIES: tuple[SourceEntry, ...] = (
                 format="GeoTIFF",
                 note=(
                     "impervious_ocsge_<year>_<hash>.tif is the 10 m sealed share of one "
-                    "request. The department archives stay in ocsge_departments/ "
-                    "(about 200 MB each). " + _WORKSPACE_NOTE
+                    "request. The department archives (about 200 MB each) stay once per "
+                    "machine in the ocsge folder of the HydroModPy user cache, shared by "
+                    "every family and project. " + _WORKSPACE_NOTE
                 ),
             ),
             CacheLayout(
@@ -296,6 +297,16 @@ _ENTRIES: tuple[SourceEntry, ...] = (
                 note=(
                     "infiltration_ratio_ocsge_<year>_<hash>.tif is the 10 m ratio of one "
                     "request and one table of ratios; the sealed covers are nodata. "
+                    + _WORKSPACE_NOTE
+                ),
+            ),
+            CacheLayout(
+                folder="data/curve_number",
+                pattern="curve_number_ocsge_*.tif",
+                format="GeoTIFF",
+                note=(
+                    "curve_number_ocsge_<year>_<hash>.tif is the 10 m GCN250 curve number of "
+                    "one request, soil group and class table; the sealed covers are nodata. "
                     + _WORKSPACE_NOTE
                 ),
             ),
@@ -328,8 +339,9 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         ),
         coverage="The world, in tiles of 3 by 3 degrees.",
         resolution=(
-            "Raster land cover at 10 m in EPSG:4326, eleven classes; the adapter reads "
-            "class 50, built-up, as sealed."
+            "Raster land cover at 10 m in EPSG:4326, eleven classes; the adapters read "
+            "class 50, built-up, as sealed, or send every class to the ESA CCI legend "
+            "for its GCN250 curve number."
         ),
         period="Two maps, 2020 (algorithm v100) and 2021 (v200).",
         update="Yearly in the registry entry; two maps published so far.",
@@ -340,6 +352,15 @@ _ENTRIES: tuple[SourceEntry, ...] = (
                 pattern="impervious_worldcover_*.tif",
                 format="GeoTIFF",
                 note="impervious_worldcover_<year>_<hash>.tif. " + _WORKSPACE_NOTE,
+            ),
+            CacheLayout(
+                folder="data/curve_number",
+                pattern="curve_number_worldcover_*.tif",
+                format="GeoTIFF",
+                note=(
+                    "curve_number_worldcover_<year>_<hash>.tif, the GCN250 curve number of "
+                    "one request, soil group and class table. " + _WORKSPACE_NOTE
+                ),
             ),
         ),
     ),
@@ -852,6 +873,13 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         None,
         "A remote file downloaded by URL. Its licence is declared by the user in "
         "the 'license' key of the section or sidecar.",
+    ),
+    _undetermined(
+        "land_cover",
+        None,
+        "A land cover raster the user supplied, turned into a curve number with the GCN250 "
+        "table (Jaafar et al. 2019, CC BY 4.0). The licence of the raster is the user's to "
+        "declare in the 'license' key of its sidecar.",
     ),
     _undetermined(
         "constant",

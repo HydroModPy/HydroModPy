@@ -1,6 +1,6 @@
-"""Soil capacity, curve number, substratum, layer base and property maps, the user's rasters.
+"""Soil capacity, substratum, layer base and property maps, the user's rasters.
 
-Each one is a file or a url source read in place. Soil capacity, curve number and
+Each one is a file or a url source read in place. Soil capacity and
 substratum take exactly one raster, layer base takes one per named layer base, and a property map one
 per named map that a ``kind = "raster"`` flow parameter reads.
 """
@@ -83,72 +83,6 @@ class SoilCapacityConfig(HydroModelBase):
 class SoilCapacityVariable(RasterFileVariable):
     VARIABLE_NAME = "soil_capacity"
     INTERNAL_UNIT = "mm"
-
-
-# --- Curve number ----------------------------------------------------------
-
-
-class FileCurveNumberSource(HydroModelBase):
-    """User-provided raster of the SCS curve number (GeoTIFF/ASC), AMC II, such as GCN250."""
-
-    source: Annotated[Literal["file"], Profile.USER] = Field(
-        default="file",
-        description="Discriminator tag selecting the 'file' curve number provider.",
-    )
-    path: Annotated[
-        Path,
-        Profile.USER,
-        InputFile(role="curve_number", category="data"),
-    ] = Field(
-        ...,
-        description=(
-            "Path to a raster of the SCS curve number under average moisture (AMC II), "
-            "for instance the GCN250 map of Jaafar et al. (2019) (GeoTIFF, ASC). Read "
-            "only by [flow.sinks_sources.recharge.soil]."
-        ),
-    )
-    default_crs: Annotated[str, Profile.USER] = Field(
-        default="EPSG:2154",
-        description=(
-            "CRS to use for a raster that carries none of its own. Only a value written "
-            "here is used: without it, a file with no CRS is refused."
-        ),
-    )
-
-
-class UrlCurveNumberSource(UrlSourceOptions, HydroModelBase):
-    """Remote curve number raster, downloaded into the data cache by the ``url`` source."""
-
-    source: Annotated[Literal["url"], Profile.USER] = Field(
-        default="url",
-        description="Discriminator tag selecting the 'url' curve number provider.",
-    )
-
-
-class CurveNumberConfig(HydroModelBase):
-    """SCS curve number raster, read by the soil reservoir.
-
-    Example TOML::
-
-        [[data.curve_number.sources]]
-        source = "file"
-        path = "soil/gcn250_amc2.tif"
-    """
-
-    sources: Annotated[list[FileCurveNumberSource | UrlCurveNumberSource], Profile.USER] = Field(
-        ...,
-        min_length=1,
-        max_length=1,
-        description=(
-            "Exactly one curve number raster. Each soil column takes the mean curve number "
-            "of its SAFRAN cell inside the catchment, in place of curve_number."
-        ),
-    )
-
-
-class CurveNumberVariable(RasterFileVariable):
-    VARIABLE_NAME = "curve_number"
-    INTERNAL_UNIT = "-"
 
 
 # --- Substratum ------------------------------------------------------------

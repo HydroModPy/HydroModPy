@@ -57,17 +57,33 @@ class SoilColumns:
 
 
 def _read_raster_pixels(
-    record: FieldRecordProto, *, model_crs: str
+    record: FieldRecordProto,
+    *,
+    model_crs: str,
+    within: tuple[float, float, float, float] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Valid pixel centers, reprojected to ``model_crs``, and their values."""
+    """Valid pixel centers, reprojected to ``model_crs``, and their values.
+
+    ``within``, a box in ``model_crs``, reads only the window of the raster that covers
+    it: a world map such as GCN250 holds billions of pixels, and a basin needs a few.
+    """
     import rasterio
     from rasterio.transform import xy as pixel_xy
+    from rasterio.warp import transform_bounds
+    from rasterio.windows import Window, from_bounds
 
     with rasterio.open(str(record.data)) as src:
-        band = src.read(1, masked=True)
+        window = None
+        if within is not None:
+            raster_crs = src.crs or record.crs
+            box = transform_bounds(model_crs, raster_crs, *within, densify_pts=21)
+            window = from_bounds(*box, src.transform).round_offsets().round_lengths()
+            window = window.intersection(Window(0, 0, src.width, src.height))
+        band = src.read(1, masked=True, window=window)
+        transform = src.transform if window is None else src.window_transform(window)
         rows, cols = np.where(~np.ma.getmaskarray(band))
         values = np.asarray(band)[rows, cols].astype(np.float64)
-        raw_x, raw_y = pixel_xy(src.transform, rows, cols)
+        raw_x, raw_y = pixel_xy(transform, rows, cols)
     px = np.asarray(raw_x, dtype=np.float64)
     py = np.asarray(raw_y, dtype=np.float64)
     if CRS.from_user_input(record.crs) != CRS.from_user_input(model_crs):
@@ -135,11 +151,12 @@ def capacity_classes(
 ) -> SoilColumns:
     """Spread each SAFRAN cell into capacity classes from a soil capacity raster."""
     record = soil_capacity.fields[0]
-    px, py, values = _read_raster_pixels(record, model_crs=crs)
+    dx, dy = _grid_steps(x, y, bbox)
+    grid_box = (x.min() - dx, y.min() - dy, x.max() + dx, y.max() + dy)
+    px, py, values = _read_raster_pixels(record, model_crs=crs, within=grid_box)
 
     ny, nx = y.size, x.size
     n_cells = ny * nx
-    dx, dy = _grid_steps(x, y, bbox)
     ix = np.argmin(np.abs(px[:, None] - x[None, :]), axis=1)
     iy = np.argmin(np.abs(py[:, None] - y[None, :]), axis=1)
     inside = (np.abs(px - x[ix]) <= dx / 2) & (np.abs(py - y[iy]) <= dy / 2)
@@ -270,8 +287,9 @@ def catchment_cell_means(
     section = f"[data.{name}]"
     soil_map = SOIL_MAPS[name]
     bound = PHYSICAL_BOUNDS[soil_map.bound]
-    px, py, values = _read_raster_pixels(record, model_crs=crs)
     dx, dy = _grid_steps(x, y, bbox)
+    grid_box = (x.min() - dx, y.min() - dy, x.max() + dx, y.max() + dy)
+    px, py, values = _read_raster_pixels(record, model_crs=crs, within=grid_box)
     # The forcing grid is regular, so the cell of a pixel is a division: a 10 m map
     # of a large catchment holds millions of pixels, too many for a pixel-by-cell table.
     ix = _nearest_center(px, x, dx)

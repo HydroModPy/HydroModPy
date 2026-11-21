@@ -395,7 +395,21 @@ mean. The sealed share comes from OCS GE of the IGN over France, its built and u
 burnt on a 10 m grid, or from the built-up class of ESA WorldCover over the world, or from a file.
 On the Nancon, OCS GE 2023 gives 3.95 % sealed and WorldCover 2021 gives 2.39 %, because a road
 narrower than a 10 m pixel falls in the field beside it. The curve number comes from a file, such
-as the GCN250 map of {cite:t}`jaafar2019`. The mean of a cell is its composite curve number, and
+as the GCN250 map of {cite:t}`jaafar2019`, or from a land cover. Then each class goes to one
+class of the ESA CCI legend, and the curve number is the row of GCN250 for that class and the
+hydrologic soil group, a letter or a HYSOGs250m map {cite:p}`ross2018` written in the section.
+The ESA CCI legend is the pivot because GCN250 is the only published bridge from a land cover
+legend to the curve number, and no correspondence between OCS GE, Corine Land Cover and WorldCover
+is official. So every class points to one published row and no row is a mean of ours. The
+crosswalks of OCS GE, Corine Land Cover and WorldCover are our choice, written beside each class,
+and the section may override any row or describe a legend of its own. Managed meadows read the
+managed grass row (75 on group C), not grassland (81), which GCN250 builds with 40 % bare soil.
+Sealed and built-up classes stay out of the map, since the sealed share runs them off whole, and
+so do water and snow, which have no curve number. On the Nancon with group C, OCS GE 2023 gives a
+basin mean of 74.2 and WorldCover 2021 76.8, while the GCN250 map, on its own soil groups, gives
+78.5. The tables of the curve number come from small American catchments and storms of a day, so
+on a catchment where the water table makes the runoff the value is a relative index of the
+surface, to calibrate, more than a law. The mean of a cell is its composite curve number, and
 the SCS law is not linear, so it runs off a little less than its pixels would one by one. The
 infiltration ratio comes from a file or from OCS GE, where the section writes one ratio for each
 cover, keyed by its code or the start of one. HydroModPy ships no value per cover, because no
