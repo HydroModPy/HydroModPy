@@ -17,6 +17,7 @@ from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units.quantities import factor_to_m_per_s
+from hydromodpy.model.forcing.recharge_scenario import RechargeScenarioConfig
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.forcing.steady_periods import normalize_first_clim
 from hydromodpy.model.forcing.types import InterpolationMethod, SpatialMode
@@ -110,6 +111,15 @@ class FlowRechargeConfig(HydroModelBase):
             "`hmp run <file> --until load_data`, which prints its water budget in "
             "mm/year and writes no run."
         ),
+    )
+    scenario: Annotated[RechargeScenarioConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Replace the recharge [data.recharge] loads by its mean year, month by month, "
+            "with dry years put in a row (Abherve 2022, section 5.3.5). Absent, the loaded "
+            "recharge is read as it is."
+        ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     heterogeneous_source: Annotated[Any, Profile.DEV] = Field(
         default=None,
@@ -217,6 +227,12 @@ class FlowRechargeConfig(HydroModelBase):
                 f"flow.sinks_sources.recharge.values = {self.values!r} is ignored "
                 "when [flow.sinks_sources.recharge.soil] computes the recharge: "
                 "remove values, or remove the soil section to impose this rate."
+            )
+        if self.soil is not None and self.scenario is not None:
+            raise ValueError(
+                "[flow.sinks_sources.recharge.scenario] rebuilds the loaded recharge, and "
+                "[flow.sinks_sources.recharge.soil] computes it from the weather: remove one "
+                "of them."
             )
         if self.soil is not None and self.factor != 1.0:
             raise ValueError(

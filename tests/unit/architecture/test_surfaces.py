@@ -916,7 +916,23 @@ _UNSET = "not set"
 # new field that would move a number needs a [[default]] row instead of a line here.
 # The baseline is the tree prepared for the 2.0.0 tag, so the table is empty until a field
 # is added after the tag.
-NEW_FIELDS: dict[str, tuple[Any, str]] = {}
+NEW_FIELDS: dict[str, tuple[Any, str]] = {
+    "data.etp.formula": (_UNSET, "unset, the ETP is loaded from its sources as in 2.0"),
+    "flow.sinks_sources.recharge.scenario": (
+        _UNSET,
+        "unset, the loaded recharge is read as it is, as in 2.0",
+    ),
+    "flow.sinks_sources.recharge.soil.kc.*": (
+        None,
+        "inside the seasonal kc table only; a number keeps the kc of 2.0",
+    ),
+    "flow.sinks_sources.recharge.soil.method": (
+        "fao56",
+        "fao56 is the storage law of 2.0, bit for bit",
+    ),
+    "flow.sinks_sources.recharge.soil.snow": (_UNSET, "unset, no snow, as in 2.0"),
+    "recharge_estimates": (_UNSET, "unset, nothing is estimated; it never enters the model"),
+}
 
 
 def _reviewed(path: str) -> tuple[Any, str] | None:

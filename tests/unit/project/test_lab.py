@@ -103,7 +103,7 @@ def test_every_object_of_the_state_prints_a_short_summary(lab, island: Path):
     assert f"{state.mesh.n_cells} quadrilateral cells, regular grid of" in repr(state.mesh)
     assert "K = " in repr(state.model) and "\n  K " in repr(state.model.properties)
     with hmp.Lab(island) as fresh:
-        assert repr(fresh.state).count("not built yet") == 7
+        assert repr(fresh.state).count("not built yet") == 10
 
 
 def test_the_lab_reads_a_variable_of_its_solve_and_solves_what_is_stale(lab):

@@ -1,8 +1,10 @@
-"""DRIAS Explore2 NetCDF reader, shared by precipitation and ETP.
+"""DRIAS Explore2 NetCDF reader, shared by precipitation, ETP, recharge and runoff.
 
-Reads one local Explore2-Climat file (no network): renames its variable
-(``prtotAdjust`` -> ``precipitation``, ``evspsblpotAdjust`` -> ``etp``),
-converts ``kg m-2 s-1`` to mm/day, cuts by the run bbox in the file's native
+Reads one local Explore2 file (no network). An Explore2-Climat file names its
+variable (``prtotAdjust`` -> ``precipitation``, ``evspsblpotAdjust`` -> ``etp``)
+in ``kg m-2 s-1``. A projected recharge or runoff (the SIM2 run of Explore2 that
+Abherve 2022 forces his models with) is read from the one grid the file holds,
+in the unit its ``units`` attribute declares. The reader then converts to mm/day, cuts by the run bbox in the file's native
 CRS (Lambert II extended, EPSG:27572) with a one-cell margin before any value
 is read into memory, and refuses a non-standard calendar.
 
@@ -57,7 +59,12 @@ _VARIABLE_NAMES: dict[str, str] = {
     "precipitation": "prtotAdjust",
     "etp": "evspsblpotAdjust",
 }
-"""The variable this reader serves, mapped to its name in a DRIAS file."""
+"""The climate variables this reader serves, mapped to their name in a DRIAS file.
+
+A recharge or a runoff has no entry: its file holds one grid, read by its own name."""
+
+_DEPTH_PER_DAY_UNITS = {"mm", "mm/day", "mm/d", "mm day-1", "mm d-1", "mm.j-1", "mm/j"}
+"""Units of a daily depth, read as mm/day as they are."""
 
 _STANDARD_CALENDARS = ("standard", "gregorian", "proleptic_gregorian")
 """Calendars pandas decodes without loss; anything else is refused (X5)."""
@@ -86,7 +93,6 @@ def read_explore2(
     if bbox is None:
         raise ValueError("Explore2 source requires a bounding box (set extent or mask_path).")
     section = f"[data.{variable}]"
-    source_variable = _VARIABLE_NAMES[variable]
 
     import xarray as xr
 
@@ -98,6 +104,7 @@ def read_explore2(
     if calendar.lower() not in _STANDARD_CALENDARS:
         raise DataContractViolation(_X5.format(section=section, calendar=calendar))
     dates = _decode_time(ds["time"], calendar)
+    source_variable, source_unit = _source_grid(ds, variable, section)
 
     x_native = ds["x"].values.astype(float) * _coord_scale_to_metres(ds["x"].attrs.get("units"))
     y_native = ds["y"].values.astype(float) * _coord_scale_to_metres(ds["y"].attrs.get("units"))
@@ -113,7 +120,17 @@ def read_explore2(
 
     # Cut before reading any value: a national file is several GB per variable.
     cropped = ds[source_variable].isel(x=x_slice, y=y_slice, time=t_slice)
-    values = convert_array(_materialize(cropped), _SOURCE_UNIT, "mm/day")
+    values = _materialize(cropped)
+    if source_unit.strip().lower() not in _DEPTH_PER_DAY_UNITS:
+        values = convert_array(values, source_unit, "mm/day")
+    elif _frequency(dates[t_slice]) == "MS":
+        # A monthly file in mm holds the total of each month, not a daily rate.
+        import pandas as pd
+
+        month_days = np.asarray(
+            [pd.Timestamp(d).days_in_month for d in dates[t_slice]], dtype=float
+        )
+        values = values / month_days[:, np.newaxis, np.newaxis]
 
     x_scatter, y_scatter = _reproject_grid(
         x_native[x_slice], y_native[y_slice], EXPLORE2_NATIVE_CRS, EXPLORE2_CRS
@@ -143,8 +160,8 @@ def read_explore2(
             crs=EXPLORE2_CRS,
             date_start=_to_datetime(record_dates.min()),
             date_end=_to_datetime(record_dates.max()),
-            frequency="D",
-            source_unit=_SOURCE_UNIT,
+            frequency=_frequency(record_dates),
+            source_unit=source_unit,
         )
     ]
 
@@ -206,9 +223,45 @@ class Explore2Etp(Explore2Source):
     section: ClassVar[str] = "etp"
 
 
+class Explore2Recharge(Explore2Source):
+    section: ClassVar[str] = "recharge"
+
+
+class Explore2Runoff(Explore2Source):
+    section: ClassVar[str] = "runoff"
+
+
 # ----------------------------------------------------------------------
 # Internal helpers
 # ----------------------------------------------------------------------
+
+
+def _source_grid(ds: xr.Dataset, variable: str, section: str) -> tuple[str, str]:
+    """The name and the unit of the grid ``variable`` is read from."""
+    named = _VARIABLE_NAMES.get(variable)
+    if named is not None:
+        return named, _SOURCE_UNIT
+    grids = [name for name, da in ds.data_vars.items() if {"time", "y", "x"} <= set(da.dims)]
+    if len(grids) != 1:
+        raise DataContractViolation(
+            f"{section} reads the one (time, y, x) grid of a DRIAS Explore2 file, and this "
+            f"file holds {grids or 'none'}: keep one variable per file."
+        )
+    unit = ds[grids[0]].attrs.get("units")
+    if not unit:
+        raise DataContractViolation(
+            f"{section}: the grid {grids[0]!r} declares no units, and the reader cannot "
+            "tell mm/day from kg m-2 s-1. Add the units attribute to the file."
+        )
+    return grids[0], str(unit)
+
+
+def _frequency(dates: np.ndarray) -> str:
+    """``D`` for a daily file, ``MS`` for a monthly one."""
+    if len(dates) < 2:
+        return "D"
+    step_days = float(np.median(np.diff(dates).astype("timedelta64[h]").astype(float))) / 24.0
+    return "D" if step_days < 2 else "MS"
 
 
 def _materialize(data_array: xr.DataArray) -> np.ndarray:

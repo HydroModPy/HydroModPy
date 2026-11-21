@@ -113,6 +113,7 @@ from hydromodpy.calibration.runners.session_scope import (
     release_trial_solves,
     session_status_of,
 )
+from hydromodpy.calibration.runners.soil_phase import soil_phase_refusal, solve_soil_phase
 from hydromodpy.calibration.runners.state import build_cache_context, space_from_config
 from hydromodpy.calibration.runners.state import override_paths as resolve_override_paths
 from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
@@ -304,6 +305,9 @@ def _phase_plans(
             raise ConfigValidationError(
                 f"phase {decl.name!r} declares a parameter space that cannot be built: {exc}"
             ) from exc
+        refusal = soil_phase_refusal(decl, last=index == selected[-1][0])
+        if refusal is not None:
+            raise ConfigValidationError(f'phase {decl.name!r} gives regime = "soil", and {refusal}')
         plans.append(
             _PhasePlan(
                 index=index,
@@ -1059,6 +1063,40 @@ def run_staged_calibration(
             # disk for this phase was computed with the upstream freezes baked in, so
             # asking the question without them can only ever answer no.
             _freeze_into_baseline(trial_ctx, held)
+
+            if decl.regime == "soil":
+                # No trial: ru comes from the water budget of the soil, then it is
+                # frozen for the next phases like the best value of a search.
+                report, froze = solve_soil_phase(
+                    trial_ctx,
+                    decl,
+                    declared,
+                    session_id=persistence.descriptor.session_id,
+                    save_runs=cfg.save_runs,
+                )
+                logger.info(
+                    "Calibration phase %d/%d %s | ru from the water budget: %s",
+                    index + 1,
+                    len(cfg.phases or []),
+                    decl.name,
+                    ", ".join(f"{f.name} = {f.value:.0f} mm" for f in froze) or "not frozen",
+                )
+                frozen.extend(froze)
+                runs.append(
+                    PhaseRun(
+                        name=decl.name,
+                        index=index,
+                        session_id=persistence.descriptor.session_id,
+                        report=report,
+                        frozen=froze,
+                        reopened=reopened_values,
+                        status="completed",
+                        stop_note=None,
+                    )
+                )
+                ran.add(decl.name)
+                release_session_scratch(trial_ctx)
+                continue
 
             disk_result: tuple[CalibrationReport, tuple[FrozenParameter, ...]] | None = None
             if reopen:

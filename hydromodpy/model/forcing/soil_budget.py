@@ -6,48 +6,90 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.model.contracts import LoadResultProto
-from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_config import SeasonalKc, SoilReservoirConfig
 from hydromodpy.model.forcing.soil_forcing import SoilForcings
+from hydromodpy.model.forcing.soil_ru_budget import RuClosure
 from hydromodpy.model.soil.kernel import annual_budget
+from hydromodpy.model.soil.laws import SOIL_METHODS
+
+
+def gauged_mm_per_day(
+    hydrometry: LoadResultProto | None, *, days: np.ndarray, catchment_area_km2: float | None
+) -> tuple[np.ndarray, str] | str:
+    """The gauged discharge over the catchment, mm/day on ``days`` (NaN without a value).
+
+    Returns the series and the station id, or a sentence that says why there is none.
+    """
+    if hydrometry is None or not hydrometry.has_points:
+        return "no [data.hydrometry] loaded"
+    if len(hydrometry.points) != 1:
+        return (
+            f"{len(hydrometry.points)} stations loaded and the comparison needs the one "
+            "at the outlet"
+        )
+    if not catchment_area_km2 or catchment_area_km2 <= 0:
+        return "the catchment area is unknown"
+    station = hydrometry.points[0]
+    series = station.data.set_index("datetime")["value"]
+    stamps = pd.DatetimeIndex(series.index)
+    if stamps.tz is not None:
+        stamps = stamps.tz_localize(None)
+    series = series.groupby(stamps.normalize()).mean()
+    daily = series.reindex(pd.DatetimeIndex(days)).to_numpy(dtype=np.float64)
+    return daily * 86400 / (catchment_area_km2 * 1e6) * 1000, str(station.station_id)
 
 
 def gauged_discharge_line(
     hydrometry: LoadResultProto | None, *, days: np.ndarray, catchment_area_km2: float | None
 ) -> str:
     """The gauged-discharge line of the printed budget, or why it is not shown."""
-    if hydrometry is None or not hydrometry.has_points:
-        return "gauged discharge: not shown, no [data.hydrometry] loaded"
-    if len(hydrometry.points) != 1:
-        return (
-            f"gauged discharge: not shown, {len(hydrometry.points)} stations loaded "
-            "and the comparison needs the one at the outlet"
-        )
-    if not catchment_area_km2 or catchment_area_km2 <= 0:
-        return "gauged discharge: not shown, the catchment area is unknown"
-
+    gauged = gauged_mm_per_day(hydrometry, days=days, catchment_area_km2=catchment_area_km2)
+    if isinstance(gauged, str):
+        return f"gauged discharge: not shown, {gauged}"
+    values, station_id = gauged
     start, end = pd.Timestamp(days[0]), pd.Timestamp(days[-1])
-    station = hydrometry.points[0]
-    series = station.data.set_index("datetime")["value"]
-    windowed = series[(series.index >= start) & (series.index <= end)].dropna()
-    if windowed.empty:
+    finite = np.isfinite(values)
+    if not finite.any():
         return (
             "gauged discharge: not shown, the station has no value between "
             f"{start:%Y-%m-%d} and {end:%Y-%m-%d}"
         )
-
-    mean_q_m3s = float(windowed.mean())
-    v_mm_per_year = _no_negative_zero(
-        mean_q_m3s * 86400 * 365.25 / (catchment_area_km2 * 1e6) * 1000, 1
-    )
+    v_mm_per_year = _no_negative_zero(float(values[finite].mean()) * 365.25, 1)
     return (
-        f"gauged discharge {station.station_id}: {v_mm_per_year:.1f} mm/year on "
-        f"{windowed.size} of {days.size} days, catchment {catchment_area_km2:.2f} km2"
+        f"gauged discharge {station_id}: {v_mm_per_year:.1f} mm/year on "
+        f"{int(finite.sum())} of {days.size} days, catchment {catchment_area_km2:.2f} km2"
     )
 
 
-# ---------------------------------------------------------------------------
-# Printed water-budget block (spec section 5.2)
-# ---------------------------------------------------------------------------
+def ru_closure_lines(closure: RuClosure | None) -> tuple[str, ...]:
+    """The lines that give the ru closing the budget against the gauge."""
+    if closure is None:
+        return ()
+    if closure.ru_mm is None:
+        return (f"ru closing the budget: not found, {closure.reason}",)
+
+    def mm(value: float | None) -> str:
+        return "n/a" if value is None else f"{value:.0f}"
+
+    band = (
+        f"{closure.band_mm[0]:.0f} to {closure.band_mm[1]:.0f} mm"
+        if closure.band_mm is not None
+        else "n/a"
+    )
+    lines = [
+        f"ru closing recharge + runoff against the gauge over {closure.years} years: "
+        f"{closure.ru_mm:.0f} mm, {band} over resampled years (5-95 %)",
+        f"  with rain -5 % / +5 %: {mm(closure.rain_minus_5_mm)} / {mm(closure.rain_plus_5_mm)} mm,"
+        f" with gauge -5 % / +5 %: {mm(closure.gauge_minus_5_mm)} / "
+        f"{mm(closure.gauge_plus_5_mm)} mm",
+    ]
+    if closure.per_10_mm_evaporation_mm is not None:
+        lines.append(
+            "  each 10 mm/year the water table evaporates moves it by "
+            f"{closure.per_10_mm_evaporation_mm:+.0f} mm; it is an effective capacity, "
+            "write it as ru and calibrate K and Sy with it fixed"
+        )
+    return tuple(lines)
 
 
 def _no_negative_zero(value: float, decimals: int) -> float:
@@ -85,8 +127,21 @@ def _parameters_line(config: SoilReservoirConfig, raster_mean_mm: float | None) 
         if config.curve_number is not None
         else ""
     )
+    alpha_clause = f", alpha {config.alpha:g}" if SOIL_METHODS[config.method].reads_alpha else ""
+    kc = config.kc
+    kc_clause = (
+        f"kc {kc.low:g} to {kc.high:g} over months {'-'.join(str(m) for m in kc.months)}"
+        if isinstance(kc, SeasonalKc)
+        else f"kc {kc:.4g}"
+    )
+    snow = config.snow
+    snow_clause = (
+        f", snow melting from {snow.melt_start:g} to {snow.melt_full:g} degC"
+        if snow is not None
+        else ""
+    )
     return (
-        f"{ru_clause}, alpha {config.alpha:g}, kc {config.kc:.4g}, "
+        f"method {config.method}, {ru_clause}{alpha_clause}, {kc_clause}{snow_clause}, "
         f"impervious {100 * config.impervious_fraction:.3g} %, "
         f"bypass {100 * config.bypass_fraction:.3g} %, "
         f"transit time {config.transit_time:g} days{cn_clause}"
@@ -154,6 +209,7 @@ def soil_budget_lines(
     ladder: tuple[tuple[float, float], ...],
     gauged_line: str,
     sent_to_evt: bool,
+    closure: RuClosure | None = None,
 ) -> tuple[str, ...]:
     """The printed soil water-budget block of spec section 5.2, one str per line."""
     days = forcings.days
@@ -184,6 +240,7 @@ def soil_budget_lines(
         + annual.transit_storage_change
         + annual.cn_storage_change
         + annual.lag_storage_change
+        + annual.snow_storage_change
     )
     impervious_only = annual.runoff - annual.runoff_cn
 
@@ -239,5 +296,6 @@ def soil_budget_lines(
     lines.append(f"recharge for other ru, mm/year: {ladder_text}")
 
     lines.append(gauged_line)
+    lines.extend(ru_closure_lines(closure))
 
     return tuple(lines)

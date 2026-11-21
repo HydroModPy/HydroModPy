@@ -64,6 +64,7 @@ from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.refinement_config import RefinementZoneConfig
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.forcing.recharge_estimates_config import RechargeEstimatesConfig
 from hydromodpy.model.initial_config import SpinupConfig
 from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.results.exporters.export_spec import load_export_requests
@@ -1216,6 +1217,7 @@ SECTIONS: dict[str, Section] = {
         default=None,
     ),
     "spinup": Section(_optional(SpinupConfig), default=None),
+    "recharge_estimates": Section(_optional(RechargeEstimatesConfig), default=None),
     "site": Section(_as_written("site"), default=None),
     "sites": Section(_as_written("sites"), default=None),
     "metrics": Section(_as_written("metrics"), default=None),

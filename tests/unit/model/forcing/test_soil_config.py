@@ -7,6 +7,7 @@ mm and days. Each bound has its own message, written for a hydrogeologist, not P
 from __future__ import annotations
 
 import re
+import typing
 
 import pandas as pd
 import pytest
@@ -110,8 +111,13 @@ BOUNDS = [
 
 @pytest.mark.parametrize(("name", "bounds"), BOUNDS)
 def test_range_is_declared_on_the_field(name, bounds):
+    field = SoilReservoirConfig.model_fields[name]
+    metadata = list(field.metadata)
+    for member in typing.get_args(field.annotation):
+        # kc is a number or a seasonal table: the bound sits on the number.
+        metadata.extend(getattr(member, "__metadata__", ()))
     declared = {}
-    for item in SoilReservoirConfig.model_fields[name].metadata:
+    for item in metadata:
         for attr in ("ge", "gt", "le", "lt"):
             if getattr(item, attr, None) is not None:
                 declared[attr] = getattr(item, attr)

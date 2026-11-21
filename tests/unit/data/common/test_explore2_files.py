@@ -198,3 +198,52 @@ def test_calendar_refusals(tmp_path, calendar):
 def test_explore2_source_requires_a_path():
     with pytest.raises(ValidationError, match="Explore2 source requires 'path'"):
         PrecipitationSourceConfig(source="explore2")
+
+
+def write_projected_file(tmp_path: Path, *, name: str, unit: str | None, monthly: bool) -> Path:
+    """A projected recharge or runoff file: one grid named as DRIAS likes, its own unit."""
+    nx, ny = 12, 10
+    stamps = np.array([0, 31, 59]) if monthly else np.arange(5)
+    data = np.full((stamps.size, ny, nx), 31.0)
+    variable_attrs = {} if unit is None else {"units": unit}
+    ds = xr.Dataset(
+        {name: (("time", "y", "x"), data, variable_attrs)},
+        coords={
+            "time": ("time", stamps, {"units": "days since 2015-01-01", "calendar": "standard"}),
+            "y": ("y", NATIVE_Y0_M + np.arange(ny) * CELL_M, {"units": "m"}),
+            "x": ("x", NATIVE_X0_M + np.arange(nx) * CELL_M, {"units": "m"}),
+        },
+    )
+    path = tmp_path / f"{name}.nc"
+    ds.to_netcdf(path)
+    return path
+
+
+def test_a_daily_projected_recharge_is_read_from_its_one_grid(tmp_path):
+    path = write_projected_file(tmp_path, name="DRAINC", unit="mm", monthly=False)
+
+    (record,) = explore2.read_explore2(path, variable="recharge", bbox=BBOX, project_period=None)
+
+    assert record.variable == "recharge"
+    assert record.frequency == "D"
+    np.testing.assert_allclose(record.data["recharge"].values, 31.0)
+
+
+def test_a_monthly_total_in_mm_becomes_a_daily_rate(tmp_path):
+    path = write_projected_file(tmp_path, name="RUNC", unit="mm", monthly=True)
+
+    (record,) = explore2.read_explore2(path, variable="runoff", bbox=BBOX, project_period=None)
+
+    assert record.frequency == "MS"
+    values = record.data["runoff"].values[:, 0, 0]
+    np.testing.assert_allclose(values, [31.0 / 31, 31.0 / 28, 31.0 / 31])
+
+
+@pytest.mark.parametrize(
+    ("unit", "message"),
+    [pytest.param(None, "declares no units", id="no unit")],
+)
+def test_a_projected_grid_without_its_unit_is_refused(tmp_path, unit, message):
+    path = write_projected_file(tmp_path, name="DRAINC", unit=unit, monthly=False)
+    with pytest.raises(DataContractViolation, match=message):
+        explore2.read_explore2(path, variable="recharge", bbox=BBOX, project_period=None)

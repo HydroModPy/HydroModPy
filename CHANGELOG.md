@@ -22,6 +22,13 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 - `Run.hydrographic_network("mesh_constraint")` returns the rivers the mesh carries, one line per chain of river cells through their solver centers. `hmp compare` scores the flowing cells against it beside the mapped networks.
 - The `network` table of `hmp compare` now keeps how each row was cut: the field, the active rule, its thresholds, the buffer, the distance rule and, for the mesh row, the contributing area or cell count that traced its streams.
+- `[flow.sinks_sources.recharge.soil] method` names the storage law of the soil reservoir: `fao56` (the law so far, the default), `thornthwaite`, `dingman` or `edijatno_michel` (the production store of GR4J). The sealed share, the curve number, the bypass and the transit work the same under each law.
+- `[flow.sinks_sources.recharge.soil.snow]` turns on a snow pack melted linearly from 0 to 6 °C, read from `[data.temperature]`. `kc` also takes a table `{low, high, months}` that follows the growing season.
+- The soil budget printed by `hmp run --until load_data` now gives, when a gauge is loaded, the `ru` that closes recharge + runoff against the gauge over the run, its range over resampled years and its move under a 5 % bias of the rain or the gauge. Write it as `ru`, then calibrate K and Sy with it fixed. A calibration phase with `regime = "soil"` does the same without a solver and freezes `ru` for the phases after it.
+- `[data.etp] formula = "oudin"` or `"hamon"` computes the ETP from `[data.temperature]` instead of loading it. Every reader of the ETP receives it.
+- `[recharge_estimates]` runs the recharge methods of ESPERE (BRGM) on the loaded data before the solver: Turc, Guttman and Zuckerman, Kessler, the Wallingford, Chapman and Maxwell and Eckhardt baseflow filters, the water table fluctuation, and the factor that would scale the run's recharge onto the gauged volume. None enters the model. The run prints them beside its own recharge and writes the table `recharge_estimates`. The figures `recharge_estimates` and `water_balance_loop` read it.
+- `[flow.sinks_sources.recharge.scenario]` replaces the loaded recharge by its mean year, with dry years put in a row, to test a sequence of droughts.
+- `source = "explore2"` reads a DRIAS Explore2 file of projected recharge or runoff under `[data.recharge]` and `[data.runoff]`.
 
 ### Numbers
 

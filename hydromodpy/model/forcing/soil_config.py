@@ -1,9 +1,10 @@
 """TOML surface of the soil reservoir.
 
-``kernel.py`` and this module are written in parallel and stay independent:
-this module declares what a project file can say, the kernel says what the
-numbers do with it. The two meet in ``recharge.py``, which
-turns a :class:`SoilReservoirConfig` into the kernel's ``SoilParameters``.
+This module declares what a project file can say, and ``model/soil`` says what
+the numbers do with it. The only name this module reads there is the table of
+methods, ``SOIL_METHODS``, so a method is named in one place. The two meet in
+``soil_forcing.py``, which turns a :class:`SoilReservoirConfig` into the
+kernel's ``SoilParameters``.
 """
 
 from __future__ import annotations
@@ -12,12 +13,14 @@ from collections.abc import Callable
 from functools import partial
 from typing import Annotated, Any, Literal
 
+from annotated_types import Ge, Le
 from pydantic import (
     Field,
     ValidationError,
     ValidationInfo,
     ValidatorFunctionWrapHandler,
     field_validator,
+    model_validator,
 )
 
 from hydromodpy.core.config_kit.base import HydroModelBase
@@ -26,6 +29,7 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.core.units.types import DurationDays, LengthMillimeters
+from hydromodpy.model.soil.laws import SOIL_METHODS
 
 
 def _bare_number_string(value: object) -> str | None:
@@ -127,14 +131,101 @@ _RANGE_RULES: dict[str, tuple[Callable[[float], bool], str]] = {
 """Each bounded field: the bound, and the refusal in the words of what the number means."""
 
 
-def _check_range(name: str, value: float | None) -> float | None:
+def _check_range(name: str, value: object) -> object:
     """Refuse ``value`` of field ``name`` outside its bound, with its own message."""
-    if value is None:
-        return None
+    if value is None or isinstance(value, SeasonalKc):
+        return value
     inside, message = _RANGE_RULES[name]
     if not inside(value):
         raise ValueError(message.format(value=value))
     return value
+
+
+class SeasonalKc(HydroModelBase):
+    """A crop coefficient that follows the growing season, as a trapezoid over the year.
+
+    It is ``low`` before the planting month, rises linearly to ``high`` at the month
+    of full cover, stays at ``high`` until senescence starts, then falls back to
+    ``low`` at the harvest month. Each change happens on the first day of its month.
+    This is the curve of ESPERE (BRGM RP-69538-FR), which accepts a winter crop too.
+    """
+
+    low: Annotated[float, Profile.USER] = Field(
+        ...,
+        ge=0.0,
+        le=2.0,
+        description="Crop coefficient outside the growing season, between 0 and 2.",
+        json_schema_extra=field_metadata(unit="-"),
+        examples=[0.6],
+    )
+    high: Annotated[float, Profile.USER] = Field(
+        ...,
+        ge=0.0,
+        le=2.0,
+        description="Crop coefficient at full cover, between 0 and 2.",
+        json_schema_extra=field_metadata(unit="-"),
+        examples=[1.15],
+    )
+    months: Annotated[tuple[int, int, int, int], Profile.USER] = Field(
+        ...,
+        description=(
+            "Four months, 1 to 12, in the order of the season: planting, full cover, "
+            "start of senescence, harvest. A winter crop wraps over the new year, "
+            "for instance [10, 3, 6, 7]."
+        ),
+        examples=[[4, 6, 8, 10]],
+    )
+
+    @field_validator("months")
+    @classmethod
+    def _months_follow_the_season(cls, months: tuple[int, int, int, int]) -> tuple[int, ...]:
+        if any(not 1 <= m <= 12 for m in months) or len(set(months)) != 4:
+            raise ValueError(
+                f"months = {list(months)}: write four different months between 1 and 12, "
+                "planting, full cover, start of senescence and harvest."
+            )
+        drops = sum(months[i] > months[(i + 1) % 4] for i in range(4))
+        if drops != 1:
+            raise ValueError(
+                f"months = {list(months)} do not follow one season: after planting come "
+                "full cover, senescence and harvest, in calendar order, wrapping over "
+                "the new year at most once."
+            )
+        return months
+
+
+class SnowConfig(HydroModelBase):
+    """Snow on the ground, melted linearly with the daily temperature.
+
+    Its presence turns snow on and loads ``[data.temperature]``. A share of the
+    precipitation falls as snow below ``melt_full`` and the pack melts as the
+    temperature rises from ``melt_start`` to ``melt_full``. The defaults, 0 and
+    6 degC, are those of ESPERE (BRGM RP-69538-FR).
+    """
+
+    melt_start: Annotated[float, Profile.USER] = Field(
+        default=0.0,
+        ge=-10.0,
+        le=10.0,
+        description="Temperature at or below which nothing melts and all precipitation is snow, in degC.",
+        json_schema_extra=field_metadata(unit="degC"),
+    )
+    melt_full: Annotated[float, Profile.USER] = Field(
+        default=6.0,
+        ge=-5.0,
+        le=15.0,
+        description="Temperature at or above which the whole pack melts and no snow falls, in degC.",
+        json_schema_extra=field_metadata(unit="degC"),
+    )
+
+    @model_validator(mode="after")
+    def _full_melt_above_start(self) -> SnowConfig:
+        if self.melt_full <= self.melt_start:
+            raise ValueError(
+                f"melt_full = {self.melt_full:g} degC is not above melt_start = "
+                f"{self.melt_start:g} degC: the melt grows from the first to the second."
+            )
+        return self
 
 
 class SoilReservoirConfig(HydroModelBase):
@@ -145,6 +236,24 @@ class SoilReservoirConfig(HydroModelBase):
     equations.
     """
 
+    method: Annotated[str, Profile.USER] = Field(
+        default="fao56",
+        description=(
+            "Storage law of the soil, the one thing that differs between methods. "
+            '"fao56" lowers ETR linearly below alpha x ru (Allen et al. 1998). '
+            '"thornthwaite" meets the full demand while water is left (Thornthwaite '
+            '1948). "dingman" empties the soil as an exponential of the deficit on dry '
+            'days (Dingman 2008). "edijatno_michel" is the production store of GR4J '
+            "without its percolation (Edijatno and Michel 1989). The sealed share, the "
+            "curve number, the bypass, the transit and the snow work the same around "
+            "every law."
+        ),
+        json_schema_extra=field_metadata(
+            value_docs={name: method.label for name, method in SOIL_METHODS.items()},
+            stability="experimental",
+        ),
+        examples=["fao56", "thornthwaite"],
+    )
     ru: Annotated[LengthMillimeters, Profile.USER] = Field(
         ...,
         ge=0.0,
@@ -179,15 +288,15 @@ class SoilReservoirConfig(HydroModelBase):
             calibrable=Calibrable(bounds=(0.3, 1.0), units="-"), stability="experimental"
         ),
     )
-    kc: Annotated[float, Profile.USER] = Field(
+    kc: Annotated[Annotated[float, Ge(0.0), Le(2.0)] | SeasonalKc, Profile.USER] = Field(
         default=1.0,
-        ge=0.0,
-        le=2.0,
         description=(
             "Crop coefficient applied to the loaded ETP: the soil evaporates at most "
             "kc x ETP a day. 1.0 takes the ETP as loaded, which assumes the surface of "
             "that ETP looks like the site: check what the product refers to. Between 0 "
-            "and 2. Kept fixed by default: kc and ru move the same annual volume."
+            "and 2. A table {low, high, months} makes it follow the growing season. "
+            "Kept fixed by default: kc and ru move the same annual volume, and only a "
+            "number can be calibrated."
         ),
         json_schema_extra=field_metadata(
             calibrable=Calibrable(bounds=(0.7, 1.3), units="-"), stability="experimental"
@@ -291,6 +400,14 @@ class SoilReservoirConfig(HydroModelBase):
             calibrable=Calibrable(bounds=(0.0, 5.0), units="day"), stability="experimental"
         ),
     )
+    snow: Annotated[SnowConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Snow pack melted with the daily temperature of [data.temperature]. "
+            "Absent, all precipitation reaches the ground as rain the same day."
+        ),
+        json_schema_extra=field_metadata(stability="experimental"),
+    )
     spinup: Annotated[Literal["first_year", "none"], Profile.USER] = Field(
         default="first_year",
         description=(
@@ -324,12 +441,38 @@ class SoilReservoirConfig(HydroModelBase):
             f'{unit}) or {name} = "{bare} {unit}".'
         )
 
-    @field_validator(*_RANGE_RULES, mode="wrap")
+    @field_validator("kc", mode="before")
+    @classmethod
+    def _kc_number_in_range(cls, value: object) -> object:
+        # kc is a number or a table, so the union would bury the range message.
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            _check_range("kc", float(value))
+        return value
+
+    @field_validator(*(name for name in _RANGE_RULES if name != "kc"), mode="wrap")
     @classmethod
     def _in_range(
         cls, value: object, handler: ValidatorFunctionWrapHandler, info: ValidationInfo
     ) -> float | None:
         return _within_range(value, handler, partial(_check_range, info.field_name))
+
+    @field_validator("method")
+    @classmethod
+    def _method_is_known(cls, method: str) -> str:
+        if method not in SOIL_METHODS:
+            names = ", ".join(f'"{name}"' for name in SOIL_METHODS)
+            raise ValueError(f"method = {method!r} is not a soil method: write one of {names}.")
+        return method
+
+    @model_validator(mode="after")
+    def _alpha_only_where_read(self) -> SoilReservoirConfig:
+        if "alpha" in self.model_fields_set and not SOIL_METHODS[self.method].reads_alpha:
+            readers = ", ".join(f'"{n}"' for n, m in SOIL_METHODS.items() if m.reads_alpha)
+            raise ValueError(
+                f'alpha is read by method = {readers} only, and method = "{self.method}" '
+                "never reads it: remove alpha, or change the method."
+            )
+        return self
 
     @field_validator("spinup", mode="before")
     @classmethod
@@ -394,6 +537,8 @@ def spinup_refusal(config: SoilReservoirConfig, run_days: int) -> str | None:
 __all__ = [
     "SOIL",
     "SPINUP_MIN_RUN_DAYS",
+    "SeasonalKc",
+    "SnowConfig",
     "SoilReservoirConfig",
     "soil_reservoir_of",
     "spinup_refusal",

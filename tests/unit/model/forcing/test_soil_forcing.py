@@ -175,8 +175,10 @@ def test_ru_rung_that_never_settles_is_nan(monkeypatch):
     real_spinup_or_full = soil_forcing._spinup_or_full
     unsettled_ru_mm = 200.0 * forcings.columns.ru_shape[0]
 
-    def fake_spinup_or_full(config, parameters, precipitation, etp):
-        state, spinup_result = real_spinup_or_full(config, parameters, precipitation, etp)
+    def fake_spinup_or_full(config, parameters, precipitation, etp, **seasonal):
+        state, spinup_result = real_spinup_or_full(
+            config, parameters, precipitation, etp, **seasonal
+        )
         if parameters.ru_mm[0] == unsettled_ru_mm:
             spinup_result = dataclasses.replace(spinup_result, settled=False)
         return state, spinup_result

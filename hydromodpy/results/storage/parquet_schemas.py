@@ -1230,6 +1230,15 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
             ),
         ),
         pa.field(
+            "snow_storage_change",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(
+                unit="mm",
+                description="Change of the snow pack over the row; 0 when the snow is off",
+            ),
+        ),
+        pa.field(
             "balance_residual",
             pa.float64(),
             nullable=False,
@@ -1388,6 +1397,68 @@ mesh has no such face; a run sealed before that layout has neither table nor the
 # ``(sim_id, feature_name)`` via the ``geographic_features`` catalog table.
 
 
+RECHARGE_ESTIMATES_SCHEMA: Final[pa.Schema] = pa.schema(
+    [
+        pa.field("sim_id", pa.string(), nullable=False),
+        pa.field(
+            "method",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(
+                description="Estimator of [recharge_estimates], or run for the run's own recharge"
+            ),
+        ),
+        pa.field(
+            "station",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Piezometer of a wtf row; null otherwise"),
+        ),
+        pa.field(
+            "year",
+            pa.int32(),
+            nullable=True,
+            metadata=_field_meta(description="Calendar year; null for a value of the whole record"),
+        ),
+        pa.field(
+            "month",
+            pa.int32(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Month, 1 to 12, of a water_balance row; null otherwise"
+            ),
+        ),
+        pa.field(
+            "quantity",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(
+                description=(
+                    "recharge, effective_rainfall, baseflow_index, recession_constant, "
+                    "bfi_max, factor, rain_minus_etr or gauged_discharge"
+                )
+            ),
+        ),
+        pa.field(
+            "value",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="The number, in the unit of the row"),
+        ),
+        pa.field(
+            "unit",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="mm for a depth over the year, - for a ratio"),
+        ),
+    ],
+    metadata=_schema_metadata(
+        "recharge_estimates",
+        pk=("sim_id", "method", "station", "year", "month", "quantity"),
+    ),
+)
+
+
 VIEW_SCHEMAS: Final[dict[str, pa.Schema]] = {
     "timeseries": TIMESERIES_SCHEMA,
     "budgets": BUDGETS_SCHEMA,
@@ -1398,6 +1469,7 @@ VIEW_SCHEMAS: Final[dict[str, pa.Schema]] = {
     "data_inventory": DATA_INVENTORY_SCHEMA,
     "sfr_reaches": SFR_REACHES_SCHEMA,
     "soil_budget": SOIL_BUDGET_SCHEMA,
+    "recharge_estimates": RECHARGE_ESTIMATES_SCHEMA,
     "mesh_cell_families": MESH_CELL_FAMILIES_SCHEMA,
     "mesh_face_families": MESH_FACE_FAMILIES_SCHEMA,
 }

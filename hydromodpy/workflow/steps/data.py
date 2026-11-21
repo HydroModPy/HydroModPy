@@ -53,7 +53,19 @@ from hydromodpy.model.boundaries.streams import (
 from hydromodpy.model.domain.structure_binders import apply_geology_to_domain
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.forcing import soil_stored
-from hydromodpy.model.forcing.soil_budget import gauged_discharge_line, soil_budget_lines
+from hydromodpy.model.forcing.etp_computed import computed_etp
+from hydromodpy.model.forcing.recharge_estimates_run import (
+    estimate_lines,
+    estimate_recharge,
+    run_water_series,
+    soil_rain_minus_etr,
+)
+from hydromodpy.model.forcing.recharge_scenario import recharge_scenario
+from hydromodpy.model.forcing.soil_budget import (
+    gauged_discharge_line,
+    gauged_mm_per_day,
+    soil_budget_lines,
+)
 from hydromodpy.model.forcing.soil_config import (
     soil_reservoir_of,
     spinup_refusal,
@@ -61,6 +73,7 @@ from hydromodpy.model.forcing.soil_config import (
 )
 from hydromodpy.model.forcing.soil_forcing import compute_soil_forcings, ru_ladder
 from hydromodpy.model.forcing.soil_grids import load_forcing_grid, window_days
+from hydromodpy.model.forcing.soil_ru_budget import ru_closing_budget
 from hydromodpy.results.products.key import array_digest, product_key
 from hydromodpy.workflow.products import ask
 from hydromodpy.workflow.record.run_store import run_dir_of_state
@@ -80,7 +93,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _log_soil_budget(lines: tuple[str, ...]) -> None:
+def _log_block(lines: tuple[str, ...]) -> None:
     logger.info("\n".join(lines), extra=MILESTONE)
 
 
@@ -139,6 +152,18 @@ def step_data_loading(ctx: WorkflowContext) -> None:
         locked=getattr(ctx.setup, "locked_inputs", None),
     )
     loader.load_all(ctx)
+    scenario = getattr(
+        getattr(getattr(getattr(ctx.cfg, "flow", None), "sinks_sources", None), "recharge", None),
+        "scenario",
+        None,
+    )
+    if scenario is not None and getattr(ctx.loaded_data, "recharge", None) is not None:
+        ctx.loaded_data.recharge = recharge_scenario(ctx.loaded_data.recharge, scenario)
+    etp_config = getattr(getattr(ctx.cfg, "data", None), "etp", None)
+    if etp_config is not None and etp_config.formula is not None:
+        ctx.loaded_data.etp = computed_etp(
+            getattr(ctx.loaded_data, "temperature", None), etp_config.formula
+        )
     check_run_gauge_area(
         getattr(ctx.cfg, "site", None),
         ctx.loaded_data.hydrometry,
@@ -150,17 +175,42 @@ def step_data_loading(ctx: WorkflowContext) -> None:
 
     soil = ctx.setup.soil_forcings
     if soil is not None and not ctx.execution.lightweight:
+        area_km2 = getattr(ctx.setup.geographic, "catch_area", None)
+        gauged = gauged_mm_per_day(
+            ctx.loaded_data.hydrometry, days=soil.days, catchment_area_km2=area_km2
+        )
+        closure = None if isinstance(gauged, str) else ru_closing_budget(soil, gauged[0])
+        ctx.setup.ru_closure = closure
         lines = soil_budget_lines(
             soil,
             ladder=ru_ladder(soil),
             gauged_line=gauged_discharge_line(
-                ctx.loaded_data.hydrometry,
-                days=soil.days,
-                catchment_area_km2=getattr(ctx.setup.geographic, "catch_area", None),
+                ctx.loaded_data.hydrometry, days=soil.days, catchment_area_km2=area_km2
             ),
             sent_to_evt="etp" in ctx.cfg.flow.active_sinks_sources,
+            closure=closure,
         )
-        progress.after_phase(partial(_log_soil_budget, lines))
+        progress.after_phase(partial(_log_block, lines))
+
+    estimates_config = getattr(ctx.cfg, "recharge_estimates", None)
+    if estimates_config is not None and not ctx.execution.lightweight:
+        data = ctx.loaded_data
+        window = _resolved_window(ctx)
+        rows, notes = estimate_recharge(
+            estimates_config,
+            window=(window.start, window.end),
+            precipitation=getattr(data, "precipitation", None),
+            temperature=getattr(data, "temperature", None),
+            hydrometry=getattr(data, "hydrometry", None),
+            piezometry=getattr(data, "piezometry", None),
+            area_km2=getattr(ctx.setup.geographic, "catch_area", None),
+            run_water=run_water_series(
+                soil, getattr(data, "recharge", None), getattr(data, "runoff", None)
+            ),
+            rain_minus_etr=soil_rain_minus_etr(soil),
+        )
+        ctx.setup.recharge_estimates = rows
+        progress.after_phase(partial(_log_block, estimate_lines(rows, notes)))
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +318,17 @@ def _soil_input_digests(run_state: WorkflowContext, window, model_crs: str, catc
         "precipitation": _combined_digest([p_grid, p_x, p_y, p_time.values]),
         "etp": _combined_digest([e_grid, e_x, e_y, e_time.values]),
     }
+    soil_config = soil_reservoir_of(getattr(run_state.cfg, "flow", None))
+    if soil_config is not None and soil_config.snow is not None:
+        t_grid, t_x, t_y, t_time, _ = load_forcing_grid(
+            getattr(data_state, "temperature", None),
+            section="[data.temperature]",
+            family="temperature",
+            window=window,
+            days=days,
+            model_crs=model_crs,
+        )
+        inputs["temperature"] = _combined_digest([t_grid, t_x, t_y, t_time.values])
     soil_capacity = getattr(data_state, "soil_capacity", None)
     if soil_capacity is not None:
         inputs["soil_capacity"] = _capacity_digest(soil_capacity)
@@ -288,6 +349,7 @@ def _soil_sources(run_state: WorkflowContext, window, model_crs: str) -> tuple:
         data_state.precipitation,
         data_state.etp,
         getattr(data_state, "soil_capacity", None),
+        getattr(data_state, "temperature", None),
         run_state.setup.geographic,
         (window.start.isoformat(), window.end.isoformat()),
         model_crs,
@@ -372,6 +434,7 @@ def _bind_soil_recharge_etp(run_state: WorkflowContext, window):
                     window=window,
                     model_crs=model_crs,
                     soil_capacity=getattr(data_state, "soil_capacity", None),
+                    temperature=getattr(data_state, "temperature", None),
                     catchment=catchment,
                 ),
                 read=lambda directory: soil_stored.read_soil_forcings(

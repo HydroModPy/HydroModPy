@@ -306,7 +306,7 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: RunStore) -> None:
         # in this feature, not a flaky external source, and must not be
         # swallowed into a silent debug line.
         if soil is not None:
-            persist_soil_columns(sz, soil)
+            persist_soil_columns(sz, soil, getattr(ctx.setup, "ru_closure", None))
     finally:
         sz.close()
 
@@ -317,6 +317,10 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: RunStore) -> None:
             soil.years, soil.precipitation, soil.etp, soil.fluxes, soil.columns.basin_weight
         )
         store.write_view(ctx.sim_id, "soil_budget", soil_budget_rows(soil, budget))
+
+    estimates = getattr(getattr(ctx, "setup", None), "recharge_estimates", None)
+    if estimates:
+        store.write_view(ctx.sim_id, "recharge_estimates", estimates)
 
     if written:
         logger.debug("Persisted %d forcing datasets for sim %s", written, ctx.sim_id)

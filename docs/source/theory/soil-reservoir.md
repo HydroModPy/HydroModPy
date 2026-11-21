@@ -412,11 +412,80 @@ The runoff goes where a loaded runoff would go, to the stream networks, the lake
 that a calibration compares with the gauge. A file that also loads a runoff through
 {toml}`data.types` is refused, because the same water would count twice.
 
+## Four storage laws
+
+The {toml}`method|flow.sinks_sources.recharge.soil.method` names the law that shares the water
+of the day between ETR, the store and the overflow. Everything around it stays the same. The
+sealed share, the curve number, the bypass, the transit and the snow work the same way under
+every law, and every law closes the balance $W_t = \mathrm{ETR}_t + S_t + X_t$.
+
+`fao56`, the default, is the law above. `thornthwaite` (Thornthwaite 1948) meets the full
+demand while water is left, $\mathrm{ETR}_t = \min(W_t, k_c E_t)$. It is `fao56` with no stress
+line, the limit $\alpha \to 0$. `dingman` (Dingman 2008) meets the full demand on a wet day. On
+a day with less water in than $k_c E_t$, it empties the store as an exponential of the deficit,
+
+$$
+S_t = S_{t-1}\,\exp\!\left(\frac{P_t - k_c E_t}{\mathrm{RU}}\right).
+$$ (eq-soil-dingman)
+
+`edijatno_michel` is the production store of GR4J (Edijatno and Michel 1989, Perrin et al.
+2003) without its percolation. On a wet day with net rain $P_n = P_t - k_c E_t$, the store
+fills by
+
+$$
+S_t = \frac{S_{t-1} + \mathrm{RU}\tanh(P_n/\mathrm{RU})}
+{1 + (S_{t-1}/\mathrm{RU})\tanh(P_n/\mathrm{RU})},
+\qquad X_t = P_n - (S_t - S_{t-1}),
+$$ (eq-soil-gr)
+
+so part of the rain leaves before the store is full. On a dry day the store empties by the
+matching $\tanh$ form and nothing leaves. These three laws follow ESPERE (BRGM report
+RP-69538-FR) except on one point. ESPERE tests the wet branch of `edijatno_michel` on the ETP
+without $k_c$, which breaks the balance when $k_c \neq 1$. Here the test reads the demand
+$k_c E_t$.
+
+Only `fao56` reads {toml}`alpha|flow.sinks_sources.recharge.soil.alpha`. A file that writes it
+beside another law is refused, and so is a calibration that searches it.
+
+## Snow and a seasonal crop coefficient
+
+A {toml}`snow|flow.sinks_sources.recharge.soil.snow` table turns on a snow pack, read from the
+daily mean temperature of `[data.temperature]`. The melt factor $f$ goes linearly from 0 at
+`melt_start` to 1 at `melt_full`, 0 and 6 °C by default, as in ESPERE. A share $1 - f$ of the
+day's precipitation falls as snow, and a share $f$ of the pack plus that snow melts. The pack is
+a store of its own, so it enters the balance and the table `soil_budget`.
+
+The factor `kc` may also be a table `{low, high, months}`. It is `low` outside the growing
+season, rises linearly to `high` from planting to full cover, holds it, and falls back at
+harvest. Each of the four months starts its change on its first day, and a winter crop wraps
+over the new year. A calibration can search `kc` only when it is a number.
+
+## The capacity that closes the budget
+
+Over several years, the water that leaves the soil, recharge plus runoff, has to match the
+gauged discharge, give or take the storage of the aquifer and its own evaporation. The recharge
+falls when $\mathrm{RU}$ grows, so one capacity closes that budget. When a gauge is loaded at
+the outlet, the run finds it by bisection on the soil alone and prints it under the budget
+block, with three numbers that say how firm it is:
+
+- the range of the answer when the years are drawn again at random, 5 to 95 %;
+- the answer with the rain, then the gauge, 5 % lower or higher;
+- the change for 10 mm/year of evaporation by the water table.
+
+The value is an effective capacity, since a bias of the rain moves it as much as the range of
+the soils of Brittany. Writing it as `ru` and calibrating K and Sy with it fixed separates the
+volume, which the budget sets, from the dynamics, which the heads and the hydrograph set. Only
+the calendar years the gauge covers on 90 % of their days count. The run keeps the numbers as
+attributes of `forcing/soil` (`ru_closing_budget_mm` and its band). A calibration phase with
+`regime = "soil"` does the same search and freezes the value for the phases after it
+({doc}`../how-to/write-calibration-phases`).
+
 ## Parameters of this page
 
 The fields below are the ones that appear in the equations. Open a row for its card.
 
 ```{hmp-params}
+flow.sinks_sources.recharge.soil.method
 flow.sinks_sources.recharge.soil.ru
 flow.sinks_sources.recharge.soil.alpha
 flow.sinks_sources.recharge.soil.kc
@@ -426,6 +495,7 @@ flow.sinks_sources.recharge.soil.transit_time
 flow.sinks_sources.recharge.soil.curve_number
 flow.sinks_sources.recharge.soil.runoff_time
 flow.sinks_sources.recharge.soil.runoff_lag
+flow.sinks_sources.recharge.soil.snow
 flow.sinks_sources.recharge.soil.spinup
 flow.sinks_sources.etp.extinction_depth
 ```
@@ -455,6 +525,8 @@ the next build.
 
 ```{hmp-tested-by}
 hydromodpy.model.soil.kernel
+hydromodpy.model.soil.laws
+hydromodpy.model.forcing.soil_ru_budget
 hydromodpy.model.forcing.soil_budget
 hydromodpy.model.forcing.soil_columns
 hydromodpy.model.forcing.soil_config
@@ -467,6 +539,9 @@ hydromodpy.model.forcing.soil_grids
 | What | Where |
 |---|---|
 | The daily step and the balance | `hydromodpy/model/soil/kernel.py` (`soil_step`, `run_soil_balance`, `balance_residual`) |
+| The four storage laws | `hydromodpy/model/soil/laws.py` (`SOIL_METHODS`) |
+| Snow and the seasonal kc | `hydromodpy/model/soil/kernel.py` (`snow_step`, `seasonal_kc`) |
+| The capacity that closes the budget | `hydromodpy/model/forcing/soil_ru_budget.py` |
 | The starting state | the same file, `spinup_state` |
 | What a file may say, and its ranges | `hydromodpy/model/forcing/soil_config.py` |
 | Grids in, columns, grids out | `hydromodpy/model/forcing/` (`soil_grids.py`, `soil_columns.py`, `soil_forcing.py`, `soil_budget.py`) |

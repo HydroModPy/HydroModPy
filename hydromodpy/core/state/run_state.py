@@ -118,6 +118,8 @@ class SetupContext:
     # Soil reservoir outputs of this context (model.forcing.soil_forcing.SoilForcings),
     # None outside soil mode. Assigned on every binder call, never mutated.
     soil_forcings: Any = None
+    ru_closure: Any = None  # the ru closing the budget against the gauge, or None
+    recharge_estimates: Any = None  # rows of [recharge_estimates], or None
     # Product keys this context asked the store for, ``{kind: key}``. Replaced
     # whole and never mutated in place: a forked trial shares the object by
     # reference, and an edit in one trial would leak into the others. A plain

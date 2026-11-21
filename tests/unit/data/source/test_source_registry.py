@@ -136,9 +136,9 @@ def test_member_sets_partition_the_port():
 def test_builtin_paths():
     # 27 providers, plus `file` under 29 sections and `url` under 19: 75 in all.
     # The generic `file` and `url` sources are registered per section.
-    assert len(registry._BUILTIN_PATHS) == 75
+    assert len(registry._BUILTIN_PATHS) == 77
     shipped = registry.data_sources.names(shipped_only=True)
-    assert len(shipped) == 75
+    assert len(shipped) == 77
     assert sum(key.endswith("_file") for key in shipped) == 29
     assert sum(key.endswith("_url") for key in shipped) == 19
     # Read the joined keys against the sections the loader dispatches on, never by cutting on "_".
@@ -149,7 +149,7 @@ def test_builtin_paths():
         for section in VARIABLE_SPECS:
             if key.startswith(f"{section}_"):
                 ids_by_section.setdefault(section, set()).add(key[len(section) + 1 :])
-    assert sum(len(ids) for ids in ids_by_section.values()) == 75
+    assert sum(len(ids) for ids in ids_by_section.values()) == 77
     assert ids_by_section["hydrography"] == {"bdtopage", "euhydro", "osm", "file", "url"}
     assert ids_by_section["water_quality"] == {"hubeau", "file"}
     assert ids_by_section["oceanic"] == {"shom", "constant", "file"}

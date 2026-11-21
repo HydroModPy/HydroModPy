@@ -5,5 +5,5 @@ and ``time``. The kind of subject it reads, its width and its keywords are writt
 in its row of ``display.request.SPECIALS``, and a test holds the two together. A row is a
 preset, so a TOML file names a special without naming code, and ``render`` imports the
 module only when it draws. ``records`` holds the reads that several of them share and is
-no figure. The list is closed at twelve.
+no figure. The list is closed at fourteen.
 """

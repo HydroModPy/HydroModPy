@@ -63,6 +63,7 @@ share that evaporates.
 :maxdepth: 1
 
 soil-reservoir
+recharge-estimates
 ```
 
 (step-aquifer)=

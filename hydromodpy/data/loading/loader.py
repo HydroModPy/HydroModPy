@@ -176,6 +176,12 @@ class DataLoader:
             )
             return
 
+        if raw_section.get("formula") is not None:
+            # [data.etp] formula = "oudin": the data step computes it from the
+            # loaded temperature once every family is in, so nothing is fetched.
+            logger.info("[data.%s] is computed by its formula after the data load", variable)
+            return
+
         if spec.apply_simulation_window:
             self._apply_simulation_window_dates(raw_section, result)
 

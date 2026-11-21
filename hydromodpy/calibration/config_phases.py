@@ -44,6 +44,7 @@ PHASE_REGIME_PATHS: dict[str, tuple[str, ...]] = {
         "simulation.time.step_value",
     ),
     "transient": ("flow.flow_regime",),
+    "soil": (),
 }
 """The dotted paths a phase's ``regime`` writes, by regime.
 
@@ -395,17 +396,21 @@ class CalibPhaseDecl(HydroModelBase):
         "names the phase.",
         json_schema_extra=field_metadata(renamed_from=["calibration.phases.optimizer_kwargs"]),
     )
-    regime: Annotated[Literal["steady", "transient"] | None, Profile.USER] = Field(
+    regime: Annotated[Literal["steady", "transient", "soil"] | None, Profile.USER] = Field(
         default=None,
         description="Flow regime this phase runs, a property of the model and not of "
         "the search. 'steady' is one period over steady_window, by default the extent "
-        "of [simulation.time]. 'transient' is the project's own time grid. Unset, the "
-        "phase runs the model as the project and its overrides declare it.",
+        "of [simulation.time]. 'transient' is the project's own time grid. 'soil' runs "
+        "no solver: it sets ru to the capacity that closes recharge plus runoff against "
+        "the gauge, on the soil reservoir alone, and holds it for the phases after it. "
+        "Unset, the phase runs the model as the project and its overrides declare it.",
         json_schema_extra={
             "value_docs": {
                 "steady": "One period over steady_window, so the recharge over it "
                 "averages to its mean. A steady solve carries no storage.",
                 "transient": "The project's time grid, with only the regime restated.",
+                "soil": "No solver: ru closes the water budget of the soil against the "
+                "gauge, then the next phases calibrate K and Sy with it fixed.",
             }
         },
     )

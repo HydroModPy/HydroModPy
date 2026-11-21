@@ -94,7 +94,7 @@ calibration.phases.overrides	dict[str, Any]	{}	experimental
 calibration.phases.parallel	int | None	None	experimental
 calibration.phases.parameters	list[str]	<required>	experimental
 calibration.phases.precision	float | None	None	experimental
-calibration.phases.regime	Literal['steady', 'transient'] | None	None	experimental
+calibration.phases.regime	Literal['steady', 'transient', 'soil'] | None	None	experimental
 calibration.phases.steady_window	dict[str, str] | None	None	experimental
 calibration.phases.uncertainty	table | None	None	experimental
 calibration.phases.uncertainty.cost_margin	str | None	None	experimental
@@ -183,7 +183,8 @@ data.dem.sources.url	str	<required>	stable
 data.etp	table | None	None	stable
 data.etp.date_end	str | None	None	stable
 data.etp.date_start	str | None	None	stable
-data.etp.sources	list[table]	<required>	stable
+data.etp.formula	str | None	None	experimental
+data.etp.sources	list[table]	[]	stable
 data.etp.sources.col_crs	str	'crs'	stable
 data.etp.sources.col_datetime	str	'datetime'	stable
 data.etp.sources.col_id	str	'id'	stable
@@ -1177,15 +1178,26 @@ flow.sinks_sources.recharge.first_clim	str | float	'mean'	stable
 flow.sinks_sources.recharge.heterogeneous_source	Any	None	stable
 flow.sinks_sources.recharge.interpolation_method	Literal['nearest', 'linear', 'idw', 'area']	'nearest'	stable
 flow.sinks_sources.recharge.negative_to_evt	bool	True	stable
+flow.sinks_sources.recharge.scenario	table | None	None	experimental
+flow.sinks_sources.recharge.scenario.dry_years	list[int]	[]	experimental
+flow.sinks_sources.recharge.scenario.repeat	int	0	experimental
+flow.sinks_sources.recharge.scenario.start	int | None	None	experimental
 flow.sinks_sources.recharge.soil	table | None	None	stable
 flow.sinks_sources.recharge.soil.alpha	float	0.45	experimental
 flow.sinks_sources.recharge.soil.bypass_fraction	float	0.0	experimental
 flow.sinks_sources.recharge.soil.curve_number	float | None	None	experimental
 flow.sinks_sources.recharge.soil.impervious_fraction	float	0.0	experimental
-flow.sinks_sources.recharge.soil.kc	float	1.0	experimental
+flow.sinks_sources.recharge.soil.kc	float | table	1.0	experimental
+flow.sinks_sources.recharge.soil.kc.high	float	<required>	experimental
+flow.sinks_sources.recharge.soil.kc.low	float	<required>	experimental
+flow.sinks_sources.recharge.soil.kc.months	tuple[int, int, int, int]	<required>	experimental
+flow.sinks_sources.recharge.soil.method	str	'fao56'	experimental
 flow.sinks_sources.recharge.soil.ru	float	<required>	stable
 flow.sinks_sources.recharge.soil.runoff_lag	float	0.0	experimental
 flow.sinks_sources.recharge.soil.runoff_time	float	1.0	experimental
+flow.sinks_sources.recharge.soil.snow	table | None	None	experimental
+flow.sinks_sources.recharge.soil.snow.melt_full	float	6.0	experimental
+flow.sinks_sources.recharge.soil.snow.melt_start	float	0.0	experimental
 flow.sinks_sources.recharge.soil.spinup	Literal['first_year', 'none']	'first_year'	experimental
 flow.sinks_sources.recharge.soil.transit_time	float	0.0	experimental
 flow.sinks_sources.recharge.spatial_mode	Literal['auto', 'homogeneous', 'heterogeneous']	'auto'	stable
@@ -1575,6 +1587,16 @@ publication	table | None	None	stable
 publication.attribution	str | None	None	stable
 publication.creators	list[str]	[]	stable
 publication.license	str | None	None	stable
+recharge_estimates	table | None	None	experimental
+recharge_estimates.chapman_maxwell	table	<table>	experimental
+recharge_estimates.chapman_maxwell.k	float | None	None	experimental
+recharge_estimates.eckhardt	table	<table>	experimental
+recharge_estimates.eckhardt.bfi_max	float | None	None	experimental
+recharge_estimates.eckhardt.k	float | None	None	experimental
+recharge_estimates.methods	list[str] | Literal['all']	'all'	experimental
+recharge_estimates.wtf	table | None	None	experimental
+recharge_estimates.wtf.correction	Literal['recession', 'none']	'recession'	experimental
+recharge_estimates.wtf.specific_yield	float	<required>	experimental
 simulation	table	<table>	stable
 simulation.contact_email	str | None	None	stable
 simulation.description	str	''	stable

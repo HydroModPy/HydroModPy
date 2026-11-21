@@ -187,6 +187,17 @@ def _guard_etp_scale(values: np.ndarray, selected_time: pd.DatetimeIndex) -> Non
         )
 
 
+def _guard_temperature_scale(values: np.ndarray, selected_time: pd.DatetimeIndex) -> None:
+    low, high = float(np.nanmin(values)), float(np.nanmax(values))
+    if low < -60 or high > 60:
+        it = int(np.unravel_index(np.nanargmax(np.abs(values)), values.shape)[0])
+        raise DataContractViolation(
+            f"[data.temperature] spans {low:g} to {high:g} on {selected_time[it]:%Y-%m-%d} "
+            "and around, beyond any daily air temperature in degC: the file probably "
+            "holds kelvin. Convert it to degC, or declare its unit."
+        )
+
+
 def load_forcing_grid(
     result: LoadResultProto | None,
     *,
@@ -229,10 +240,13 @@ def load_forcing_grid(
     y = selected["y"].values
     values = np.asarray(selected.values, dtype=np.float64)
     _guard_no_gaps(values, selected_time, x, y, section=section)
-    _guard_no_negative(values, selected_time, section=section, family=family)
+    if family == "temperature":
+        _guard_temperature_scale(values, selected_time)
+    else:
+        _guard_no_negative(values, selected_time, section=section, family=family)
     if family == "precipitation":
         _guard_precipitation_scale(values, selected_time, days=days)
-    else:
+    elif family == "etp":
         _guard_etp_scale(values, selected_time)
 
     grid = values.reshape(len(selected_time), x.size * y.size)
@@ -246,13 +260,15 @@ def guard_paired_grids(
     x_e: np.ndarray,
     y_e: np.ndarray,
     time_e: pd.DatetimeIndex,
+    *,
+    other_section: str = "[data.etp]",
 ) -> None:
     same_grid = np.array_equal(x_p, x_e) and np.array_equal(y_p, y_e)
     same_days = np.array_equal(time_p.values, time_e.values)
     if same_grid and same_days:
         return
     raise DataContractViolation(
-        "[data.precipitation] and [data.etp] come on two grids "
+        f"[data.precipitation] and {other_section} come on two grids "
         f"({x_p.size * y_p.size} and {x_e.size * y_e.size} cells, or as many cells "
         "at other places): the soil reservoir pairs them cell by cell. Load both "
         "from the same provider, or regrid one file onto the other."
@@ -267,6 +283,7 @@ def grid_field_record(
     y: np.ndarray,
     days: np.ndarray,
     like: FieldRecordProto,
+    source: str = "soil_reservoir",
 ) -> FieldRecordProto:
     """A record of ``variable`` on the same grid, bbox and CRS as ``like``, of its class.
 
@@ -281,7 +298,7 @@ def grid_field_record(
     return replace(
         like,
         variable=variable,
-        source="soil_reservoir",
+        source=source,
         unit="mm/day",
         data=dataset,
         date_start=pd.Timestamp(days[0]),

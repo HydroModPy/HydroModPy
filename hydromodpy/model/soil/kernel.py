@@ -1,9 +1,13 @@
 """Daily soil reservoir, vectorized over columns, looped over days.
 
 The module follows rule 6 of the repository. It reads from top to bottom, needs only numpy and
-imports no neighbour.
+imports one neighbour, ``laws.py``, which holds the storage law of each method.
 
-Each day the rain reaches the soil before it evaporates. ETR falls linearly
+This file is the shell around the law. Snow, when it is on, holds back the
+precipitation below a melt temperature (the linear melt of ESPERE, BRGM
+RP-69538-FR). Each day the rain and the melt reach the soil before it evaporates,
+and the law of the method (``fao56`` by default) shares them between ETR, the
+soil store and the excess. Under ``fao56`` ETR falls linearly
 below alpha x RU: alpha is 1 - p of FAO-56 (Allen et al. 1998) and LP of HBV
 (Seibert and Vis 2012). The default alpha = 0.45 is our choice: it means p = 0.55,
 the value of FAO-56 table 22 for cereals and maize (pasture 0.60). The water
@@ -23,6 +27,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from hydromodpy.model.soil.laws import SOIL_METHODS
+
 RU_TOLERANCE_MM: float = 1e-9  # a soil within this of RU counts as full
 
 
@@ -39,6 +45,9 @@ class SoilParameters:
     curve_number: float | None = None  # AMC II curve number, [30, 98]; None turns the term off
     runoff_time_days: float = 1.0  # time constant of the curve-number runoff reservoir, [0, 10]
     runoff_lag_days: float = 0.0  # pure delay after that reservoir, [0, 5]; 0 costs nothing
+    method: str = "fao56"  # key of SOIL_METHODS
+    snow_melt_start_c: float | None = None  # no melt at or below, degC; None turns snow off
+    snow_melt_full_c: float | None = None  # all of the pack melts at or above, degC
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +57,7 @@ class SoilState:
     soil_mm: np.ndarray  # (N,)
     transit_mm: np.ndarray  # (N,)
     cn_storage_mm: np.ndarray | None = None  # (N,) curve-number routing store; None reads as zero
+    snow_mm: np.ndarray | None = None  # (N,) snow pack, per unit of column area; None is zero
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,10 +84,12 @@ class SoilFluxes:
     transit_storage: np.ndarray  # (T, N) end of day
     cn_storage: np.ndarray  # (T, N) end of day
     lag_storage: np.ndarray  # (T, N) end of day; mass delayed but not yet released
+    snow_storage: np.ndarray  # (T, N) end of day, per unit of column area
     soil_storage_start: np.ndarray  # (N,) before the first day
     transit_storage_start: np.ndarray  # (N,) before the first day
     cn_storage_start: np.ndarray  # (N,) before the first day
     lag_storage_start: np.ndarray  # (N,) before the first day, always 0
+    snow_storage_start: np.ndarray  # (N,) before the first day
     end: SoilState  # state after the last day, unsealed units
 
 
@@ -110,6 +122,7 @@ class AnnualSoilBudget:
     transit_storage_change: np.ndarray  # (Y, N)
     cn_storage_change: np.ndarray  # (Y, N)
     lag_storage_change: np.ndarray  # (Y, N)
+    snow_storage_change: np.ndarray  # (Y, N)
     residual: np.ndarray  # (Y, N)
     weights: np.ndarray  # (N,) weight of each column in the basin value
 
@@ -119,12 +132,56 @@ class AnnualSoilBudget:
 
 
 def full_soil(params: SoilParameters) -> SoilState:
-    """Soil at field capacity, transit and curve-number stores empty: the wet-winter start."""
+    """Soil at field capacity, transit, curve-number and snow stores empty: the wet-winter start."""
     return SoilState(
         soil_mm=params.ru_mm.copy(),
         transit_mm=np.zeros_like(params.ru_mm),
         cn_storage_mm=np.zeros_like(params.ru_mm),
+        snow_mm=np.zeros_like(params.ru_mm),
     )
+
+
+_MONTH_START_DAY = (0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334)
+"""Day of a 365-day year, from 0, on which each month starts."""
+
+
+def seasonal_kc(
+    days: np.ndarray, low: float, high: float, months: tuple[int, int, int, int]
+) -> np.ndarray:
+    """Crop coefficient of each day on a trapezoid over the year, shape (T,).
+
+    ``months`` are planting, full cover, start of senescence and harvest. The
+    coefficient is ``low`` from harvest to planting, rises linearly to ``high``
+    at full cover, holds it, and falls back to ``low`` at harvest; each change
+    happens on the first day of its month. The year is read as 365 days, so a
+    leap year is squeezed by one day instead of shifting the season.
+    """
+    days = np.asarray(days, dtype="datetime64[D]")
+    year_start = days.astype("datetime64[Y]").astype("datetime64[D]")
+    next_year = (days.astype("datetime64[Y]") + np.timedelta64(1, "Y")).astype("datetime64[D]")
+    year_length = (next_year - year_start).astype(np.float64)
+    position = (days - year_start).astype(np.float64) * 365.0 / year_length
+    anchors = [_MONTH_START_DAY[m - 1] for m in months]
+    return np.interp(position, anchors, [low, high, high, low], period=365.0)
+
+
+def snow_step(
+    snow_mm: np.ndarray, precipitation: np.ndarray, temperature: np.ndarray, params: SoilParameters
+) -> tuple[np.ndarray, np.ndarray]:
+    """One day of snow: the liquid water that reaches the ground, and the pack left.
+
+    The melt factor ``f`` goes linearly from 0 at ``snow_melt_start_c`` to 1 at
+    ``snow_melt_full_c``. A share ``1 - f`` of the day's precipitation falls as
+    snow, and a share ``f`` of the pack plus that snow melts. This is the
+    scheme of ESPERE with its thresholds of 0 and 6 degC; it closes the balance
+    ``precipitation = liquid + new pack - old pack``.
+    """
+    start, full = params.snow_melt_start_c, params.snow_melt_full_c
+    f = np.clip((temperature - start) / (full - start), 0.0, 1.0)
+    snowfall = (1.0 - f) * precipitation
+    pack = snow_mm + snowfall
+    melt = f * pack
+    return f * precipitation + melt, pack - melt
 
 
 def retention_mm(cn: float, w: np.ndarray) -> np.ndarray:
@@ -204,16 +261,28 @@ def apply_runoff_lag(
 
 
 def soil_step(
-    state: SoilState, precipitation: np.ndarray, etp: np.ndarray, params: SoilParameters
+    state: SoilState,
+    precipitation: np.ndarray,
+    etp: np.ndarray,
+    params: SoilParameters,
+    *,
+    kc: float | None = None,
+    temperature: np.ndarray | None = None,
 ) -> tuple[SoilState, SoilDay]:
-    """Advance the soil and transit stores by one day, column by column.
+    """Advance the snow, soil and transit stores by one day, column by column.
 
-    The rain reaches the soil before it evaporates (spec section 7). Never
+    The rain reaches the soil before it evaporates (spec section 7). ``kc``
+    replaces ``params.kc`` for the day when a seasonal curve gives it, and
+    ``temperature`` (degC) drives the snow when ``params`` turns it on. Never
     modifies ``state``, ``precipitation`` or ``etp``: every output is a new
     array.
     """
+    snow_mm = state.snow_mm if state.snow_mm is not None else np.zeros_like(state.soil_mm)
+    if params.snow_melt_start_c is not None:
+        if temperature is None:
+            raise ValueError("the snow is on, and no daily temperature reaches the soil step")
+        precipitation, snow_mm = snow_step(snow_mm, precipitation, temperature, params)
     ru_mm = params.ru_mm
-    alpha = params.alpha
     bypass_fraction = params.bypass_fraction
     transit_time_days = params.transit_time_days
     unsealed_fraction = 1.0 - params.impervious_fraction
@@ -229,16 +298,12 @@ def soil_step(
 
     runoff_impervious = params.impervious_fraction * precipitation
     bypassed = bypass_fraction * infiltrating_rain
-    wet_soil = state.soil_mm + (1.0 - bypass_fraction) * infiltrating_rain
-    demand = params.kc * etp
+    demand = (params.kc if kc is None else kc) * etp
 
-    ratio = np.ones_like(wet_soil)
-    ratio[has_capacity] = np.minimum(1.0, wet_soil[has_capacity] / (alpha * ru_mm[has_capacity]))
-
-    etr_soil = np.minimum(wet_soil, demand * ratio)
-    wet_soil = wet_soil - etr_soil
-    soil_excess = np.maximum(0.0, wet_soil - ru_mm)
-    soil_mm = wet_soil - soil_excess
+    law = SOIL_METHODS[params.method].law
+    etr_soil, soil_mm, soil_excess = law(
+        state.soil_mm, (1.0 - bypass_fraction) * infiltrating_rain, demand, ru_mm, params.alpha
+    )
     inflow_to_transit = soil_excess + bypassed
 
     if transit_time_days == 0.0:
@@ -267,7 +332,9 @@ def soil_step(
         runoff_cn=runoff_cn,
     )
     return (
-        SoilState(soil_mm=soil_mm, transit_mm=transit_mm, cn_storage_mm=cn_storage_mm),
+        SoilState(
+            soil_mm=soil_mm, transit_mm=transit_mm, cn_storage_mm=cn_storage_mm, snow_mm=snow_mm
+        ),
         day,
     )
 
@@ -279,8 +346,13 @@ def run_soil_balance(
     initial: SoilState,
     *,
     runoff_cn_history_mm: np.ndarray | None = None,
+    kc_by_day: np.ndarray | None = None,
+    temperature: np.ndarray | None = None,
 ) -> SoilFluxes:
     """Run the soil day by day, preallocating every output array.
+
+    ``kc_by_day`` (T,) replaces ``params.kc`` day by day, and ``temperature``
+    (T, N), in degC, drives the snow when ``params`` turns it on.
 
     ``runoff_cn_history_mm`` is read only when ``params.runoff_lag_days`` is
     not zero: days of routed, pre-lag CN runoff preceding day 0, most recent
@@ -297,6 +369,7 @@ def run_soil_balance(
     soil_storage = np.empty((n_days, n_columns), dtype=np.float64)
     transit_storage = np.empty((n_days, n_columns), dtype=np.float64)
     cn_storage = np.empty((n_days, n_columns), dtype=np.float64)
+    snow_storage = np.empty((n_days, n_columns), dtype=np.float64)
 
     unsealed_fraction = 1.0 - params.impervious_fraction
     initial_cn_mm = (
@@ -304,9 +377,19 @@ def run_soil_balance(
         if initial.cn_storage_mm is not None
         else np.zeros_like(initial.soil_mm)
     )
+    initial_snow_mm = (
+        initial.snow_mm if initial.snow_mm is not None else np.zeros_like(initial.soil_mm)
+    )
     state = initial
     for t in range(n_days):
-        state, day = soil_step(state, precipitation[t], etp[t], params)
+        state, day = soil_step(
+            state,
+            precipitation[t],
+            etp[t],
+            params,
+            kc=None if kc_by_day is None else float(kc_by_day[t]),
+            temperature=None if temperature is None else temperature[t],
+        )
         etr[t] = day.etr
         residual_etp[t] = day.residual_etp
         recharge[t] = day.recharge
@@ -315,6 +398,7 @@ def run_soil_balance(
         soil_storage[t] = unsealed_fraction * state.soil_mm
         transit_storage[t] = unsealed_fraction * state.transit_mm
         cn_storage[t] = unsealed_fraction * state.cn_storage_mm
+        snow_storage[t] = state.snow_mm
 
     lag_storage = np.zeros((n_days, n_columns), dtype=np.float64)
     if params.runoff_lag_days != 0.0:
@@ -335,10 +419,12 @@ def run_soil_balance(
         transit_storage=transit_storage,
         cn_storage=cn_storage,
         lag_storage=lag_storage,
+        snow_storage=snow_storage,
         soil_storage_start=unsealed_fraction * initial.soil_mm,
         transit_storage_start=unsealed_fraction * initial.transit_mm,
         cn_storage_start=unsealed_fraction * initial_cn_mm,
         lag_storage_start=np.zeros(n_columns, dtype=np.float64),
+        snow_storage_start=initial_snow_mm,
         end=state,
     )
 
@@ -350,12 +436,15 @@ def spinup_state(
     *,
     tol_mm: float = 0.1,
     max_cycles: int = 20,
+    kc_by_day: np.ndarray | None = None,
+    temperature: np.ndarray | None = None,
 ) -> Spinup:
     """Repeat the first year of ``precipitation``/``etp`` until the soil settles.
 
     Starts full (`full_soil`), then runs the same days again through
     `soil_step` until the end-of-cycle soil and transit stores move by less
-    than ``tol_mm``, or ``max_cycles`` is reached. Also keeps the settled
+    than ``tol_mm``, or ``max_cycles`` is reached. The snow pack counts as a store
+    when the snow is on. Also keeps the settled
     cycle's day-by-day, pre-lag CN runoff: ``runoff_lag_days`` reads its tail
     as the days preceding day 0, the periodic continuation a settled spin-up
     stands for, instead of reading them as zero.
@@ -365,6 +454,7 @@ def spinup_state(
     previous_soil_end = state.soil_mm
     previous_transit_end = state.transit_mm
     previous_cn_end = state.cn_storage_mm
+    previous_snow_end = state.snow_mm
     settled = False
     change = float("inf")
     cycles_run = 0
@@ -374,7 +464,14 @@ def spinup_state(
     for cycle in range(1, max_cycles + 1):
         cycles_run = cycle
         for t in range(n_days):
-            state, day = soil_step(state, precipitation[t], etp[t], params)
+            state, day = soil_step(
+                state,
+                precipitation[t],
+                etp[t],
+                params,
+                kc=None if kc_by_day is None else float(kc_by_day[t]),
+                temperature=None if temperature is None else temperature[t],
+            )
             last_cycle_soil[t] = state.soil_mm
             last_cycle_runoff_cn[t] = day.runoff_cn
         change = float(
@@ -383,7 +480,10 @@ def spinup_state(
                     np.abs(state.soil_mm - previous_soil_end),
                     np.maximum(
                         np.abs(state.transit_mm - previous_transit_end),
-                        np.abs(state.cn_storage_mm - previous_cn_end),
+                        np.maximum(
+                            np.abs(state.cn_storage_mm - previous_cn_end),
+                            np.abs(state.snow_mm - previous_snow_end),
+                        ),
                     ),
                 )
             )
@@ -394,6 +494,7 @@ def spinup_state(
         previous_soil_end = state.soil_mm
         previous_transit_end = state.transit_mm
         previous_cn_end = state.cn_storage_mm
+        previous_snow_end = state.snow_mm
 
     has_capacity = params.ru_mm > 0
     stayed_below_ru = np.all(last_cycle_soil < params.ru_mm - RU_TOLERANCE_MM, axis=0)
@@ -423,10 +524,14 @@ def balance_residual(precipitation: np.ndarray, fluxes: SoilFluxes) -> np.ndarra
     previous_lag = np.concatenate(
         [fluxes.lag_storage_start[np.newaxis, :], fluxes.lag_storage[:-1]], axis=0
     )
+    previous_snow = np.concatenate(
+        [fluxes.snow_storage_start[np.newaxis, :], fluxes.snow_storage[:-1]], axis=0
+    )
     soil_change = fluxes.soil_storage - previous_soil
     transit_change = fluxes.transit_storage - previous_transit
     cn_change = fluxes.cn_storage - previous_cn
     lag_change = fluxes.lag_storage - previous_lag
+    snow_change = fluxes.snow_storage - previous_snow
     return (
         precipitation
         - fluxes.etr
@@ -436,6 +541,7 @@ def balance_residual(precipitation: np.ndarray, fluxes: SoilFluxes) -> np.ndarra
         - transit_change
         - cn_change
         - lag_change
+        - snow_change
     )
 
 
@@ -464,6 +570,7 @@ def annual_budget(
     transit_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
     cn_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
     lag_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
+    snow_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
     residual_sum = np.empty((n_years, n_columns), dtype=np.float64)
 
     for i, year in enumerate(unique_years):
@@ -497,6 +604,10 @@ def annual_budget(
         transit_storage_change[i] = fluxes.transit_storage[last_day] - transit_before_year
         cn_storage_change[i] = fluxes.cn_storage[last_day] - cn_before_year
         lag_storage_change[i] = fluxes.lag_storage[last_day] - lag_before_year
+        snow_before_year = (
+            fluxes.snow_storage_start if first_day == 0 else fluxes.snow_storage[first_day - 1]
+        )
+        snow_storage_change[i] = fluxes.snow_storage[last_day] - snow_before_year
 
     return AnnualSoilBudget(
         years=unique_years,
@@ -512,6 +623,7 @@ def annual_budget(
         transit_storage_change=transit_storage_change,
         cn_storage_change=cn_storage_change,
         lag_storage_change=lag_storage_change,
+        snow_storage_change=snow_storage_change,
         residual=residual_sum,
         weights=weights,
     )

@@ -295,6 +295,40 @@ the recharge of one day only, and `first_clim` acts on none of its periods. A st
 soil run has one period, which takes the mean of the daily recharge. The daily rules
 are on {doc}`soil-reservoir`.
 
+## 10. ETP from the temperature
+
+A `[data.etp]` section may name a {toml}`formula|data.etp.formula` instead of sources. The run
+then loads `[data.temperature]` and computes the daily ETP on its grid, in mm/day, once every
+family is loaded. The result takes the place of a loaded ETP, so the soil, the EVT of
+MODFLOW-NWT, the exports and the figures read it the same way. `oudin` (Oudin et al. 2005) reads
+the temperature and the extraterrestrial radiation $R_e$ of FAO-56 (Allen et al. 1998, eq. 21),
+
+$$
+E = \frac{R_e}{\lambda \rho}\,\frac{T + 5}{100} \quad \text{if } T + 5 > 0, \text{ else } 0,
+$$ (eq-etp-oudin)
+
+with $\lambda = 2.45$ MJ/kg and $\rho = 1000$ kg/m³. `hamon` (Hamon 1963) reads the
+temperature and the day length $D$ in hours, by the CBM model of Forsythe et al. (1995), as
+ESPERE codes it,
+
+$$
+E = 29.8\,D\,\frac{e_{sat}(T)}{T + 273.2},
+\qquad e_{sat}(T) = 0.611\,\exp\!\left(\frac{17.3\,T}{T + 237.3}\right).
+$$ (eq-etp-hamon)
+
+The day of the year is read from the date, so a leap year does not shift the seasons. The
+latitude of each cell comes from its centre in the CRS of the temperature grid.
+
+## 11. A recharge scenario
+
+A {toml}`scenario|flow.sinks_sources.recharge.scenario` table replaces the loaded recharge by
+its mean year, month by month, repeated over the run. With `dry_years`, `repeat` and `start`,
+it puts `repeat` dry years in a row from `start`, each equal month by month to the mean of the
+`dry_years`. This is the test of consecutive droughts of Abherve (2022, section 5.3.5), who
+took 1975 and 1976 as the dry years and 2 or 5 of them in a row. The scenario keeps the volume
+of a normal year and changes only the sequence. A soil reservoir computes its own recharge, so
+a scenario beside it is refused.
+
 ## Assumptions and limits
 
 - **Constant within the period.** Rain, ETP and runoff are one value per period
@@ -322,6 +356,8 @@ flow.sinks_sources.recharge.first_clim
 flow.sinks_sources.recharge.negative_to_evt
 flow.sinks_sources.recharge.spatial_mode
 flow.sinks_sources.recharge.interpolation_method
+flow.sinks_sources.recharge.scenario
+data.etp.formula
 flow.sinks_sources.etp.first_clim
 solver.modflow6.process_specific.evt_extinction_depth
 ```
@@ -343,6 +379,9 @@ appears here on the next build.
 
 ```{hmp-tested-by}
 hydromodpy.model.forcing
+hydromodpy.model.forcing.etp_computed
+hydromodpy.model.forcing.recharge_scenario
+hydromodpy.model.soil.etp
 hydromodpy.model.forcing.steady_periods
 hydromodpy.model.forcing.time_forcing
 hydromodpy.model.boundaries
@@ -362,6 +401,8 @@ hydromodpy.solver.modflow6.builders.recharge
 | Grids and stations to cells and periods | `hydromodpy/model/forcing/` (`cells.py`, `rasters.py`, `stations.py`) |
 | Units, the binders, runoff and lake forcing | `hydromodpy/model/boundaries/`, `hydromodpy/workflow/steps/data.py` |
 | Steady periods and the split of a negative recharge | `hydromodpy/model/forcing/steady_periods.py` |
+| ETP formulas, and the grid they are computed on | `hydromodpy/model/soil/etp.py`, `hydromodpy/model/forcing/etp_computed.py` |
+| The recharge scenario | `hydromodpy/model/forcing/recharge_scenario.py` |
 | The recharge and ETP packages | `hydromodpy/solver/modflow6/builders/recharge.py`, `hydromodpy/solver/modflow_nwt/nwt/payloads/recharge_etp.py`, `hydromodpy/solver/boussinesq/forcing/` |
 
 ## See also

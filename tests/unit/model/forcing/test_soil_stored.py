@@ -35,12 +35,14 @@ _FLUX_SERIES = (
     "transit_storage",
     "cn_storage",
     "lag_storage",
+    "snow_storage",
 )
 _FLUX_STARTS = (
     "soil_storage_start",
     "transit_storage_start",
     "cn_storage_start",
     "lag_storage_start",
+    "snow_storage_start",
 )
 _COLUMN_ARRAYS = (
     "cell_index",
@@ -124,6 +126,7 @@ def _soil_forcings(*, with_capacity, cycles, never_full):
             soil_mm=rng.random(n_columns),
             transit_mm=rng.random(n_columns),
             cn_storage_mm=rng.random(n_columns),
+            snow_mm=rng.random(n_columns),
         ),
     )
 

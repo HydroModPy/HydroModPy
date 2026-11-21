@@ -14,7 +14,8 @@ Current inference scope (V3)
 - ``substratum``, ``layer_base`` and ``property_map`` are never inferred: the domain
   layer reads their raster paths directly from config, before the data step runs, so
   they are loaded only when listed in ``[data].types``.
-- ``[flow.sinks_sources.recharge.soil]`` -> activate precipitation and etp
+- a section that reads data families (``[flow.sinks_sources.recharge.soil]``
+  reads precipitation and etp, and temperature with snow) -> activate them
 - ``[data.soil_capacity]`` declared -> activate ``soil_capacity`` (the section
   can be written without listing it in ``data.types``, like the other
   typed sections)
@@ -47,7 +48,7 @@ class DataPlanner:
         requested_spatial_support_ids: Sequence[str] | None = None,
         raw_toml: Mapping[str, Any] | None = None,
         flow_active_bc: Sequence[str] | None = None,
-        flow_soil_reservoir: bool = False,
+        families_read_by: Mapping[str, Sequence[str]] | None = None,
     ) -> DataLoadPlan:
         """Resolve data variables from explicit and inferred declarations.
 
@@ -70,10 +71,11 @@ class DataPlanner:
         flow_active_bc:
             The active boundaries of the run, `FlowConfig.active_bc`, used for
             boundary-condition-driven inference (`stream`/`ocean`).
-        flow_soil_reservoir:
-            Whether ``[flow.sinks_sources.recharge.soil]`` is declared. A plain
-            bool, not the config object, so the planner does not depend on
-            the `[flow]` models.
+        families_read_by:
+            The data families each declared section reads, keyed by the
+            section name, such as ``{"[flow.sinks_sources.recharge.soil]":
+            ("precipitation", "etp")}``. Plain names, not the config objects,
+            so the planner does not depend on the models that read the data.
         """
         explicit_types = tuple(config.types)
         inferred_types: list[str] = []
@@ -140,14 +142,11 @@ class DataPlanner:
                         "inferred from [flow.sinks_sources.lakes]",
                     )
 
-        if flow_soil_reservoir:
-            for soil_forcing in ("precipitation", "etp"):
-                if soil_forcing not in explicit_set:
+        for section, families in (families_read_by or {}).items():
+            for family in families:
+                if family not in explicit_set:
                     self._add_inference(
-                        inferred_types,
-                        reasons_by_type,
-                        soil_forcing,
-                        "inferred from [flow.sinks_sources.recharge.soil]",
+                        inferred_types, reasons_by_type, family, f"inferred from {section}"
                     )
 
         if config.soil_capacity is not None and "soil_capacity" not in explicit_set:

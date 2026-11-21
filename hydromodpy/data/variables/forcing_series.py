@@ -23,6 +23,7 @@ from hydromodpy.data.families.timeseries_config import (
     UrlSourceFieldsMixin,
     registered_section_source,
 )
+from hydromodpy.model.soil.etp import ETP_FORMULAS
 
 # --- Radiation -------------------------------------------------------------
 
@@ -169,8 +170,41 @@ class EtpConfig(BaseVariableConfig):
     _TOML_SECTION = "etp"
 
     sources: Annotated[list[EtpSourceConfig], Profile.USER] = Field(
-        ..., min_length=1, description="At least one data source."
+        default_factory=list,
+        description="Data sources of the ETP. Write at least one, or a formula, not both.",
     )
+    formula: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Compute the ETP from the daily mean temperature of [data.temperature], "
+            "which the run then loads, instead of loading an ETP product. "
+            '"oudin" uses the extraterrestrial radiation (Oudin et al. 2005), '
+            '"hamon" the day length (Hamon 1963). The result is mm/day on the grid of '
+            "the temperature, and every reader of [data.etp] receives it."
+        ),
+        json_schema_extra=field_metadata(
+            value_docs={name: method.label for name, method in ETP_FORMULAS.items()},
+            stability="experimental",
+        ),
+        examples=["oudin"],
+    )
+
+    @field_validator("formula")
+    @classmethod
+    def _formula_is_known(cls, formula: str | None) -> str | None:
+        if formula is not None and formula not in ETP_FORMULAS:
+            names = ", ".join(f'"{name}"' for name in ETP_FORMULAS)
+            raise ValueError(f"formula = {formula!r} is not an ETP formula: write one of {names}.")
+        return formula
+
+    @model_validator(mode="after")
+    def _sources_or_formula(self) -> EtpConfig:
+        if bool(self.sources) == (self.formula is not None):
+            raise ValueError(
+                "[data.etp] takes its ETP from sources or computes it with a formula: "
+                'write [[data.etp.sources]], or formula = "oudin", one of the two.'
+            )
+        return self
 
 
 class EtpVariable(GridVariable):

@@ -113,6 +113,11 @@ class RechargeSourceConfig(UrlSourceFieldsMixin, TimeseriesColumnsMixin, Timeser
                 raise ValueError(
                     "File source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
                 )
+        if self.source == "explore2" and self.path is None:
+            raise ValueError(
+                "Explore2 source requires 'path' (a local DRIAS Explore2 NetCDF file of "
+                "projected recharge)."
+            )
         if self.source == "synthetic":
             if self.values is None:
                 raise ValueError(

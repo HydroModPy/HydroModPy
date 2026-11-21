@@ -112,6 +112,31 @@ in transient against the gauge and the network, with 2000 left out as spin-up.
    [calibration.phases.window]
    start = "2001-01-01"           # the network state read, December 2002, lies inside
 
+The soil capacity first. With a soil reservoir, ``regime = "soil"`` sets ``ru`` without a
+solver, to the capacity that closes the multi-year recharge plus runoff against the gauge
+(:doc:`/theory/soil-reservoir`, section "The capacity that closes the budget"). It lists the one
+parameter that moves ``ru``, scores no block, and needs a phase after it, which calibrates K and
+Sy with ``ru`` fixed. The calibration then separates the volume, which the budget sets, from the
+dynamics, which the hydrograph sets.
+
+.. code-block:: toml
+
+   # not checked: fragment, needs [flow.sinks_sources.recharge.soil] and [data.hydrometry]
+   [calibration.parameters.ru]
+   bounds = [20, 1000]            # mm
+
+   [[calibration.phases]]
+   name = "soil_capacity"
+   parameters = ["ru"]
+   regime = "soil"
+
+   [[calibration.phases]]
+   name = "k_sy_transient"
+   parameters = ["K", "Sy"]
+   regime = "transient"
+   objective_blocks = ["hydrograph"]
+   depends_on = "soil_capacity"
+
 Both at once. One phase, both parameters, one regime. Two parameters and a cost to minimize give
 Nelder-Mead, and ``method = "cma_es"`` is written for a global search.
 

@@ -83,6 +83,7 @@ def configure(
     on the workflow context, and the object itself stays on the project state.
     """
     from hydromodpy.catchment.algorithms.river_network_config import river_network_for_the_mesh
+    from hydromodpy.config.data_reads import families_read_by
     from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.data.loading.planner import DataPlanner
@@ -92,7 +93,6 @@ def configure(
         resolve_support_configs,
         support_provider_names,
     )
-    from hydromodpy.model.forcing.soil_config import soil_reservoir_of
     from hydromodpy.workflow.steps.data import log_data_plan
 
     raw_toml = _read_config(project, config, base=base, document=document, source=source)
@@ -119,7 +119,7 @@ def configure(
         requested_spatial_support_ids=project._requested_support_ids,
         raw_toml=raw_toml,
         flow_active_bc=project._cfg.flow.active_bc,
-        flow_soil_reservoir=soil_reservoir_of(project._cfg.flow) is not None,
+        families_read_by=families_read_by(project._cfg),
     )
     log_data_plan(data_plan)
     project._cfg.data = project._cfg.data.with_resolved_types(data_plan.types)

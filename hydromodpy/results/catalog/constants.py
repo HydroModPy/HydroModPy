@@ -28,6 +28,7 @@ PARQUET_VIEW_NAMES: tuple[str, ...] = (
     "data_inventory",
     "sfr_reaches",
     "soil_budget",
+    "recharge_estimates",
     "mesh_cell_families",
     "mesh_face_families",
 )

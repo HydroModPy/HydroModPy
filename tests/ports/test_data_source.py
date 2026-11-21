@@ -63,6 +63,8 @@ from hydromodpy.core.exceptions import (
 from hydromodpy.data.common.clients.explore2_files import (
     Explore2Etp,
     Explore2Precipitation,
+    Explore2Recharge,
+    Explore2Runoff,
 )
 from hydromodpy.data.common.clients.sim2_products import (
     Sim2Etp,
@@ -654,6 +656,24 @@ BUILTIN_CASES: tuple[SourceCase, ...] = (
         provider_attr="read_explore2",
         read_bbox=lambda args, kwargs: kwargs.get("bbox"),
         canned=lambda: _field_record_canned("etp", "mm/day", "explore2"),
+    ),
+    SourceCase(
+        section="recharge",
+        name="explore2",
+        build=lambda: Explore2Recharge(path=Path("explore2_recharge_stub.nc")),
+        provider_module="hydromodpy.data.common.clients.explore2_files",
+        provider_attr="read_explore2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _field_record_canned("recharge", "mm/day", "explore2"),
+    ),
+    SourceCase(
+        section="runoff",
+        name="explore2",
+        build=lambda: Explore2Runoff(path=Path("explore2_runoff_stub.nc")),
+        provider_module="hydromodpy.data.common.clients.explore2_files",
+        provider_attr="read_explore2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _field_record_canned("runoff", "mm/day", "explore2"),
     ),
     SourceCase(
         section="recharge",

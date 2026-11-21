@@ -946,7 +946,8 @@ class CalibrationConfig(HydroModelBase):
         if len(phases) < 2:
             return self
         for phase in phases:
-            if phase.objective_blocks or phase.is_single_metric:
+            # A soil phase scores no block: it closes the water budget of the soil.
+            if phase.objective_blocks or phase.is_single_metric or phase.regime == "soil":
                 continue
             raise ValueError(
                 f"phase {phase.name!r} names neither objective_blocks nor a "

@@ -2793,7 +2793,8 @@
             {
               "enum": [
                 "steady",
-                "transient"
+                "transient",
+                "soil"
               ],
               "type": "string"
             },
@@ -2802,9 +2803,10 @@
             }
           ],
           "default": null,
-          "description": "Flow regime this phase runs, a property of the model and not of the search. 'steady' is one period over steady_window, by default the extent of [simulation.time]. 'transient' is the project's own time grid. Unset, the phase runs the model as the project and its overrides declare it.",
+          "description": "Flow regime this phase runs, a property of the model and not of the search. 'steady' is one period over steady_window, by default the extent of [simulation.time]. 'transient' is the project's own time grid. 'soil' runs no solver: it sets ru to the capacity that closes recharge plus runoff against the gauge, on the soil reservoir alone, and holds it for the phases after it. Unset, the phase runs the model as the project and its overrides declare it.",
           "title": "Regime",
           "value_docs": {
+            "soil": "No solver: ru closes the water budget of the soil against the gauge, then the next phases calibrate K and Sy with it fixed.",
             "steady": "One period over steady_window, so the recharge over it averages to its mean. A steady solve carries no storage.",
             "transient": "The project's time grid, with only the regime restated."
           },
@@ -3705,6 +3707,37 @@
         }
       },
       "title": "CatchmentZonesSupportConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "ChapmanMaxwellConfig": {
+      "additionalProperties": false,
+      "description": "Parameter of the Chapman and Maxwell filter; unset, it comes from the gauge.",
+      "properties": {
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Daily recession constant, between 0 and 1. Unset, it is read on the recessions of the gauge.",
+          "title": "K",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "ChapmanMaxwellConfig",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -5795,6 +5828,54 @@
         }
       }
     },
+    "EckhardtConfig": {
+      "additionalProperties": false,
+      "description": "Parameters of the Eckhardt filter; unset, they come from the gauge.",
+      "properties": {
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Daily recession constant, between 0 and 1. Unset, it is read on the recessions of the gauge.",
+          "title": "K",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        },
+        "bfi_max": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Largest share of baseflow in the discharge, Eckhardt filter only. Unset, the largest yearly baseflow index of the Wallingford method, as ESPERE does. Eckhardt (2005) gives 0.80 for perennial streams on porous aquifers and 0.25 on hard rock.",
+          "title": "Bfi Max",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "EckhardtConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "EtpConfig": {
       "additionalProperties": false,
       "description": "Top-level potential evapotranspiration configuration.\n\nThe section groups ETP sources and an optional date window. Loaded data can\nbe used by land-surface coupling, recharge estimation, or atmospheric\nforcing workflows.",
@@ -5834,13 +5915,34 @@
           "x-hmp-profile": "user"
         },
         "sources": {
-          "description": "At least one data source.",
+          "description": "Data sources of the ETP. Write at least one, or a formula, not both.",
           "items": {
             "$ref": "#/$defs/EtpSourceConfig"
           },
-          "minItems": 1,
           "title": "Sources",
           "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "formula": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Compute the ETP from the daily mean temperature of [data.temperature], which the run then loads, instead of loading an ETP product. \"oudin\" uses the extraterrestrial radiation (Oudin et al. 2005), \"hamon\" the day length (Hamon 1963). The result is mm/day on the grid of the temperature, and every reader of [data.etp] receives it.",
+          "examples": [
+            "oudin"
+          ],
+          "stability": "experimental",
+          "title": "Formula",
+          "value_docs": {
+            "hamon": "temperature and day length",
+            "oudin": "temperature and extraterrestrial radiation"
+          },
           "x-hmp-profile": "user"
         }
       },
@@ -12402,6 +12504,20 @@
           ],
           "default": null,
           "description": "Soil reservoir that computes the recharge from the daily precipitation and ETP loaded under [data.precipitation] and [data.etp], MODFLOW 6 only. It replaces [data.recharge]. Check it alone with `hmp run <file> --until load_data`, which prints its water budget in mm/year and writes no run.",
+          "x-hmp-profile": "user"
+        },
+        "scenario": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RechargeScenarioConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Replace the recharge [data.recharge] loads by its mean year, month by month, with dry years put in a row (Abherve 2022, section 5.3.5). Absent, the loaded recharge is read as it is.",
+          "stability": "experimental",
           "x-hmp-profile": "user"
         },
         "heterogeneous_source": {
@@ -21724,6 +21840,162 @@
         }
       }
     },
+    "RechargeEstimatesConfig": {
+      "additionalProperties": false,
+      "description": "Recharge estimated from the loaded data, to compare with the run's own.\n\nEach method reads its data families, which the run then loads: precipitation\nand temperature for the yearly formulas, [data.hydrometry] at the outlet for\nthe baseflow filters and the closing factor, [data.piezometry] for WTF. The\nrun prints one block of yearly values and writes the table\n``recharge_estimates``; the run's recharge sits beside them.",
+      "properties": {
+        "methods": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "const": "all",
+              "type": "string"
+            }
+          ],
+          "default": "all",
+          "description": "Methods to run, or \"all\". \"all\" skips wtf when no specific yield is given. Weather: turc (an effective rainfall), guttman_zuckerman, kessler. Gauge: wallingford, chapman_maxwell, eckhardt, closing_factor. Piezometer: wtf.",
+          "examples": [
+            "all",
+            [
+              "turc",
+              "eckhardt"
+            ]
+          ],
+          "title": "Methods",
+          "value_docs": {
+            "chapman_maxwell": "Chapman and Maxwell (1996)",
+            "closing_factor": "Abherve (2022), eq. 12",
+            "eckhardt": "Eckhardt (2005)",
+            "guttman_zuckerman": "Guttman and Zuckerman (1995)",
+            "kessler": "Kessler (1967)",
+            "turc": "Turc (1954)",
+            "wallingford": "Gustard et al. (1992)",
+            "wtf": "Healy and Cook (2002)"
+          },
+          "x-hmp-profile": "user"
+        },
+        "chapman_maxwell": {
+          "$ref": "#/$defs/ChapmanMaxwellConfig",
+          "description": "Parameter of the Chapman and Maxwell filter.",
+          "x-hmp-profile": "user"
+        },
+        "eckhardt": {
+          "$ref": "#/$defs/EckhardtConfig",
+          "description": "Parameters of the Eckhardt filter.",
+          "x-hmp-profile": "user"
+        },
+        "wtf": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WtfConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Water table fluctuation; required when methods names wtf.",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "RechargeEstimatesConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^methods__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^methods__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "RechargeScenarioConfig": {
+      "additionalProperties": false,
+      "description": "Replace the loaded recharge by its mean year, with dry years put in a row.",
+      "properties": {
+        "dry_years": {
+          "description": "Historical years whose mean, month by month, makes the dry year, such as [1975, 1976]. Empty, the scenario is the mean year alone, repeated.",
+          "examples": [
+            [
+              1975,
+              1976
+            ]
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "title": "Dry Years",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "repeat": {
+          "default": 0,
+          "description": "Number of dry years put in a row, 2 or 5 in the thesis; 0 with no dry_years.",
+          "examples": [
+            0
+          ],
+          "maximum": 50,
+          "minimum": 0,
+          "title": "Repeat",
+          "type": "integer",
+          "unit": "year",
+          "x-hmp-profile": "user"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Calendar year of the first dry year of the scenario.",
+          "examples": [
+            1990
+          ],
+          "title": "Start",
+          "unit": "year",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "RechargeScenarioConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^dry_years__append$": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "^dry_years__merge$": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      }
+    },
     "RechargeSourceConfig": {
       "additionalProperties": false,
       "description": "Configuration for one recharge data source.\n\nRecharge sources provide water input to the subsurface as custom files,\nSIM2 gridded products, or synthetic series. Synthetic fields can be\nconstant, time-varying, or sinusoidal depending on the declared values and\noptional amplitude settings.",
@@ -23047,6 +23319,80 @@
         }
       }
     },
+    "SeasonalKc": {
+      "additionalProperties": false,
+      "description": "A crop coefficient that follows the growing season, as a trapezoid over the year.\n\nIt is ``low`` before the planting month, rises linearly to ``high`` at the month\nof full cover, stays at ``high`` until senescence starts, then falls back to\n``low`` at the harvest month. Each change happens on the first day of its month.\nThis is the curve of ESPERE (BRGM RP-69538-FR), which accepts a winter crop too.",
+      "properties": {
+        "low": {
+          "description": "Crop coefficient outside the growing season, between 0 and 2.",
+          "examples": [
+            0.6
+          ],
+          "maximum": 2.0,
+          "minimum": 0.0,
+          "title": "Low",
+          "type": "number",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        },
+        "high": {
+          "description": "Crop coefficient at full cover, between 0 and 2.",
+          "examples": [
+            1.15
+          ],
+          "maximum": 2.0,
+          "minimum": 0.0,
+          "title": "High",
+          "type": "number",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        },
+        "months": {
+          "description": "Four months, 1 to 12, in the order of the season: planting, full cover, start of senescence, harvest. A winter crop wraps over the new year, for instance [10, 3, 6, 7].",
+          "examples": [
+            [
+              4,
+              6,
+              8,
+              10
+            ]
+          ],
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "title": "Months",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "SeasonalKc",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^months__append$": {
+          "type": "array"
+        },
+        "^months__merge$": {
+          "type": "array"
+        }
+      }
+    },
     "SimulationConfig": {
       "additionalProperties": false,
       "description": "Minimal orchestration block declared under ``[simulation]``.",
@@ -24115,6 +24461,46 @@
         }
       }
     },
+    "SnowConfig": {
+      "additionalProperties": false,
+      "description": "Snow on the ground, melted linearly with the daily temperature.\n\nIts presence turns snow on and loads ``[data.temperature]``. A share of the\nprecipitation falls as snow below ``melt_full`` and the pack melts as the\ntemperature rises from ``melt_start`` to ``melt_full``. The defaults, 0 and\n6 degC, are those of ESPERE (BRGM RP-69538-FR).",
+      "properties": {
+        "melt_start": {
+          "default": 0.0,
+          "description": "Temperature at or below which nothing melts and all precipitation is snow, in degC.",
+          "examples": [
+            0.0
+          ],
+          "maximum": 10.0,
+          "minimum": -10.0,
+          "title": "Melt Start",
+          "type": "number",
+          "unit": "degC",
+          "x-hmp-profile": "user"
+        },
+        "melt_full": {
+          "default": 6.0,
+          "description": "Temperature at or above which the whole pack melts and no snow falls, in degC.",
+          "examples": [
+            6.0
+          ],
+          "maximum": 15.0,
+          "minimum": -5.0,
+          "title": "Melt Full",
+          "type": "number",
+          "unit": "degC",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "SnowConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "SoilCapacityConfig": {
       "additionalProperties": false,
       "description": "Soil available water capacity raster, read by the soil reservoir.\n\nExample TOML::\n\n    [[data.soil_capacity.sources]]\n    source = \"file\"\n    path = \"soil/ru_mm.tif\"",
@@ -24486,6 +24872,24 @@
       "additionalProperties": false,
       "description": "Daily soil reservoir that turns precipitation and ETP into recharge.\n\nRead by the recharge binder of every run and of every calibration trial;\nMODFLOW 6 only. See ``model/soil/kernel.py`` for the\nequations.",
       "properties": {
+        "method": {
+          "default": "fao56",
+          "description": "Storage law of the soil, the one thing that differs between methods. \"fao56\" lowers ETR linearly below alpha x ru (Allen et al. 1998). \"thornthwaite\" meets the full demand while water is left (Thornthwaite 1948). \"dingman\" empties the soil as an exponential of the deficit on dry days (Dingman 2008). \"edijatno_michel\" is the production store of GR4J without its percolation (Edijatno and Michel 1989). The sealed share, the curve number, the bypass, the transit and the snow work the same around every law.",
+          "examples": [
+            "fao56",
+            "thornthwaite"
+          ],
+          "stability": "experimental",
+          "title": "Method",
+          "type": "string",
+          "value_docs": {
+            "dingman": "exponential emptying on dry days",
+            "edijatno_michel": "quadratic production store of GR4J, no percolation",
+            "fao56": "linear water stress below alpha x RU",
+            "thornthwaite": "full demand while water is left"
+          },
+          "x-hmp-profile": "user"
+        },
         "ru": {
           "anyOf": [
             {
@@ -24543,6 +24947,16 @@
           "x-hmp-profile": "user"
         },
         "kc": {
+          "anyOf": [
+            {
+              "maximum": 2.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/SeasonalKc"
+            }
+          ],
           "calibrable": {
             "bounds": [
               0.7,
@@ -24557,15 +24971,12 @@
             "units": "-"
           },
           "default": 1.0,
-          "description": "Crop coefficient applied to the loaded ETP: the soil evaporates at most kc x ETP a day. 1.0 takes the ETP as loaded, which assumes the surface of that ETP looks like the site: check what the product refers to. Between 0 and 2. Kept fixed by default: kc and ru move the same annual volume.",
+          "description": "Crop coefficient applied to the loaded ETP: the soil evaporates at most kc x ETP a day. 1.0 takes the ETP as loaded, which assumes the surface of that ETP looks like the site: check what the product refers to. Between 0 and 2. A table {low, high, months} makes it follow the growing season. Kept fixed by default: kc and ru move the same annual volume, and only a number can be calibrated.",
           "examples": [
             1.0
           ],
-          "maximum": 2.0,
-          "minimum": 0.0,
           "stability": "experimental",
           "title": "Kc",
-          "type": "number",
           "x-hmp-profile": "user"
         },
         "impervious_fraction": {
@@ -24747,6 +25158,20 @@
           ],
           "stability": "experimental",
           "title": "Runoff Lag",
+          "x-hmp-profile": "user"
+        },
+        "snow": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SnowConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Snow pack melted with the daily temperature of [data.temperature]. Absent, all precipitation reaches the ground as rain the same day.",
+          "stability": "experimental",
           "x-hmp-profile": "user"
         },
         "spinup": {
@@ -27784,6 +28209,46 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         }
       }
+    },
+    "WtfConfig": {
+      "additionalProperties": false,
+      "description": "Water table fluctuation on each loaded piezometer.",
+      "properties": {
+        "specific_yield": {
+          "description": "Specific yield Sy at the piezometers. The estimate is proportional to it, so give the value the run uses or the calibrated one.",
+          "examples": [
+            1.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "maximum": 0.5,
+          "title": "Specific Yield",
+          "type": "number",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        },
+        "correction": {
+          "default": "recession",
+          "description": "\"recession\" adds the decline the water table would have made without the rain; \"none\" sums the rises alone (RISE).",
+          "enum": [
+            "recession",
+            "none"
+          ],
+          "examples": [
+            "recession"
+          ],
+          "title": "Correction",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "WtfConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
     }
   },
   "additionalProperties": false,
@@ -28026,6 +28491,20 @@
       ],
       "default": null,
       "description": "Optional cyclic spin-up settings loaded from the [spinup] section. Drives 'hmp spinup': repeat a forcing window, restart each cycle from the previous state, until the heads and the lake stage converge.",
+      "x-hmp-profile": "user"
+    },
+    "recharge_estimates": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RechargeEstimatesConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Recharge estimated from the loaded weather, gauge and piezometers with the methods of ESPERE (BRGM), printed beside the run's own recharge and written as the table recharge_estimates. The model never reads these numbers.",
+      "stability": "experimental",
       "x-hmp-profile": "user"
     },
     "base_config": {

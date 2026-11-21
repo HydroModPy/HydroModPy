@@ -60,10 +60,10 @@ class ResolveStep:
         return self.run(prior_state)
 
     def run(self, state: PipelineState) -> PipelineState:
+        from hydromodpy.config.data_reads import families_read_by
         from hydromodpy.core.state.run_state import WorkflowContext
         from hydromodpy.data.loading.planner import DataPlanner
         from hydromodpy.model.domain.spatial_support import support_provider_names
-        from hydromodpy.model.forcing.soil_config import soil_reservoir_of
         from hydromodpy.workflow.steps.data import log_data_plan
 
         ctx = state.get("ctx")
@@ -108,7 +108,7 @@ class ResolveStep:
                 requested_spatial_support_ids=requested_support_ids,
                 raw_toml=raw_toml,
                 flow_active_bc=cfg.flow.active_bc,
-                flow_soil_reservoir=soil_reservoir_of(cfg.flow) is not None,
+                families_read_by=families_read_by(cfg),
             )
             log_data_plan(data_plan)
             cfg.data = cfg.data.with_resolved_types(data_plan.types)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import matplotlib.dates as mdates
 import numpy as np
@@ -326,3 +327,66 @@ def test_the_acceptable_cost_ring_needs_a_threshold_and_a_cost_under_it():
 
 def test_a_station_that_is_asked_for_is_returned_without_reading_the_scores():
     assert records.scored_station(None, "discharge", "gauge") == "gauge"
+
+
+def estimates_subject(rows):
+    table = pd.DataFrame(rows, columns=["method", "station", "year", "quantity", "value", "unit"])
+    return SimpleNamespace(name="r", table=lambda name: table)
+
+
+def test_recharge_estimates_draws_one_column_per_method_and_the_run_last():
+    from hydromodpy.display.special import recharge_estimates
+
+    rows = [
+        ("run", None, 2016, "recharge", 300.0, "mm"),
+        ("run", None, 2017, "recharge", 250.0, "mm"),
+        ("eckhardt", None, 2016, "recharge", 280.0, "mm"),
+        ("eckhardt", None, 2017, "recharge", 240.0, "mm"),
+        ("turc", None, 2016, "effective_rainfall", 410.0, "mm"),
+        ("wtf", "PZ1", 2016, "recharge", 200.0, "mm"),
+        ("eckhardt", None, None, "bfi_max", 0.8, "-"),
+    ]
+    ax = static.new_figure(THEMES["default"]).axes[0]
+
+    recharge_estimates.draw(estimates_subject(rows), ax, THEMES["default"])
+
+    labels = [tick.get_text() for tick in ax.get_xticklabels()]
+    assert labels == ["eckhardt", "turc\n(effective rain)", "wtf\nPZ1", "run"]
+
+
+def test_recharge_estimates_without_yearly_rows_is_not_applicable():
+    from hydromodpy.display.special import recharge_estimates
+    from hydromodpy.display.subject import FigureNotApplicable
+
+    ax = static.new_figure(THEMES["default"]).axes[0]
+    with pytest.raises(FigureNotApplicable, match="no yearly value"):
+        recharge_estimates.draw(
+            estimates_subject([("closing_factor", None, None, "factor", 1.1, "-")]),
+            ax,
+            THEMES["default"],
+        )
+
+
+def test_water_balance_loop_joins_the_mean_months_in_calendar_order():
+    from hydromodpy.display.special import water_balance_loop
+
+    rows = []
+    for year in (2016, 2017):
+        for month in range(1, 13):
+            wet = np.cos(2 * np.pi * (month - 1) / 12)
+            rows.append(("water_balance", None, year, month, "rain_minus_etr", 40 + 60 * wet, "mm"))
+            rows.append(
+                ("water_balance", None, year, month, "gauged_discharge", 40 + 30 * wet, "mm")
+            )
+    table = pd.DataFrame(
+        rows, columns=["method", "station", "year", "month", "quantity", "value", "unit"]
+    )
+    ax = static.new_figure(THEMES["default"]).axes[0]
+
+    water_balance_loop.draw(
+        SimpleNamespace(name="r", table=lambda name: table), ax, THEMES["default"]
+    )
+
+    loop = ax.lines[0]
+    assert len(loop.get_xdata()) == 13  # twelve months, closed on January
+    assert loop.get_ydata()[0] == pytest.approx(100.0)

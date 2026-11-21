@@ -100,6 +100,7 @@ from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.forcing.recharge_estimates_config import RechargeEstimatesConfig
 from hydromodpy.model.initial_config import SpinupConfig
 from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.results.exporters.export_spec import ExportRequest
@@ -455,6 +456,16 @@ class HydroModPyConfig(HydroModelBase):
             "Drives 'hmp spinup': repeat a forcing window, restart each cycle from "
             "the previous state, until the heads and the lake stage converge."
         ),
+    )
+
+    recharge_estimates: Annotated[RechargeEstimatesConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Recharge estimated from the loaded weather, gauge and piezometers with the "
+            "methods of ESPERE (BRGM), printed beside the run's own recharge and written "
+            "as the table recharge_estimates. The model never reads these numbers."
+        ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
 
     _read_as_sealed: bool = PrivateAttr(default=False)

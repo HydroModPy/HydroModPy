@@ -20,7 +20,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
-DATA_SCHEMA_SHA256 = "60aa90bb0dbaf06cad7eb5eb2a11008f01c6d94f810f2cdc47b4562ed9c5ef40"
+DATA_SCHEMA_SHA256 = "a0f3b6e52670ceba293d035764f9fd91c2113ed77f7d7ecf9306de51450e78fe"
 
 
 def test_the_data_config_schema_keeps_its_fingerprint() -> None:

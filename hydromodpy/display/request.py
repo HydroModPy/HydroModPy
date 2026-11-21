@@ -191,6 +191,7 @@ SPECIALS: dict[str, Special] = {
     "network_comparison": Special("run", "double"),
     "observed_network_heads": Special("run", "double"),
     "particle_tracks": Special("run", "double", ("time", "variable")),
+    "recharge_estimates": Special("run", "medium", tables=("recharge_estimates",)),
     "recession": Special(
         "run", "medium", ("station",), ("discharge", "hydraulic_conductivity", "specific_yield")
     ),
@@ -199,8 +200,9 @@ SPECIALS: dict[str, Special] = {
     "sfr_longitudinal_profile": Special(
         "run", "double", ("time",), ("head",), ("sfr_reaches", "timeseries")
     ),
+    "water_balance_loop": Special("run", "medium", tables=("recharge_estimates",)),
 }
-"""The twelve special figures, keyed by the name of their module. The table is closed."""
+"""The fourteen special figures, keyed by the name of their module. The table is closed."""
 
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$")
 

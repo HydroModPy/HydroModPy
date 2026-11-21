@@ -24,7 +24,7 @@ from hydromodpy.model.forcing.soil_forcing import SoilForcings, soil_parameters
 from hydromodpy.model.forcing.soil_grids import grid_field_record
 from hydromodpy.model.soil.kernel import SoilFluxes, SoilState
 
-SCHEMA_VERSION = "hydromodpy.soil_product.v1"
+SCHEMA_VERSION = "hydromodpy.soil_product.v2"
 """Version of this stored format, written in the product key."""
 
 _NPZ = "soil.npz"
@@ -47,6 +47,11 @@ def write_soil_forcings(soil: SoilForcings, directory: Path) -> None:
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     fluxes = soil.fluxes
+    optional = {}
+    if soil.temperature is not None:
+        optional["temperature"] = soil.temperature
+    if soil.kc_by_day is not None:
+        optional["kc_by_day"] = soil.kc_by_day
     np.savez(
         directory / _NPZ,
         days=soil.days,
@@ -66,13 +71,16 @@ def write_soil_forcings(soil: SoilForcings, directory: Path) -> None:
         fluxes_transit_storage=fluxes.transit_storage,
         fluxes_cn_storage=fluxes.cn_storage,
         fluxes_lag_storage=fluxes.lag_storage,
+        fluxes_snow_storage=fluxes.snow_storage,
         fluxes_soil_storage_start=fluxes.soil_storage_start,
         fluxes_transit_storage_start=fluxes.transit_storage_start,
         fluxes_cn_storage_start=fluxes.cn_storage_start,
         fluxes_lag_storage_start=fluxes.lag_storage_start,
+        fluxes_snow_storage_start=fluxes.snow_storage_start,
         end_soil_mm=fluxes.end.soil_mm,
         end_transit_mm=fluxes.end.transit_mm,
         end_cn_storage_mm=fluxes.end.cn_storage_mm,
+        end_snow_mm=fluxes.end.snow_mm,
         columns_cell_index=soil.columns.cell_index,
         columns_class_index=soil.columns.class_index,
         columns_x=soil.columns.x,
@@ -81,6 +89,7 @@ def write_soil_forcings(soil: SoilForcings, directory: Path) -> None:
         columns_cell_fraction=soil.columns.cell_fraction,
         columns_basin_weight=soil.columns.basin_weight,
         ru_mm=soil.parameters.ru_mm,
+        **optional,
     )
     (directory / _JSON).write_text(
         json.dumps(
@@ -147,14 +156,17 @@ def _decode(
         transit_storage=arrays["fluxes_transit_storage"],
         cn_storage=arrays["fluxes_cn_storage"],
         lag_storage=arrays["fluxes_lag_storage"],
+        snow_storage=arrays["fluxes_snow_storage"],
         soil_storage_start=arrays["fluxes_soil_storage_start"],
         transit_storage_start=arrays["fluxes_transit_storage_start"],
         cn_storage_start=arrays["fluxes_cn_storage_start"],
         lag_storage_start=arrays["fluxes_lag_storage_start"],
+        snow_storage_start=arrays["fluxes_snow_storage_start"],
         end=SoilState(
             soil_mm=arrays["end_soil_mm"],
             transit_mm=arrays["end_transit_mm"],
             cn_storage_mm=arrays["end_cn_storage_mm"],
+            snow_mm=arrays["end_snow_mm"],
         ),
     )
 
@@ -192,6 +204,8 @@ def _decode(
         days=days,
         precipitation=arrays["precipitation"],
         etp=arrays["etp"],
+        temperature=arrays.get("temperature"),
+        kc_by_day=arrays.get("kc_by_day"),
         fluxes=fluxes,
         columns=columns,
         config=config,

@@ -1,9 +1,9 @@
 """Soil reservoir orchestrator: forcings in, MODFLOW-ready grids out.
 
 Turns the daily precipitation and ETP grids ``[data.precipitation]`` and
-``[data.etp]`` load into the kernel's ``SoilParameters`` and ``SoilState``,
-runs the reservoir day by day, and hands back a recharge, a residual-ETP and
-a runoff field (spec section 5).
+``[data.etp]`` load, and the temperature grid when the snow is on, into the
+kernel's ``SoilParameters`` and ``SoilState``, runs the reservoir day by day,
+and hands back a recharge, a residual-ETP and a runoff field (spec section 5).
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from hydromodpy.model.forcing.soil_columns import (
     capacity_classes,
     catchment_cell_weights,
 )
-from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_config import SeasonalKc, SoilReservoirConfig
 from hydromodpy.model.forcing.soil_grids import (
     grid_field_record,
     guard_paired_grids,
@@ -34,6 +34,7 @@ from hydromodpy.model.soil.kernel import (
     SoilParameters,
     full_soil,
     run_soil_balance,
+    seasonal_kc,
     spinup_state,
 )
 
@@ -48,17 +49,29 @@ RU_LADDER_MM: tuple[float, ...] = (50.0, 100.0, 150.0, 200.0, 250.0)
 
 def soil_parameters(config: SoilReservoirConfig, ru_mm: np.ndarray) -> SoilParameters:
     """Kernel parameters for columns of capacity ``ru_mm``."""
+    snow = config.snow
     return SoilParameters(
         ru_mm=np.asarray(ru_mm, dtype=np.float64),
         alpha=config.alpha,
-        kc=config.kc,
+        kc=1.0 if isinstance(config.kc, SeasonalKc) else config.kc,
         impervious_fraction=config.impervious_fraction,
         bypass_fraction=config.bypass_fraction,
         transit_time_days=config.transit_time,
         curve_number=config.curve_number,
         runoff_time_days=config.runoff_time,
         runoff_lag_days=config.runoff_lag,
+        method=config.method,
+        snow_melt_start_c=None if snow is None else snow.melt_start,
+        snow_melt_full_c=None if snow is None else snow.melt_full,
     )
+
+
+def kc_of_days(config: SoilReservoirConfig, days: np.ndarray) -> np.ndarray | None:
+    """The crop coefficient of each day when it follows the season, else None."""
+    kc = config.kc
+    if not isinstance(kc, SeasonalKc):
+        return None
+    return seasonal_kc(days, kc.low, kc.high, kc.months)
 
 
 @dataclass(frozen=True)
@@ -78,6 +91,8 @@ class SoilForcings:
     spinup_cycles: int  # 0 with spinup = "none"
     never_full_columns: int  # 0 with spinup = "none"
     crs: str
+    temperature: np.ndarray | None = None  # (T, N) degC, loaded only when the snow is on
+    kc_by_day: np.ndarray | None = None  # (T,) when kc follows the season
 
     @property
     def years(self) -> np.ndarray:
@@ -91,7 +106,13 @@ class SoilForcings:
 
 
 def _spinup_or_full(
-    config: SoilReservoirConfig, params: SoilParameters, precipitation: np.ndarray, etp: np.ndarray
+    config: SoilReservoirConfig,
+    params: SoilParameters,
+    precipitation: np.ndarray,
+    etp: np.ndarray,
+    *,
+    kc_by_day: np.ndarray | None = None,
+    temperature: np.ndarray | None = None,
 ):
     """Starting state under ``config.spinup``, and the ``Spinup`` that produced it.
 
@@ -100,7 +121,13 @@ def _spinup_or_full(
     """
     if config.spinup == "none":
         return full_soil(params), None
-    result = spinup_state(precipitation[:365], etp[:365], params)
+    result = spinup_state(
+        precipitation[:365],
+        etp[:365],
+        params,
+        kc_by_day=None if kc_by_day is None else kc_by_day[:365],
+        temperature=None if temperature is None else temperature[:365],
+    )
     return result.state, result
 
 
@@ -133,6 +160,7 @@ def compute_soil_forcings(
     model_crs: str,
     soil_capacity: LoadResultProto | None = None,
     catchment: gpd.GeoDataFrame | None = None,
+    temperature: LoadResultProto | None = None,
 ) -> SoilForcings:
     """Run the soil reservoir over ``[simulation.time]`` and grid its outputs back."""
     days = window_days(window)
@@ -153,6 +181,17 @@ def compute_soil_forcings(
         model_crs=model_crs,
     )
     guard_paired_grids(x_p, y_p, time_p, x_e, y_e, time_e)
+    temperature_grid = None
+    if config.snow is not None:
+        temperature_grid, x_t, y_t, time_t, _t_record = load_forcing_grid(
+            temperature,
+            section="[data.temperature]",
+            family="temperature",
+            window=window,
+            days=days,
+            model_crs=model_crs,
+        )
+        guard_paired_grids(x_p, y_p, time_p, x_t, y_t, time_t, other_section="[data.temperature]")
 
     ny, nx = y_p.size, x_p.size
     n_cells = ny * nx
@@ -181,10 +220,21 @@ def compute_soil_forcings(
 
     precip_columns = precip_grid[:, columns.cell_index]
     etp_columns = etp_grid[:, columns.cell_index]
+    temperature_columns = (
+        None if temperature_grid is None else temperature_grid[:, columns.cell_index]
+    )
+    kc_by_day = kc_of_days(config, days)
 
     ru_mm = config.ru * columns.ru_shape
     parameters = soil_parameters(config, ru_mm)
-    initial, spinup_result = _spinup_or_full(config, parameters, precip_columns, etp_columns)
+    initial, spinup_result = _spinup_or_full(
+        config,
+        parameters,
+        precip_columns,
+        etp_columns,
+        kc_by_day=kc_by_day,
+        temperature=temperature_columns,
+    )
     if spinup_result is not None and not spinup_result.settled:
         first_year = (
             f"{pd.Timestamp(days[0]):%Y-%m-%d} to "
@@ -206,6 +256,8 @@ def compute_soil_forcings(
         parameters,
         initial,
         runoff_cn_history_mm=_runoff_cn_history(spinup_result),
+        kc_by_day=kc_by_day,
+        temperature=temperature_columns,
     )
 
     recharge_grid = aggregate_to_cells(fluxes.recharge, columns, n_cells)
@@ -229,6 +281,8 @@ def compute_soil_forcings(
         days=days,
         precipitation=precip_columns,
         etp=etp_columns,
+        temperature=temperature_columns,
+        kc_by_day=kc_by_day,
         fluxes=fluxes,
         columns=columns,
         config=config,
@@ -237,6 +291,40 @@ def compute_soil_forcings(
         never_full_columns=never_full_columns,
         crs=precip_record.crs,
     )
+
+
+def basin_water_out(
+    forcings: SoilForcings, ru: float, *, precipitation_scale: float = 1.0
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """Daily basin recharge and runoff, mm/day, for capacity ``ru``, other parameters fixed.
+
+    ``precipitation_scale`` multiplies the precipitation, to see how a bias of the
+    rain moves the result. Returns None when the spin-up does not settle in 20
+    cycles: a number built on a soil state that never repeated would be wrong.
+    """
+    precipitation = forcings.precipitation * precipitation_scale
+    parameters = soil_parameters(forcings.config, ru * forcings.columns.ru_shape)
+    initial, spinup_result = _spinup_or_full(
+        forcings.config,
+        parameters,
+        precipitation,
+        forcings.etp,
+        kc_by_day=forcings.kc_by_day,
+        temperature=forcings.temperature,
+    )
+    if spinup_result is not None and not spinup_result.settled:
+        return None
+    fluxes = run_soil_balance(
+        precipitation,
+        forcings.etp,
+        parameters,
+        initial,
+        runoff_cn_history_mm=_runoff_cn_history(spinup_result),
+        kc_by_day=forcings.kc_by_day,
+        temperature=forcings.temperature,
+    )
+    weights = forcings.columns.basin_weight
+    return fluxes.recharge @ weights, fluxes.runoff @ weights
 
 
 def ru_ladder(
@@ -252,21 +340,6 @@ def ru_ladder(
     n_years = len(forcings.days) / 365.25
     rows = []
     for ru in ru_values:
-        ru_mm = ru * forcings.columns.ru_shape
-        parameters = soil_parameters(forcings.config, ru_mm)
-        initial, spinup_result = _spinup_or_full(
-            forcings.config, parameters, forcings.precipitation, forcings.etp
-        )
-        if spinup_result is not None and not spinup_result.settled:
-            rows.append((ru, float("nan")))
-            continue
-        fluxes = run_soil_balance(
-            forcings.precipitation,
-            forcings.etp,
-            parameters,
-            initial,
-            runoff_cn_history_mm=_runoff_cn_history(spinup_result),
-        )
-        basin_recharge = fluxes.recharge @ forcings.columns.basin_weight
-        rows.append((ru, float(basin_recharge.sum() / n_years)))
+        out = basin_water_out(forcings, ru)
+        rows.append((ru, float("nan") if out is None else float(out[0].sum() / n_years)))
     return tuple(rows)

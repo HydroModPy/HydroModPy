@@ -35,7 +35,7 @@ from hydromodpy.core.exceptions import CommandUsageError, ConfigError, ConfigMis
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.run_state import LoadedDataContext
 from hydromodpy.core.state.scratch import inherit_run_scratch, scratch_root_for
-from hydromodpy.core.summary import members, summary
+from hydromodpy.core.summary import members, one_line, summary
 from hydromodpy.core.toml_io.paths import assign
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.project import phases
@@ -51,6 +51,8 @@ if TYPE_CHECKING:
     from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
     from hydromodpy.model.domain.domain import Domain
     from hydromodpy.model.flow import Flow
+    from hydromodpy.model.forcing.soil_forcing import SoilForcings
+    from hydromodpy.model.forcing.soil_ru_budget import RuClosure
     from hydromodpy.model.model import Model
     from hydromodpy.project.environment import Environment
     from hydromodpy.results.run.view import Run
@@ -82,10 +84,23 @@ class LabState:
     model: Model  # what the solver reads, frozen (prepare_solver)
     plan: SimulationPlan  # the solver runs and their order
     solves: Mapping[str, SolverRun]  # one solved run per run of the plan (run_solver)
+    soil: SoilForcings | None  # columns, fluxes and grids of the soil reservoir (load_data)
+    ru_closure: RuClosure | None  # the ru that closes the budget against the gauge (load_data)
+    recharge_estimates: pd.DataFrame | None  # rows of [recharge_estimates] (load_data)
 
     def __repr__(self) -> str:
         """Name each object on one short line. Type an object to read it whole."""
-        return summary("LabState", members(self, "not built yet"))
+        rows = members(self, "not built yet")
+        if getattr(self.data, "loaded_plan_types", None):
+            # Once the data are loaded, a missing soil or estimate is a choice of the file.
+            optional = {"soil", "ru_closure", "recharge_estimates"}
+            rows = [
+                (name, one_line(getattr(self, name), "none in this project"))
+                if name in optional
+                else (name, text)
+                for name, text in rows
+            ]
+        return summary("LabState", rows)
 
 
 class Lab:
@@ -232,6 +247,8 @@ class Lab:
     @property
     def state(self) -> LabState:
         """The objects the engine holds now. Reading them computes nothing."""
+        import pandas as pd
+
         ctx = self._project._ctx
         return LabState(
             config=ctx.cfg,
@@ -243,6 +260,13 @@ class Lab:
             model=ctx.setup.model,
             plan=ctx.execution.simulation_plan,
             solves=dict(ctx.execution.solver_runs),
+            soil=ctx.setup.soil_forcings,
+            ru_closure=ctx.setup.ru_closure,
+            recharge_estimates=(
+                None
+                if ctx.setup.recharge_estimates is None
+                else pd.DataFrame(ctx.setup.recharge_estimates)
+            ),
         )
 
     def force(self, name: str, value: object) -> None:

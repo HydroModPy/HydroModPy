@@ -44,6 +44,9 @@ def regime_overrides(phase: CalibPhaseDecl, document: Mapping[str, Any]) -> dict
         return {}
     if phase.regime == "transient":
         return {"flow.flow_regime": "transient"}
+    if phase.regime == "soil":
+        # The soil phase runs no solver, so it writes nothing into the model.
+        return {}
     _refuse_steady_lake_phase(phase, document)
     steady_start, steady_end = _steady_window(phase.steady_window, document)
     start, end = pd.Timestamp(steady_start), pd.Timestamp(steady_end)

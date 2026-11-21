@@ -34,7 +34,8 @@ from hydromodpy.calibration.targets import (
 )
 from hydromodpy.core.config_kit.said import say
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.model.forcing.soil_config import soil_reservoir_of
+from hydromodpy.model.forcing.soil_config import SeasonalKc, soil_reservoir_of
+from hydromodpy.model.soil.laws import SOIL_METHODS
 
 __all__ = [
     "RECHARGE_FACTOR_PATH",
@@ -47,6 +48,7 @@ __all__ = [
 
 RECHARGE_VALUES_PATH = "flow.sinks_sources.recharge.values"
 RECHARGE_FACTOR_PATH = "flow.sinks_sources.recharge.factor"
+SOIL_PATH = "flow.sinks_sources.recharge.soil"
 
 
 class UnresolvedParameterName(ConfigError):
@@ -148,6 +150,7 @@ def resolve_parameter_targets(
                 'mode = "replace", or give the value a base first.'
             )
         _refuse_a_replaced_recharge_rate(name, target, project_config)
+        _refuse_a_soil_field_the_run_never_reads(name, target, project_config)
         _convert_bounds_into_the_unit_of_the_target(name, decl, target)
         _fill_what_the_file_left_unsaid(decl, target)
         _refuse_bounds_the_registry_rules_out(name, decl, target)
@@ -229,6 +232,27 @@ def _refuse_a_replaced_recharge_rate(
         raise ConfigError(
             f"[calibration.parameters.{name}] moves flow.sinks_sources.recharge.values, "
             f"which {replaced_by}"
+        )
+
+
+def _refuse_a_soil_field_the_run_never_reads(
+    name: str, target: CalibrationTarget, project_config: Any
+) -> None:
+    """Refuse moving alpha under a method without it, or kc when it follows the season."""
+    soil = soil_reservoir_of(getattr(project_config, "flow", None))
+    if soil is None:
+        return
+    if target.path == f"{SOIL_PATH}.alpha" and not SOIL_METHODS[soil.method].reads_alpha:
+        raise ConfigError(
+            f'[calibration.parameters.{name}] moves alpha, and method = "{soil.method}" '
+            "never reads it: the search would change nothing. Calibrate ru, or use "
+            'method = "fao56".'
+        )
+    if target.path == f"{SOIL_PATH}.kc" and isinstance(soil.kc, SeasonalKc):
+        raise ConfigError(
+            f"[calibration.parameters.{name}] moves kc, and kc follows the season in this "
+            "project: a searched number would replace the whole curve. Write kc as a "
+            "number to calibrate it."
         )
 
 

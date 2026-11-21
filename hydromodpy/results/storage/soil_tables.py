@@ -60,6 +60,7 @@ def soil_budget_rows(soil: object, budget: object) -> list[dict[str, object]]:
                     "transit_storage_change": float(budget.transit_storage_change[i, j]),
                     "cn_storage_change": float(budget.cn_storage_change[i, j]),
                     "lag_storage_change": float(budget.lag_storage_change[i, j]),
+                    "snow_storage_change": float(budget.snow_storage_change[i, j]),
                     "balance_residual": float(budget.residual[i, j]),
                     "unit": "mm",
                 }
@@ -89,6 +90,7 @@ def soil_budget_rows(soil: object, budget: object) -> list[dict[str, object]]:
                 "transit_storage_change": float(budget.basin("transit_storage_change")[i]),
                 "cn_storage_change": float(budget.basin("cn_storage_change")[i]),
                 "lag_storage_change": float(budget.basin("lag_storage_change")[i]),
+                "snow_storage_change": float(budget.basin("snow_storage_change")[i]),
                 "balance_residual": float(budget.basin("residual")[i]),
                 "unit": "mm",
             }
@@ -96,8 +98,12 @@ def soil_budget_rows(soil: object, budget: object) -> list[dict[str, object]]:
     return rows
 
 
-def persist_soil_columns(sz: SimulationZarr, soil: object) -> None:
-    """Write the soil reservoir's daily columns under ``forcing/soil``."""
+def persist_soil_columns(sz: SimulationZarr, soil: object, closure: object = None) -> None:
+    """Write the soil reservoir's daily columns under ``forcing/soil``.
+
+    ``closure``, when the data step found one, is the ``ru`` closing the budget
+    against the gauge; its numbers join the attributes.
+    """
     fluxes = soil.fluxes
     config = soil.config
     columns = soil.columns
@@ -152,6 +158,12 @@ def persist_soil_columns(sz: SimulationZarr, soil: object) -> None:
             "Routed curve-number runoff delayed by runoff_lag, not yet released, at "
             "the end of the day",
         ),
+        "snow_storage": (
+            fluxes.snow_storage,
+            "mm",
+            "time: point",
+            "Snow pack at the end of the day, per unit of column area",
+        ),
     }
     columns_arrays = {
         "cell_index": columns.cell_index,
@@ -164,10 +176,12 @@ def persist_soil_columns(sz: SimulationZarr, soil: object) -> None:
     }
     attrs = {
         "source": "soil_reservoir",
+        "method": config.method,
         "crs": soil.crs,
         "ru_mm": config.ru,
         "alpha": config.alpha,
-        "kc": config.kc,
+        "kc": config.kc if isinstance(config.kc, float) else config.kc.model_dump(mode="json"),
+        "snow": None if config.snow is None else config.snow.model_dump(mode="json"),
         "impervious_fraction": config.impervious_fraction,
         "bypass_fraction": config.bypass_fraction,
         "transit_time_days": config.transit_time,
@@ -177,6 +191,13 @@ def persist_soil_columns(sz: SimulationZarr, soil: object) -> None:
         "n_cells": int(np.unique(columns.cell_index).size),
         "n_columns": int(columns.cell_index.shape[0]),
     }
+    if closure is not None:
+        attrs["ru_closing_budget_mm"] = closure.ru_mm
+        attrs["ru_closing_budget_band_mm"] = (
+            None if closure.band_mm is None else list(closure.band_mm)
+        )
+        attrs["ru_closing_budget_years"] = closure.years
+        attrs["ru_closing_budget_reason"] = closure.reason
     sz.write_soil_columns(
         timestamps=soil.days,
         series=series,

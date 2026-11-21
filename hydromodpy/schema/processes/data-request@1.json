@@ -859,19 +859,37 @@
                 "x-hmp-profile": "user"
               },
               "sources": {
-                "description": "At least one data source.",
+                "description": "Data sources of the ETP. Write at least one, or a formula, not both.",
                 "items": {
                   "$ref": "#/$defs/EtpSourceConfig"
                 },
-                "minItems": 1,
                 "title": "Sources",
                 "type": "array",
                 "x-hmp-profile": "user"
+              },
+              "formula": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Compute the ETP from the daily mean temperature of [data.temperature], which the run then loads, instead of loading an ETP product. \"oudin\" uses the extraterrestrial radiation (Oudin et al. 2005), \"hamon\" the day length (Hamon 1963). The result is mm/day on the grid of the temperature, and every reader of [data.etp] receives it.",
+                "examples": [
+                  "oudin"
+                ],
+                "stability": "experimental",
+                "title": "Formula",
+                "value_docs": {
+                  "hamon": "temperature and day length",
+                  "oudin": "temperature and extraterrestrial radiation"
+                },
+                "x-hmp-profile": "user"
               }
             },
-            "required": [
-              "sources"
-            ],
             "title": "EtpConfig",
             "type": "object"
           },

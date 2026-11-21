@@ -17,7 +17,9 @@ CAPACITY_MAP = {"sources": [{"source": "file", "path": "ru.tif"}]}
 def test_a_type_already_declared_is_not_inferred_again():
     cfg = DataConfig.model_validate({"types": ["precipitation"]})
 
-    plan = DataPlanner().build(cfg, flow_soil_reservoir=True)
+    plan = DataPlanner().build(
+        cfg, families_read_by={"[flow.sinks_sources.recharge.soil]": ("precipitation", "etp")}
+    )
 
     assert "precipitation" not in plan.inferred_types
     assert "etp" in plan.inferred_types
@@ -26,7 +28,9 @@ def test_a_type_already_declared_is_not_inferred_again():
 def test_a_capacity_map_beside_the_soil_reservoir_names_the_soil_section():
     cfg = DataConfig.model_validate({"types": [], "soil_capacity": CAPACITY_MAP})
 
-    plan = DataPlanner().build(cfg, flow_soil_reservoir=True)
+    plan = DataPlanner().build(
+        cfg, families_read_by={"[flow.sinks_sources.recharge.soil]": ("precipitation", "etp")}
+    )
 
     assert "soil_capacity" in plan.inferred_types
     assert (
@@ -40,7 +44,7 @@ def test_a_capacity_map_without_the_soil_reservoir_is_still_inferred():
     # independence is a decision and not a silent regression.
     cfg = DataConfig.model_validate({"types": [], "soil_capacity": CAPACITY_MAP})
 
-    plan = DataPlanner().build(cfg, flow_soil_reservoir=False)
+    plan = DataPlanner().build(cfg, families_read_by={})
 
     assert "soil_capacity" in plan.inferred_types
 

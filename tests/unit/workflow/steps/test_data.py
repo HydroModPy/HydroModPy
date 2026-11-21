@@ -283,7 +283,7 @@ def test_soil_budget_printed_once(monkeypatch) -> None:
     fake_loader = SimpleNamespace(load_all=lambda run_state: None)
     monkeypatch.setattr(data_step, "_build_data_runtime_loader", lambda **kwargs: fake_loader)
     calls: list[tuple[str, ...]] = []
-    monkeypatch.setattr(data_step, "_log_soil_budget", lambda lines: calls.append(lines))
+    monkeypatch.setattr(data_step, "_log_block", lambda lines: calls.append(lines))
 
     data_step.step_data_loading(run_state)
 
@@ -294,7 +294,7 @@ def test_binder_alone_prints_nothing(monkeypatch) -> None:
     run_state = _printed_state(lightweight=False, with_soil=True)
     _patch_binder_internals(monkeypatch)
     calls: list[tuple[str, ...]] = []
-    monkeypatch.setattr(data_step, "_log_soil_budget", lambda lines: calls.append(lines))
+    monkeypatch.setattr(data_step, "_log_block", lambda lines: calls.append(lines))
 
     data_step.apply_structural_updates_from_data(run_state)
 
