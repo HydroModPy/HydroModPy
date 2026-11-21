@@ -55,11 +55,13 @@ def test_reviewed_claims() -> None:
         "euhydro": COPERNICUS_LICENCE_ID,
         "explore2": "etalab-2.0",
         "hubeau": "etalab-2.0",
+        "ocsge": "etalab-2.0",
         "osm": "ODbL-1.0",
         "rgealti": "etalab-2.0",
         "roe": "etalab-2.0",
         "shom": "etalab-2.0",
         "sim2": "etalab-2.0",
+        "worldcover": "CC-BY-4.0",
     }
 
 
@@ -94,7 +96,8 @@ def test_claim_has_page_and_date(slug: str) -> None:
     entry = SOURCES[slug]
     assert entry.licence_pages
     assert all(page.startswith("https://") for page in entry.licence_pages)
-    assert entry.licence_checked == LICENCES_CHECKED
+    # A source added after the first review is read on its own, later day.
+    assert entry.licence_checked >= LICENCES_CHECKED
     assert date.fromisoformat(entry.licence_checked)
     assert entry.licence.attribution
 

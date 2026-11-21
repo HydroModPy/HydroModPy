@@ -17,10 +17,13 @@ import pandas as pd
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.model.contracts import FieldRecordProto, LoadResultProto
 from hydromodpy.model.forcing.soil_columns import (
+    SOIL_MAPS,
     SoilColumns,
     aggregate_to_cells,
     capacity_classes,
+    catchment_cell_means,
     catchment_cell_weights,
+    with_surface_maps,
 )
 from hydromodpy.model.forcing.soil_config import SeasonalKc, SoilReservoirConfig
 from hydromodpy.model.forcing.soil_grids import (
@@ -47,17 +50,25 @@ if TYPE_CHECKING:
 RU_LADDER_MM: tuple[float, ...] = (50.0, 100.0, 150.0, 200.0, 250.0)
 
 
-def soil_parameters(config: SoilReservoirConfig, ru_mm: np.ndarray) -> SoilParameters:
-    """Kernel parameters for columns of capacity ``ru_mm``."""
+def soil_parameters(
+    config: SoilReservoirConfig, ru_mm: np.ndarray, columns: SoilColumns | None = None
+) -> SoilParameters:
+    """Kernel parameters for columns of capacity ``ru_mm``.
+
+    The sealed share and the curve number come from the maps the columns carry,
+    else from the soil section.
+    """
     snow = config.snow
+    has_impervious = columns is not None and columns.impervious is not None
+    has_curve_number = columns is not None and columns.curve_number is not None
     return SoilParameters(
         ru_mm=np.asarray(ru_mm, dtype=np.float64),
         alpha=config.alpha,
         kc=1.0 if isinstance(config.kc, SeasonalKc) else config.kc,
-        impervious_fraction=config.impervious_fraction,
+        impervious_fraction=columns.impervious if has_impervious else config.impervious_fraction,
         bypass_fraction=config.bypass_fraction,
         transit_time_days=config.transit_time,
-        curve_number=config.curve_number,
+        curve_number=columns.curve_number if has_curve_number else config.curve_number,
         runoff_time_days=config.runoff_time,
         runoff_lag_days=config.runoff_lag,
         method=config.method,
@@ -161,6 +172,8 @@ def compute_soil_forcings(
     soil_capacity: LoadResultProto | None = None,
     catchment: gpd.GeoDataFrame | None = None,
     temperature: LoadResultProto | None = None,
+    impervious: LoadResultProto | None = None,
+    curve_number: LoadResultProto | None = None,
 ) -> SoilForcings:
     """Run the soil reservoir over ``[simulation.time]`` and grid its outputs back."""
     days = window_days(window)
@@ -217,6 +230,21 @@ def compute_soil_forcings(
             bbox=precip_record.bbox,
             cell_weights=cell_weights,
         )
+    maps = {
+        name: None
+        if result is None
+        else catchment_cell_means(
+            result.fields[0],
+            name=name,
+            x=x_p,
+            y=y_p,
+            crs=model_crs,
+            bbox=precip_record.bbox,
+            catchment=catchment,
+        )
+        for name, result in zip(SOIL_MAPS, (impervious, curve_number), strict=True)
+    }
+    columns = with_surface_maps(columns, **maps)
 
     precip_columns = precip_grid[:, columns.cell_index]
     etp_columns = etp_grid[:, columns.cell_index]
@@ -226,7 +254,7 @@ def compute_soil_forcings(
     kc_by_day = kc_of_days(config, days)
 
     ru_mm = config.ru * columns.ru_shape
-    parameters = soil_parameters(config, ru_mm)
+    parameters = soil_parameters(config, ru_mm, columns)
     initial, spinup_result = _spinup_or_full(
         config,
         parameters,
@@ -303,7 +331,7 @@ def basin_water_out(
     cycles: a number built on a soil state that never repeated would be wrong.
     """
     precipitation = forcings.precipitation * precipitation_scale
-    parameters = soil_parameters(forcings.config, ru * forcings.columns.ru_shape)
+    parameters = soil_parameters(forcings.config, ru * forcings.columns.ru_shape, forcings.columns)
     initial, spinup_result = _spinup_or_full(
         forcings.config,
         parameters,

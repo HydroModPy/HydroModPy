@@ -38,6 +38,7 @@ from hydromodpy.config.solver_supports import (
 )
 from hydromodpy.core.exceptions import HydroModPyError, IncompatibleCapabilitiesError
 from hydromodpy.display.request import FigureRequest
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.supports import SUPPORTS
 from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.solver.base.registry import solvers
@@ -584,7 +585,8 @@ ORDER = (
     "refuse_soil_precipitation_in_parts",
     "refuse_a_soil_run_the_time_cannot_carry",
     "refuse_a_recharge_the_model_would_not_read",
-    "refuse_a_soil_capacity_without_the_soil",
+    "refuse_a_soil_raster_without_the_soil",
+    "refuse_a_soil_value_its_map_replaces",
     "refuse_layer_bases_that_do_not_match",
     "refuse_property_maps_that_do_not_match",
     "refuse_an_angle_with_a_depth_profile",
@@ -840,10 +842,42 @@ ROWS: list[tuple[str, str, Any, str]] = [
         "would be replaced by the series [data.recharge] loads",
     ),
     (
-        "refuse_a_soil_capacity_without_the_soil",
+        "refuse_a_soil_raster_without_the_soil",
         "capacity",
         lambda d: _document(d.plain, data=_ns(soil_capacity=object(), types=[])),
         "[data.soil_capacity] is read only by the soil reservoir",
+    ),
+    (
+        "refuse_a_soil_raster_without_the_soil",
+        "sealed share",
+        lambda d: _document(d.plain, data=_ns(impervious=object(), types=[])),
+        "[data.impervious] is read only by the soil reservoir",
+    ),
+    (
+        "refuse_a_soil_value_its_map_replaces",
+        "sealed share written beside its map",
+        lambda d: _document(
+            d.soil,
+            flow=_ns(
+                sinks_sources=_ns(
+                    recharge=_ns(soil=SoilReservoirConfig(ru=150.0, impervious_fraction=0.05))
+                )
+            ),
+            data=_ns(impervious=object(), types=[]),
+        ),
+        "writes impervious_fraction, and [data.impervious] gives it cell by cell",
+    ),
+    (
+        "refuse_a_soil_value_its_map_replaces",
+        "curve number written beside its map",
+        lambda d: _document(
+            d.soil,
+            flow=_ns(
+                sinks_sources=_ns(recharge=_ns(soil=SoilReservoirConfig(ru=150.0, curve_number=75)))
+            ),
+            data=_ns(curve_number=object(), types=[]),
+        ),
+        "writes curve_number, and [data.curve_number] gives it cell by cell",
     ),
     (
         "refuse_layer_bases_that_do_not_match",

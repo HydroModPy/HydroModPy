@@ -437,3 +437,31 @@ def test_wider_time_constant_spreads_the_pulse():
     long_total = long.runoff_cn[:, 0].sum() + float(long.end.cn_storage_mm[0])
     short_total = short.runoff_cn[:, 0].sum() + float(short.end.cn_storage_mm[0])
     assert long_total == pytest.approx(short_total, abs=1e-9)
+
+
+def test_a_sealed_share_and_curve_number_per_column_run_each_column_as_its_own_scalar():
+    precipitation, etp, ru_mm = wet_forcing(7, 400, 3)
+    impervious = np.array([0.0, 0.04, 0.3])
+    curve_number = np.array([55.0, 70.0, 85.0])
+    changes = {"transit_time_days": 2.0, "runoff_time_days": 1.0}
+    params = soil_params(
+        ru_mm, impervious_fraction=impervious, curve_number=curve_number, **changes
+    )
+    state = SoilState(soil_mm=np.zeros(3), transit_mm=np.zeros(3), cn_storage_mm=np.zeros(3))
+
+    mapped = run_soil_balance(precipitation, etp, params, state)
+
+    for j in range(3):
+        alone = run_soil_balance(
+            precipitation[:, [j]],
+            etp[:, [j]],
+            soil_params(
+                ru_mm[[j]],
+                impervious_fraction=float(impervious[j]),
+                curve_number=float(curve_number[j]),
+                **changes,
+            ),
+            SoilState(soil_mm=np.zeros(1), transit_mm=np.zeros(1), cn_storage_mm=np.zeros(1)),
+        )
+        for name in ("recharge", "runoff", "runoff_cn", "etr", "soil_storage"):
+            assert np.array_equal(getattr(mapped, name)[:, j], getattr(alone, name)[:, 0]), name

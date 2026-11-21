@@ -39,10 +39,10 @@ class SoilParameters:
     ru_mm: np.ndarray  # (N,) float64, >= 0
     alpha: float  # (0, 1]
     kc: float  # [0, 2]
-    impervious_fraction: float  # [0, 1)
+    impervious_fraction: float | np.ndarray  # [0, 1), or (N,) from [data.impervious]
     bypass_fraction: float  # [0, 1)
     transit_time_days: float  # [0, 30]
-    curve_number: float | None = None  # AMC II curve number, [30, 98]; None turns the term off
+    curve_number: float | np.ndarray | None = None  # AMC II, [30, 98], or (N,); None is off
     runoff_time_days: float = 1.0  # time constant of the curve-number runoff reservoir, [0, 10]
     runoff_lag_days: float = 0.0  # pure delay after that reservoir, [0, 5]; 0 costs nothing
     method: str = "fao56"  # key of SOIL_METHODS

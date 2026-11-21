@@ -103,6 +103,8 @@ from hydromodpy.data.variables.hydrography.apis.bdtopage import BdTopageSource
 from hydromodpy.data.variables.hydrography.apis.euhydro import EuHydroSource
 from hydromodpy.data.variables.hydrography.apis.osm import OsmSource
 from hydromodpy.data.variables.hydrometry.apis.hubeau import HubeauHydrometry
+from hydromodpy.data.variables.impervious.ocsge import OcsgeImpervious
+from hydromodpy.data.variables.impervious.worldcover import WorldcoverImpervious
 from hydromodpy.data.variables.intermittency.apis.hubeau import HubeauIntermittency
 from hydromodpy.data.variables.oceanic.apis.shom import ShomSeaLevel
 from hydromodpy.data.variables.oceanic.constant import ConstantSeaLevel
@@ -467,6 +469,24 @@ BUILTIN_CASES: tuple[SourceCase, ...] = (
         provider_attr="fetch",
         read_bbox=lambda args, kwargs: args[1] if len(args) > 1 else kwargs.get("bbox_wgs84"),
         canned=_empty_frame,
+    ),
+    SourceCase(
+        section="impervious",
+        name="ocsge",
+        build=lambda: OcsgeImpervious(year=2023),
+        provider_module="hydromodpy.data.variables.impervious.ocsge",
+        provider_attr="fetch_ocsge_impervious",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=_dem_canned,
+    ),
+    SourceCase(
+        section="impervious",
+        name="worldcover",
+        build=WorldcoverImpervious,
+        provider_module="hydromodpy.data.variables.impervious.worldcover",
+        provider_attr="fetch_worldcover_impervious",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=_dem_canned,
     ),
     SourceCase(
         section="dem",

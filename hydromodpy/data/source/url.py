@@ -263,6 +263,14 @@ class RunoffUrl(UrlSource):
     section = "runoff"
 
 
+class CurveNumberUrl(UrlSource):
+    section = "curve_number"
+
+
+class ImperviousUrl(UrlSource):
+    section = "impervious"
+
+
 class SoilCapacityUrl(UrlSource):
     section = "soil_capacity"
 
@@ -298,6 +306,8 @@ __all__ = [
     "RadiationUrl",
     "RechargeUrl",
     "RunoffUrl",
+    "CurveNumberUrl",
+    "ImperviousUrl",
     "SoilCapacityUrl",
     "SoilMoistureUrl",
     "SubstratumUrl",

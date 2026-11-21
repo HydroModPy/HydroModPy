@@ -168,6 +168,8 @@ class LoadedDataContext:
     layer_base: Any = None
     property_map: Any = None
     soil_capacity: Any = None
+    impervious: Any = None
+    curve_number: Any = None
     crossings: Any = None
     # Data-plan types covered by the last completed load; None = never loaded.
     loaded_plan_types: tuple[str, ...] | None = None

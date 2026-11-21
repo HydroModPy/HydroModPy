@@ -917,7 +917,9 @@ _UNSET = "not set"
 # The baseline is the tree prepared for the 2.0.0 tag, so the table is empty until a field
 # is added after the tag.
 NEW_FIELDS: dict[str, tuple[Any, str]] = {
+    "data.curve_number": (_UNSET, "unset, the soil reads its curve_number as in 2.0"),
     "data.etp.formula": (_UNSET, "unset, the ETP is loaded from its sources as in 2.0"),
+    "data.impervious": (_UNSET, "unset, the soil reads its impervious_fraction as in 2.0"),
     "flow.sinks_sources.recharge.scenario": (
         _UNSET,
         "unset, the loaded recharge is read as it is, as in 2.0",

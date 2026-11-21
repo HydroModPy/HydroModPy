@@ -16,9 +16,9 @@ Current inference scope (V3)
   they are loaded only when listed in ``[data].types``.
 - a section that reads data families (``[flow.sinks_sources.recharge.soil]``
   reads precipitation and etp, and temperature with snow) -> activate them
-- ``[data.soil_capacity]`` declared -> activate ``soil_capacity`` (the section
-  can be written without listing it in ``data.types``, like the other
-  typed sections)
+- ``[data.soil_capacity]``, ``[data.impervious]`` or ``[data.curve_number]``
+  declared -> activate that family (the section can be written without listing
+  it in ``data.types``, like the other typed sections)
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from typing import Any
 
 from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.loading.plan import DataLoadPlan
+from hydromodpy.model.forcing.soil_columns import SOIL_MAPS
 
 
 class DataPlanner:
@@ -149,13 +150,14 @@ class DataPlanner:
                         inferred_types, reasons_by_type, family, f"inferred from {section}"
                     )
 
-        if config.soil_capacity is not None and "soil_capacity" not in explicit_set:
-            self._add_inference(
-                inferred_types,
-                reasons_by_type,
-                "soil_capacity",
-                "inferred from [data.soil_capacity] beside [flow.sinks_sources.recharge.soil]",
-            )
+        for family in ("soil_capacity", *SOIL_MAPS):
+            if getattr(config, family) is not None and family not in explicit_set:
+                self._add_inference(
+                    inferred_types,
+                    reasons_by_type,
+                    family,
+                    f"inferred from [data.{family}] beside [flow.sinks_sources.recharge.soil]",
+                )
 
         if config.inference_mode == "strict":
             self._enforce_strict_mode(config, inferred_types)

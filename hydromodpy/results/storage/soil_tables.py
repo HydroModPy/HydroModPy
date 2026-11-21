@@ -107,6 +107,10 @@ def persist_soil_columns(sz: SimulationZarr, soil: object, closure: object = Non
     fluxes = soil.fluxes
     config = soil.config
     columns = soil.columns
+    impervious, curve_number = (
+        None if values is None else float(np.sum(values * columns.basin_weight))
+        for values in (columns.impervious, columns.curve_number)
+    )
     series = {
         "etr": (fluxes.etr, "mm/day", "time: mean", "Actual evapotranspiration of the soil"),
         "residual_etp": (
@@ -182,7 +186,10 @@ def persist_soil_columns(sz: SimulationZarr, soil: object, closure: object = Non
         "alpha": config.alpha,
         "kc": config.kc if isinstance(config.kc, float) else config.kc.model_dump(mode="json"),
         "snow": None if config.snow is None else config.snow.model_dump(mode="json"),
-        "impervious_fraction": config.impervious_fraction,
+        "impervious_fraction": config.impervious_fraction if impervious is None else impervious,
+        "impervious_from_map": impervious is not None,
+        "curve_number": config.curve_number if curve_number is None else curve_number,
+        "curve_number_from_map": curve_number is not None,
         "bypass_fraction": config.bypass_fraction,
         "transit_time_days": config.transit_time,
         "spinup": config.spinup,

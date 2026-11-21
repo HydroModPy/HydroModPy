@@ -199,6 +199,14 @@ class RunoffFile(FileSource):
     section = "runoff"
 
 
+class CurveNumberFile(FileSource):
+    section = "curve_number"
+
+
+class ImperviousFile(FileSource):
+    section = "impervious"
+
+
 class SoilCapacityFile(FileSource):
     section = "soil_capacity"
 
@@ -248,6 +256,8 @@ __all__ = [
     "RadiationFile",
     "RechargeFile",
     "RunoffFile",
+    "CurveNumberFile",
+    "ImperviousFile",
     "SoilCapacityFile",
     "SoilMoistureFile",
     "SubstratumFile",

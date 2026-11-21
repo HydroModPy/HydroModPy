@@ -2,18 +2,22 @@
 
 There is one column per SAFRAN cell, or one per capacity class inside each cell when
 ``[data.soil_capacity]`` gives a raster. Each column is weighed by its share of the catchment.
+``[data.impervious]`` and ``[data.curve_number]`` give each column the sealed share and the
+curve number of the part of its cell that lies inside the catchment.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 import numpy as np
 from pyproj import CRS, Transformer
+from shapely import contains_xy
 from shapely.geometry import box
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS
 from hydromodpy.model.contracts import FieldRecordProto, LoadResultProto
 
 if TYPE_CHECKING:
@@ -37,6 +41,10 @@ class SoilColumns:
     cell_fraction: np.ndarray  # (N,) share of its cell the column covers, sums to 1 per cell
     basin_weight: np.ndarray  # (N,) cell_fraction / number of cells, sums to 1
     raster_mean_mm: float | None = None  # basin mean of [data.soil_capacity], None without raster
+    impervious: np.ndarray | None = None  # (N,) sealed share from [data.impervious], None without
+    curve_number: np.ndarray | None = (
+        None  # (N,) curve number from [data.curve_number], None without
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +202,106 @@ def capacity_classes(
         cell_fraction=cell_fraction_arr,
         basin_weight=basin_weight_arr,
         raster_mean_mm=raster_mean,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Sealed share and curve number: one value per SAFRAN cell, inside the catchment
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SoilMap:
+    """A raster of ``[data.<name>]`` that gives one value of the soil section cell by cell."""
+
+    soil_field: str  # the key of [flow.sinks_sources.recharge.soil] the map replaces
+    bound: str  # key of PHYSICAL_BOUNDS the cell means must respect
+    hint: str  # what to check when they do not
+
+
+SOIL_MAPS: dict[str, SoilMap] = {
+    "impervious": SoilMap(
+        "impervious_fraction",
+        "soil_impervious_fraction",
+        "a column sealed over the upper bound leaves the soil nothing to hold; "
+        "a raster in percent is divided by 100 first",
+    ),
+    "curve_number": SoilMap("curve_number", "soil_curve_number", "it is an AMC II curve number"),
+}
+"""The soil maps, by data family. The planner, the checks, the data step and the
+calibration read this table."""
+
+
+def _nearest_center(values: np.ndarray, centers: np.ndarray, step: float) -> np.ndarray:
+    """Index in ``centers`` (regular, either order) of the center nearest each value."""
+    order = np.argsort(centers)
+    k = np.rint((values - centers[order[0]]) / step).astype(np.int64)
+    return order[np.clip(k, 0, centers.size - 1)]
+
+
+def catchment_cell_means(
+    record: FieldRecordProto,
+    *,
+    name: str,
+    x: np.ndarray,
+    y: np.ndarray,
+    crs: str,
+    bbox: tuple[float, float, float, float],
+    catchment: gpd.GeoDataFrame | None,
+) -> np.ndarray:
+    """Mean of the raster over the part of each SAFRAN cell inside the catchment, flat (y, x).
+
+    A town beside the catchment does not seal it, so only the pixels inside the
+    polygon count. A cell the catchment does not reach takes the catchment mean:
+    it carries no weight in the budget. Without a polygon, every pixel of the cell
+    counts. The curve number is averaged like the sealed share, which gives the
+    composite curve number of the cell; the SCS law is not linear, so this mean
+    runs off a little less than the pixels would one by one.
+    """
+    section = f"[data.{name}]"
+    soil_map = SOIL_MAPS[name]
+    bound = PHYSICAL_BOUNDS[soil_map.bound]
+    px, py, values = _read_raster_pixels(record, model_crs=crs)
+    dx, dy = _grid_steps(x, y, bbox)
+    # The forcing grid is regular, so the cell of a pixel is a division: a 10 m map
+    # of a large catchment holds millions of pixels, too many for a pixel-by-cell table.
+    ix = _nearest_center(px, x, dx)
+    iy = _nearest_center(py, y, dy)
+    keep = (np.abs(px - x[ix]) <= dx / 2) & (np.abs(py - y[iy]) <= dy / 2)
+    if catchment is not None:
+        frame = catchment if catchment.crs is None else catchment.to_crs(crs)
+        keep &= contains_xy(frame.geometry.union_all(), px, py)
+    if not keep.any():
+        raise DataContractViolation(
+            f"{section} has no pixel inside the catchment and the forcing grid: extend "
+            "the raster over the catchment."
+        )
+    n_cells = x.size * y.size
+    cell = iy[keep] * x.size + ix[keep]
+    counts = np.bincount(cell, minlength=n_cells)
+    sums = np.bincount(cell, weights=values[keep], minlength=n_cells)
+    means = np.full(n_cells, float(values[keep].mean()))
+    means[counts > 0] = sums[counts > 0] / counts[counts > 0]
+    if means.min() < bound.lo or means.max() > bound.hi:
+        raise DataContractViolation(
+            f"{section} averages {means.min():g} to {means.max():g} over the SAFRAN cells, "
+            f"outside {bound.lo:g} to {bound.hi:g} for the {bound.label}: {soil_map.hint}. Check the "
+            "raster and its nodata value."
+        )
+    return means
+
+
+def with_surface_maps(
+    columns: SoilColumns,
+    *,
+    impervious: np.ndarray | None,
+    curve_number: np.ndarray | None,
+) -> SoilColumns:
+    """``columns`` with the cell values of each map handed to the columns of that cell."""
+    return replace(
+        columns,
+        impervious=None if impervious is None else impervious[columns.cell_index],
+        curve_number=None if curve_number is None else curve_number[columns.cell_index],
     )
 
 

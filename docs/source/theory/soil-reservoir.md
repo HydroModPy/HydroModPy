@@ -364,6 +364,18 @@ mean capacity and the raster only spreads it. A capacity spread below the cell b
 family of {cite:t}`moore2007`, and these classes are our choice. The basin value of a flux gives
 each cell its share of the catchment, or the same weight without a catchment polygon.
 
+{toml}`data.impervious` and {toml}`data.curve_number` give the sealed share and the curve number
+as rasters. Each cell takes the mean of the pixels that lie inside the catchment, so a town beside
+the catchment does not seal it, and every column of the cell reads that mean in place of
+{toml}`impervious_fraction|flow.sinks_sources.recharge.soil.impervious_fraction` or
+{toml}`curve_number|flow.sinks_sources.recharge.soil.curve_number`. A cell the catchment does not reach takes the catchment
+mean. The sealed share comes from OCS GE of the IGN over France, its built and unbuilt sealed covers
+burnt on a 10 m grid, or from the built-up class of ESA WorldCover over the world, or from a file.
+On the Nancon, OCS GE 2023 gives 3.95 % sealed and WorldCover 2021 gives 2.39 %, because a road
+narrower than a 10 m pixel falls in the field beside it. The curve number comes from a file, such
+as the GCN250 map of {cite:t}`jaafar2019`. The mean of a cell is its composite curve number, and
+the SCS law is not linear, so it runs off a little less than its pixels would one by one.
+
 ## Where the pieces come from
 
 The threshold balance and its overflow are the soil budget of {cite:t}`thornthwaite1957`, which

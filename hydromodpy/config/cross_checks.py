@@ -59,6 +59,7 @@ from hydromodpy.core.time.window import (
     resolve_simulation_time_window,
 )
 from hydromodpy.model.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
+from hydromodpy.model.forcing.soil_columns import SOIL_MAPS
 from hydromodpy.model.forcing.soil_config import (
     soil_reservoir_of,
     spinup_refusal,
@@ -474,14 +475,40 @@ def refuse_a_recharge_the_model_would_not_read(cfg: Any, *, sealed: bool) -> Non
         )
 
 
-def refuse_a_soil_capacity_without_the_soil(cfg: Any, *, sealed: bool) -> None:
-    """Refuse ``[data.soil_capacity]`` when no soil reservoir reads it."""
-    if soil_reservoir_of(cfg.flow) is None and getattr(cfg.data, "soil_capacity", None) is not None:
-        raise ValueError(
-            "[data.soil_capacity] is read only by the soil reservoir, and this "
-            "file declares no [flow.sinks_sources.recharge.soil]: declare the "
-            "soil section, or remove [data.soil_capacity]."
-        )
+SOIL_RASTERS: dict[str, str | None] = {
+    "soil_capacity": None,
+    **{name: soil_map.soil_field for name, soil_map in SOIL_MAPS.items()},
+}
+"""The rasters only the soil reservoir reads, and the soil value each one replaces."""
+
+
+def refuse_a_soil_raster_without_the_soil(cfg: Any, *, sealed: bool) -> None:
+    """Refuse ``[data.soil_capacity]``, ``[data.impervious]`` or ``[data.curve_number]``
+    when no soil reservoir reads it."""
+    if soil_reservoir_of(cfg.flow) is not None:
+        return
+    for family in SOIL_RASTERS:
+        if getattr(cfg.data, family, None) is not None:
+            raise ValueError(
+                f"[data.{family}] is read only by the soil reservoir, and this "
+                "file declares no [flow.sinks_sources.recharge.soil]: declare the "
+                f"soil section, or remove [data.{family}]."
+            )
+
+
+def refuse_a_soil_value_its_map_replaces(cfg: Any, *, sealed: bool) -> None:
+    """Refuse ``impervious_fraction`` or ``curve_number`` written beside the map that replaces it."""
+    soil = soil_reservoir_of(cfg.flow)
+    if soil is None:
+        return
+    for family, field in SOIL_RASTERS.items():
+        written = field in getattr(soil, "model_fields_set", ())
+        if field is not None and written and getattr(cfg.data, family, None) is not None:
+            raise ValueError(
+                f"[flow.sinks_sources.recharge.soil] writes {field}, and [data.{family}] "
+                f"gives it cell by cell, so the run would not read the value: remove "
+                f"{field}, or remove [data.{family}]."
+            )
 
 
 def refuse_layer_bases_that_do_not_match(cfg: Any, *, sealed: bool) -> None:
@@ -984,7 +1011,8 @@ CROSS_RULES: dict[str, CrossRule] = {
             reads_the_time=True,
         ),
         CrossRule(refuse_a_recharge_the_model_would_not_read, _reads("flow", "data")),
-        CrossRule(refuse_a_soil_capacity_without_the_soil, _reads("flow", "data")),
+        CrossRule(refuse_a_soil_raster_without_the_soil, _reads("flow", "data")),
+        CrossRule(refuse_a_soil_value_its_map_replaces, _reads("flow", "data")),
         CrossRule(refuse_layer_bases_that_do_not_match, _reads("domain", "data")),
         CrossRule(refuse_property_maps_that_do_not_match, _reads("flow", "data")),
         CrossRule(refuse_an_angle_with_a_depth_profile, _reads("flow")),
@@ -1078,7 +1106,8 @@ __all__ = [
     "refuse_a_real_catchment_without_a_site",
     "refuse_a_recharge_the_model_would_not_read",
     "refuse_a_river_mesh_without_a_threshold",
-    "refuse_a_soil_capacity_without_the_soil",
+    "refuse_a_soil_raster_without_the_soil",
+    "refuse_a_soil_value_its_map_replaces",
     "refuse_a_soil_recharge_that_cannot_reach_the_streams",
     "refuse_a_soil_run_the_time_cannot_carry",
     "refuse_a_solver_that_cannot_read_the_mesh",

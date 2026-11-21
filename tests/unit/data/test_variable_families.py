@@ -34,10 +34,11 @@ _LOAD_STATE_FIELDS = {"loaded_plan_types"}
 # Sections that still choose a model of options by the value of ``source``.
 # Their tags are held equal to the registry by the test below, and the lot that
 # makes ``custom`` a source of the port lifts the exception.
-_UNION_SECTIONS = {"dem", "geology", "crossings"}
+_UNION_SECTIONS = {"dem", "geology", "crossings", "impervious"}
 # Sections whose only sources are the user's own: ``file``, and ``url`` where the
 # section registers it. Their ``Literal`` tags are the registry's, like any other.
 _CUSTOM_ONLY_SECTIONS = {
+    "curve_number",
     "lake_abacus",
     "lake_bathymetry",
     "lake_geometry",
@@ -81,8 +82,8 @@ def test_every_variable_list_names_the_same_variables() -> None:
     )
 
 
-def test_there_are_twenty_nine_variables() -> None:
-    assert len(VARIABLE_SPECS) == 29
+def test_there_are_thirty_one_variables() -> None:
+    assert len(VARIABLE_SPECS) == 31
 
 
 def test_the_scaffold_keeps_no_table_of_its_own() -> None:
@@ -159,7 +160,7 @@ def _shipped_pairs() -> set[tuple[str, str]]:
 def test_the_shipped_keys_cut_into_one_section_each() -> None:
     pairs = _shipped_pairs()
     assert len(pairs) == len(data_sources.names(shipped_only=True))
-    assert len({section for section, _id in pairs}) == 29
+    assert len({section for section, _id in pairs}) == 31
 
 
 @pytest.mark.parametrize("variable", sorted(VARIABLE_SPECS))
@@ -193,8 +194,10 @@ def test_the_union_sections() -> None:
     The arbiter kept the unions on A3: three of the eight tags are ``custom``,
     which the registry does not hold yet, so an open string would need a case
     apart for them, rewritten by the same lot that lifts the exception.
+    impervious keeps one because its ``year`` takes another type under each
+    provider.
     """
-    assert sorted(_UNION_SECTIONS) == ["crossings", "dem", "geology"]
+    assert sorted(_UNION_SECTIONS) == ["crossings", "dem", "geology", "impervious"]
     for variable in _UNION_SECTIONS:
         assert _source_values_of(variable) is not None, variable
 

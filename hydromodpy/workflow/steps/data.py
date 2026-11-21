@@ -66,6 +66,7 @@ from hydromodpy.model.forcing.soil_budget import (
     gauged_mm_per_day,
     soil_budget_lines,
 )
+from hydromodpy.model.forcing.soil_columns import SOIL_MAPS
 from hydromodpy.model.forcing.soil_config import (
     soil_reservoir_of,
     spinup_refusal,
@@ -329,9 +330,10 @@ def _soil_input_digests(run_state: WorkflowContext, window, model_crs: str, catc
             model_crs=model_crs,
         )
         inputs["temperature"] = _combined_digest([t_grid, t_x, t_y, t_time.values])
-    soil_capacity = getattr(data_state, "soil_capacity", None)
-    if soil_capacity is not None:
-        inputs["soil_capacity"] = _capacity_digest(soil_capacity)
+    for family in ("soil_capacity", *SOIL_MAPS):
+        raster = getattr(data_state, family, None)
+        if raster is not None:
+            inputs[family] = _raster_digest(raster)
     if catchment is not None:
         inputs["catchment"] = _catchment_digest(catchment, model_crs)
     return inputs
@@ -349,6 +351,7 @@ def _soil_sources(run_state: WorkflowContext, window, model_crs: str) -> tuple:
         data_state.precipitation,
         data_state.etp,
         getattr(data_state, "soil_capacity", None),
+        *(getattr(data_state, name, None) for name in SOIL_MAPS),
         getattr(data_state, "temperature", None),
         run_state.setup.geographic,
         (window.start.isoformat(), window.end.isoformat()),
@@ -367,8 +370,8 @@ def _same_sources(cached: tuple, current: tuple) -> bool:
     )
 
 
-def _capacity_digest(load_result) -> str:
-    """The digest of a soil capacity raster: the bytes of its file, or its values."""
+def _raster_digest(load_result) -> str:
+    """The digest of a raster the soil reads: the bytes of its file, or its values."""
     record = load_result.fields[0]
     data = record.data
     if isinstance(data, (str, Path)):
@@ -435,6 +438,7 @@ def _bind_soil_recharge_etp(run_state: WorkflowContext, window):
                     model_crs=model_crs,
                     soil_capacity=getattr(data_state, "soil_capacity", None),
                     temperature=getattr(data_state, "temperature", None),
+                    **{name: getattr(data_state, name, None) for name in SOIL_MAPS},
                     catchment=catchment,
                 ),
                 read=lambda directory: soil_stored.read_soil_forcings(

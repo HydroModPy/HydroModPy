@@ -160,6 +160,15 @@ data.crossings.sources.source	Literal['file']	'file'	stable
 data.crossings.sources.source	Literal['roe']	'roe'	stable
 data.crossings.sources.source	Literal['url']	'url'	stable
 data.crossings.sources.url	str	<required>	stable
+data.curve_number	table | None	None	stable
+data.curve_number.sources	list[table]	<required>	stable
+data.curve_number.sources.default_crs	str	'EPSG:2154'	stable
+data.curve_number.sources.license	str | None	None	stable
+data.curve_number.sources.path	Path	<required>	stable
+data.curve_number.sources.sha256	str | None	None	stable
+data.curve_number.sources.source	Literal['file']	'file'	stable
+data.curve_number.sources.source	Literal['url']	'url'	stable
+data.curve_number.sources.url	str	<required>	stable
 data.dem	table | None	None	stable
 data.dem.sources	list[table]	<required>	stable
 data.dem.sources.country	str	'FR'	stable
@@ -282,6 +291,21 @@ data.hydrometry.sources.require_observations	bool	True	stable
 data.hydrometry.sources.source	str	'hubeau'	stable
 data.hydrometry.sources.source_unit	str | None	None	stable
 data.hydrometry.sources.station_ids	list[str] | None	None	stable
+data.impervious	table | None	None	stable
+data.impervious.sources	list[table]	<required>	stable
+data.impervious.sources.default_crs	str	'EPSG:2154'	stable
+data.impervious.sources.force_refresh	bool	False	stable
+data.impervious.sources.license	str | None	None	stable
+data.impervious.sources.mask_path	Path | None	None	stable
+data.impervious.sources.path	Path	<required>	stable
+data.impervious.sources.sha256	str | None	None	stable
+data.impervious.sources.source	Literal['file']	'file'	stable
+data.impervious.sources.source	Literal['ocsge']	'ocsge'	stable
+data.impervious.sources.source	Literal['url']	'url'	stable
+data.impervious.sources.source	Literal['worldcover']	'worldcover'	stable
+data.impervious.sources.url	str	<required>	stable
+data.impervious.sources.year	Literal[2020, 2021]	2021	stable
+data.impervious.sources.year	int	<required>	stable
 data.inference_mode	Literal['warn', 'strict']	'warn'	stable
 data.intermittency	table | None	None	stable
 data.intermittency.date_end	str | None	None	stable

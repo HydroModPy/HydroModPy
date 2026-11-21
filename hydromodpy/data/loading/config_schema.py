@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     )
     from hydromodpy.data.variables.hydrography.config import HydrographyConfig
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
+    from hydromodpy.data.variables.impervious.config import ImperviousConfig
     from hydromodpy.data.variables.intermittency.config import IntermittencyConfig
     from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
     from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
@@ -59,6 +60,7 @@ if TYPE_CHECKING:
         WindConfig,
     )
     from hydromodpy.data.variables.user_rasters import (
+        CurveNumberConfig,
         LayerBaseConfig,
         PropertyMapConfig,
         SoilCapacityConfig,
@@ -233,6 +235,20 @@ class DataConfig(HydroModelBase):
         description=(
             "Soil capacity configuration (RU raster read by the soil reservoir, "
             "[flow.sinks_sources.recharge.soil])."
+        ),
+    )
+    impervious: Annotated[ImperviousConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Sealed share of the ground, 0 to 1 per pixel, read by the soil reservoir in "
+            "place of its impervious_fraction ([flow.sinks_sources.recharge.soil])."
+        ),
+    )
+    curve_number: Annotated[CurveNumberConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "SCS curve number raster (AMC II), read by the soil reservoir in place of its "
+            "curve_number ([flow.sinks_sources.recharge.soil])."
         ),
     )
 

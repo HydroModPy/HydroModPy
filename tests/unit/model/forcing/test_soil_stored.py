@@ -9,6 +9,8 @@ recomputed from the config and the three records rebuilt by
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -265,3 +267,25 @@ def test_truncated_product_is_refused(tmp_path) -> None:
     stored.write_bytes(stored.read_bytes()[:100])
     with pytest.raises(ValueError, match="unreadable"):
         read_soil_forcings(tmp_path, like=like, config=config)
+
+
+def test_round_trip_keeps_the_sealed_share_and_curve_number_maps(tmp_path) -> None:
+    forcings, like, config = _soil_forcings(with_capacity=True, cycles=2, never_full=0)
+    n_columns = forcings.columns.cell_index.size
+    columns = replace(
+        forcings.columns,
+        impervious=np.linspace(0.0, 0.2, n_columns),
+        curve_number=np.linspace(60.0, 80.0, n_columns),
+    )
+    forcings = replace(
+        forcings,
+        columns=columns,
+        parameters=soil_parameters(config, forcings.parameters.ru_mm, columns),
+    )
+
+    back = _roundtrip(tmp_path, forcings, like, config)
+
+    _assert_same_arrays(back.columns.impervious, columns.impervious)
+    _assert_same_arrays(back.columns.curve_number, columns.curve_number)
+    _assert_same_arrays(back.parameters.impervious_fraction, columns.impervious)
+    _assert_same_arrays(back.parameters.curve_number, columns.curve_number)

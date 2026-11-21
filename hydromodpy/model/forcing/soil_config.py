@@ -312,7 +312,8 @@ class SoilReservoirConfig(HydroModelBase):
             "reaches the streams, the lakes and the gauged discharge. The soil "
             "reservoir covers the rest of the area. From 0 up to, not including, 1. "
             "Calibrate it with [calibration.parameters.impervious_fraction]; the "
-            "range belongs to the site, so a file has to state it."
+            "range belongs to the site, so a file has to state it. [data.impervious] "
+            "gives it cell by cell instead, and then it is not written here."
         ),
         json_schema_extra=field_metadata(
             calibrable=Calibrable(units="-"), stability="experimental"
@@ -361,7 +362,8 @@ class SoilReservoirConfig(HydroModelBase):
             "soil and never the water table, so it renders saturation runoff badly: "
             "leave it off where the drains already give that runoff. To calibrate it, "
             "state a range under [calibration.parameters.curve_number]: it belongs to "
-            "the soil group and the land use of the site."
+            "the soil group and the land use of the site. [data.curve_number] gives it "
+            "cell by cell instead, and then it is not written here."
         ),
         json_schema_extra=field_metadata(
             calibrable=Calibrable(units="-"), stability="experimental"
@@ -373,7 +375,8 @@ class SoilReservoirConfig(HydroModelBase):
         le=10.0,
         description=(
             "Time constant of the linear reservoir that routes the curve-number "
-            "runoff to the outlet, in days. No effect while curve_number is None. 0 "
+            "runoff to the outlet, in days. No effect without a curve number, here or "
+            "in [data.curve_number]. 0 "
             'sends it the same day; "2 days" also reads. Between 0 and 10 days: a '
             "longer delay would smooth away the fast surface peak the term exists "
             "for."
@@ -389,8 +392,8 @@ class SoilReservoirConfig(HydroModelBase):
         description=(
             "Pure delay applied to the routed curve-number runoff, after runoff_time, "
             "before it reaches the gauged discharge: the travel time to the outlet plus "
-            "any lag between the forcing's daily step and the gauge's. No effect while "
-            "curve_number is None. 0 adds no delay, "
+            "any lag between the forcing's daily step and the gauge's. No effect without "
+            "a curve number, here or in [data.curve_number]. 0 adds no delay, "
             'bit for bit as before; "0.75 days" also reads, interpolated linearly '
             "between the neighbouring whole-day shifts. Between 0 and 5 days: a longer "
             "shift belongs to runoff_time's reservoir, not to a fixed travel time. "

@@ -34,6 +34,7 @@ from hydromodpy.calibration.targets import (
 )
 from hydromodpy.core.config_kit.said import say
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.model.forcing.soil_columns import SOIL_MAPS
 from hydromodpy.model.forcing.soil_config import SeasonalKc, soil_reservoir_of
 from hydromodpy.model.soil.laws import SOIL_METHODS
 
@@ -130,6 +131,7 @@ def resolve_parameter_targets(
         else:
             _refuse_a_path_named_twice(name, path, searched_in, named_at)
             _refuse_a_name_that_contradicts_its_path(name, path, by_name)
+            _refuse_a_soil_field_the_run_never_reads(name, path, project_config)
             target = by_path.get(path)
             if target is None:
                 _refuse_a_depth_model_path_the_catalogue_does_not_carry(name, path, project_config)
@@ -150,7 +152,7 @@ def resolve_parameter_targets(
                 'mode = "replace", or give the value a base first.'
             )
         _refuse_a_replaced_recharge_rate(name, target, project_config)
-        _refuse_a_soil_field_the_run_never_reads(name, target, project_config)
+        _refuse_a_soil_field_the_run_never_reads(name, target.path, project_config)
         _convert_bounds_into_the_unit_of_the_target(name, decl, target)
         _fill_what_the_file_left_unsaid(decl, target)
         _refuse_bounds_the_registry_rules_out(name, decl, target)
@@ -235,25 +237,33 @@ def _refuse_a_replaced_recharge_rate(
         )
 
 
-def _refuse_a_soil_field_the_run_never_reads(
-    name: str, target: CalibrationTarget, project_config: Any
-) -> None:
-    """Refuse moving alpha under a method without it, or kc when it follows the season."""
+def _refuse_a_soil_field_the_run_never_reads(name: str, path: str, project_config: Any) -> None:
+    """Refuse moving alpha under a method without it, kc when it follows the season, or a
+    value a map of the data section replaces."""
     soil = soil_reservoir_of(getattr(project_config, "flow", None))
     if soil is None:
         return
-    if target.path == f"{SOIL_PATH}.alpha" and not SOIL_METHODS[soil.method].reads_alpha:
+    if path == f"{SOIL_PATH}.alpha" and not SOIL_METHODS[soil.method].reads_alpha:
         raise ConfigError(
             f'[calibration.parameters.{name}] moves alpha, and method = "{soil.method}" '
             "never reads it: the search would change nothing. Calibrate ru, or use "
             'method = "fao56".'
         )
-    if target.path == f"{SOIL_PATH}.kc" and isinstance(soil.kc, SeasonalKc):
+    if path == f"{SOIL_PATH}.kc" and isinstance(soil.kc, SeasonalKc):
         raise ConfigError(
             f"[calibration.parameters.{name}] moves kc, and kc follows the season in this "
             "project: a searched number would replace the whole curve. Write kc as a "
             "number to calibrate it."
         )
+    data = getattr(project_config, "data", None)
+    for family, soil_map in SOIL_MAPS.items():
+        field = soil_map.soil_field
+        if path == f"{SOIL_PATH}.{field}" and getattr(data, family, None) is not None:
+            raise ConfigError(
+                f"[calibration.parameters.{name}] moves {field}, and [data.{family}] gives "
+                "it cell by cell: the search would change nothing. Remove the parameter, "
+                f"or remove [data.{family}]."
+            )
 
 
 def _target_for(

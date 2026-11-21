@@ -4397,6 +4397,64 @@
         }
       }
     },
+    "CurveNumberConfig": {
+      "additionalProperties": false,
+      "description": "SCS curve number raster, read by the soil reservoir.\n\nExample TOML::\n\n    [[data.curve_number.sources]]\n    source = \"file\"\n    path = \"soil/gcn250_amc2.tif\"",
+      "properties": {
+        "sources": {
+          "description": "Exactly one curve number raster. Each soil column takes the mean curve number of its SAFRAN cell inside the catchment, in place of curve_number.",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileCurveNumberSource"
+              },
+              {
+                "$ref": "#/$defs/UrlCurveNumberSource"
+              }
+            ]
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CurveNumberConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^sources__append$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileCurveNumberSource"
+              },
+              {
+                "$ref": "#/$defs/UrlCurveNumberSource"
+              }
+            ]
+          }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileCurveNumberSource"
+              },
+              {
+                "$ref": "#/$defs/UrlCurveNumberSource"
+              }
+            ]
+          }
+        }
+      }
+    },
     "CutoffWallConfig": {
       "additionalProperties": false,
       "description": "The flow barrier of a lake dam, laid on the lake shore.",
@@ -4679,7 +4737,7 @@
       "description": "Top-level ``[data]`` configuration for the data variables.\n\nThe `types` list declares user-requested data variables. The effective\nactive set can also include planner-inferred variables deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataLoader``.",
       "properties": {
         "types": {
-          "description": "Ordered list of data variables explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, a [flow.bc.stream] table). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'property_map', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
+          "description": "Ordered list of data variables explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, a [flow.bc.stream] table). Allowed values: 'crossings', 'curve_number', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'impervious', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'property_map', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
           "items": {
             "type": "string"
           },
@@ -5076,6 +5134,32 @@
           ],
           "default": null,
           "description": "Soil capacity configuration (RU raster read by the soil reservoir, [flow.sinks_sources.recharge.soil]).",
+          "x-hmp-profile": "user"
+        },
+        "impervious": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImperviousConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sealed share of the ground, 0 to 1 per pixel, read by the soil reservoir in place of its impervious_fraction ([flow.sinks_sources.recharge.soil]).",
+          "x-hmp-profile": "user"
+        },
+        "curve_number": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CurveNumberConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SCS curve number raster (AMC II), read by the soil reservoir in place of its curve_number ([flow.sinks_sources.recharge.soil]).",
           "x-hmp-profile": "user"
         }
       },
@@ -7934,6 +8018,51 @@
         }
       }
     },
+    "FileCurveNumberSource": {
+      "additionalProperties": false,
+      "description": "User-provided raster of the SCS curve number (GeoTIFF/ASC), AMC II, such as GCN250.",
+      "properties": {
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' curve number provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a raster of the SCS curve number under average moisture (AMC II), for instance the GCN250 map of Jaafar et al. (2019) (GeoTIFF, ASC). Read only by [flow.sinks_sources.recharge.soil].",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FileCurveNumberSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "FileDemSource": {
       "additionalProperties": false,
       "description": "User-provided raster file (GeoTIFF, Esri ASCII Grid, NetCDF).",
@@ -8167,6 +8296,51 @@
         }
       },
       "title": "FileGeologySource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FileImperviousSource": {
+      "additionalProperties": false,
+      "description": "User-provided raster of the sealed share (GeoTIFF/ASC), 0 to 1 per pixel.",
+      "properties": {
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' impervious provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a raster of the sealed share of each pixel, 0 to 1 (GeoTIFF, ASC). Read only by [flow.sinks_sources.recharge.soil].",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FileImperviousSource",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -14565,6 +14739,112 @@
         }
       }
     },
+    "ImperviousConfig": {
+      "additionalProperties": false,
+      "description": "Sealed share of the ground, read by the soil reservoir as its impervious fraction.\n\nExample TOML::\n\n    [[data.impervious.sources]]\n    source = \"ocsge\"\n    year = 2023",
+      "properties": {
+        "sources": {
+          "description": "Exactly one source of the sealed share. Each soil column takes the mean share of its SAFRAN cell inside the catchment, in place of impervious_fraction.",
+          "items": {
+            "description": "One source of the sealed share.",
+            "discriminator": {
+              "mapping": {
+                "file": "#/$defs/FileImperviousSource",
+                "ocsge": "#/$defs/OcsgeImperviousSource",
+                "url": "#/$defs/UrlImperviousSource",
+                "worldcover": "#/$defs/WorldcoverImperviousSource"
+              },
+              "propertyName": "source"
+            },
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileImperviousSource"
+              },
+              {
+                "$ref": "#/$defs/UrlImperviousSource"
+              },
+              {
+                "$ref": "#/$defs/OcsgeImperviousSource"
+              },
+              {
+                "$ref": "#/$defs/WorldcoverImperviousSource"
+              }
+            ]
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "ImperviousConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^sources__append$": {
+          "type": "array",
+          "items": {
+            "description": "One source of the sealed share.",
+            "discriminator": {
+              "mapping": {
+                "file": "#/$defs/FileImperviousSource",
+                "ocsge": "#/$defs/OcsgeImperviousSource",
+                "url": "#/$defs/UrlImperviousSource",
+                "worldcover": "#/$defs/WorldcoverImperviousSource"
+              },
+              "propertyName": "source"
+            },
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileImperviousSource"
+              },
+              {
+                "$ref": "#/$defs/UrlImperviousSource"
+              },
+              {
+                "$ref": "#/$defs/OcsgeImperviousSource"
+              },
+              {
+                "$ref": "#/$defs/WorldcoverImperviousSource"
+              }
+            ]
+          }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "description": "One source of the sealed share.",
+            "discriminator": {
+              "mapping": {
+                "file": "#/$defs/FileImperviousSource",
+                "ocsge": "#/$defs/OcsgeImperviousSource",
+                "url": "#/$defs/UrlImperviousSource",
+                "worldcover": "#/$defs/WorldcoverImperviousSource"
+              },
+              "propertyName": "source"
+            },
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileImperviousSource"
+              },
+              {
+                "$ref": "#/$defs/UrlImperviousSource"
+              },
+              {
+                "$ref": "#/$defs/OcsgeImperviousSource"
+              },
+              {
+                "$ref": "#/$defs/WorldcoverImperviousSource"
+              }
+            ]
+          }
+        }
+      }
+    },
     "IntermittencyConfig": {
       "additionalProperties": false,
       "description": "Top-level intermittency configuration.\n\nThe section groups flow-state observation sources and an optional date\nwindow. Loaded data can be used to compare simulated drying or active\nstream behavior against observed intermittency states.",
@@ -19251,6 +19531,69 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "OcsgeImperviousSource": {
+      "additionalProperties": false,
+      "description": "OCS GE of the IGN, its built and unbuilt sealed covers rasterized at 10 m.",
+      "properties": {
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Build the map again instead of reading the cache.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "ocsge",
+          "default": "ocsge",
+          "description": "Discriminator tag selecting the IGN OCS GE provider.",
+          "examples": [
+            "ocsge"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "year": {
+          "description": "Latest edition read in each department, up to this year: 2023 reads the 2023 edition of Ille-et-Vilaine and the 2021 one of a department without 2023. Written down so that a new edition of the IGN does not move a run.",
+          "examples": [
+            2023
+          ],
+          "maximum": 2100,
+          "minimum": 2000,
+          "title": "Year",
+          "type": "integer",
+          "unit": "year",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "OcsgeImperviousSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
         }
       }
     },
@@ -24991,7 +25334,7 @@
             "units": "-"
           },
           "default": 0.0,
-          "description": "Share of the area that is sealed (roofs, roads). The rain that falls on it runs off at once, with no infiltration and no evaporation, and reaches the streams, the lakes and the gauged discharge. The soil reservoir covers the rest of the area. From 0 up to, not including, 1. Calibrate it with [calibration.parameters.impervious_fraction]; the range belongs to the site, so a file has to state it.",
+          "description": "Share of the area that is sealed (roofs, roads). The rain that falls on it runs off at once, with no infiltration and no evaporation, and reaches the streams, the lakes and the gauged discharge. The soil reservoir covers the rest of the area. From 0 up to, not including, 1. Calibrate it with [calibration.parameters.impervious_fraction]; the range belongs to the site, so a file has to state it. [data.impervious] gives it cell by cell instead, and then it is not written here.",
           "examples": [
             0.0
           ],
@@ -25085,7 +25428,7 @@
             "units": "-"
           },
           "default": null,
-          "description": "SCS curve number (AMC II), dimensionless, of a HELP-style surface runoff (Schroeder et al. 1994): the unsealed share of the rain above a daily retention loses some to a fast runoff, more as the soil is wetter. None turns the term off, bit for bit as before. Between 30 and 98. It reads the soil and never the water table, so it renders saturation runoff badly: leave it off where the drains already give that runoff. To calibrate it, state a range under [calibration.parameters.curve_number]: it belongs to the soil group and the land use of the site.",
+          "description": "SCS curve number (AMC II), dimensionless, of a HELP-style surface runoff (Schroeder et al. 1994): the unsealed share of the rain above a daily retention loses some to a fast runoff, more as the soil is wetter. None turns the term off, bit for bit as before. Between 30 and 98. It reads the soil and never the water table, so it renders saturation runoff badly: leave it off where the drains already give that runoff. To calibrate it, state a range under [calibration.parameters.curve_number]: it belongs to the soil group and the land use of the site. [data.curve_number] gives it cell by cell instead, and then it is not written here.",
           "stability": "experimental",
           "title": "Curve Number",
           "x-hmp-profile": "user"
@@ -25117,7 +25460,7 @@
             "units": "day"
           },
           "default": 1.0,
-          "description": "Time constant of the linear reservoir that routes the curve-number runoff to the outlet, in days. No effect while curve_number is None. 0 sends it the same day; \"2 days\" also reads. Between 0 and 10 days: a longer delay would smooth away the fast surface peak the term exists for.",
+          "description": "Time constant of the linear reservoir that routes the curve-number runoff to the outlet, in days. No effect without a curve number, here or in [data.curve_number]. 0 sends it the same day; \"2 days\" also reads. Between 0 and 10 days: a longer delay would smooth away the fast surface peak the term exists for.",
           "examples": [
             1.0
           ],
@@ -25152,7 +25495,7 @@
             "units": "day"
           },
           "default": 0.0,
-          "description": "Pure delay applied to the routed curve-number runoff, after runoff_time, before it reaches the gauged discharge: the travel time to the outlet plus any lag between the forcing's daily step and the gauge's. No effect while curve_number is None. 0 adds no delay, bit for bit as before; \"0.75 days\" also reads, interpolated linearly between the neighbouring whole-day shifts. Between 0 and 5 days: a longer shift belongs to runoff_time's reservoir, not to a fixed travel time. Calibrate it with [calibration.parameters.runoff_lag].",
+          "description": "Pure delay applied to the routed curve-number runoff, after runoff_time, before it reaches the gauged discharge: the travel time to the outlet plus any lag between the forcing's daily step and the gauge's. No effect without a curve number, here or in [data.curve_number]. 0 adds no delay, bit for bit as before; \"0.75 days\" also reads, interpolated linearly between the neighbouring whole-day shifts. Between 0 and 5 days: a longer shift belongs to runoff_time's reservoir, not to a fixed travel time. Calibrate it with [calibration.parameters.runoff_lag].",
           "examples": [
             0.0
           ],
@@ -26485,6 +26828,69 @@
         }
       }
     },
+    "UrlCurveNumberSource": {
+      "additionalProperties": false,
+      "description": "Remote curve number raster, downloaded into the data cache by the ``url`` source.",
+      "properties": {
+        "url": {
+          "description": "Remote URL of the one file this source reads.",
+          "examples": [
+            "example"
+          ],
+          "title": "Url",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "url",
+          "default": "url",
+          "description": "Discriminator tag selecting the 'url' curve number provider.",
+          "examples": [
+            "url"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "UrlCurveNumberSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "UrlDemSource": {
       "additionalProperties": false,
       "description": "Remote DEM file, pinned by its sha256 when ``https`` is not used.",
@@ -26734,6 +27140,69 @@
         }
       },
       "title": "UrlGeologySource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "UrlImperviousSource": {
+      "additionalProperties": false,
+      "description": "Remote raster of the sealed share, downloaded into the data cache by the ``url`` source.",
+      "properties": {
+        "url": {
+          "description": "Remote URL of the one file this source reads.",
+          "examples": [
+            "example"
+          ],
+          "title": "Url",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "url",
+          "default": "url",
+          "description": "Discriminator tag selecting the 'url' impervious provider.",
+          "examples": [
+            "url"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "UrlImperviousSource",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -28202,6 +28671,72 @@
         }
       },
       "title": "WorkspaceConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "WorldcoverImperviousSource": {
+      "additionalProperties": false,
+      "description": "ESA WorldCover, its built-up class read as sealed, 10 m over the world.",
+      "properties": {
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Build the map again instead of reading the cache.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "worldcover",
+          "default": "worldcover",
+          "description": "Discriminator tag selecting the ESA WorldCover provider.",
+          "examples": [
+            "worldcover"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "year": {
+          "default": 2021,
+          "description": "Map read: 2020 (algorithm v100) or 2021 (v200). The two differ by their algorithm as much as by the ground, so a change between them is no trend.",
+          "enum": [
+            2020,
+            2021
+          ],
+          "examples": [
+            2021
+          ],
+          "title": "Year",
+          "type": "integer",
+          "unit": "year",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "WorldcoverImperviousSource",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {

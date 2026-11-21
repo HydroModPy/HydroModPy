@@ -24,7 +24,7 @@ from hydromodpy.model.forcing.soil_forcing import SoilForcings, soil_parameters
 from hydromodpy.model.forcing.soil_grids import grid_field_record
 from hydromodpy.model.soil.kernel import SoilFluxes, SoilState
 
-SCHEMA_VERSION = "hydromodpy.soil_product.v2"
+SCHEMA_VERSION = "hydromodpy.soil_product.v3"
 """Version of this stored format, written in the product key."""
 
 _NPZ = "soil.npz"
@@ -52,6 +52,10 @@ def write_soil_forcings(soil: SoilForcings, directory: Path) -> None:
         optional["temperature"] = soil.temperature
     if soil.kc_by_day is not None:
         optional["kc_by_day"] = soil.kc_by_day
+    if soil.columns.impervious is not None:
+        optional["columns_impervious"] = soil.columns.impervious
+    if soil.columns.curve_number is not None:
+        optional["columns_curve_number"] = soil.columns.curve_number
     np.savez(
         directory / _NPZ,
         days=soil.days,
@@ -145,6 +149,8 @@ def _decode(
         cell_fraction=arrays["columns_cell_fraction"],
         basin_weight=arrays["columns_basin_weight"],
         raster_mean_mm=meta["raster_mean_mm"],
+        impervious=arrays.get("columns_impervious"),
+        curve_number=arrays.get("columns_curve_number"),
     )
     fluxes = SoilFluxes(
         etr=arrays["fluxes_etr"],
@@ -209,7 +215,7 @@ def _decode(
         fluxes=fluxes,
         columns=columns,
         config=config,
-        parameters=soil_parameters(config, arrays["ru_mm"]),
+        parameters=soil_parameters(config, arrays["ru_mm"], columns),
         spinup_cycles=meta["spinup_cycles"],
         never_full_columns=meta["never_full_columns"],
         crs=meta["crs"],

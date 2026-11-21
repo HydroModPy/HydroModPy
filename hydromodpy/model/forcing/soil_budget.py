@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.model.contracts import LoadResultProto
-from hydromodpy.model.forcing.soil_config import SeasonalKc, SoilReservoirConfig
+from hydromodpy.model.forcing.soil_config import SeasonalKc
 from hydromodpy.model.forcing.soil_forcing import SoilForcings
 from hydromodpy.model.forcing.soil_ru_budget import RuClosure
 from hydromodpy.model.soil.kernel import annual_budget
@@ -114,18 +114,37 @@ def _header_line(days: np.ndarray, n_cells: int, n_classes: int, *, has_raster: 
     )
 
 
-def _parameters_line(config: SoilReservoirConfig, raster_mean_mm: float | None) -> str:
+def map_mean(forcings: SoilForcings, name: str) -> float | None:
+    """Basin mean of the ``impervious`` or ``curve_number`` map, None without a map."""
+    values = getattr(forcings.columns, name)
+    if values is None:
+        return None
+    return float(np.sum(values * forcings.columns.basin_weight))
+
+
+def _parameters_line(forcings: SoilForcings) -> str:
+    config = forcings.config
+    raster_mean_mm = forcings.columns.raster_mean_mm
+    impervious_mean = map_mean(forcings, "impervious")
+    curve_number_mean = map_mean(forcings, "curve_number")
+    curve_number = config.curve_number if curve_number_mean is None else curve_number_mean
     ru_clause = (
         f"ru {config.ru:g} mm (raster mean {raster_mean_mm:.0f} mm rescaled)"
         if raster_mean_mm is not None
         else f"ru {config.ru:g} mm"
     )
     lag_clause = f", runoff lag {config.runoff_lag:g} days" if config.runoff_lag != 0.0 else ""
+    cn_map = "" if curve_number_mean is None else " (basin mean of [data.curve_number])"
     cn_clause = (
-        f", curve number {config.curve_number:g}, runoff time {config.runoff_time:g} days"
+        f", curve number {curve_number:.3g}{cn_map}, runoff time {config.runoff_time:g} days"
         f"{lag_clause}"
-        if config.curve_number is not None
+        if curve_number is not None
         else ""
+    )
+    impervious_clause = (
+        f"impervious {100 * config.impervious_fraction:.3g} %"
+        if impervious_mean is None
+        else f"impervious {100 * impervious_mean:.3g} % (basin mean of [data.impervious])"
     )
     alpha_clause = f", alpha {config.alpha:g}" if SOIL_METHODS[config.method].reads_alpha else ""
     kc = config.kc
@@ -142,7 +161,7 @@ def _parameters_line(config: SoilReservoirConfig, raster_mean_mm: float | None) 
     )
     return (
         f"method {config.method}, {ru_clause}{alpha_clause}, {kc_clause}{snow_clause}, "
-        f"impervious {100 * config.impervious_fraction:.3g} %, "
+        f"{impervious_clause}, "
         f"bypass {100 * config.bypass_fraction:.3g} %, "
         f"transit time {config.transit_time:g} days{cn_clause}"
     )
@@ -246,7 +265,7 @@ def soil_budget_lines(
 
     lines = [
         _header_line(days, n_cells, n_classes, has_raster=raster_mean_mm is not None),
-        _parameters_line(forcings.config, raster_mean_mm),
+        _parameters_line(forcings),
         _starting_soil_line(forcings),
         _table_header(y_dry, y_wet),
         _data_row("precipitation", annual.precipitation, annual.weights, scale, dry_idx, wet_idx),
@@ -255,7 +274,7 @@ def soil_budget_lines(
         _data_row("recharge to MODFLOW", annual.recharge, annual.weights, scale, dry_idx, wet_idx),
         _data_row("impervious runoff", impervious_only, annual.weights, scale, dry_idx, wet_idx),
     ]
-    if forcings.config.curve_number is not None:
+    if forcings.parameters.curve_number is not None:
         lines.append(
             _data_row(
                 "curve-number runoff", annual.runoff_cn, annual.weights, scale, dry_idx, wet_idx

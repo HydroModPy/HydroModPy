@@ -836,3 +836,44 @@ def test_depth_model_name_without_model() -> None:
 def test_refusals(calibration, project, error, message) -> None:
     with pytest.raises(error, match=message):
         resolve_parameter_targets(calibration, project)
+
+
+def project_with_soil_maps(**soil: object) -> _Project:
+    project = project_with_soil()
+    sinks_sources = FlowSinksSourcesConfig(
+        recharge=FlowRechargeConfig(soil=SoilReservoirConfig(ru=150.0, **soil))
+    )
+    project.flow = project.flow.model_copy(update={"sinks_sources": sinks_sources})
+    project.data = SimpleNamespace(impervious=object(), curve_number=object())
+    return project
+
+
+SOIL_PATH = "flow.sinks_sources.recharge.soil"
+SOIL_MOVES_REFUSED = [
+    pytest.param("alpha", {}, {"method": "thornthwaite"}, "never reads it", id="alpha off fao56"),
+    pytest.param(
+        "kc",
+        {"path": f"{SOIL_PATH}.kc", "bounds": [0.5, 1.5]},
+        {"kc": {"low": 0.7, "high": 1.1, "months": [3, 5, 8, 10]}},
+        "follows the season",
+        id="seasonal kc",
+    ),
+    pytest.param(
+        "impervious_fraction", {}, {}, "[data.impervious] gives it", id="sealed share map"
+    ),
+    pytest.param(
+        "cn",
+        {"path": f"{SOIL_PATH}.curve_number", "bounds": [50, 90]},
+        {},
+        "[data.curve_number] gives it",
+        id="curve number map",
+    ),
+]
+
+
+@pytest.mark.parametrize(("name", "declaration", "soil", "fragment"), SOIL_MOVES_REFUSED)
+def test_a_soil_move_the_run_never_reads_is_refused(name, declaration, soil, fragment) -> None:
+    calibration = calibration_of(**{name: declaration})
+
+    with pytest.raises(ConfigError, match=fragment.replace("[", r"\[").replace("]", r"\]")):
+        resolve_parameter_targets(calibration, project_with_soil_maps(**soil))

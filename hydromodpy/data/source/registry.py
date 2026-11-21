@@ -39,6 +39,8 @@ _BUILTIN_PATHS: dict[str, str] = {
     "crossings_file": "hydromodpy.data.source.file:CrossingsFile",
     "crossings_roe": "hydromodpy.data.variables.crossings.apis.roe:RoeCrossings",
     "crossings_url": "hydromodpy.data.source.url:CrossingsUrl",
+    "curve_number_file": "hydromodpy.data.source.file:CurveNumberFile",
+    "curve_number_url": "hydromodpy.data.source.url:CurveNumberUrl",
     "dem_bdalti": "hydromodpy.data.variables.dem.apis.ign_dem_fr:BdAltiDem",
     "dem_file": "hydromodpy.data.source.file:DemFile",
     "dem_rgealti": "hydromodpy.data.variables.dem.apis.ign_dem_fr:RgeAltiDem",
@@ -61,6 +63,12 @@ _BUILTIN_PATHS: dict[str, str] = {
     "hydrography_url": "hydromodpy.data.source.url:HydrographyUrl",
     "hydrometry_file": "hydromodpy.data.source.file:HydrometryFile",
     "hydrometry_hubeau": "hydromodpy.data.variables.hydrometry.apis.hubeau:HubeauHydrometry",
+    "impervious_file": "hydromodpy.data.source.file:ImperviousFile",
+    "impervious_ocsge": "hydromodpy.data.variables.impervious.ocsge:OcsgeImpervious",
+    "impervious_url": "hydromodpy.data.source.url:ImperviousUrl",
+    "impervious_worldcover": (
+        "hydromodpy.data.variables.impervious.worldcover:WorldcoverImpervious"
+    ),
     "intermittency_file": "hydromodpy.data.source.file:IntermittencyFile",
     "intermittency_hubeau": (
         "hydromodpy.data.variables.intermittency.apis.hubeau:HubeauIntermittency"
@@ -121,7 +129,7 @@ _BUILTIN_PATHS: dict[str, str] = {
 }
 """Dotted paths to the in-tree source classes, imported on first lookup.
 
-The single declaration of what this build serves: 75 sources under 29 sections.
+The single declaration of what this build serves: 83 sources under 31 sections.
 Format ``"<module>:<class>"``, the one every registry of this repository uses.
 """
 

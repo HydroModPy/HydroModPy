@@ -250,6 +250,90 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         ),
     ),
     SourceEntry(
+        slug="ocsge",
+        publisher="IGN",
+        licence=_etalab("Source: IGN, OCS GE"),
+        basis=(
+            "IGN publishes the dataset 'OCS GE' on data.gouv.fr under its own organisation "
+            "with the licence 'lov2', the Licence Ouverte / Open Licence version 2.0. The "
+            "metadata shipped in each archive set no use constraint ('Aucune contrainte, "
+            "ouvert a tous')."
+        ),
+        hosts=("data.geopf.fr",),
+        licence_pages=("https://www.data.gouv.fr/datasets/ocs-ge",),
+        licence_checked="2026-11-21",
+        facts_pages=(
+            "https://data.geopf.fr/telechargement/resource/OCSGE",
+            "https://www.data.gouv.fr/datasets/ocs-ge",
+        ),
+        coverage=(
+            "France, one archive per department and edition; 98 departments listed by the "
+            "download service on 2026-11-21, with 2.0 editions from 2017 onwards."
+        ),
+        resolution=(
+            "Vector land cover at large scale; the adapter keeps the covers CS1.1.1.1 "
+            "(built) and CS1.1.1.2 (unbuilt sealed) and burns them on a 10 m grid in "
+            "EPSG:2154."
+        ),
+        period="One edition per department every three years or so, named by its year.",
+        update="Departments are delivered edition by edition; the year is pinned in the config.",
+        authentication="None: the adapter fetches each department archive by plain HTTP.",
+        cache=(
+            CacheLayout(
+                folder="data/impervious",
+                pattern="impervious_ocsge_*.tif",
+                format="GeoTIFF",
+                note=(
+                    "impervious_ocsge_<year>_<hash>.tif is the 10 m sealed share of one "
+                    "request. The department archives stay in ocsge_departments/ "
+                    "(about 200 MB each). " + _WORKSPACE_NOTE
+                ),
+            ),
+        ),
+    ),
+    SourceEntry(
+        slug="worldcover",
+        publisher="ESA WorldCover consortium (VITO)",
+        licence=Licence(
+            spdx="CC-BY-4.0",
+            url="https://creativecommons.org/licenses/by/4.0/",
+            attribution=(
+                "ESA WorldCover project / Contains modified Copernicus Sentinel data "
+                "processed by ESA WorldCover consortium"
+            ),
+            confidence="assumed",
+        ),
+        basis=(
+            "The Registry of Open Data on AWS entry of ESA WorldCover, maintained by VITO, "
+            "gives 'License: CC-BY 4.0'; the bucket readme gives the attribution text."
+        ),
+        hosts=("esa-worldcover.s3.eu-central-1.amazonaws.com",),
+        licence_pages=(
+            "https://raw.githubusercontent.com/awslabs/open-data-registry/main/datasets/esa-worldcover-vito.yaml",
+            "https://esa-worldcover.s3.amazonaws.com/readme.html",
+        ),
+        licence_checked="2026-11-21",
+        facts_pages=(
+            "https://raw.githubusercontent.com/awslabs/open-data-registry/main/datasets/esa-worldcover-vito.yaml",
+        ),
+        coverage="The world, in tiles of 3 by 3 degrees.",
+        resolution=(
+            "Raster land cover at 10 m in EPSG:4326, eleven classes; the adapter reads "
+            "class 50, built-up, as sealed."
+        ),
+        period="Two maps, 2020 (algorithm v100) and 2021 (v200).",
+        update="Yearly in the registry entry; two maps published so far.",
+        authentication="None: the adapter reads the window of its box from the public bucket.",
+        cache=(
+            CacheLayout(
+                folder="data/impervious",
+                pattern="impervious_worldcover_*.tif",
+                format="GeoTIFF",
+                note="impervious_worldcover_<year>_<hash>.tif. " + _WORKSPACE_NOTE,
+            ),
+        ),
+    ),
+    SourceEntry(
         slug="bdalti",
         publisher="IGN",
         licence=_etalab("Source: IGN, BD ALTI"),
