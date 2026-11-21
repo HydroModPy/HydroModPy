@@ -5391,19 +5391,38 @@
                 "x-hmp-profile": "user"
               },
               "sources": {
-                "description": "At least one data source.",
+                "description": "Data sources of the recharge. Write at least one, or a formula, not both.",
                 "items": {
                   "$ref": "#/$defs/RechargeSourceConfig"
                 },
-                "minItems": 1,
                 "title": "Sources",
                 "type": "array",
                 "x-hmp-profile": "user"
+              },
+              "formula": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Compute a steady recharge from the yearly weather instead of loading a series: the formula runs on each complete calendar year of the run on the basin mean of [data.precipitation] (and of [data.temperature] for turc), and the run takes the mean over the years as its one rate. Only a run with [flow] flow_regime = \"steady\" reads it. \"turc\" gives an effective rainfall, which the run takes whole as recharge, so the drains do the share a RIPE would do. Guttman and Zuckerman and Kessler were fitted on karsts.",
+                "examples": [
+                  "turc"
+                ],
+                "stability": "experimental",
+                "title": "Formula",
+                "value_docs": {
+                  "guttman_zuckerman": "Guttman and Zuckerman (1995)",
+                  "kessler": "Kessler (1967)",
+                  "turc": "Turc (1954)"
+                },
+                "x-hmp-profile": "user"
               }
             },
-            "required": [
-              "sources"
-            ],
             "title": "RechargeConfig",
             "type": "object"
           },

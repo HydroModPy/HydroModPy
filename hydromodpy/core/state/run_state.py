@@ -120,6 +120,9 @@ class SetupContext:
     soil_forcings: Any = None
     ru_closure: Any = None  # the ru closing the budget against the gauge, or None
     recharge_estimates: Any = None  # rows of [recharge_estimates], or None
+    # The recharge and runoff [recharge_estimates] compare_loaded set aside from a soil
+    # run, (recharge, runoff) load results the model never receives, or None.
+    compared_water: Any = None
     # Product keys this context asked the store for, ``{kind: key}``. Replaced
     # whole and never mutated in place: a forked trial shares the object by
     # reference, and an edit in one trial would leak into the others. A plain

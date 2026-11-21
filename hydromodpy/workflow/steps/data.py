@@ -54,10 +54,12 @@ from hydromodpy.model.domain.structure_binders import apply_geology_to_domain
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.forcing import soil_stored
 from hydromodpy.model.forcing.etp_computed import computed_etp
+from hydromodpy.model.forcing.recharge_computed import computed_recharge
 from hydromodpy.model.forcing.recharge_estimates_run import (
     estimate_lines,
     estimate_recharge,
     run_water_series,
+    soil_law_water,
     soil_rain_minus_etr,
 )
 from hydromodpy.model.forcing.recharge_scenario import recharge_scenario
@@ -160,11 +162,29 @@ def step_data_loading(ctx: WorkflowContext) -> None:
     )
     if scenario is not None and getattr(ctx.loaded_data, "recharge", None) is not None:
         ctx.loaded_data.recharge = recharge_scenario(ctx.loaded_data.recharge, scenario)
+    estimates_config = getattr(ctx.cfg, "recharge_estimates", None)
+    if estimates_config is not None and estimates_config.compare_loaded:
+        # Set aside before the model is bound, so the soil run never receives them.
+        data = ctx.loaded_data
+        ctx.setup.compared_water = (data.recharge, getattr(data, "runoff", None))
+        data.recharge = None
+        data.runoff = None
     etp_config = getattr(getattr(ctx.cfg, "data", None), "etp", None)
     if etp_config is not None and etp_config.formula is not None:
         ctx.loaded_data.etp = computed_etp(
             getattr(ctx.loaded_data, "temperature", None), etp_config.formula
         )
+    recharge_config = getattr(getattr(ctx.cfg, "data", None), "recharge", None)
+    if recharge_config is not None and recharge_config.formula is not None:
+        window = _resolved_window(ctx)
+        steady = computed_recharge(
+            getattr(ctx.loaded_data, "precipitation", None),
+            getattr(ctx.loaded_data, "temperature", None),
+            recharge_config.formula,
+            (window.start, window.end),
+        )
+        ctx.loaded_data.recharge = steady.load_result
+        progress.after_phase(partial(_log_block, (steady.line(),)))
     check_run_gauge_area(
         getattr(ctx.cfg, "site", None),
         ctx.loaded_data.hydrometry,
@@ -193,10 +213,10 @@ def step_data_loading(ctx: WorkflowContext) -> None:
         )
         progress.after_phase(partial(_log_block, lines))
 
-    estimates_config = getattr(ctx.cfg, "recharge_estimates", None)
     if estimates_config is not None and not ctx.execution.lightweight:
         data = ctx.loaded_data
         window = _resolved_window(ctx)
+        compared, law_notes = _compared_water(ctx, estimates_config, soil, window)
         rows, notes = estimate_recharge(
             estimates_config,
             window=(window.start, window.end),
@@ -209,9 +229,40 @@ def step_data_loading(ctx: WorkflowContext) -> None:
                 soil, getattr(data, "recharge", None), getattr(data, "runoff", None)
             ),
             rain_minus_etr=soil_rain_minus_etr(soil),
+            etp=getattr(data, "etp", None),
+            compared=compared,
         )
+        notes = law_notes + notes
         ctx.setup.recharge_estimates = rows
         progress.after_phase(partial(_log_block, estimate_lines(rows, notes)))
+
+
+def _compared_water(ctx: WorkflowContext, estimates: object, soil: object | None, window):
+    """The daily water of each soil law and loaded product the comparison sets beside the run."""
+    compared, notes = {}, []
+    laws = estimates.laws()
+    if laws:
+        if soil is None:
+            data = ctx.loaded_data
+            soil = compute_soil_forcings(
+                precipitation=data.precipitation,
+                etp=data.etp,
+                config=estimates.soil,
+                window=window,
+                model_crs=str(ctx.setup.geographic.crs_proj),
+                temperature=getattr(data, "temperature", None),
+                catchment=catchment_outline(ctx.setup.geographic),
+            )
+        compared, notes = soil_law_water(soil, laws)
+    aside = ctx.setup.compared_water
+    if aside is not None:
+        loaded = run_water_series(None, aside[0], aside[1])
+        if loaded is None:
+            notes.append("compare_loaded: [data.recharge] loaded no series")
+        else:
+            names = dict.fromkeys(source.source for source in ctx.cfg.data.recharge.sources)
+            compared["+".join(names)] = loaded
+    return compared, notes
 
 
 # ---------------------------------------------------------------------------

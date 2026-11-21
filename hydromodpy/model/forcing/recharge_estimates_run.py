@@ -9,6 +9,9 @@ a comparison, the model never reads them.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 
@@ -31,6 +34,11 @@ from hydromodpy.model.forcing.recharge_estimates import (
     wtf,
 )
 from hydromodpy.model.forcing.recharge_estimates_config import RechargeEstimatesConfig
+from hydromodpy.model.forcing.recharge_estimators import ESTIMATORS, WEATHER_ESTIMATORS
+from hydromodpy.model.forcing.soil_forcing import SoilForcings, basin_water_out
+
+Water = tuple[pd.Series, pd.Series]
+"""A daily basin recharge and runoff, mm/day, on the same days."""
 
 
 def basin_series(result: LoadResultProto | None) -> pd.Series | None:
@@ -115,46 +123,51 @@ def water_balance_rows(
     return rows, []
 
 
+def weather_estimate(
+    name: str, precipitation: pd.Series | None, temperature: pd.Series | None
+) -> pd.Series | str:
+    """The yearly values, mm, of the weather formula ``name``, or why there are none.
+
+    ``precipitation`` and ``temperature`` are daily basin series. A year counts
+    when it is covered on 90 % of its days; Kessler also needs the year before.
+    """
+    if precipitation is None:
+        return "no precipitation loaded"
+    rain = annual_totals(precipitation)
+    if name == "guttman_zuckerman":
+        return pd.Series(guttman_zuckerman(rain.to_numpy()), index=rain.index)
+    if name == "turc":
+        if temperature is None:
+            return "no temperature loaded"
+        mean_t = temperature.groupby(temperature.index.year).mean().reindex(rain.index)
+        return pd.Series(turc(rain.to_numpy(), mean_t.to_numpy()), index=rain.index).dropna()
+    years = rain.index.to_numpy()
+    month = precipitation.index.month
+    by_year = precipitation.index.year
+    # Kessler reads shares of the year, so the year and its months are sums of
+    # the same days, not the year scaled to a full year.
+    whole = precipitation.groupby(by_year).sum().reindex(years)
+    spring = precipitation[month <= 4].groupby(by_year[month <= 4]).sum().reindex(years)
+    autumn = precipitation[month >= 9].groupby(by_year[month >= 9]).sum().reindex(years)
+    consecutive = np.all(np.diff(years) == 1) if years.size > 1 else False
+    if years.size < 2 or not consecutive:
+        return "needs two consecutive complete years of precipitation"
+    values = kessler(whole.to_numpy(), spring.to_numpy(), autumn.to_numpy())
+    return pd.Series(values, index=rain.index).dropna()
+
+
 def _weather_rows(
     selected: tuple[str, ...], precipitation: pd.Series | None, temperature: pd.Series | None
 ) -> tuple[list[dict], list[str]]:
     rows: list[dict] = []
     notes: list[str] = []
-    wants = [n for n in ("turc", "guttman_zuckerman", "kessler") if n in selected]
-    if not wants:
-        return rows, notes
-    if precipitation is None:
-        return rows, [f"{name}: no precipitation loaded" for name in wants]
-    rain = annual_totals(precipitation)
-    if "guttman_zuckerman" in wants:
-        for year, value in zip(rain.index, guttman_zuckerman(rain.to_numpy()), strict=True):
-            rows.append(_row("guttman_zuckerman", int(year), "recharge", value))
-    if "turc" in wants:
-        if temperature is None:
-            notes.append("turc: no temperature loaded")
-        else:
-            mean_t = temperature.groupby(temperature.index.year).mean().reindex(rain.index)
-            values = turc(rain.to_numpy(), mean_t.to_numpy())
-            for year, value in zip(rain.index, values, strict=True):
-                if np.isfinite(value):
-                    rows.append(_row("turc", int(year), "effective_rainfall", value))
-    if "kessler" in wants:
-        years = rain.index.to_numpy()
-        month = precipitation.index.month
-        by_year = precipitation.index.year
-        # Kessler reads shares of the year, so the year and its months are sums of
-        # the same days, not the year scaled to a full year.
-        whole = precipitation.groupby(by_year).sum().reindex(years)
-        spring = precipitation[month <= 4].groupby(by_year[month <= 4]).sum().reindex(years)
-        autumn = precipitation[month >= 9].groupby(by_year[month >= 9]).sum().reindex(years)
-        consecutive = np.all(np.diff(years) == 1) if years.size > 1 else False
-        if years.size < 2 or not consecutive:
-            notes.append("kessler: needs two consecutive complete years of precipitation")
-        else:
-            values = kessler(whole.to_numpy(), spring.to_numpy(), autumn.to_numpy())
-            for year, value in zip(years, values, strict=True):
-                if np.isfinite(value):
-                    rows.append(_row("kessler", int(year), "recharge", value))
+    for name in (n for n in WEATHER_ESTIMATORS if n in selected):
+        yearly = weather_estimate(name, precipitation, temperature)
+        if isinstance(yearly, str):
+            notes.append(f"{name}: {yearly}")
+            continue
+        quantity = ESTIMATORS[name].gives
+        rows += [_row(name, int(year), quantity, value) for year, value in yearly.items()]
     return rows, notes
 
 
@@ -246,6 +259,66 @@ def _wtf_rows(
     return rows, notes
 
 
+def soil_law_water(soil: SoilForcings, laws: tuple[str, ...]) -> tuple[dict[str, Water], list[str]]:
+    """The daily basin recharge and runoff of each soil law on the forcing of ``soil``.
+
+    Every law reads the same rain, ETP, ru, crop coefficient, snow and sealed
+    share; only the storage law changes. A law whose soil never settles in its
+    spin-up is left out with a sentence.
+    """
+    index = pd.DatetimeIndex(soil.days)
+    water: dict[str, Water] = {}
+    notes: list[str] = []
+    for law in laws:
+        # model_copy, not model_validate: alpha stays written for a law that does not
+        # read it, and the kernel leaves it unread.
+        forcings = replace(soil, config=soil.config.model_copy(update={"method": law}))
+        out = basin_water_out(forcings, float(soil.config.ru))
+        if out is None:
+            notes.append(f"{law}: its soil does not settle within 20 spin-up cycles")
+            continue
+        water[law] = (pd.Series(out[0], index=index), pd.Series(out[1], index=index))
+    return water, notes
+
+
+def monthly_sums(daily: pd.Series) -> pd.Series:
+    """Sum of a daily series per month, for months covered on 90 % of their days."""
+    daily = daily.dropna()
+    if daily.empty:
+        return pd.Series(dtype=np.float64)
+    month = daily.index.to_period("M")
+    counts = daily.groupby(month).size()
+    sums = daily.groupby(month).sum()
+    days = pd.Series([period.days_in_month for period in counts.index], index=counts.index)
+    return sums[counts >= 0.9 * days]
+
+
+def signal_rows(
+    compared: Mapping[str, Water],
+    run_water: Water | None,
+    precipitation: pd.Series | None,
+    etp: pd.Series | None,
+) -> list[dict]:
+    """Monthly recharge and runoff of each method and of the run, beside the weather.
+
+    Each compared method also gets yearly recharge rows, so it sits in the range
+    of the yearly estimators. Its runoff stays monthly: a yearly runoff row would
+    be read as a recharge by the readers that group the yearly rows by method.
+    """
+    rows: list[dict] = []
+    for method, water in compared.items():
+        rows += [_row(method, int(y), "recharge", v) for y, v in annual_totals(water[0]).items()]
+    for method, water in (*compared.items(), *((("run", run_water),) if run_water else ())):
+        for quantity, daily in zip(("recharge", "runoff"), water, strict=True):
+            for period, value in monthly_sums(daily).items():
+                rows.append(_row(method, period.year, quantity, value, month=period.month))
+    for quantity, daily in (("precipitation", precipitation), ("etp", etp)):
+        if daily is not None:
+            for period, value in monthly_sums(daily).items():
+                rows.append(_row("input", period.year, quantity, value, month=period.month))
+    return rows
+
+
 def estimate_recharge(
     config: RechargeEstimatesConfig,
     *,
@@ -257,6 +330,8 @@ def estimate_recharge(
     run_water: tuple[pd.Series, pd.Series] | None,
     rain_minus_etr: pd.Series | None = None,
     window: tuple[pd.Timestamp, pd.Timestamp] | None = None,
+    etp: LoadResultProto | None = None,
+    compared: Mapping[str, Water] | None = None,
 ) -> tuple[list[dict], list[str]]:
     """The rows of ``recharge_estimates`` and the sentences for the methods skipped.
 
@@ -265,7 +340,10 @@ def estimate_recharge(
     ``run``, and with the gauge it gives the closing factor. ``rain_minus_etr``,
     the daily basin rain minus the soil's ETR, gives the monthly ``water_balance``
     rows the hysteresis figure draws. ``window`` is the run's ``(start, end)``:
-    every series is cut to it, so all methods read the same years.
+    every series is cut to it, so all methods read the same years. ``compared``
+    holds the daily water of each soil law and loaded product to set beside the
+    run; with it, or when the section asks for signals, the monthly rows of
+    recharge, runoff, rain and ETP are written too.
     """
 
     def cut(series):
@@ -293,6 +371,12 @@ def estimate_recharge(
         more, more_notes = water_balance_rows(rain_minus_etr, gauge)
         rows += more
         notes += more_notes
+    if config.signals():
+        cut_water = {name: (cut(r), cut(q)) for name, (r, q) in (compared or {}).items()}
+        run_cut = None if run_water is None else (cut(run_water[0]), cut(run_water[1]))
+        rows += signal_rows(
+            cut_water, run_cut, cut(basin_series(precipitation)), cut(basin_series(etp))
+        )
     if "closing_factor" in selected:
         if isinstance(gauge, str):
             notes.append(f"closing_factor: {gauge}")
@@ -323,6 +407,14 @@ def estimate_lines(rows: list[dict], notes: list[str]) -> tuple[str, ...]:
                 f"  {label:<28}{values.mean():>8.0f}  ({values.min():.0f} to {values.max():.0f}, "
                 f"{len(values)} years, {quantity})"
             )
+        monthly = frame[frame["month"].notna() & (frame["quantity"] == "runoff")]
+        if not monthly.empty:
+            per_year = monthly.groupby("method", sort=False)["value"].agg(["sum", "size"])
+            parts = [
+                f"{method} {row['sum'] * 12.0 / row['size']:.0f}"
+                for method, row in per_year.iterrows()
+            ]
+            lines.append(f"  runoff of the same, mm/year: {', '.join(parts)}")
         factor = frame[frame["method"] == "closing_factor"]
         if not factor.empty:
             lines.append(
@@ -367,7 +459,11 @@ __all__ = [
     "estimate_lines",
     "estimate_recharge",
     "gauge_mm_per_day",
+    "monthly_sums",
+    "signal_rows",
+    "soil_law_water",
     "run_water_series",
     "soil_rain_minus_etr",
     "water_balance_rows",
+    "weather_estimate",
 ]

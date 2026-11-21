@@ -14,7 +14,9 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.model.forcing.recharge_estimates import ESTIMATORS
+from hydromodpy.model.forcing.recharge_estimators import ESTIMATORS
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
+from hydromodpy.model.soil.laws import SOIL_METHODS
 
 
 class ChapmanMaxwellConfig(HydroModelBase):
@@ -105,6 +107,41 @@ class RechargeEstimatesConfig(HydroModelBase):
         default=None,
         description="Water table fluctuation; required when methods names wtf.",
     )
+    soil_methods: Annotated[list[str] | Literal["all"], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            'Soil laws to run on the same weather and the same ru, or "all". Each gives a '
+            "daily recharge and runoff, written as monthly rows and as yearly recharge, to "
+            "set beside the run's own and beside a loaded product. The laws read the soil "
+            "section of the run, else [recharge_estimates.soil]. One ru is not one soil: "
+            "the ru that closes the budget differs from law to law."
+        ),
+        json_schema_extra=field_metadata(
+            value_docs={name: method.reference for name, method in SOIL_METHODS.items()},
+            stability="experimental",
+        ),
+        examples=["all", ["fao56", "dingman"]],
+    )
+    soil: Annotated[SoilReservoirConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "The soil the laws of soil_methods run with, when the run has no "
+            "[flow.sinks_sources.recharge.soil] of its own, such as a run forced by SIM2. "
+            "Its method is replaced by each law in turn. The run then loads "
+            "[data.precipitation] and [data.etp], and never reads this soil."
+        ),
+        json_schema_extra=field_metadata(stability="experimental"),
+    )
+    compare_loaded: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "In a run whose soil section computes the recharge, load [data.recharge] and "
+            "[data.runoff] for the comparison only, such as SIM2 DRAINC and RUNC: they are "
+            "written beside the soil laws and never reach the model. List recharge, and "
+            "runoff if it has one, in data.types."
+        ),
+        json_schema_extra=field_metadata(stability="experimental"),
+    )
 
     @field_validator("methods")
     @classmethod
@@ -116,6 +153,31 @@ class RechargeEstimatesConfig(HydroModelBase):
             names = ", ".join(ESTIMATORS)
             raise ValueError(f'methods = {methods}: write a list taken from {names}, or "all".')
         return list(dict.fromkeys(methods))
+
+    @field_validator("soil_methods")
+    @classmethod
+    def _soil_methods_are_known(cls, laws: list[str] | str) -> list[str] | str:
+        if laws == "all":
+            return laws
+        unknown = [name for name in laws if name not in SOIL_METHODS]
+        if unknown:
+            names = ", ".join(SOIL_METHODS)
+            raise ValueError(f'soil_methods = {laws}: write a list taken from {names}, or "all".')
+        return list(dict.fromkeys(laws))
+
+    @model_validator(mode="after")
+    def _a_soil_only_for_its_laws(self) -> RechargeEstimatesConfig:
+        if self.soil is not None and not self.laws():
+            raise ValueError(
+                '[recharge_estimates.soil] is read by soil_methods only: write soil_methods = "all", '
+                "or remove the soil table."
+            )
+        if self.soil is not None and "method" in self.soil.model_fields_set:
+            raise ValueError(
+                f"[recharge_estimates.soil] method = {self.soil.method!r} is replaced by each law "
+                "of soil_methods in turn: remove it."
+            )
+        return self
 
     @model_validator(mode="after")
     def _wtf_has_its_specific_yield(self) -> RechargeEstimatesConfig:
@@ -132,11 +194,24 @@ class RechargeEstimatesConfig(HydroModelBase):
             return tuple(n for n in ESTIMATORS if n != "wtf" or self.wtf is not None)
         return tuple(n for n in ESTIMATORS if n in self.methods)
 
+    def laws(self) -> tuple[str, ...]:
+        """The soil laws to compare, in the order of the table of soil methods."""
+        if self.soil_methods == "all":
+            return tuple(SOIL_METHODS)
+        return tuple(name for name in SOIL_METHODS if name in self.soil_methods)
+
+    def signals(self) -> bool:
+        """Whether the monthly recharge and runoff of each method are written."""
+        return bool(self.laws()) or self.compare_loaded
+
     def families(self) -> tuple[str, ...]:
         """The data families the selected methods read."""
-        return tuple(
-            dict.fromkeys(family for name in self.selected() for family in ESTIMATORS[name].reads)
-        )
+        families = [family for name in self.selected() for family in ESTIMATORS[name].reads]
+        if self.soil is not None:
+            families += ["precipitation", "etp"]
+            if self.soil.snow is not None:
+                families.append("temperature")
+        return tuple(dict.fromkeys(families))
 
 
 __all__ = ["ChapmanMaxwellConfig", "EckhardtConfig", "RechargeEstimatesConfig", "WtfConfig"]

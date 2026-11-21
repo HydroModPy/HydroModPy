@@ -28,8 +28,6 @@ answer does not depend on the datum.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 import pandas as pd
 
@@ -303,30 +301,3 @@ def annual_totals(daily: pd.Series) -> pd.Series:
     kept = counts.index[counts >= SHARE_OF_A_YEAR * length]
     means = daily.groupby(years).mean()
     return (means * length)[kept]
-
-
-# ---------------------------------------------------------------------------
-# The methods a [recharge_estimates] section can name
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class Estimator:
-    """One estimator: the data families it reads, what it gives, and its reference."""
-
-    reads: tuple[str, ...]
-    gives: str  # "recharge", "effective_rainfall" or "factor"
-    reference: str
-
-
-ESTIMATORS: dict[str, Estimator] = {
-    "turc": Estimator(("precipitation", "temperature"), "effective_rainfall", "Turc (1954)"),
-    "guttman_zuckerman": Estimator(("precipitation",), "recharge", "Guttman and Zuckerman (1995)"),
-    "kessler": Estimator(("precipitation",), "recharge", "Kessler (1967)"),
-    "wallingford": Estimator(("hydrometry",), "recharge", "Gustard et al. (1992)"),
-    "chapman_maxwell": Estimator(("hydrometry",), "recharge", "Chapman and Maxwell (1996)"),
-    "eckhardt": Estimator(("hydrometry",), "recharge", "Eckhardt (2005)"),
-    "wtf": Estimator(("piezometry",), "recharge", "Healy and Cook (2002)"),
-    "closing_factor": Estimator(("hydrometry",), "factor", "Abherve (2022), eq. 12"),
-}
-"""The estimators, by the name a ``methods`` list writes."""

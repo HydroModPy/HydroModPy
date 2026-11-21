@@ -73,6 +73,33 @@ soil's ETR beside the gauged discharge. The figure `water_balance_loop` draws th
 1:1 line the catchment stores water, below it the aquifer drains, and the shape of the loop
 reads the size of the store (Abherve 2022, section 2.2.3, after Schmidt et al. 2020).
 
+## The soil laws and a loaded product, month by month
+
+{toml}`recharge_estimates.soil_methods` runs each soil law of the soil reservoir on the same
+rain, ETP, ru, crop coefficient, snow and sealed share as the run. Only the storage law changes.
+A run without a soil section of its own gives the laws {toml}`recharge_estimates.soil`, with
+its ru written, and never reads it. In a run whose soil computes the recharge,
+{toml}`recharge_estimates.compare_loaded` loads {toml}`data.recharge` and {toml}`data.runoff`,
+SIM2 DRAINC and RUNC for instance, and sets them aside before the model is bound, so the model
+never receives them. Each law and the product give yearly recharge rows, which join the range
+above, and monthly rows of recharge and runoff beside the run's own and beside the rain and the
+ETP. The figure `recharge_signals` draws them month by month and `recharge_regime` draws their
+mean year. One ru is not one soil, because the ru that closes the budget differs from law to
+law: on the Nancon over 2015-2020 it is 187 mm with `fao56` and 376 mm with `dingman`.
+
+These figures need no solve. `hmp run <file> --until prepare_solver` writes the run and its
+tables in a minute or two, then `hmp show <run> --figure recharge_signals --to signals.png`
+draws one.
+
+## A steady run on a yearly formula
+
+Turc, Guttman and Zuckerman and Kessler give one value a year, so they never force a transient
+run. A steady run may take one as its rate with {toml}`data.recharge.formula`. The data step
+runs the formula on each complete calendar year of the run, on the basin mean of the rain (and
+of the temperature for Turc), and lays the mean over the years on the grid of the rain. Turc
+gives an effective rainfall, which the run takes whole, so the drains do the share a RIPE would
+do. A transient run, a soil section and a scenario beside the formula are refused.
+
 ## Where the results go
 
 The run prints one block at the end of the data step, one line per method with its mean, its
@@ -86,6 +113,10 @@ recharge_estimates.methods
 recharge_estimates.chapman_maxwell
 recharge_estimates.eckhardt
 recharge_estimates.wtf
+recharge_estimates.soil_methods
+recharge_estimates.soil
+recharge_estimates.compare_loaded
+data.recharge.formula
 ```
 
 ```{hmp-toml}
@@ -106,16 +137,19 @@ specific_yield = 0.05
 hydromodpy.model.forcing.recharge_estimates
 hydromodpy.model.forcing.recharge_estimates_run
 hydromodpy.model.forcing.recharge_estimates_config
+hydromodpy.model.forcing.recharge_computed
 ```
 
 ## In the code
 
 | What | Where |
 |---|---|
-| The formulas | `hydromodpy/model/forcing/recharge_estimates.py` (`ESTIMATORS`) |
+| The formulas | `hydromodpy/model/forcing/recharge_estimates.py` |
+| The table of methods | `hydromodpy/model/forcing/recharge_estimators.py` (`ESTIMATORS`) |
+| The steady rate of a formula | `hydromodpy/model/forcing/recharge_computed.py` |
 | The section | `hydromodpy/model/forcing/recharge_estimates_config.py` |
 | Loaded data in, rows out | `hydromodpy/model/forcing/recharge_estimates_run.py` |
-| The figures | `hydromodpy/display/special/recharge_estimates.py`, `water_balance_loop.py` |
+| The figures | `hydromodpy/display/special/recharge_estimates.py`, `water_balance_loop.py`, `recharge_signals.py`, `recharge_regime.py` |
 
 ## See also
 

@@ -271,3 +271,89 @@ def test_every_estimate_reads_the_years_of_the_run_only():
     )
     years = {row["year"] for row in rows if row["year"] is not None and row["method"] != "run"}
     assert years == {2016, 2017}
+
+
+# ---------------------------------------------------------------------------
+# Soil laws and loaded products set beside the run, month by month
+# ---------------------------------------------------------------------------
+
+
+def test_each_soil_law_runs_on_the_same_forcing_and_the_run_law_gives_the_run():
+    from hydromodpy.model.forcing.recharge_estimates_run import soil_law_water
+    from hydromodpy.model.forcing.soil_forcing import basin_water_out
+    from tests.unit.model.forcing.test_soil_ru_budget import weather_forcings
+
+    soil = weather_forcings(n_years=3, method="dingman")
+    water, notes = soil_law_water(soil, ("fao56", "thornthwaite", "dingman", "edijatno_michel"))
+
+    assert notes == []
+    assert list(water) == ["fao56", "thornthwaite", "dingman", "edijatno_michel"]
+    own = basin_water_out(soil, 100.0)
+    assert water["dingman"][0].to_numpy() == pytest.approx(own[0])
+    totals = {law: recharge.sum() for law, (recharge, _) in water.items()}
+    # Thornthwaite meets the whole demand while water is left, so it evaporates the most.
+    assert totals["thornthwaite"] < totals["fao56"]
+    assert len(set(round(total, 6) for total in totals.values())) == 4
+
+
+def test_signal_rows_are_monthly_and_a_yearly_runoff_row_is_never_written():
+    from hydromodpy.model.forcing.recharge_estimates_run import signal_rows
+
+    days = pd.date_range("2016-01-01", "2017-12-31", freq="D")
+    recharge = pd.Series(1.0, index=days)
+    runoff = pd.Series(0.5, index=days)
+    rows = signal_rows({"sim2": (recharge, runoff)}, (recharge * 2, runoff * 0), recharge, runoff)
+    frame = pd.DataFrame(rows)
+
+    yearly = frame[frame["month"].isna()]
+    assert set(yearly["method"]) == {"sim2"}
+    assert set(yearly["quantity"]) == {"recharge"}
+    assert yearly["value"].tolist() == pytest.approx([366.0, 365.0])
+    monthly = frame[frame["month"].notna()]
+    assert set(zip(monthly["method"], monthly["quantity"])) == {
+        ("sim2", "recharge"),
+        ("sim2", "runoff"),
+        ("run", "recharge"),
+        ("run", "runoff"),
+        ("input", "precipitation"),
+        ("input", "etp"),
+    }
+    january = monthly[(monthly["year"] == 2016) & (monthly["month"] == 1)]
+    assert january.set_index(["method", "quantity"])["value"][("run", "recharge")] == 62.0
+
+
+def test_a_month_covered_on_less_than_90_percent_of_its_days_is_left_out():
+    from hydromodpy.model.forcing.recharge_estimates_run import monthly_sums
+
+    days = pd.date_range("2016-01-04", "2016-02-29", freq="D")  # 28 of 31 days
+    sums = monthly_sums(pd.Series(1.0, index=days))
+
+    assert [str(period) for period in sums.index] == ["2016-01", "2016-02"]
+    short = monthly_sums(pd.Series(1.0, index=pd.date_range("2016-01-10", "2016-02-29")))
+    assert [str(period) for period in short.index] == ["2016-02"]
+
+
+def test_the_printed_block_gives_the_runoff_of_each_compared_method():
+    rows = [
+        {"method": "sim2", "station": None, "year": 2016, "month": None, "quantity": "recharge",
+         "value": 270.0, "unit": "mm"},
+        *[{"method": "sim2", "station": None, "year": 2016, "month": m, "quantity": "runoff",
+           "value": 7.0, "unit": "mm"} for m in range(1, 13)],
+    ]  # fmt: skip
+
+    lines = estimate_lines(rows, [])
+
+    assert any(line.strip().startswith("sim2") and "270" in line for line in lines)
+    assert "  runoff of the same, mm/year: sim2 84" in lines
+
+
+def test_soil_methods_is_refused_with_an_unknown_law_and_the_soil_table_needs_it():
+    with pytest.raises(ValueError, match="write a list taken from fao56"):
+        RechargeEstimatesConfig(soil_methods=["gr4j"])
+    with pytest.raises(ValueError, match="is read by soil_methods only"):
+        RechargeEstimatesConfig(soil={"ru": 150})
+    with pytest.raises(ValueError, match="is replaced by each law"):
+        RechargeEstimatesConfig(soil_methods="all", soil={"ru": 150, "method": "dingman"})
+    config = RechargeEstimatesConfig(soil_methods="all", soil={"ru": 150, "snow": {}})
+    assert config.laws() == ("fao56", "thornthwaite", "dingman", "edijatno_michel")
+    assert {"precipitation", "etp", "temperature"} <= set(config.families())

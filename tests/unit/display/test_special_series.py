@@ -390,3 +390,63 @@ def test_water_balance_loop_joins_the_mean_months_in_calendar_order():
     loop = ax.lines[0]
     assert len(loop.get_xdata()) == 13  # twelve months, closed on January
     assert loop.get_ydata()[0] == pytest.approx(100.0)
+
+
+def signals_subject(methods: tuple[str, ...] = ("fao56", "sim2", "run")) -> SimpleNamespace:
+    """Two years of monthly rain, ETP, and the recharge and runoff of each method."""
+    rows = []
+    for year in (2016, 2017):
+        for month in range(1, 13):
+            wet = 1.0 + np.cos(2 * np.pi * (month - 1) / 12)
+            rows.append(("input", None, year, month, "precipitation", 40 + 30 * wet, "mm"))
+            rows.append(("input", None, year, month, "etp", 70 - 30 * wet, "mm"))
+            for rank, method in enumerate(methods):
+                rows.append((method, None, year, month, "recharge", (rank + 1) * 10 * wet, "mm"))
+                rows.append((method, None, year, month, "runoff", rank * wet, "mm"))
+    table = pd.DataFrame(
+        rows, columns=["method", "station", "year", "month", "quantity", "value", "unit"]
+    )
+    return SimpleNamespace(name="r", table=lambda name: table)
+
+
+def test_recharge_signals_stacks_weather_recharge_and_runoff_with_the_run_last():
+    from hydromodpy.display.special import recharge_signals
+
+    ax = static.new_figure(THEMES["default"]).axes[0]
+
+    recharge_signals.draw(signals_subject(), ax, THEMES["default"])
+
+    weather, recharge, runoff = ax.child_axes
+    assert [line.get_label() for line in recharge.lines] == ["fao56", "sim2", "run"]
+    assert recharge.lines[-1].get_linestyle() == "--"
+    assert len(weather.patches) == 24
+    # Each month is held to its end: 24 months and the closing edge.
+    assert len(runoff.lines[0].get_xdata()) == 25
+
+
+def test_recharge_regime_draws_the_mean_month_of_each_method():
+    from hydromodpy.display.special import recharge_regime
+
+    ax = static.new_figure(THEMES["default"]).axes[0]
+
+    recharge_regime.draw(signals_subject(), ax, THEMES["default"])
+
+    weather, recharge, runoff = ax.child_axes
+    fao56 = recharge.lines[0]
+    assert list(fao56.get_xdata()) == list(range(1, 13))
+    assert fao56.get_ydata()[0] == pytest.approx(20.0)
+    assert len(runoff.lines) == 3
+
+
+def test_a_run_without_monthly_signals_has_no_signal_figure():
+    from hydromodpy.display.special import recharge_signals
+
+    table = pd.DataFrame(
+        [("eckhardt", None, 2016, None, "recharge", 250.0, "mm")],
+        columns=["method", "station", "year", "month", "quantity", "value", "unit"],
+    )
+    ax = static.new_figure(THEMES["default"]).axes[0]
+    with pytest.raises(FigureNotApplicable, match="holds no monthly signal"):
+        recharge_signals.draw(
+            SimpleNamespace(name="r", table=lambda name: table), ax, THEMES["default"]
+        )

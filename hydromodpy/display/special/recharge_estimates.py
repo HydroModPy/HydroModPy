@@ -25,8 +25,9 @@ RUN = "run"
 def draw(subject: Any, ax: Any, theme: Theme) -> None:
     """Draw the yearly values of each method and the run's mean on ``ax``."""
     table = read_table(subject, "recharge_estimates")
-    monthly = table["month"].notna() if "month" in table else False
-    yearly = table[table["year"].notna() & (table["unit"] == "mm") & ~monthly]
+    yearly = table[table["year"].notna() & (table["unit"] == "mm")]
+    if "month" in yearly:
+        yearly = yearly[yearly["month"].isna()]
     if yearly.empty:
         raise FigureNotApplicable(
             f"Run {subject.name!r}: its table recharge_estimates holds no yearly value."

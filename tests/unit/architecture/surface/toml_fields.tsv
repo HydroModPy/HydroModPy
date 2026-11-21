@@ -533,7 +533,8 @@ data.radiation.sources.url	str | None	None	stable
 data.recharge	table | None	None	stable
 data.recharge.date_end	str | None	None	stable
 data.recharge.date_start	str | None	None	stable
-data.recharge.sources	list[table]	<required>	stable
+data.recharge.formula	str | None	None	experimental
+data.recharge.sources	list[table]	[]	stable
 data.recharge.sources.amplitude	float | None	None	stable
 data.recharge.sources.col_crs	str	'crs'	stable
 data.recharge.sources.col_datetime	str	'datetime'	stable
@@ -1614,10 +1615,30 @@ publication.license	str | None	None	stable
 recharge_estimates	table | None	None	experimental
 recharge_estimates.chapman_maxwell	table	<table>	experimental
 recharge_estimates.chapman_maxwell.k	float | None	None	experimental
+recharge_estimates.compare_loaded	bool	False	experimental
 recharge_estimates.eckhardt	table	<table>	experimental
 recharge_estimates.eckhardt.bfi_max	float | None	None	experimental
 recharge_estimates.eckhardt.k	float | None	None	experimental
 recharge_estimates.methods	list[str] | Literal['all']	'all'	experimental
+recharge_estimates.soil	table | None	None	experimental
+recharge_estimates.soil.alpha	float	0.45	experimental
+recharge_estimates.soil.bypass_fraction	float	0.0	experimental
+recharge_estimates.soil.curve_number	float | None	None	experimental
+recharge_estimates.soil.impervious_fraction	float	0.0	experimental
+recharge_estimates.soil.kc	float | table	1.0	experimental
+recharge_estimates.soil.kc.high	float	<required>	experimental
+recharge_estimates.soil.kc.low	float	<required>	experimental
+recharge_estimates.soil.kc.months	tuple[int, int, int, int]	<required>	experimental
+recharge_estimates.soil.method	str	'fao56'	experimental
+recharge_estimates.soil.ru	float	<required>	experimental
+recharge_estimates.soil.runoff_lag	float	0.0	experimental
+recharge_estimates.soil.runoff_time	float	1.0	experimental
+recharge_estimates.soil.snow	table | None	None	experimental
+recharge_estimates.soil.snow.melt_full	float	6.0	experimental
+recharge_estimates.soil.snow.melt_start	float	0.0	experimental
+recharge_estimates.soil.spinup	Literal['first_year', 'none']	'first_year'	experimental
+recharge_estimates.soil.transit_time	float	0.0	experimental
+recharge_estimates.soil_methods	list[str] | Literal['all']	[]	experimental
 recharge_estimates.wtf	table | None	None	experimental
 recharge_estimates.wtf.correction	Literal['recession', 'none']	'recession'	experimental
 recharge_estimates.wtf.specific_yield	float	<required>	experimental

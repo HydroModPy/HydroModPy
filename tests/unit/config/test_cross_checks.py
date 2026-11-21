@@ -38,6 +38,7 @@ from hydromodpy.config.solver_supports import (
 )
 from hydromodpy.core.exceptions import HydroModPyError, IncompatibleCapabilitiesError
 from hydromodpy.display.request import FigureRequest
+from hydromodpy.model.forcing.recharge_estimates_config import RechargeEstimatesConfig
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.supports import SUPPORTS
 from hydromodpy.results.exporters.export_spec import ExportRequest
@@ -585,6 +586,8 @@ ORDER = (
     "refuse_soil_precipitation_in_parts",
     "refuse_a_soil_run_the_time_cannot_carry",
     "refuse_a_recharge_the_model_would_not_read",
+    "refuse_a_recharge_formula_the_run_cannot_take",
+    "refuse_a_comparison_the_run_cannot_make",
     "refuse_a_soil_raster_without_the_soil",
     "refuse_a_soil_value_its_map_replaces",
     "refuse_layer_bases_that_do_not_match",
@@ -1055,6 +1058,100 @@ def test_first_period_without_mean_passes(documents: SimpleNamespace, first_clim
     )
 
     refuse_a_window_chain_the_run_cannot_carry(document, sealed=False)
+
+
+def _formula(formula: str = "turc") -> SimpleNamespace:
+    return _ns(recharge=_ns(formula=formula), types=[])
+
+
+def _steady(documents: SimpleNamespace, **attributes: Any) -> SimpleNamespace:
+    plain = documents.plain.flow
+    return plain.model_copy(update={"flow_regime": "steady", **attributes})
+
+
+ROWS += [
+    (
+        "refuse_a_recharge_formula_the_run_cannot_take",
+        "transient",
+        lambda d: _document(d.plain, data=_formula()),
+        '[data.recharge] formula = "turc" gives one value a year, and this run is transient',
+    ),
+    (
+        "refuse_a_recharge_formula_the_run_cannot_take",
+        "beside the soil",
+        lambda d: _document(d.soil, flow=_soil_flow(d, flow_regime="steady"), data=_formula()),
+        "and [flow.sinks_sources.recharge.soil] both give the recharge",
+    ),
+    (
+        "refuse_a_recharge_formula_the_run_cannot_take",
+        "beside a scenario",
+        lambda d: _document(
+            d.plain,
+            flow=_ns(
+                flow_regime="steady",
+                sinks_sources=_ns(recharge=_ns(soil=None, scenario=object())),
+            ),
+            data=_formula("kessler"),
+        ),
+        "[flow.sinks_sources.recharge.scenario] rebuilds a series month by month",
+    ),
+    (
+        "refuse_a_comparison_the_run_cannot_make",
+        "soil laws without a soil",
+        lambda d: _document(
+            d.plain, recharge_estimates=RechargeEstimatesConfig(soil_methods="all")
+        ),
+        "add [recharge_estimates.soil] with its ru",
+    ),
+    (
+        "refuse_a_comparison_the_run_cannot_make",
+        "two soils",
+        lambda d: _document(
+            d.soil,
+            recharge_estimates=RechargeEstimatesConfig(soil_methods="all", soil={"ru": 150}),
+        ),
+        "remove [recharge_estimates.soil], the laws read the run's soil",
+    ),
+    (
+        "refuse_a_comparison_the_run_cannot_make",
+        "a loaded product without a soil",
+        lambda d: _document(
+            d.plain, recharge_estimates=RechargeEstimatesConfig(compare_loaded=True)
+        ),
+        "its loaded recharge is the run's own, written as run",
+    ),
+    (
+        "refuse_a_comparison_the_run_cannot_make",
+        "a loaded product not listed",
+        lambda d: _document(
+            d.soil, recharge_estimates=RechargeEstimatesConfig(compare_loaded=True)
+        ),
+        'and "recharge" is not in data.types',
+    ),
+]
+
+
+def test_a_recharge_formula_passes_a_steady_run(documents: SimpleNamespace) -> None:
+    document = _document(documents.plain, flow=_steady(documents), data=_formula())
+
+    CROSS_RULES["refuse_a_recharge_formula_the_run_cannot_take"].rule(document, sealed=False)
+
+
+def test_a_compared_product_passes_beside_the_soil(documents: SimpleNamespace) -> None:
+    data = documents.soil.data.model_copy(
+        update={"types": [*documents.soil.data.types, "recharge", "runoff"]}
+    )
+    document = _document(
+        documents.soil,
+        data=data,
+        recharge_estimates=RechargeEstimatesConfig(compare_loaded=True, soil_methods="all"),
+    )
+
+    for rule in (
+        "refuse_the_soil_forcing_a_file_doubles_or_leaves_out",
+        "refuse_a_comparison_the_run_cannot_make",
+    ):
+        CROSS_RULES[rule].rule(document, sealed=False)
 
 
 def test_rows_cover_cross_rules() -> None:

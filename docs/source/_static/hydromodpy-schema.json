@@ -22152,13 +22152,35 @@
           "x-hmp-profile": "user"
         },
         "sources": {
-          "description": "At least one data source.",
+          "description": "Data sources of the recharge. Write at least one, or a formula, not both.",
           "items": {
             "$ref": "#/$defs/RechargeSourceConfig"
           },
-          "minItems": 1,
           "title": "Sources",
           "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "formula": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Compute a steady recharge from the yearly weather instead of loading a series: the formula runs on each complete calendar year of the run on the basin mean of [data.precipitation] (and of [data.temperature] for turc), and the run takes the mean over the years as its one rate. Only a run with [flow] flow_regime = \"steady\" reads it. \"turc\" gives an effective rainfall, which the run takes whole as recharge, so the drains do the share a RIPE would do. Guttman and Zuckerman and Kessler were fitted on karsts.",
+          "examples": [
+            "turc"
+          ],
+          "stability": "experimental",
+          "title": "Formula",
+          "value_docs": {
+            "guttman_zuckerman": "Guttman and Zuckerman (1995)",
+            "kessler": "Kessler (1967)",
+            "turc": "Turc (1954)"
+          },
           "x-hmp-profile": "user"
         }
       },
@@ -22244,6 +22266,62 @@
           "default": null,
           "description": "Water table fluctuation; required when methods names wtf.",
           "x-hmp-profile": "user"
+        },
+        "soil_methods": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "const": "all",
+              "type": "string"
+            }
+          ],
+          "description": "Soil laws to run on the same weather and the same ru, or \"all\". Each gives a daily recharge and runoff, written as monthly rows and as yearly recharge, to set beside the run's own and beside a loaded product. The laws read the soil section of the run, else [recharge_estimates.soil]. One ru is not one soil: the ru that closes the budget differs from law to law.",
+          "examples": [
+            "all",
+            [
+              "fao56",
+              "dingman"
+            ]
+          ],
+          "stability": "experimental",
+          "title": "Soil Methods",
+          "value_docs": {
+            "dingman": "Dingman (2008)",
+            "edijatno_michel": "Edijatno and Michel (1989)",
+            "fao56": "Allen et al. (1998), FAO-56",
+            "thornthwaite": "Thornthwaite (1948)"
+          },
+          "x-hmp-profile": "user"
+        },
+        "soil": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SoilReservoirConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The soil the laws of soil_methods run with, when the run has no [flow.sinks_sources.recharge.soil] of its own, such as a run forced by SIM2. Its method is replaced by each law in turn. The run then loads [data.precipitation] and [data.etp], and never reads this soil.",
+          "stability": "experimental",
+          "x-hmp-profile": "user"
+        },
+        "compare_loaded": {
+          "default": false,
+          "description": "In a run whose soil section computes the recharge, load [data.recharge] and [data.runoff] for the comparison only, such as SIM2 DRAINC and RUNC: they are written beside the soil laws and never reach the model. List recharge, and runoff if it has one, in data.types.",
+          "examples": [
+            false
+          ],
+          "stability": "experimental",
+          "title": "Compare Loaded",
+          "type": "boolean",
+          "x-hmp-profile": "user"
         }
       },
       "title": "RechargeEstimatesConfig",
@@ -22260,6 +22338,18 @@
           }
         },
         "^methods__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^soil_methods__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^soil_methods__merge$": {
           "type": "array",
           "items": {
             "type": "string"

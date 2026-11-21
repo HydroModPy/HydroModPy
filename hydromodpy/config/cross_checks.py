@@ -297,6 +297,10 @@ def refuse_the_soil_forcing_a_file_doubles_or_leaves_out(cfg: Any, *, sealed: bo
     # inferred (data/loading/planner.py), so a fully-silent double count
     # would otherwise pass validation.
     declared_data_types = set(getattr(data_cfg, "types", []) or [])
+    if getattr(getattr(cfg, "recharge_estimates", None), "compare_loaded", False):
+        # [recharge_estimates] compare_loaded sets the loaded recharge and runoff aside
+        # before the model is bound, so the model never receives them.
+        declared_data_types -= {"recharge", "runoff"}
     if "recharge" in declared_data_types:
         raise ValueError(
             "[flow.sinks_sources.recharge.soil] computes the recharge from "
@@ -462,9 +466,10 @@ def refuse_a_recharge_the_model_would_not_read(cfg: Any, *, sealed: bool) -> Non
         declared_recharge.peak_rate_mm_day(),
         label="flow.sinks_sources.recharge.values",
     )
+    formula = getattr(getattr(cfg.data, "recharge", None), "formula", None)
     if (
         soil_reservoir_of(cfg.flow) is None
-        and "recharge" in set(getattr(cfg.data, "types", []) or [])
+        and ("recharge" in set(getattr(cfg.data, "types", []) or []) or formula is not None)
         and declared_recharge.peak_rate_mm_day() != 0.0
     ):
         raise ValueError(
@@ -472,6 +477,63 @@ def refuse_a_recharge_the_model_would_not_read(cfg: Any, *, sealed: bool) -> Non
             "replaced by the series [data.recharge] loads, so the model would not read "
             "it: remove values (write values__delete = true if a base file declares "
             'it), or remove "recharge" from data.types to impose this rate.'
+        )
+
+
+def refuse_a_recharge_formula_the_run_cannot_take(cfg: Any, *, sealed: bool) -> None:
+    """Refuse a yearly recharge formula outside a steady run, or beside what replaces it."""
+    formula = getattr(getattr(cfg.data, "recharge", None), "formula", None)
+    if formula is None:
+        return
+    written = f'[data.recharge] formula = "{formula}"'
+    if cfg.flow.flow_regime != "steady":
+        raise ValueError(
+            f"{written} gives one value a year, and this run is transient: no share of the "
+            'year is invented for it. Set [flow] flow_regime = "steady", or load a daily '
+            "recharge, or compute it with [flow.sinks_sources.recharge.soil]. The formula "
+            "stays a comparison under [recharge_estimates] methods."
+        )
+    recharge = getattr(cfg.flow.sinks_sources, "recharge", None)
+    if soil_reservoir_of(cfg.flow) is not None:
+        raise ValueError(
+            f"{written} and [flow.sinks_sources.recharge.soil] both give the recharge: "
+            "remove one of them."
+        )
+    if getattr(recharge, "scenario", None) is not None:
+        raise ValueError(
+            f"{written} gives one steady rate, and [flow.sinks_sources.recharge.scenario] "
+            "rebuilds a series month by month: remove the scenario."
+        )
+
+
+def refuse_a_comparison_the_run_cannot_make(cfg: Any, *, sealed: bool) -> None:
+    """Refuse soil laws with no soil to run on, or a loaded product with nothing to compare."""
+    estimates = getattr(cfg, "recharge_estimates", None)
+    if estimates is None:
+        return
+    run_soil = soil_reservoir_of(cfg.flow)
+    if estimates.laws() and run_soil is None and estimates.soil is None:
+        raise ValueError(
+            "[recharge_estimates] soil_methods runs the soil laws with the soil of the run, "
+            "and this run has no [flow.sinks_sources.recharge.soil]: add "
+            "[recharge_estimates.soil] with its ru, such as ru = 150, for the comparison only."
+        )
+    if estimates.soil is not None and run_soil is not None:
+        raise ValueError(
+            "[recharge_estimates.soil] and [flow.sinks_sources.recharge.soil] both give the "
+            "soil of the laws: remove [recharge_estimates.soil], the laws read the run's soil."
+        )
+    if estimates.compare_loaded and run_soil is None:
+        raise ValueError(
+            "[recharge_estimates] compare_loaded sets the loaded recharge aside from a soil "
+            "run, and this run has no soil section: its loaded recharge is the run's own, "
+            "written as run. Remove compare_loaded."
+        )
+    if estimates.compare_loaded and "recharge" not in set(getattr(cfg.data, "types", []) or []):
+        raise ValueError(
+            '[recharge_estimates] compare_loaded compares the loaded recharge, and "recharge" '
+            "is not in data.types: add it, with a [data.recharge] source such as "
+            'source = "sim2", and "runoff" with its [data.runoff] if the product has one.'
         )
 
 
@@ -1002,7 +1064,10 @@ CROSS_RULES: dict[str, CrossRule] = {
             "incompatible",
         ),
         CrossRule(coarse_conductivity_profile, _reads("solver", "domain", "flow")),
-        CrossRule(refuse_the_soil_forcing_a_file_doubles_or_leaves_out, _reads("flow", "data")),
+        CrossRule(
+            refuse_the_soil_forcing_a_file_doubles_or_leaves_out,
+            _reads("flow", "data", "recharge_estimates"),
+        ),
         CrossRule(refuse_a_soil_recharge_that_cannot_reach_the_streams, _reads("flow")),
         CrossRule(refuse_soil_precipitation_in_parts, _reads("flow", "data")),
         CrossRule(
@@ -1011,6 +1076,10 @@ CROSS_RULES: dict[str, CrossRule] = {
             reads_the_time=True,
         ),
         CrossRule(refuse_a_recharge_the_model_would_not_read, _reads("flow", "data")),
+        CrossRule(refuse_a_recharge_formula_the_run_cannot_take, _reads("flow", "data")),
+        CrossRule(
+            refuse_a_comparison_the_run_cannot_make, _reads("flow", "data", "recharge_estimates")
+        ),
         CrossRule(refuse_a_soil_raster_without_the_soil, _reads("flow", "data")),
         CrossRule(refuse_a_soil_value_its_map_replaces, _reads("flow", "data")),
         CrossRule(refuse_layer_bases_that_do_not_match, _reads("domain", "data")),
@@ -1104,6 +1173,8 @@ __all__ = [
     "refuse_a_metrics_window_outside_the_run",
     "refuse_a_raster_depth_without_its_substratum",
     "refuse_a_real_catchment_without_a_site",
+    "refuse_a_comparison_the_run_cannot_make",
+    "refuse_a_recharge_formula_the_run_cannot_take",
     "refuse_a_recharge_the_model_would_not_read",
     "refuse_a_river_mesh_without_a_threshold",
     "refuse_a_soil_raster_without_the_soil",

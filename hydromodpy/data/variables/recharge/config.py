@@ -18,6 +18,7 @@ from hydromodpy.data.families.timeseries_config import (
     UrlSourceFieldsMixin,
     registered_section_source,
 )
+from hydromodpy.model.forcing.recharge_estimators import ESTIMATORS, WEATHER_ESTIMATORS
 
 
 class RechargeSourceConfig(UrlSourceFieldsMixin, TimeseriesColumnsMixin, TimeseriesSelectionMixin):
@@ -155,10 +156,45 @@ class RechargeConfig(BaseVariableConfig):
     _TOML_SECTION = "recharge"
 
     sources: Annotated[list[RechargeSourceConfig], Profile.USER] = Field(
-        ...,
-        min_length=1,
-        description="At least one data source.",
+        default_factory=list,
+        description="Data sources of the recharge. Write at least one, or a formula, not both.",
     )
+    formula: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Compute a steady recharge from the yearly weather instead of loading a series: "
+            "the formula runs on each complete calendar year of the run on the basin mean of "
+            "[data.precipitation] (and of [data.temperature] for turc), and the run takes "
+            "the mean over the years as its one rate. Only a run with [flow] flow_regime = "
+            '"steady" reads it. "turc" gives an effective rainfall, which the run takes whole '
+            "as recharge, so the drains do the share a RIPE would do. Guttman and Zuckerman "
+            "and Kessler were fitted on karsts."
+        ),
+        json_schema_extra=field_metadata(
+            value_docs={name: ESTIMATORS[name].reference for name in WEATHER_ESTIMATORS},
+            stability="experimental",
+        ),
+        examples=["turc"],
+    )
+
+    @field_validator("formula")
+    @classmethod
+    def _formula_is_known(cls, formula: str | None) -> str | None:
+        if formula is not None and formula not in WEATHER_ESTIMATORS:
+            names = ", ".join(f'"{name}"' for name in WEATHER_ESTIMATORS)
+            raise ValueError(
+                f"formula = {formula!r} is not a yearly recharge formula: write one of {names}."
+            )
+        return formula
+
+    @model_validator(mode="after")
+    def _sources_or_formula(self) -> RechargeConfig:
+        if bool(self.sources) == (self.formula is not None):
+            raise ValueError(
+                "[data.recharge] loads its recharge from sources or computes it with a "
+                'formula: write [[data.recharge.sources]], or formula = "turc", one of the two.'
+            )
+        return self
 
     @classmethod
     def sim2(
