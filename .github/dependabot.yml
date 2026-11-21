@@ -17,6 +17,14 @@ updates:
       python-dependencies:
         patterns:
           - "*"
+    # A major version of these two breaks the tree and is taken by hand.
+    # whitebox-workflows 2 dropped the `compress` argument of write_raster,
+    # pandas 3 returns NaN where the frozen runs expect None.
+    ignore:
+      - dependency-name: "whitebox-workflows"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pandas"
+        update-types: ["version-update:semver-major"]
     labels:
       - dependencies
       - python
@@ -51,6 +59,10 @@ updates:
       docker-images:
         patterns:
           - "*"
+    # The image follows requires-python in pyproject.toml, which stops at 3.13.
+    ignore:
+      - dependency-name: "python"
+        versions: [">= 3.14"]
     labels:
       - dependencies
       - docker
