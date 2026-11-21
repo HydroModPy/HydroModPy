@@ -55,12 +55,9 @@ from hydromodpy.mesh.planar.planar_cell_mesh import (
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
-from hydromodpy.mesh.request import MeshRequest
+from hydromodpy.mesh.request import RIVER_FAMILY, MeshRequest
 
 __all__ = ["dual_chains", "dual_face_families", "river_faces", "side_faces", "dual_cell_mesh"]
-
-RIVERS_FAMILY = "rivers"
-"""The family whose faces the river edges cross, and whose cells form the chains."""
 
 CENTRE_TOLERANCE_REL = 1.0e-6
 """A cell is centered on a side within this share of its size."""
@@ -220,7 +217,7 @@ def river_faces(
     triangulated: TriangulatedRequest, geometry: DerivedGeometry, vertices: np.ndarray
 ) -> FamilyEdges | None:
     """The dual faces a river edge of the triangulation crosses, so the river cells touch them."""
-    rivers = triangulated.families.get(RIVERS_FAMILY)
+    rivers = triangulated.families.get(RIVER_FAMILY)
     if rivers is None or rivers.node_a.size == 0:
         return None
     generators = np.asarray(triangulated.mesh.vertices, dtype=float)
@@ -231,7 +228,7 @@ def river_faces(
         np.stack([vertices[geometry.edge_nodes[:, 0]], vertices[geometry.edge_nodes[:, 1]]], axis=1)
     )
     edges = np.unique(STRtree(faces).query(river_edges, predicate="intersects")[1])
-    return _plain_rows(RIVERS_FAMILY, edges, geometry) if edges.size else None
+    return _plain_rows(RIVER_FAMILY, edges, geometry) if edges.size else None
 
 
 def side_faces(

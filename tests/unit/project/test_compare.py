@@ -34,6 +34,7 @@ def make_run(
     gauge="G",
     unit="m3 s-1",
     networks=(),
+    river=None,
     flows=True,
     regime="transient",
     fields=("watertable_elevation", "watertable_depth", "head"),
@@ -111,6 +112,7 @@ def make_run(
         budget=lambda: budget,
         has_field=lambda v: v in fields or (flows and v == "drain_accumulation_flux"),
         has_hydrographic_network=lambda role: role in networks,
+        config_snapshot={"geographic": {"river_network": river or {}}},
         observed=lambda v: pd.DataFrame({"datetime": stamps, "value": 1.0}),
     )
 
@@ -267,25 +269,45 @@ def test_run_without_budget() -> None:
 def test_network_table(monkeypatch) -> None:
     def overlap(run, network_role):
         assert run.name == "a"
-        return {"network_role": network_role, "cell_f1_ratio": 0.5, "other": 1}
+        return {
+            "network_role": network_role,
+            "threshold": 0.0,
+            "buffer_m": 0.0,
+            "cell_f1_ratio": 0.5,
+            "other": 1,
+        }
 
     def distance(run, network_role):
-        assert run.name == "a" and network_role.startswith("reference")
-        return {"sim_to_network_distance_median_m": 30.0}
+        assert run.name == "a" and network_role != "generated"
+        return {"distance_method": "planar", "sim_to_network_distance_median_m": 30.0}
 
     monkeypatch.setattr(c.views, "cell_field_network_overlap_metrics", overlap)
     monkeypatch.setattr(c.views, "cell_field_network_distance_metrics", distance)
+    river = {"threshold_mode": "area_km2", "threshold_area_km2": 0.5, "threshold_cells": 80.0}
     runs = [
-        make_run(networks=("reference", "reference_permanent")),
+        make_run(networks=("reference", "reference_permanent", "mesh_constraint"), river=river),
         make_run("b", networks=("generated",)),
         make_run("c", networks=("reference",), flows=False),
     ]
     table = c.network_table(runs)
-    columns = ["run", "network_role", "cell_f1_ratio", "sim_to_network_distance_median_m"]
-    assert table[columns].values.tolist() == [
-        ["a", "reference", 0.5, 30.0],
-        ["a", "reference_permanent", 0.5, 30.0],
+    columns = [
+        "run",
+        "network_role",
+        "threshold",
+        "buffer_m",
+        "distance_method",
+        "cell_f1_ratio",
+        "sim_to_network_distance_median_m",
     ]
+    assert table[columns].values.tolist() == [
+        ["a", "reference", 0.0, 0.0, "planar", 0.5, 30.0],
+        ["a", "reference_permanent", 0.0, 0.0, "planar", 0.5, 30.0],
+        ["a", "mesh_constraint", 0.0, 0.0, "planar", 0.5, 30.0],
+    ]
+    # Only the mesh row is cut by the threshold that traced its streams, and only by its mode.
+    assert table["trace_threshold_area_km2"].tolist()[2] == 0.5
+    assert table["trace_threshold_area_km2"].isna().tolist()[:2] == [True, True]
+    assert table["trace_threshold_cells"].isna().all()
     assert "other" not in table
     assert c.network_table(runs[1:]).empty
 

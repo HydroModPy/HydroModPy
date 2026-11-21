@@ -180,6 +180,8 @@ Put differently:
 - the runtime then groups available roles in ``HydrographicNetworks``
 - the ``Run`` facade exposes reading and comparison operations over the
   persisted networks
+- ``mesh_constraint`` is never stored: the ``Run`` rebuilds it on read from the
+  ``rivers`` chains of the stored mesh
 
 This is why HydroModPy does not use one "god object" for hydrographic
 networks. It keeps:

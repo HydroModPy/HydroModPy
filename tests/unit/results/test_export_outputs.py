@@ -43,6 +43,7 @@ from hydromodpy.display.theme import get_theme
 from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, FaceFamilyTable, PlanarCellMesh
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.derive import views
 from hydromodpy.results.exporters import job as job_module
 from hydromodpy.results.exporters import request as request_module
 from hydromodpy.results.exporters import vocabulary
@@ -1104,6 +1105,51 @@ def test_no_family_faces_layer(project):
         assert "no face on a line family" in mesh_layer_reasons(catalog, sid)["mesh_family_faces"]
         with pytest.raises(ExportError, match="mesh_family_faces: the mesh has no face on a line"):
             export_run(catalog, sid, ExportRequest(variable="mesh_family_faces"))
+
+
+def test_mesh_constraint_network(catalog, new_run, old_run):
+    run = catalog[new_run]
+
+    network = run.hydrographic_network("mesh_constraint")
+
+    assert "mesh_constraint" in run.available_hydrographic_network_roles()
+    assert network[["family", "chain_id", "n_cells"]].values.tolist() == [["rivers", 3, 4]]
+    assert CRS(network.crs) == CRS.from_epsg(2154)
+    # The chain joins the centers of cells 4 to 7, the middle row of the 25 m grid.
+    np.testing.assert_allclose(
+        shapely.get_coordinates(network.geometry.iloc[0]),
+        [[500000.0 + 12.5 + 25.0 * k, 6800000.0 + 37.5] for k in range(4)],
+    )
+    assert not catalog[old_run].has_hydrographic_network("mesh_constraint")
+    with pytest.raises(KeyError, match="stores no river chain"):
+        catalog[old_run].hydrographic_network("mesh_constraint")
+
+
+def test_mesh_constraint_scores(project):
+    flowing = np.zeros(12)
+    flowing[[4, 5, 6, 7, 8]] = 1.0
+
+    def write_flow(store: RunStore, sid: str) -> None:
+        for t in range(2):
+            store.write_field(sid, "head", t, flowing[None, :], n_timesteps=2 if t == 0 else None)
+
+    sid = _seal_mesh_run(project, "flowing", _grid(), before_seal=write_flow)
+    with Catalog(project) as catalog:
+        run = catalog[sid]
+        overlap = views.cell_field_network_overlap_metrics(
+            run, network_role="mesh_constraint", variable="head", threshold=0.5
+        )
+        distance = views.cell_field_network_distance_metrics(
+            run, network_role="mesh_constraint", variable="head", threshold=0.5
+        )
+
+    # The four river cells flow, and cell 8 flows beside them.
+    assert (overlap["network_cell_count"], overlap["active_cell_count"]) == (4, 5)
+    assert overlap["network_coverage_ratio"] == pytest.approx(1.0)
+    assert overlap["active_precision_ratio"] == pytest.approx(0.8)
+    assert distance["network_to_sim_distance_median_m"] == pytest.approx(0.0)
+    # Cell 8 sits one row above the line through the centers of the river cells.
+    assert distance["sim_to_network_distance_max_m"] == pytest.approx(25.0)
 
 
 def test_all_writes_mesh_layers(catalog, new_run):

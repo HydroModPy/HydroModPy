@@ -76,8 +76,8 @@ Common mistakes
 - ``generated_bands`` for a radial case, or ``generated_rings`` for a zoning that really comes
   from catchment data.
 
-Three networks, three roles
----------------------------
+The network roles
+-----------------
 
 ``HydrographicNetworkRole`` in ``hydromodpy/catchment/algorithms/hydrographic_network.py`` names
 the networks of a project. ``reference`` is loaded from external hydrography data. ``generated``
@@ -85,7 +85,10 @@ is derived from the DEM and stored as one geographic feature. ``simulated_active
 simulated drainage fields. The slot exists in the type contract, and
 ``Run.available_hydrographic_network_roles()`` knows its name. No workflow step writes a
 ``hydrographic_network_simulated_active`` feature, so the slot stays empty. The simulated active
-network is a view of a run and not a stored vector network. The theory is in
+network is a view of a run and not a stored vector network. ``mesh_constraint`` is the river the
+mesh carries. ``Run.hydrographic_network("mesh_constraint")`` rebuilds it on read from the
+``rivers`` chains of the stored mesh, one line per chain through the solver centers, in
+``hydromodpy/results/run/mesh_families.py``. The theory is in
 :doc:`/theory/exits/simulated-network`.
 
 What a run offers

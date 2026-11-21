@@ -178,16 +178,20 @@ In the code: `build_simulated_network`.
 (network-diagnostics)=
 ## Comparing a network with a map
 
-A run stores up to three line networks, each under a role:
+A run serves up to four line networks, each under a role:
 
 | Role | The network |
 |---|---|
 | `reference` | the mapped network read from {toml}`data.hydrography` |
 | `reference_permanent` | the reaches of the mapped network that flow all year, when the source says which |
 | `generated` | the network traced on the routing of the DEM, {toml}`geographic.river_network` |
+| `mesh_constraint` | the rivers the mesh carries, one line per chain of river cells through their solver centers |
 
-The roles `simulated_active` and `mesh_constraint` are reserved names that no run
-writes today: the simulated network is the cell field above. A mapped network is
+The first three are stored. `mesh_constraint` is rebuilt on read from the river chains of
+the stored mesh, so a run whose mesh followed no river has none. It is the traced network
+as the solver sees it, so it departs from the traced line by the distance of the cell
+centers to it. A river that falls in one cell has no line. The role `simulated_active` is a
+reserved name that no run writes: the simulated network is the cell field above. A mapped network is
 never a model input: it enters a criterion, a figure or a diagnostic, never the
 model top or the routing.
 

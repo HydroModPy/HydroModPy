@@ -34,7 +34,18 @@ from hydromodpy.results.storage.contract import RUN_REPORT_DIRNAME
 MAP_VARIABLES = ("watertable_elevation", "watertable_depth")
 SERIES_VARIABLES = ("discharge", "head")
 SCORES = ("nse", "kge", "bias")
-NETWORK_ROLES = ("reference", "reference_permanent")
+NETWORK_ROLES = ("reference", "reference_permanent", "mesh_constraint")
+NETWORK_SETTINGS = (
+    "source_variable",
+    "mode",
+    "threshold",
+    "persistence_threshold",
+    "timestep",
+    "buffer_m",
+    "network_buffer_m",
+    "distance_method",
+)
+"""The columns of the network table that say how its scores were cut."""
 STEADY = pd.Timestamp("1970-01-01 00:00:01")
 """A steady run has no date that compares, so this stamp stands for its only step."""
 
@@ -407,18 +418,40 @@ def budget_table(runs: Sequence[Run], start: pd.Timestamp, end: pd.Timestamp) ->
 
 
 def network_table(runs: Sequence[Run]) -> pd.DataFrame:
-    """How the cells that flow match each mapped network, one row per run and network."""
+    """How the cells that flow match each network, one row per run and network.
+
+    A row names how its cells were chosen beside its scores: the field, the
+    active rule and its thresholds, the buffer and the distance rule. The
+    ``mesh_constraint`` row also names the contributing area or cell count that
+    started the traced streams the mesh follows.
+    """
     rows = [
         {"run": run.name}
         | views.cell_field_network_overlap_metrics(run, network_role=role)
         | views.cell_field_network_distance_metrics(run, network_role=role)
+        | (trace_threshold(run) if role == "mesh_constraint" else {})
         for run in runs
         for role in NETWORK_ROLES
         if run.has_field("drain_accumulation_flux") and run.has_hydrographic_network(role)
     ]
     kept = ("_ratio", "_median_m")
+    first = ("run", "network_role", *NETWORK_SETTINGS, *TRACE_THRESHOLDS)
     table = pd.DataFrame(rows)
-    return table[[c for c in table if c in ("run", "network_role") or c.endswith(kept)]]
+    return table[[c for c in table if c in first or c.endswith(kept)]]
+
+
+TRACE_THRESHOLDS = ("trace_threshold_area_km2", "trace_threshold_cells")
+"""The two ways ``[geographic.river_network]`` starts a stream, one column each."""
+
+
+def trace_threshold(run: Run) -> dict[str, float | None]:
+    """Return the threshold that started the traced streams of *run*, None when it sealed none."""
+    river = ((run.config_snapshot or {}).get("geographic") or {}).get("river_network") or {}
+    mode = river.get("threshold_mode")
+    return {
+        "trace_threshold_area_km2": river.get("threshold_area_km2") if mode == "area_km2" else None,
+        "trace_threshold_cells": river.get("threshold_cells") if mode == "cells" else None,
+    }
 
 
 def resolve_references(refs: Sequence[str], *, project_root: Path | None) -> list[list[Run]]:

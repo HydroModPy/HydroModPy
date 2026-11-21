@@ -18,6 +18,11 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
+### Added
+
+- `Run.hydrographic_network("mesh_constraint")` returns the rivers the mesh carries, one line per chain of river cells through their solver centers. `hmp compare` scores the flowing cells against it beside the mapped networks.
+- The `network` table of `hmp compare` now keeps how each row was cut: the field, the active rule, its thresholds, the buffer, the distance rule and, for the mesh row, the contributing area or cell count that traced its streams.
+
 ### Numbers
 
 <!-- numbers:begin -->

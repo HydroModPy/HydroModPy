@@ -526,6 +526,24 @@ What the code does not represent:
 - **The two-bound mode is outside the protocol.** The protocol scores its network
   output at its steady stage, and an extent table is refused on a steady search. Its
   transient stage scores the hydrograph alone. A two-bound search is written by hand.
+- **Intermittent reaches.** A complete map mixes the reaches that flow all year with
+  those that flow part of it. A one-state output scores it against one state, so an
+  intermittent reach counts as if it flowed in that state. Only
+  {toml}`calibration.outputs.<name>.map.permanent` and the two-bound mode separate the two,
+  and only when the source says which reach is permanent. The code does not know when an
+  intermittent reach flows.
+- **The resolution of the DEM.** The model top and the descent $D$ come from the DEM,
+  so the simulated network cannot sit closer to a talweg than the DEM places it. A mesh
+  finer than the DEM does not place it better. Under the heads rule the map is drawn on
+  the same descent and shares that error. Under `crossing` or `touch` it is drawn where
+  the lines are, so a talweg the DEM shifts leaves a distance that no parameter closes.
+- **Tracing error and snapping.** The cost reads the mapped lines as exact.
+  {toml}`calibration.outputs.<name>.map.position_accuracy` enters the validity length only.
+  Under the heads rule a head lands up to {toml}`calibration.outputs.<name>.map.heads.radius`
+  from its point, on a cell that drains at least
+  {toml}`calibration.outputs.<name>.map.heads.min_drained_area`. A head that lands in the
+  next talweg, or is lost, changes the drawn map, and no part of that uncertainty is
+  carried into the score.
 - **Domain of validity.** The method was built for unconfined aquifers in a
   temperate humid climate, with gentle gradients and a strong groundwater-stream
   connection. Outside that, the criterion still computes, and it means less.

@@ -59,6 +59,9 @@ BARRIER_FAMILY = "barriers"
 """The face family of the flow barriers: an engine follows its corners and free ends,
 and a staircase engine bars the faces its lines cross."""
 
+RIVER_FAMILY = "rivers"
+"""The cell family of the rivers: its cells form ordered chains, upstream first."""
+
 FAMILY_NAMES: frozenset[str] = frozenset(
     {"rivers", "geology", "lakes", "barriers", "watershed_boundary"}
 )
