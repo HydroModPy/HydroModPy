@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from hydromodpy.data.variables.hydrography.config import HydrographyConfig
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
     from hydromodpy.data.variables.impervious.config import ImperviousConfig
+    from hydromodpy.data.variables.infiltration_ratio.config import InfiltrationRatioConfig
     from hydromodpy.data.variables.intermittency.config import IntermittencyConfig
     from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
     from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
@@ -242,6 +243,14 @@ class DataConfig(HydroModelBase):
         description=(
             "Sealed share of the ground, 0 to 1 per pixel, read by the soil reservoir in "
             "place of its impervious_fraction ([flow.sinks_sources.recharge.soil])."
+        ),
+    )
+    infiltration_ratio: Annotated[InfiltrationRatioConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Share of the soil excess that reaches the aquifer, 0 to 1 per pixel, read by "
+            "the soil reservoir in place of its infiltration_ratio "
+            "([flow.sinks_sources.recharge.soil]); the rest runs off."
         ),
     )
     curve_number: Annotated[CurveNumberConfig | None, Profile.USER] = Field(

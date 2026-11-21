@@ -545,8 +545,7 @@ SOIL_RASTERS: dict[str, str | None] = {
 
 
 def refuse_a_soil_raster_without_the_soil(cfg: Any, *, sealed: bool) -> None:
-    """Refuse ``[data.soil_capacity]``, ``[data.impervious]`` or ``[data.curve_number]``
-    when no soil reservoir reads it."""
+    """Refuse ``[data.soil_capacity]`` or a soil map of ``SOIL_MAPS`` when no soil reads it."""
     if soil_reservoir_of(cfg.flow) is not None:
         return
     for family in SOIL_RASTERS:
@@ -559,7 +558,7 @@ def refuse_a_soil_raster_without_the_soil(cfg: Any, *, sealed: bool) -> None:
 
 
 def refuse_a_soil_value_its_map_replaces(cfg: Any, *, sealed: bool) -> None:
-    """Refuse ``impervious_fraction`` or ``curve_number`` written beside the map that replaces it."""
+    """Refuse a value of the soil section written beside the map that replaces it."""
     soil = soil_reservoir_of(cfg.flow)
     if soil is None:
         return

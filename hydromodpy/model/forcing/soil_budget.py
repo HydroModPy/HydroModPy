@@ -115,7 +115,7 @@ def _header_line(days: np.ndarray, n_cells: int, n_classes: int, *, has_raster: 
 
 
 def map_mean(forcings: SoilForcings, name: str) -> float | None:
-    """Basin mean of the ``impervious`` or ``curve_number`` map, None without a map."""
+    """Basin mean of the soil map ``name`` (a key of ``SOIL_MAPS``), None without a map."""
     values = getattr(forcings.columns, name)
     if values is None:
         return None
@@ -127,6 +127,7 @@ def _parameters_line(forcings: SoilForcings) -> str:
     raster_mean_mm = forcings.columns.raster_mean_mm
     impervious_mean = map_mean(forcings, "impervious")
     curve_number_mean = map_mean(forcings, "curve_number")
+    ratio_mean = map_mean(forcings, "infiltration_ratio")
     curve_number = config.curve_number if curve_number_mean is None else curve_number_mean
     ru_clause = (
         f"ru {config.ru:g} mm (raster mean {raster_mean_mm:.0f} mm rescaled)"
@@ -146,6 +147,13 @@ def _parameters_line(forcings: SoilForcings) -> str:
         if impervious_mean is None
         else f"impervious {100 * impervious_mean:.3g} % (basin mean of [data.impervious])"
     )
+    ratio = config.infiltration_ratio if ratio_mean is None else ratio_mean
+    ratio_clause = (
+        ""
+        if ratio_mean is None and config.infiltration_ratio == 1.0
+        else f", infiltration ratio {ratio:.3g}"
+        + ("" if ratio_mean is None else " (basin mean of [data.infiltration_ratio])")
+    )
     alpha_clause = f", alpha {config.alpha:g}" if SOIL_METHODS[config.method].reads_alpha else ""
     kc = config.kc
     kc_clause = (
@@ -163,7 +171,7 @@ def _parameters_line(forcings: SoilForcings) -> str:
         f"method {config.method}, {ru_clause}{alpha_clause}, {kc_clause}{snow_clause}, "
         f"{impervious_clause}, "
         f"bypass {100 * config.bypass_fraction:.3g} %, "
-        f"transit time {config.transit_time:g} days{cn_clause}"
+        f"transit time {config.transit_time:g} days{cn_clause}{ratio_clause}"
     )
 
 
@@ -261,7 +269,8 @@ def soil_budget_lines(
         + annual.lag_storage_change
         + annual.snow_storage_change
     )
-    impervious_only = annual.runoff - annual.runoff_cn
+    quick = annual.runoff_quick if annual.runoff_quick is not None else 0.0 * annual.runoff
+    impervious_only = annual.runoff - annual.runoff_cn - quick
 
     lines = [
         _header_line(days, n_cells, n_classes, has_raster=raster_mean_mm is not None),
@@ -279,6 +288,10 @@ def soil_budget_lines(
             _data_row(
                 "curve-number runoff", annual.runoff_cn, annual.weights, scale, dry_idx, wet_idx
             )
+        )
+    if np.any(np.asarray(forcings.parameters.infiltration_ratio) != 1.0):
+        lines.append(
+            _data_row("quick runoff (1 - ratio)", quick, annual.weights, scale, dry_idx, wet_idx)
         )
     lines.extend(
         [

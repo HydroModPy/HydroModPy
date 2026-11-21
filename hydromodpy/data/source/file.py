@@ -207,6 +207,10 @@ class ImperviousFile(FileSource):
     section = "impervious"
 
 
+class InfiltrationRatioFile(FileSource):
+    section = "infiltration_ratio"
+
+
 class SoilCapacityFile(FileSource):
     section = "soil_capacity"
 
@@ -257,6 +261,7 @@ __all__ = [
     "RechargeFile",
     "RunoffFile",
     "CurveNumberFile",
+    "InfiltrationRatioFile",
     "ImperviousFile",
     "SoilCapacityFile",
     "SoilMoistureFile",

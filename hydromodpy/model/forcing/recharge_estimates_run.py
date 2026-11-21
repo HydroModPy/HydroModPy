@@ -171,6 +171,43 @@ def _weather_rows(
     return rows, notes
 
 
+def wallingford_baseflow(gauge: pd.Series) -> tuple[list[pd.Series], pd.Series, pd.Series] | str:
+    """The gauge cut at its long gaps, its Wallingford baseflow and its yearly index.
+
+    Returns the daily pieces of the gauge, the daily baseflow in mm/day, and the
+    baseflow index of each calendar year covered on 90 % of its days, or why there
+    is none.
+    """
+    pieces = daily_pieces(gauge, GAP_DAYS_DISCHARGE)
+    if not pieces:
+        return "the gauge holds no stretch of 10 days"
+    wall = pd.concat([pd.Series(wallingford(p.to_numpy()), index=p.index) for p in pieces])
+    flow = pd.concat(pieces)
+    wall_years = annual_totals(wall)
+    flow_years = flow[wall.notna()].groupby(flow[wall.notna()].index.year).sum()
+    base_years = wall.dropna().groupby(wall.dropna().index.year).sum()
+    return pieces, wall, (base_years / flow_years).reindex(wall_years.index)
+
+
+def gauge_infiltration_ratio(gauge: pd.Series | str) -> tuple[float, pd.Series] | str:
+    """The infiltration ratio ESPERE proposes, the lowest yearly Wallingford index, or why none.
+
+    ESPERE v2 (BRGM RP-69538-FR, section 2.2.4, after Caballero et al. 2020) takes
+    the smallest baseflow index of the years on record as the share of the
+    effective rainfall that reaches the aquifer. It is printed for the user to
+    copy into ``infiltration_ratio``: the gauge the run is scored on never sets it.
+    """
+    if isinstance(gauge, str):
+        return gauge
+    found = wallingford_baseflow(gauge)
+    if isinstance(found, str):
+        return found
+    yearly = found[2].dropna()
+    if yearly.empty:
+        return "no calendar year of the gauge is covered on 90 % of its days"
+    return round(float(yearly.min()), 2), yearly
+
+
 def _gauge_rows(
     selected: tuple[str, ...], config: RechargeEstimatesConfig, gauge: pd.Series | str
 ) -> tuple[list[dict], list[str]]:
@@ -180,20 +217,18 @@ def _gauge_rows(
         return rows, []
     if isinstance(gauge, str):
         return rows, [f"{name}: {gauge}" for name in wants]
-    pieces = daily_pieces(gauge, GAP_DAYS_DISCHARGE)
-    if not pieces:
-        return rows, [f"{name}: the gauge holds no stretch of 10 days" for name in wants]
-
-    wall = pd.concat([pd.Series(wallingford(p.to_numpy()), index=p.index) for p in pieces])
-    flow = pd.concat(pieces)
+    found = wallingford_baseflow(gauge)
+    if isinstance(found, str):
+        return rows, [f"{name}: {found}" for name in wants]
+    pieces, wall, bfi = found
     wall_years = annual_totals(wall)
-    flow_years = flow[wall.notna()].groupby(flow[wall.notna()].index.year).sum()
-    base_years = wall.dropna().groupby(wall.dropna().index.year).sum()
-    bfi = (base_years / flow_years).reindex(wall_years.index)
     if "wallingford" in wants:
         for year, value in wall_years.items():
             rows.append(_row("wallingford", int(year), "recharge", value))
             rows.append(_row("wallingford", int(year), "baseflow_index", bfi[year], unit="-"))
+        if bfi.notna().any():
+            ratio = round(float(bfi.min()), 2)
+            rows.append(_row("wallingford", None, "infiltration_ratio", ratio, unit="-"))
 
     notes: list[str] = []
     k_read = [recession_constant(p.to_numpy()) for p in pieces]
@@ -415,6 +450,13 @@ def estimate_lines(rows: list[dict], notes: list[str]) -> tuple[str, ...]:
                 for method, row in per_year.iterrows()
             ]
             lines.append(f"  runoff of the same, mm/year: {', '.join(parts)}")
+        ratio = frame[frame["quantity"] == "infiltration_ratio"]
+        if not ratio.empty:
+            lines.append(
+                f"  infiltration ratio {ratio['value'].iloc[0]:.2f}: the lowest yearly baseflow "
+                "index of Wallingford, ESPERE's rule; write it as infiltration_ratio to send "
+                "the rest of the soil excess to the streams"
+            )
         factor = frame[frame["method"] == "closing_factor"]
         if not factor.empty:
             lines.append(
@@ -458,12 +500,14 @@ __all__ = [
     "basin_series",
     "estimate_lines",
     "estimate_recharge",
+    "gauge_infiltration_ratio",
     "gauge_mm_per_day",
     "monthly_sums",
     "signal_rows",
     "soil_law_water",
     "run_water_series",
     "soil_rain_minus_etr",
+    "wallingford_baseflow",
     "water_balance_rows",
     "weather_estimate",
 ]

@@ -883,6 +883,26 @@ ROWS: list[tuple[str, str, Any, str]] = [
         "writes curve_number, and [data.curve_number] gives it cell by cell",
     ),
     (
+        "refuse_a_soil_value_its_map_replaces",
+        "infiltration ratio written beside its map",
+        lambda d: _document(
+            d.soil,
+            flow=_ns(
+                sinks_sources=_ns(
+                    recharge=_ns(soil=SoilReservoirConfig(ru=150.0, infiltration_ratio=0.7))
+                )
+            ),
+            data=_ns(infiltration_ratio=object(), types=[]),
+        ),
+        "writes infiltration_ratio, and [data.infiltration_ratio] gives it cell by cell",
+    ),
+    (
+        "refuse_a_soil_raster_without_the_soil",
+        "infiltration ratio",
+        lambda d: _document(d.plain, data=_ns(infiltration_ratio=object(), types=[])),
+        "[data.infiltration_ratio] is read only by the soil reservoir",
+    ),
+    (
         "refuse_layer_bases_that_do_not_match",
         "base not declared",
         lambda d: _document(

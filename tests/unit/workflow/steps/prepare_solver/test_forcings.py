@@ -210,6 +210,7 @@ def _make_soil() -> SimpleNamespace:
         basin_weight=np.full(N_COLUMNS, 1.0 / N_COLUMNS),
         impervious=None,
         curve_number=None,
+        infiltration_ratio=None,
     )
     return SimpleNamespace(
         recharge=_field_record("recharge", fluxes.recharge, days),

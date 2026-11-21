@@ -239,6 +239,28 @@ calibrated bypass often stands in for the slow drainage that this store does not
 0.18 and 0.36 mm/day of recharge from July to September, for 0.000 without a bypass. So a bypass
 rebuilds a summer floor, and it stays at 0 unless the site shows preferential flow.
 
+### Infiltration ratio
+
+The key {toml}`infiltration_ratio|flow.sinks_sources.recharge.soil.infiltration_ratio` gives the
+share $r$ of the water leaving the soil that goes on to the aquifer, the ratio of infiltration of
+the effective rainfall (RIPE) of ESPERE {cite:p}`lanini2016`. The rest runs off on the same day,
+beside the sealed share and the curve number, so the inflow of the transit store and the quick
+runoff read
+
+$$
+I_t = r\,(X_t + B_t), \qquad Q^{\text{quick}}_t = (1 - r)\,(X_t + B_t).
+$$ (eq-soil-ratio)
+
+With $r = 1$, the default, all of it reaches the aquifer and the drains of MODFLOW give back what
+saturates, bit for bit as before. ESPERE v2 proposes the lowest yearly baseflow index of the
+Wallingford filter on the gauge, after Caballero et al. (2020, BRGM/RP-69217-FR). The soil budget
+of `hmp run --until load_data` prints that value when a gauge is loaded, and the user copies it,
+since the gauge the run is scored on never sets the model by itself. On the Nancon over 2015 to
+2020 the lowest index is 0.70. With it the recharge falls from 421 to 295 mm/year and 126 mm/year
+runs off. The pbias of the discharge moves from 20.5 % to 22.1 %, so the quick runoff reaches the
+gauge, and the ru that closes the budget does not move, because the gauge sees recharge and runoff
+together.
+
 ### Transit through the unsaturated zone
 
 The water can take time to cross the unsaturated zone. The key
@@ -364,8 +386,8 @@ mean capacity and the raster only spreads it. A capacity spread below the cell b
 family of {cite:t}`moore2007`, and these classes are our choice. The basin value of a flux gives
 each cell its share of the catchment, or the same weight without a catchment polygon.
 
-{toml}`data.impervious` and {toml}`data.curve_number` give the sealed share and the curve number
-as rasters. Each cell takes the mean of the pixels that lie inside the catchment, so a town beside
+{toml}`data.impervious`, {toml}`data.curve_number` and {toml}`data.infiltration_ratio` give the
+sealed share, the curve number and the infiltration ratio as rasters. Each cell takes the mean of the pixels that lie inside the catchment, so a town beside
 the catchment does not seal it, and every column of the cell reads that mean in place of
 {toml}`impervious_fraction|flow.sinks_sources.recharge.soil.impervious_fraction` or
 {toml}`curve_number|flow.sinks_sources.recharge.soil.curve_number`. A cell the catchment does not reach takes the catchment
@@ -374,7 +396,11 @@ burnt on a 10 m grid, or from the built-up class of ESA WorldCover over the worl
 On the Nancon, OCS GE 2023 gives 3.95 % sealed and WorldCover 2021 gives 2.39 %, because a road
 narrower than a 10 m pixel falls in the field beside it. The curve number comes from a file, such
 as the GCN250 map of {cite:t}`jaafar2019`. The mean of a cell is its composite curve number, and
-the SCS law is not linear, so it runs off a little less than its pixels would one by one.
+the SCS law is not linear, so it runs off a little less than its pixels would one by one. The
+infiltration ratio comes from a file or from OCS GE, where the section writes one ratio for each
+cover, keyed by its code or the start of one. HydroModPy ships no value per cover, because no
+published table fits every site. The sealed covers stay out of that map, since the sealed share
+runs them off whole, so a cell averages the ratio over its unsealed ground.
 
 ## Where the pieces come from
 
@@ -505,6 +531,7 @@ flow.sinks_sources.recharge.soil.impervious_fraction
 flow.sinks_sources.recharge.soil.bypass_fraction
 flow.sinks_sources.recharge.soil.transit_time
 flow.sinks_sources.recharge.soil.curve_number
+flow.sinks_sources.recharge.soil.infiltration_ratio
 flow.sinks_sources.recharge.soil.runoff_time
 flow.sinks_sources.recharge.soil.runoff_lag
 flow.sinks_sources.recharge.soil.snow

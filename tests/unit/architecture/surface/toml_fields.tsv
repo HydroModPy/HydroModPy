@@ -307,6 +307,20 @@ data.impervious.sources.url	str	<required>	stable
 data.impervious.sources.year	Literal[2020, 2021]	2021	stable
 data.impervious.sources.year	int	<required>	stable
 data.inference_mode	Literal['warn', 'strict']	'warn'	stable
+data.infiltration_ratio	table | None	None	stable
+data.infiltration_ratio.sources	list[table]	<required>	stable
+data.infiltration_ratio.sources.default_crs	str	'EPSG:2154'	stable
+data.infiltration_ratio.sources.force_refresh	bool	False	stable
+data.infiltration_ratio.sources.license	str | None	None	stable
+data.infiltration_ratio.sources.mask_path	Path | None	None	stable
+data.infiltration_ratio.sources.path	Path	<required>	stable
+data.infiltration_ratio.sources.ratios	dict[str, float]	<required>	stable
+data.infiltration_ratio.sources.sha256	str | None	None	stable
+data.infiltration_ratio.sources.source	Literal['file']	'file'	stable
+data.infiltration_ratio.sources.source	Literal['ocsge']	'ocsge'	stable
+data.infiltration_ratio.sources.source	Literal['url']	'url'	stable
+data.infiltration_ratio.sources.url	str	<required>	stable
+data.infiltration_ratio.sources.year	int	<required>	stable
 data.intermittency	table | None	None	stable
 data.intermittency.date_end	str | None	None	stable
 data.intermittency.date_start	str | None	None	stable
@@ -1212,6 +1226,7 @@ flow.sinks_sources.recharge.soil.alpha	float	0.45	experimental
 flow.sinks_sources.recharge.soil.bypass_fraction	float	0.0	experimental
 flow.sinks_sources.recharge.soil.curve_number	float | None	None	experimental
 flow.sinks_sources.recharge.soil.impervious_fraction	float	0.0	experimental
+flow.sinks_sources.recharge.soil.infiltration_ratio	float	1.0	experimental
 flow.sinks_sources.recharge.soil.kc	float | table	1.0	experimental
 flow.sinks_sources.recharge.soil.kc.high	float	<required>	experimental
 flow.sinks_sources.recharge.soil.kc.low	float	<required>	experimental
@@ -1625,6 +1640,7 @@ recharge_estimates.soil.alpha	float	0.45	experimental
 recharge_estimates.soil.bypass_fraction	float	0.0	experimental
 recharge_estimates.soil.curve_number	float | None	None	experimental
 recharge_estimates.soil.impervious_fraction	float	0.0	experimental
+recharge_estimates.soil.infiltration_ratio	float	1.0	experimental
 recharge_estimates.soil.kc	float | table	1.0	experimental
 recharge_estimates.soil.kc.high	float	<required>	experimental
 recharge_estimates.soil.kc.low	float	<required>	experimental

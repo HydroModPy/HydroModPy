@@ -1185,7 +1185,9 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
             nullable=False,
             metadata=_field_meta(
                 unit="mm",
-                description="Runoff of the sealed share plus the routed curve-number share",
+                description=(
+                    "Runoff of the sealed share, the routed curve-number share and the quick share"
+                ),
             ),
         ),
         pa.field(
@@ -1195,6 +1197,18 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
             metadata=_field_meta(
                 unit="mm",
                 description="Curve-number share of runoff alone; 0 when curve_number is off",
+            ),
+        ),
+        pa.field(
+            "runoff_quick",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(
+                unit="mm",
+                description=(
+                    "Soil excess beyond the infiltration ratio, run off on the day; 0 when "
+                    "the ratio is 1"
+                ),
             ),
         ),
         pa.field(
@@ -1405,7 +1419,10 @@ RECHARGE_ESTIMATES_SCHEMA: Final[pa.Schema] = pa.schema(
             pa.string(),
             nullable=False,
             metadata=_field_meta(
-                description="Estimator of [recharge_estimates], or run for the run's own recharge"
+                description=(
+                    "Estimator of [recharge_estimates], a soil law, a loaded product, run for "
+                    "the run's own water, input for the weather, or water_balance"
+                )
             ),
         ),
         pa.field(
@@ -1425,7 +1442,7 @@ RECHARGE_ESTIMATES_SCHEMA: Final[pa.Schema] = pa.schema(
             pa.int32(),
             nullable=True,
             metadata=_field_meta(
-                description="Month, 1 to 12, of a water_balance row; null otherwise"
+                description="Month, 1 to 12, of a monthly row; null for a yearly row"
             ),
         ),
         pa.field(
@@ -1434,8 +1451,9 @@ RECHARGE_ESTIMATES_SCHEMA: Final[pa.Schema] = pa.schema(
             nullable=False,
             metadata=_field_meta(
                 description=(
-                    "recharge, effective_rainfall, baseflow_index, recession_constant, "
-                    "bfi_max, factor, rain_minus_etr or gauged_discharge"
+                    "recharge, effective_rainfall, runoff, baseflow_index, "
+                    "recession_constant, bfi_max, infiltration_ratio, factor, precipitation, "
+                    "etp, rain_minus_etr or gauged_discharge"
                 )
             ),
         ),

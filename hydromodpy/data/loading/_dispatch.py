@@ -367,6 +367,17 @@ VARIABLE_SPECS: dict[str, VariableSpec] = {
         label="sealed share of the ground, 0 to 1",
         apply_simulation_window=False,
     ),
+    "infiltration_ratio": VariableSpec(
+        config_module="hydromodpy.data.variables.infiltration_ratio.config",
+        config_class="InfiltrationRatioConfig",
+        variable_module="hydromodpy.data.variables.infiltration_ratio.variable",
+        variable_class="InfiltrationRatioVariable",
+        category="raster",
+        kind="raster",
+        unit="-",
+        label="share of the soil excess that reaches the aquifer, 0 to 1",
+        apply_simulation_window=False,
+    ),
     "curve_number": VariableSpec(
         config_module="hydromodpy.data.variables.user_rasters",
         config_class="CurveNumberConfig",

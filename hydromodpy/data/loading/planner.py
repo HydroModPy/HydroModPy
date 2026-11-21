@@ -16,7 +16,8 @@ Current inference scope (V3)
   they are loaded only when listed in ``[data].types``.
 - a section that reads data families (``[flow.sinks_sources.recharge.soil]``
   reads precipitation and etp, and temperature with snow) -> activate them
-- ``[data.soil_capacity]``, ``[data.impervious]`` or ``[data.curve_number]``
+- ``[data.soil_capacity]`` or a soil map of ``SOIL_MAPS`` (``[data.impervious]``,
+  ``[data.curve_number]``, ``[data.infiltration_ratio]``)
   declared -> activate that family (the section can be written without listing
   it in ``data.types``, like the other typed sections)
 """

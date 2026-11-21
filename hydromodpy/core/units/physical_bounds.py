@@ -134,6 +134,9 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
     # without error but fail as soon as a sampler actually draws that edge value.
     "soil_impervious_fraction": PhysicalBound("-", 0.0, 0.95, "sealed share of the area"),
     "soil_curve_number": PhysicalBound("-", 30.0, 98.0, "soil curve number (AMC II)"),
+    "soil_infiltration_ratio": PhysicalBound(
+        "-", 0.0, 1.0, "share of the soil excess that reaches the aquifer"
+    ),
     "soil_runoff_time": PhysicalBound("day", 0.0, 10.0, "curve-number runoff routing time"),
     "soil_runoff_lag": PhysicalBound(
         "day", 0.0, 5.0, "pure delay of the routed curve-number runoff"

@@ -181,7 +181,11 @@ def test_with_surface_maps_hands_each_column_its_cell_value():
         basin_weight=np.array([0.25, 0.25, 0.5]),
     )
 
-    mapped = with_surface_maps(columns, impervious=np.array([0.1, 0.3]), curve_number=None)
+    mapped = with_surface_maps(
+        columns,
+        {"impervious": np.array([0.1, 0.3]), "curve_number": None, "infiltration_ratio": None},
+    )
 
     assert mapped.impervious.tolist() == [0.1, 0.1, 0.3]
     assert mapped.curve_number is None
+    assert mapped.infiltration_ratio is None

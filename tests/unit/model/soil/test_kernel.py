@@ -465,3 +465,42 @@ def test_a_sealed_share_and_curve_number_per_column_run_each_column_as_its_own_s
         )
         for name in ("recharge", "runoff", "runoff_cn", "etr", "soil_storage"):
             assert np.array_equal(getattr(mapped, name)[:, j], getattr(alone, name)[:, 0]), name
+
+
+# ---------------------------------------------------------------------------
+# Infiltration ratio: the RIPE of ESPERE splits the soil excess
+# ---------------------------------------------------------------------------
+
+
+def test_a_ratio_of_one_sends_the_whole_excess_on_bit_for_bit():
+    precipitation, etp, ru_mm = wet_forcing(3, 730, 4)
+    plain = soil_params(ru_mm, impervious_fraction=0.1, curve_number=70.0)
+    explicit = soil_params(
+        ru_mm, impervious_fraction=0.1, curve_number=70.0, infiltration_ratio=1.0
+    )
+
+    a = run_soil_balance(precipitation, etp, plain, full_soil(plain))
+    b = run_soil_balance(precipitation, etp, explicit, full_soil(explicit))
+
+    assert np.array_equal(a.recharge, b.recharge)
+    assert np.array_equal(a.runoff, b.runoff)
+    assert not b.runoff_quick.any()
+
+
+def test_the_ratio_splits_the_excess_and_keeps_recharge_plus_runoff():
+    precipitation, etp, ru_mm = wet_forcing(5, 1095, 3)
+    ratio = np.array([1.0, 0.7, 0.3])
+    whole = soil_params(ru_mm, impervious_fraction=0.05)
+    split = soil_params(ru_mm, impervious_fraction=0.05, infiltration_ratio=ratio)
+
+    a = run_soil_balance(precipitation, etp, whole, full_soil(whole))
+    b = run_soil_balance(precipitation, etp, split, full_soil(split))
+
+    assert b.recharge == pytest.approx(ratio * a.recharge)
+    assert b.runoff_quick == pytest.approx((1.0 - ratio) * a.recharge)
+    assert b.recharge + b.runoff == pytest.approx(a.recharge + a.runoff)
+    assert np.abs(balance_residual(precipitation, b)).max() < 1e-9
+    budget = annual_budget(
+        np.repeat([2001, 2002, 2003], 365), precipitation, etp, b, np.full(3, 1 / 3)
+    )
+    assert budget.runoff_quick.sum() == pytest.approx(b.runoff_quick.sum())

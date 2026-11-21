@@ -64,6 +64,11 @@ _BUILTIN_PATHS: dict[str, str] = {
     "hydrometry_file": "hydromodpy.data.source.file:HydrometryFile",
     "hydrometry_hubeau": "hydromodpy.data.variables.hydrometry.apis.hubeau:HubeauHydrometry",
     "impervious_file": "hydromodpy.data.source.file:ImperviousFile",
+    "infiltration_ratio_file": "hydromodpy.data.source.file:InfiltrationRatioFile",
+    "infiltration_ratio_ocsge": (
+        "hydromodpy.data.variables.infiltration_ratio.ocsge:OcsgeInfiltrationRatio"
+    ),
+    "infiltration_ratio_url": "hydromodpy.data.source.url:InfiltrationRatioUrl",
     "impervious_ocsge": "hydromodpy.data.variables.impervious.ocsge:OcsgeImpervious",
     "impervious_url": "hydromodpy.data.source.url:ImperviousUrl",
     "impervious_worldcover": (
@@ -129,7 +134,7 @@ _BUILTIN_PATHS: dict[str, str] = {
 }
 """Dotted paths to the in-tree source classes, imported on first lookup.
 
-The single declaration of what this build serves: 83 sources under 31 sections.
+The single declaration of what this build serves: 86 sources under 32 sections.
 Format ``"<module>:<class>"``, the one every registry of this repository uses.
 """
 

@@ -477,7 +477,7 @@ def test_the_builtin_sources_are_all_in_the_registry() -> None:
     """A one-line subclass joins the registry for each section a built-in serves."""
     from hydromodpy.data.source import registry
 
-    assert len(registry._BUILTIN_PATHS) == 83
+    assert len(registry._BUILTIN_PATHS) == 86
 
 
 @pytest.mark.allow_subprocess
@@ -504,7 +504,7 @@ def test_a_source_lookup_and_the_port_load_no_provider_library() -> None:
         [sys.executable, "-c", script], capture_output=True, text=True, check=True, cwd=REPO_ROOT
     )
     report, port_added = json.loads(out.stdout.strip().splitlines()[-1])
-    assert len(report) == 83, "anti-vacuity: the registry resolved no built-in"
+    assert len(report) == 86, "anti-vacuity: the registry resolved no built-in"
     heavy = {"geopandas", "pandas", "rasterio", "shapely", "xarray"}
     loaded = {k: sorted({n.split(".")[0] for n in v} & heavy) for k, v in report.items()}
     assert all(not v for v in loaded.values()), f"a lookup loaded {loaded}"

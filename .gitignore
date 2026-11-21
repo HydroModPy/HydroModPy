@@ -179,6 +179,8 @@ examples/data/crossings/crossings_ground_*.gpkg
 examples/data/impervious/impervious_ocsge_*.tif
 examples/data/impervious/impervious_worldcover_*.tif
 examples/data/impervious/ocsge_departments/
+examples/data/infiltration_ratio/infiltration_ratio_ocsge_*.tif
+examples/data/infiltration_ratio/ocsge_departments/
 examples/data/**/*_hubeau_*.csv
 examples/data/**/*_sim2_*.nc
 # The lock a loader holds while it writes one chronicle, .<stem>.lock. It stays

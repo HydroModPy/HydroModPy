@@ -55,20 +55,25 @@ def soil_parameters(
 ) -> SoilParameters:
     """Kernel parameters for columns of capacity ``ru_mm``.
 
-    The sealed share and the curve number come from the maps the columns carry,
-    else from the soil section.
+    The sealed share, the curve number and the infiltration ratio come from the
+    maps the columns carry, else from the soil section.
     """
     snow = config.snow
-    has_impervious = columns is not None and columns.impervious is not None
-    has_curve_number = columns is not None and columns.curve_number is not None
+    mapped = {
+        soil_map.soil_field: getattr(columns, name)
+        if columns is not None and getattr(columns, name) is not None
+        else getattr(config, soil_map.soil_field)
+        for name, soil_map in SOIL_MAPS.items()
+    }
     return SoilParameters(
         ru_mm=np.asarray(ru_mm, dtype=np.float64),
         alpha=config.alpha,
         kc=1.0 if isinstance(config.kc, SeasonalKc) else config.kc,
-        impervious_fraction=columns.impervious if has_impervious else config.impervious_fraction,
+        impervious_fraction=mapped["impervious_fraction"],
         bypass_fraction=config.bypass_fraction,
         transit_time_days=config.transit_time,
-        curve_number=columns.curve_number if has_curve_number else config.curve_number,
+        curve_number=mapped["curve_number"],
+        infiltration_ratio=mapped["infiltration_ratio"],
         runoff_time_days=config.runoff_time,
         runoff_lag_days=config.runoff_lag,
         method=config.method,
@@ -174,6 +179,7 @@ def compute_soil_forcings(
     temperature: LoadResultProto | None = None,
     impervious: LoadResultProto | None = None,
     curve_number: LoadResultProto | None = None,
+    infiltration_ratio: LoadResultProto | None = None,
 ) -> SoilForcings:
     """Run the soil reservoir over ``[simulation.time]`` and grid its outputs back."""
     days = window_days(window)
@@ -242,9 +248,11 @@ def compute_soil_forcings(
             bbox=precip_record.bbox,
             catchment=catchment,
         )
-        for name, result in zip(SOIL_MAPS, (impervious, curve_number), strict=True)
+        for name, result in zip(
+            SOIL_MAPS, (impervious, curve_number, infiltration_ratio), strict=True
+        )
     }
-    columns = with_surface_maps(columns, **maps)
+    columns = with_surface_maps(columns, maps)
 
     precip_columns = precip_grid[:, columns.cell_index]
     etp_columns = etp_grid[:, columns.cell_index]

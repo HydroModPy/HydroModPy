@@ -61,6 +61,12 @@ start of the next one. ESPERE fits the logarithm of the raw elevation, so its an
 the datum. Fitting the declines does not. The estimate is proportional to $S_y$, which the
 section asks for.
 
+Wallingford also gives the infiltration ratio ESPERE v2 proposes for its soil budgets, the
+lowest yearly baseflow index of the record. The table writes it as a row `infiltration_ratio`, and
+the user copies it into
+{toml}`infiltration_ratio|flow.sinks_sources.recharge.soil.infiltration_ratio` when the soil
+should send the rest of its excess to the streams.
+
 The closing factor is the number that would scale the run's recharge and runoff onto the
 gauged volume over their common days. Abherve (2022) multiplies the SURFEX recharge by it
 before he calibrates on that same gauge. Here it is only printed, so a user who wants it copies

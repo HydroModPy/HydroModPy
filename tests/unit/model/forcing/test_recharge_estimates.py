@@ -357,3 +357,26 @@ def test_soil_methods_is_refused_with_an_unknown_law_and_the_soil_table_needs_it
     config = RechargeEstimatesConfig(soil_methods="all", soil={"ru": 150, "snow": {}})
     assert config.laws() == ("fao56", "thornthwaite", "dingman", "edijatno_michel")
     assert {"precipitation", "etp", "temperature"} <= set(config.families())
+
+
+def test_the_gauge_ratio_is_the_lowest_yearly_wallingford_index():
+    from hydromodpy.model.forcing.recharge_estimates_run import gauge_infiltration_ratio
+
+    days = pd.date_range("2015-01-01", periods=1461, freq="D")
+    gauge = pd.Series(storm_discharge(1461), index=days)
+    ratio, yearly = gauge_infiltration_ratio(gauge)
+
+    rows = estimate_recharge(
+        RechargeEstimatesConfig(methods=["wallingford"]),
+        precipitation=None,
+        temperature=None,
+        hydrometry=LoadResult(points=[series_record("discharge", days, gauge.to_numpy())]),
+        piezometry=None,
+        area_km2=86400 / 1e3,  # m3/s over this area is 1 mm/day per unit of discharge
+        run_water=None,
+    )[0]
+    indices = [r["value"] for r in rows if r["quantity"] == "baseflow_index"]
+    assert ratio == pytest.approx(round(min(indices), 2))
+    assert yearly.min() == pytest.approx(min(indices))
+    assert [r["value"] for r in rows if r["quantity"] == "infiltration_ratio"] == [ratio]
+    assert gauge_infiltration_ratio("no [data.hydrometry] loaded") == "no [data.hydrometry] loaded"

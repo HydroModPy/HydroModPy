@@ -402,7 +402,7 @@
             "description": "Top-level ``[data]`` configuration for the data variables.\n\nThe `types` list declares user-requested data variables. The effective\nactive set can also include planner-inferred variables deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataLoader``.",
             "properties": {
               "types": {
-                "description": "Ordered list of data variables explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, a [flow.bc.stream] table). Allowed values: 'crossings', 'curve_number', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'impervious', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'property_map', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
+                "description": "Ordered list of data variables explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, a [flow.bc.stream] table). Allowed values: 'crossings', 'curve_number', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'impervious', 'infiltration_ratio', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'property_map', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
                 "items": {
                   "type": "string"
                 },
@@ -812,6 +812,19 @@
                 ],
                 "default": null,
                 "description": "Sealed share of the ground, 0 to 1 per pixel, read by the soil reservoir in place of its impervious_fraction ([flow.sinks_sources.recharge.soil]).",
+                "x-hmp-profile": "user"
+              },
+              "infiltration_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/InfiltrationRatioConfig"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Share of the soil excess that reaches the aquifer, 0 to 1 per pixel, read by the soil reservoir in place of its infiltration_ratio ([flow.sinks_sources.recharge.soil]); the rest runs off.",
                 "x-hmp-profile": "user"
               },
               "curve_number": {
@@ -1565,6 +1578,48 @@
               "path"
             ],
             "title": "FileImperviousSource",
+            "type": "object"
+          },
+          "FileInfiltrationRatioSource": {
+            "additionalProperties": false,
+            "description": "User-provided raster of the infiltration ratio (GeoTIFF/ASC), 0 to 1 per pixel.",
+            "properties": {
+              "source": {
+                "const": "file",
+                "default": "file",
+                "description": "Discriminator tag selecting the 'file' infiltration ratio provider.",
+                "examples": [
+                  "file"
+                ],
+                "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "path": {
+                "description": "Path to a raster of the share of the soil excess that reaches the aquifer, 0 to 1 per pixel (GeoTIFF, ASC). Read only by [flow.sinks_sources.recharge.soil].",
+                "examples": [
+                  "data/input.csv"
+                ],
+                "format": "path",
+                "title": "Path",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "default_crs": {
+                "default": "EPSG:2154",
+                "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
+                "examples": [
+                  "EPSG:2154"
+                ],
+                "title": "Default Crs",
+                "type": "string",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "title": "FileInfiltrationRatioSource",
             "type": "object"
           },
           "FileLakeAbacusSource": {
@@ -2750,6 +2805,47 @@
               "sources"
             ],
             "title": "ImperviousConfig",
+            "type": "object"
+          },
+          "InfiltrationRatioConfig": {
+            "additionalProperties": false,
+            "description": "Infiltration ratio of the soil excess, read by the soil reservoir cell by cell.\n\nExample TOML::\n\n    [[data.infiltration_ratio.sources]]\n    source = \"ocsge\"\n    year = 2023\n    ratios = { \"CS2.1\" = 0.8, \"CS2.2\" = 0.6, \"CS\" = 0.5 }",
+            "properties": {
+              "sources": {
+                "description": "Exactly one source of the infiltration ratio. Each soil column takes the mean ratio of its SAFRAN cell inside the catchment, in place of infiltration_ratio.",
+                "items": {
+                  "description": "One source of the infiltration ratio.",
+                  "discriminator": {
+                    "mapping": {
+                      "file": "#/$defs/FileInfiltrationRatioSource",
+                      "ocsge": "#/$defs/OcsgeInfiltrationRatioSource",
+                      "url": "#/$defs/UrlInfiltrationRatioSource"
+                    },
+                    "propertyName": "source"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/FileInfiltrationRatioSource"
+                    },
+                    {
+                      "$ref": "#/$defs/UrlInfiltrationRatioSource"
+                    },
+                    {
+                      "$ref": "#/$defs/OcsgeInfiltrationRatioSource"
+                    }
+                  ]
+                },
+                "maxItems": 1,
+                "minItems": 1,
+                "title": "Sources",
+                "type": "array",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "sources"
+            ],
+            "title": "InfiltrationRatioConfig",
             "type": "object"
           },
           "IntermittencyConfig": {
@@ -4430,6 +4526,84 @@
               "year"
             ],
             "title": "OcsgeImperviousSource",
+            "type": "object"
+          },
+          "OcsgeInfiltrationRatioSource": {
+            "additionalProperties": false,
+            "description": "OCS GE of the IGN, each cover given the ratio the section writes for it, 10 m.",
+            "properties": {
+              "source": {
+                "const": "ocsge",
+                "default": "ocsge",
+                "description": "Discriminator tag selecting the IGN OCS GE provider.",
+                "examples": [
+                  "ocsge"
+                ],
+                "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "year": {
+                "description": "Latest edition read in each department, up to this year. Written down so that a new edition of the IGN does not move a run.",
+                "examples": [
+                  2023
+                ],
+                "maximum": 2100,
+                "minimum": 2000,
+                "title": "Year",
+                "type": "integer",
+                "unit": "year",
+                "x-hmp-profile": "user"
+              },
+              "ratios": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "description": "Infiltration ratio, 0 to 1, of each OCS GE cover, keyed by its code or the start of one: \"CS2.1\" holds for every woody cover, and the longest key that starts a code wins. \"CS\" alone gives every cover left. HydroModPy ships no value: the ratios belong to the site and to the study that sets them. The sealed covers CS1.1.1.1 and CS1.1.1.2 are left out of the map, since [data.impervious] runs them off whole. A cover of the area that no key starts is refused, with its share of the area.",
+                "examples": [
+                  {
+                    "CS": 0.5,
+                    "CS2.1": 0.8,
+                    "CS2.2": 0.6
+                  }
+                ],
+                "minProperties": 1,
+                "title": "Ratios",
+                "type": "object",
+                "x-hmp-profile": "user"
+              },
+              "mask_path": {
+                "anyOf": [
+                  {
+                    "format": "path",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+                "site_scoped": true,
+                "title": "Mask Path",
+                "x-hmp-profile": "user"
+              },
+              "force_refresh": {
+                "default": false,
+                "description": "Build the map again instead of reading the cache.",
+                "examples": [
+                  false
+                ],
+                "title": "Force Refresh",
+                "type": "boolean",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "year",
+              "ratios"
+            ],
+            "title": "OcsgeInfiltrationRatioSource",
             "type": "object"
           },
           "PiezometryConfig": {
@@ -7207,6 +7381,66 @@
               "url"
             ],
             "title": "UrlImperviousSource",
+            "type": "object"
+          },
+          "UrlInfiltrationRatioSource": {
+            "additionalProperties": false,
+            "description": "Remote raster of the infiltration ratio, downloaded into the data cache by ``url``.",
+            "properties": {
+              "url": {
+                "description": "Remote URL of the one file this source reads.",
+                "examples": [
+                  "example"
+                ],
+                "title": "Url",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "sha256": {
+                "anyOf": [
+                  {
+                    "pattern": "^[0-9a-fA-F]{64}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+                "title": "Sha256",
+                "x-hmp-profile": "user"
+              },
+              "license": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+                "title": "License",
+                "x-hmp-profile": "user"
+              },
+              "source": {
+                "const": "url",
+                "default": "url",
+                "description": "Discriminator tag selecting the 'url' infiltration ratio provider.",
+                "examples": [
+                  "url"
+                ],
+                "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "title": "UrlInfiltrationRatioSource",
             "type": "object"
           },
           "UrlLakeAbacusSource": {

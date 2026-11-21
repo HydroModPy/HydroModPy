@@ -271,9 +271,9 @@ _ENTRIES: tuple[SourceEntry, ...] = (
             "download service on 2026-11-21, with 2.0 editions from 2017 onwards."
         ),
         resolution=(
-            "Vector land cover at large scale; the adapter keeps the covers CS1.1.1.1 "
-            "(built) and CS1.1.1.2 (unbuilt sealed) and burns them on a 10 m grid in "
-            "EPSG:2154."
+            "Vector land cover at large scale; the adapter burns on a 10 m grid in EPSG:2154 "
+            "either the covers CS1.1.1.1 (built) and CS1.1.1.2 (unbuilt sealed) as the "
+            "sealed share, or the infiltration ratio the section writes for each other cover."
         ),
         period="One edition per department every three years or so, named by its year.",
         update="Departments are delivered edition by edition; the year is pinned in the config.",
@@ -287,6 +287,16 @@ _ENTRIES: tuple[SourceEntry, ...] = (
                     "impervious_ocsge_<year>_<hash>.tif is the 10 m sealed share of one "
                     "request. The department archives stay in ocsge_departments/ "
                     "(about 200 MB each). " + _WORKSPACE_NOTE
+                ),
+            ),
+            CacheLayout(
+                folder="data/infiltration_ratio",
+                pattern="infiltration_ratio_ocsge_*.tif",
+                format="GeoTIFF",
+                note=(
+                    "infiltration_ratio_ocsge_<year>_<hash>.tif is the 10 m ratio of one "
+                    "request and one table of ratios; the sealed covers are nodata. "
+                    + _WORKSPACE_NOTE
                 ),
             ),
         ),

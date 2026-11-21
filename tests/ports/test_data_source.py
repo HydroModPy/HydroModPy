@@ -105,6 +105,7 @@ from hydromodpy.data.variables.hydrography.apis.osm import OsmSource
 from hydromodpy.data.variables.hydrometry.apis.hubeau import HubeauHydrometry
 from hydromodpy.data.variables.impervious.ocsge import OcsgeImpervious
 from hydromodpy.data.variables.impervious.worldcover import WorldcoverImpervious
+from hydromodpy.data.variables.infiltration_ratio.ocsge import OcsgeInfiltrationRatio
 from hydromodpy.data.variables.intermittency.apis.hubeau import HubeauIntermittency
 from hydromodpy.data.variables.oceanic.apis.shom import ShomSeaLevel
 from hydromodpy.data.variables.oceanic.constant import ConstantSeaLevel
@@ -476,6 +477,15 @@ BUILTIN_CASES: tuple[SourceCase, ...] = (
         build=lambda: OcsgeImpervious(year=2023),
         provider_module="hydromodpy.data.variables.impervious.ocsge",
         provider_attr="fetch_ocsge_impervious",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=_dem_canned,
+    ),
+    SourceCase(
+        section="infiltration_ratio",
+        name="ocsge",
+        build=lambda: OcsgeInfiltrationRatio(year=2023, ratios={"CS": 0.7}),
+        provider_module="hydromodpy.data.variables.infiltration_ratio.ocsge",
+        provider_attr="fetch_ocsge_infiltration_ratio",
         read_bbox=lambda args, kwargs: kwargs.get("bbox"),
         canned=_dem_canned,
     ),

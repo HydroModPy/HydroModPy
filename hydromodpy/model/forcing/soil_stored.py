@@ -18,13 +18,13 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.model.contracts import LoadResultProto
-from hydromodpy.model.forcing.soil_columns import SoilColumns
+from hydromodpy.model.forcing.soil_columns import SOIL_MAPS, SoilColumns
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.forcing.soil_forcing import SoilForcings, soil_parameters
 from hydromodpy.model.forcing.soil_grids import grid_field_record
 from hydromodpy.model.soil.kernel import SoilFluxes, SoilState
 
-SCHEMA_VERSION = "hydromodpy.soil_product.v3"
+SCHEMA_VERSION = "hydromodpy.soil_product.v4"
 """Version of this stored format, written in the product key."""
 
 _NPZ = "soil.npz"
@@ -52,10 +52,11 @@ def write_soil_forcings(soil: SoilForcings, directory: Path) -> None:
         optional["temperature"] = soil.temperature
     if soil.kc_by_day is not None:
         optional["kc_by_day"] = soil.kc_by_day
-    if soil.columns.impervious is not None:
-        optional["columns_impervious"] = soil.columns.impervious
-    if soil.columns.curve_number is not None:
-        optional["columns_curve_number"] = soil.columns.curve_number
+    for name in SOIL_MAPS:
+        if getattr(soil.columns, name) is not None:
+            optional[f"columns_{name}"] = getattr(soil.columns, name)
+    if fluxes.runoff_quick is not None:
+        optional["fluxes_runoff_quick"] = fluxes.runoff_quick
     np.savez(
         directory / _NPZ,
         days=soil.days,
@@ -149,8 +150,7 @@ def _decode(
         cell_fraction=arrays["columns_cell_fraction"],
         basin_weight=arrays["columns_basin_weight"],
         raster_mean_mm=meta["raster_mean_mm"],
-        impervious=arrays.get("columns_impervious"),
-        curve_number=arrays.get("columns_curve_number"),
+        **{name: arrays.get(f"columns_{name}") for name in SOIL_MAPS},
     )
     fluxes = SoilFluxes(
         etr=arrays["fluxes_etr"],
@@ -174,6 +174,7 @@ def _decode(
             cn_storage_mm=arrays["end_cn_storage_mm"],
             snow_mm=arrays["end_snow_mm"],
         ),
+        runoff_quick=arrays.get("fluxes_runoff_quick"),
     )
 
     record = like.fields[0]

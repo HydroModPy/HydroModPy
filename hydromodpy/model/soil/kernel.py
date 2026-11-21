@@ -11,9 +11,11 @@ soil store and the excess. Under ``fao56`` ETR falls linearly
 below alpha x RU: alpha is 1 - p of FAO-56 (Allen et al. 1998) and LP of HBV
 (Seibert and Vis 2012). The default alpha = 0.45 is our choice: it means p = 0.55,
 the value of FAO-56 table 22 for cereals and maize (pasture 0.60). The water
-above RU leaves the soil; a linear reservoir
-of time constant ``transit_time_days``, integrated exactly over the day, can
-delay it. The sealed share of a column runs off, and so does an optional
+above RU leaves the soil. A share ``infiltration_ratio`` of it goes on to
+the aquifer, the RIPE of ESPERE (BRGM RP-69538-FR); the rest runs off on the
+same day. 1, the default, sends it all to the aquifer. A linear reservoir of
+time constant ``transit_time_days``, integrated exactly over the day, can delay
+the share that goes on. The sealed share of a column runs off, and so does an optional
 SCS-CN share of the unsealed rain (HELP, Schroeder et al. 1994), routed
 through its own linear reservoir of time constant ``runoff_time_days``. A
 pure delay of ``runoff_lag_days``, applied after that reservoir, then holds
@@ -48,6 +50,9 @@ class SoilParameters:
     method: str = "fao56"  # key of SOIL_METHODS
     snow_melt_start_c: float | None = None  # no melt at or below, degC; None turns snow off
     snow_melt_full_c: float | None = None  # all of the pack melts at or above, degC
+    infiltration_ratio: float | np.ndarray = (
+        1.0  # share of the soil excess sent on, [0, 1], or (N,)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,8 +72,9 @@ class SoilDay:
     etr: np.ndarray  # (N,)
     residual_etp: np.ndarray  # (N,)
     recharge: np.ndarray  # (N,) sent to MODFLOW
-    runoff: np.ndarray  # (N,) sealed share plus routed curve-number runoff
+    runoff: np.ndarray  # (N,) sealed share, routed curve-number runoff and quick runoff
     runoff_cn: np.ndarray  # (N,) the curve-number share of runoff alone
+    runoff_quick: np.ndarray  # (N,) the soil excess beyond the infiltration ratio
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +97,7 @@ class SoilFluxes:
     lag_storage_start: np.ndarray  # (N,) before the first day, always 0
     snow_storage_start: np.ndarray  # (N,) before the first day
     end: SoilState  # state after the last day, unsealed units
+    runoff_quick: np.ndarray | None = None  # (T, N) quick share of runoff; None reads as zero
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +132,7 @@ class AnnualSoilBudget:
     snow_storage_change: np.ndarray  # (Y, N)
     residual: np.ndarray  # (Y, N)
     weights: np.ndarray  # (N,) weight of each column in the basin value
+    runoff_quick: np.ndarray | None = None  # (Y, N) quick share of runoff; None reads as zero
 
     def basin(self, name: str) -> np.ndarray:
         """Return ``sum_n weights[n] * <name>[:, n]``, shape (Y,)."""
@@ -304,7 +312,9 @@ def soil_step(
     etr_soil, soil_mm, soil_excess = law(
         state.soil_mm, (1.0 - bypass_fraction) * infiltrating_rain, demand, ru_mm, params.alpha
     )
-    inflow_to_transit = soil_excess + bypassed
+    soil_out = soil_excess + bypassed
+    inflow_to_transit = params.infiltration_ratio * soil_out
+    quick = (1.0 - params.infiltration_ratio) * soil_out
 
     if transit_time_days == 0.0:
         outflow = inflow_to_transit
@@ -323,13 +333,15 @@ def soil_step(
             q_cn, cn_storage_in, params.runoff_time_days
         )
     runoff_cn = unsealed_fraction * routed_q_cn
+    runoff_quick = unsealed_fraction * quick
 
     day = SoilDay(
         etr=unsealed_fraction * etr_soil,
         residual_etp=unsealed_fraction * (demand - etr_soil),
         recharge=unsealed_fraction * outflow,
-        runoff=runoff_impervious + runoff_cn,
+        runoff=runoff_impervious + runoff_cn + runoff_quick,
         runoff_cn=runoff_cn,
+        runoff_quick=runoff_quick,
     )
     return (
         SoilState(
@@ -366,6 +378,7 @@ def run_soil_balance(
     recharge = np.empty((n_days, n_columns), dtype=np.float64)
     runoff = np.empty((n_days, n_columns), dtype=np.float64)
     runoff_cn = np.empty((n_days, n_columns), dtype=np.float64)
+    runoff_quick = np.empty((n_days, n_columns), dtype=np.float64)
     soil_storage = np.empty((n_days, n_columns), dtype=np.float64)
     transit_storage = np.empty((n_days, n_columns), dtype=np.float64)
     cn_storage = np.empty((n_days, n_columns), dtype=np.float64)
@@ -395,6 +408,7 @@ def run_soil_balance(
         recharge[t] = day.recharge
         runoff[t] = day.runoff
         runoff_cn[t] = day.runoff_cn
+        runoff_quick[t] = day.runoff_quick
         soil_storage[t] = unsealed_fraction * state.soil_mm
         transit_storage[t] = unsealed_fraction * state.transit_mm
         cn_storage[t] = unsealed_fraction * state.cn_storage_mm
@@ -426,6 +440,7 @@ def run_soil_balance(
         lag_storage_start=np.zeros(n_columns, dtype=np.float64),
         snow_storage_start=initial_snow_mm,
         end=state,
+        runoff_quick=runoff_quick,
     )
 
 
@@ -566,6 +581,7 @@ def annual_budget(
     recharge_sum = np.empty((n_years, n_columns), dtype=np.float64)
     runoff_sum = np.empty((n_years, n_columns), dtype=np.float64)
     runoff_cn_sum = np.empty((n_years, n_columns), dtype=np.float64)
+    runoff_quick_sum = np.zeros((n_years, n_columns), dtype=np.float64)
     soil_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
     transit_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
     cn_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
@@ -583,6 +599,8 @@ def annual_budget(
         recharge_sum[i] = fluxes.recharge[day_indices].sum(axis=0)
         runoff_sum[i] = fluxes.runoff[day_indices].sum(axis=0)
         runoff_cn_sum[i] = fluxes.runoff_cn[day_indices].sum(axis=0)
+        if fluxes.runoff_quick is not None:
+            runoff_quick_sum[i] = fluxes.runoff_quick[day_indices].sum(axis=0)
         residual_sum[i] = daily_residual[day_indices].sum(axis=0)
 
         first_day, last_day = day_indices[0], day_indices[-1]
@@ -626,4 +644,5 @@ def annual_budget(
         snow_storage_change=snow_storage_change,
         residual=residual_sum,
         weights=weights,
+        runoff_quick=runoff_quick_sum,
     )

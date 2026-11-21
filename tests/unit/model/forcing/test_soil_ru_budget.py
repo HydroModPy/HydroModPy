@@ -115,3 +115,16 @@ def test_a_gauge_no_capacity_can_match_is_refused():
 
     assert closure.ru_mm is None
     assert "no capacity between 0 and 1000 mm closes the budget" in closure.reason
+
+
+def test_the_infiltration_ratio_leaves_the_closing_ru_where_it_was():
+    from dataclasses import replace
+
+    forcings = weather_forcings()
+    gauge = gauge_at(forcings, 137.0)
+    split = replace(forcings, config=forcings.config.model_copy(update={"infiltration_ratio": 0.6}))
+
+    # The ratio moves water from the recharge to the runoff, and the gauge sees both.
+    assert ru_closing_budget(split, gauge).ru_mm == pytest.approx(
+        ru_closing_budget(forcings, gauge).ru_mm
+    )

@@ -2,8 +2,9 @@
 
 There is one column per SAFRAN cell, or one per capacity class inside each cell when
 ``[data.soil_capacity]`` gives a raster. Each column is weighed by its share of the catchment.
-``[data.impervious]`` and ``[data.curve_number]`` give each column the sealed share and the
-curve number of the part of its cell that lies inside the catchment.
+``[data.impervious]``, ``[data.curve_number]`` and ``[data.infiltration_ratio]`` give each
+column the sealed share, the curve number and the infiltration ratio of the part of its cell
+that lies inside the catchment.
 """
 
 from __future__ import annotations
@@ -44,6 +45,9 @@ class SoilColumns:
     impervious: np.ndarray | None = None  # (N,) sealed share from [data.impervious], None without
     curve_number: np.ndarray | None = (
         None  # (N,) curve number from [data.curve_number], None without
+    )
+    infiltration_ratio: np.ndarray | None = (
+        None  # (N,) infiltration ratio from [data.infiltration_ratio], None without
     )
 
 
@@ -227,6 +231,11 @@ SOIL_MAPS: dict[str, SoilMap] = {
         "a raster in percent is divided by 100 first",
     ),
     "curve_number": SoilMap("curve_number", "soil_curve_number", "it is an AMC II curve number"),
+    "infiltration_ratio": SoilMap(
+        "infiltration_ratio",
+        "soil_infiltration_ratio",
+        "it is the share of the soil excess that reaches the aquifer, between 0 and 1",
+    ),
 }
 """The soil maps, by data family. The planner, the checks, the data step and the
 calibration read this table."""
@@ -291,17 +300,14 @@ def catchment_cell_means(
     return means
 
 
-def with_surface_maps(
-    columns: SoilColumns,
-    *,
-    impervious: np.ndarray | None,
-    curve_number: np.ndarray | None,
-) -> SoilColumns:
-    """``columns`` with the cell values of each map handed to the columns of that cell."""
+def with_surface_maps(columns: SoilColumns, maps: dict[str, np.ndarray | None]) -> SoilColumns:
+    """``columns`` with the cell values of each map of ``SOIL_MAPS`` handed to its columns."""
     return replace(
         columns,
-        impervious=None if impervious is None else impervious[columns.cell_index],
-        curve_number=None if curve_number is None else curve_number[columns.cell_index],
+        **{
+            name: None if values is None else values[columns.cell_index]
+            for name, values in maps.items()
+        },
     )
 
 

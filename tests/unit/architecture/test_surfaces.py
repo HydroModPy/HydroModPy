@@ -921,6 +921,7 @@ NEW_FIELDS: dict[str, tuple[Any, str]] = {
     "data.etp.formula": (_UNSET, "unset, the ETP is loaded from its sources as in 2.0"),
     "data.impervious": (_UNSET, "unset, the soil reads its impervious_fraction as in 2.0"),
     "data.recharge.formula": (_UNSET, "unset, the recharge is loaded from its sources as in 2.0"),
+    "data.infiltration_ratio": (_UNSET, "unset, the soil reads its infiltration_ratio"),
     "flow.sinks_sources.recharge.scenario": (
         _UNSET,
         "unset, the loaded recharge is read as it is, as in 2.0",
@@ -932,6 +933,10 @@ NEW_FIELDS: dict[str, tuple[Any, str]] = {
     "flow.sinks_sources.recharge.soil.method": (
         "fao56",
         "fao56 is the storage law of 2.0, bit for bit",
+    ),
+    "flow.sinks_sources.recharge.soil.infiltration_ratio": (
+        1.0,
+        "1 sends the whole soil excess to the aquifer, as in 2.0, bit for bit",
     ),
     "flow.sinks_sources.recharge.soil.snow": (_UNSET, "unset, no snow, as in 2.0"),
     "recharge_estimates": (_UNSET, "unset, nothing is estimated; it never enters the model"),

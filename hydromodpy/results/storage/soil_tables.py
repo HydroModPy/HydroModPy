@@ -33,6 +33,7 @@ def soil_budget_rows(soil: object, budget: object) -> list[dict[str, object]]:
     columns = soil.columns
     ru_mm = soil.parameters.ru_mm
     n_years, n_columns = budget.precipitation.shape
+    quick = budget.runoff_quick if budget.runoff_quick is not None else 0.0 * budget.runoff
 
     rows: list[dict[str, object]] = []
     for j in range(n_columns):
@@ -56,6 +57,7 @@ def soil_budget_rows(soil: object, budget: object) -> list[dict[str, object]]:
                     "recharge": float(budget.recharge[i, j]),
                     "runoff": float(budget.runoff[i, j]),
                     "runoff_cn": float(budget.runoff_cn[i, j]),
+                    "runoff_quick": float(quick[i, j]),
                     "soil_storage_change": float(budget.soil_storage_change[i, j]),
                     "transit_storage_change": float(budget.transit_storage_change[i, j]),
                     "cn_storage_change": float(budget.cn_storage_change[i, j]),
@@ -86,6 +88,7 @@ def soil_budget_rows(soil: object, budget: object) -> list[dict[str, object]]:
                 "recharge": float(budget.basin("recharge")[i]),
                 "runoff": float(budget.basin("runoff")[i]),
                 "runoff_cn": float(budget.basin("runoff_cn")[i]),
+                "runoff_quick": float(quick[i] @ budget.weights),
                 "soil_storage_change": float(budget.basin("soil_storage_change")[i]),
                 "transit_storage_change": float(budget.basin("transit_storage_change")[i]),
                 "cn_storage_change": float(budget.basin("cn_storage_change")[i]),
@@ -107,9 +110,9 @@ def persist_soil_columns(sz: SimulationZarr, soil: object, closure: object = Non
     fluxes = soil.fluxes
     config = soil.config
     columns = soil.columns
-    impervious, curve_number = (
+    impervious, curve_number, ratio = (
         None if values is None else float(np.sum(values * columns.basin_weight))
-        for values in (columns.impervious, columns.curve_number)
+        for values in (columns.impervious, columns.curve_number, columns.infiltration_ratio)
     )
     series = {
         "etr": (fluxes.etr, "mm/day", "time: mean", "Actual evapotranspiration of the soil"),
@@ -129,7 +132,13 @@ def persist_soil_columns(sz: SimulationZarr, soil: object, closure: object = Non
             fluxes.runoff,
             "mm/day",
             "time: mean",
-            "Runoff of the sealed share plus the routed curve-number share",
+            "Runoff of the sealed share, the routed curve-number share and the quick share",
+        ),
+        "runoff_quick": (
+            fluxes.runoff_quick if fluxes.runoff_quick is not None else 0.0 * fluxes.runoff,
+            "mm/day",
+            "time: mean",
+            "Share of the soil excess beyond the infiltration ratio, run off on the day",
         ),
         "runoff_cn": (
             fluxes.runoff_cn,
@@ -190,6 +199,8 @@ def persist_soil_columns(sz: SimulationZarr, soil: object, closure: object = Non
         "impervious_from_map": impervious is not None,
         "curve_number": config.curve_number if curve_number is None else curve_number,
         "curve_number_from_map": curve_number is not None,
+        "infiltration_ratio": config.infiltration_ratio if ratio is None else ratio,
+        "infiltration_ratio_from_map": ratio is not None,
         "bypass_fraction": config.bypass_fraction,
         "transit_time_days": config.transit_time,
         "spinup": config.spinup,

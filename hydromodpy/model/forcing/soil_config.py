@@ -369,6 +369,23 @@ class SoilReservoirConfig(HydroModelBase):
             calibrable=Calibrable(units="-"), stability="experimental"
         ),
     )
+    infiltration_ratio: Annotated[float, Profile.USER] = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Share of the water leaving the soil that goes on to the aquifer, the RIPE of "
+            "ESPERE (BRGM): the rest runs off on the same day, beside the sealed share and "
+            "the curve number, and reaches the streams through the runoff of the run. 1, "
+            "the default, sends it all to the aquifer, bit for bit as before, and the drains "
+            "give back what saturates. Between 0 and 1. ESPERE proposes the lowest yearly "
+            "baseflow index of the gauge, which the soil budget of `hmp run --until "
+            "load_data` prints when a gauge is loaded: copy it here, the gauge never sets it "
+            "on its own. [data.infiltration_ratio] gives it cell by cell instead, and then "
+            "it is not written here."
+        ),
+        json_schema_extra=field_metadata(stability="experimental"),
+    )
     runoff_time: Annotated[DurationDays, Profile.USER] = Field(
         default=1.0,
         ge=0.0,

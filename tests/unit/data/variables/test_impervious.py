@@ -13,8 +13,8 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.core.exceptions import DataProductError
+from hydromodpy.data.common.clients.ocsge import edition
 from hydromodpy.data.variables.impervious.config import ImperviousConfig
-from hydromodpy.data.variables.impervious.ocsge import _edition
 from hydromodpy.data.variables.impervious.worldcover import tile_names, tile_url
 
 TILES = [
@@ -58,12 +58,12 @@ EDITIONS = [
 
 @pytest.mark.parametrize(("year", "name"), EDITIONS)
 def test_the_edition_read_is_the_latest_up_to_the_year(year, name):
-    assert _edition("035", year, Listing()) == name
+    assert edition("035", year, Listing()) == name
 
 
 def test_a_year_before_every_edition_is_refused_with_the_editions():
     with pytest.raises(DataProductError, match=r"serves \[2017, 2020, 2023\]"):
-        _edition("035", 2015, Listing())
+        edition("035", 2015, Listing())
 
 
 def test_ocsge_needs_its_year_written():

@@ -271,6 +271,10 @@ class ImperviousUrl(UrlSource):
     section = "impervious"
 
 
+class InfiltrationRatioUrl(UrlSource):
+    section = "infiltration_ratio"
+
+
 class SoilCapacityUrl(UrlSource):
     section = "soil_capacity"
 
@@ -307,6 +311,7 @@ __all__ = [
     "RechargeUrl",
     "RunoffUrl",
     "CurveNumberUrl",
+    "InfiltrationRatioUrl",
     "ImperviousUrl",
     "SoilCapacityUrl",
     "SoilMoistureUrl",

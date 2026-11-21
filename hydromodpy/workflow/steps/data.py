@@ -11,6 +11,8 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+import pandas as pd
+
 from hydromodpy.catchment.algorithms.derived_features import attach_reference_hydrographic_network
 from hydromodpy.catchment.algorithms.lake_catchments import lake_areas_or_even_split, payload_attr
 from hydromodpy.catchment.algorithms.sfr_traces import build_sfr_reach_traces
@@ -58,6 +60,8 @@ from hydromodpy.model.forcing.recharge_computed import computed_recharge
 from hydromodpy.model.forcing.recharge_estimates_run import (
     estimate_lines,
     estimate_recharge,
+    gauge_infiltration_ratio,
+    gauge_mm_per_day,
     run_water_series,
     soil_law_water,
     soil_rain_minus_etr,
@@ -211,6 +215,7 @@ def step_data_loading(ctx: WorkflowContext) -> None:
             sent_to_evt="etp" in ctx.cfg.flow.active_sinks_sources,
             closure=closure,
         )
+        lines = (*lines, *_gauge_ratio_lines(ctx, soil.days, area_km2))
         progress.after_phase(partial(_log_block, lines))
 
     if estimates_config is not None and not ctx.execution.lightweight:
@@ -235,6 +240,24 @@ def step_data_loading(ctx: WorkflowContext) -> None:
         notes = law_notes + notes
         ctx.setup.recharge_estimates = rows
         progress.after_phase(partial(_log_block, estimate_lines(rows, notes)))
+
+
+def _gauge_ratio_lines(ctx: WorkflowContext, days, area_km2) -> tuple[str, ...]:
+    """The infiltration ratio ESPERE would take from the gauge, as a line to copy, or nothing."""
+    gauge = gauge_mm_per_day(ctx.loaded_data.hydrometry, area_km2)
+    if not isinstance(gauge, str):
+        first, last = pd.Timestamp(days[0]), pd.Timestamp(days[-1])
+        gauge = gauge[(gauge.index >= first) & (gauge.index <= last)]
+    found = gauge_infiltration_ratio(gauge)
+    if isinstance(found, str):
+        return ()
+    ratio, yearly = found
+    return (
+        f"infiltration ratio the gauge suggests: {ratio:.2f}, the lowest yearly baseflow index "
+        f"of Wallingford over {len(yearly)} years ({yearly.min():.2f} to {yearly.max():.2f}), "
+        "ESPERE's rule; write it as infiltration_ratio to send the rest of the soil excess to "
+        "the streams, the ru closing the budget stays the same",
+    )
 
 
 def _compared_water(ctx: WorkflowContext, estimates: object, soil: object | None, window):
