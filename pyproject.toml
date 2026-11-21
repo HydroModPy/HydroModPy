@@ -60,9 +60,9 @@ dependencies = [
     # 13.0.0 is the first version with the 2026 security fixes.
     "Pillow>=13.0.0,<14",
     # Optuna 5 changes the TPE defaults (constant liar), so a calibration result moves.
-    "optuna>=4.8.0,<5",
+    "optuna>=4.8.0,<6",
     # Plotly 7 embeds slider frames differently: only one image is left in the HTML.
-    "plotly>=6.7.0,<7",
+    "plotly>=6.7.0,<8",
     "pint>=0.25.3,<1",
     "pydantic-pint>=0.6,<1",
     "py7zr>=1.0,<2",
@@ -80,7 +80,7 @@ dependencies = [
     "xugrid>=0.15.2,<1",
     "pydantic>=2.13.3,<3",
     # DuckDB 2 refuses to reopen a deleted index path this process still holds.
-    "duckdb>=1.5.2,<2",
+    "duckdb>=1.5.2,<3",
     "dask>=2026.3.0,<2027",
     "rich>=13.9.4,<16",
     "zarr>=3.1.6,<4",
@@ -108,12 +108,12 @@ viz = [
 ]
 # pystac checks a STAC item of the annex view, so it serves only a checkout.
 fair = ["pystac>=1.10,<2"]
-sftp = ["paramiko>=3.4,<5"]
+sftp = ["paramiko>=3.4,<6"]
 # Every functional extra. The test, docs, ide and dev extras are for contributors.
 all = ["hydromodpy[calibration,mesh,mf6api,viz,fair,metrics,sftp]"]
 test = [
     # pytest 9.2 failed the CI when it came out, on 2026-11-05.
-    "pytest<9.2",
+    "pytest<9.3",
     "pytest-xdist",
     "pytest-timeout",
     "pytest-cov",
@@ -132,7 +132,7 @@ docs = [
     "sphinx>=9.0,<9.1",
     "myst-parser>=5.1,<6",
     "sphinx-autobuild",
-    "pydata-sphinx-theme==0.23.0",
+    "pydata-sphinx-theme==0.24.0",
     "sphinx-design>=0.7",
     "sphinx-copybutton",
     "sphinxcontrib-bibtex",
