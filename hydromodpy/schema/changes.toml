@@ -1164,3 +1164,10 @@ since = "2.0.0"
 effect = "numbers"
 quantities = ["heads@modflow6", "fluxes@modflow6", "heads@modflow_nwt", "fluxes@modflow_nwt", "heads@boussinesq", "fluxes@boussinesq", "metrics"]
 text = "Each edge of a time grid with a step in months or years is the start plus k steps. A start on the 29th, 30th or 31st drifted, because each step was added to the previous edge: from 31 January the periods began on 28 February, 28 March and 28 April, and they now begin on 28 February, 31 March and 30 April. A start on the 1st to the 28th, and a step in days or hours, give the same grid as before."
+
+[[bug]]
+id = "flat_substratum_sentinel_at_the_mask_edge"
+since = "2.0.1"
+versions = ">=2.0.0a1,<=2.0.0"
+quantities = ["heads@modflow6", "fluxes@modflow6", "heads@modflow_nwt", "fluxes@modflow_nwt", "heads@boussinesq", "fluxes@boussinesq", "metrics"]
+text = "With depth_model kind = \"flat_substratum\", the aquifer bottom of a DEM pixel without data was set 1 m under the no-data value, so it stopped being read as no data. A mesh that samples the bottom (triangle, voronoi, a regular grid resampled from the DEM) blended it with the flat elevation on the cells next to the mask. With domain_extent = \"watershed\" these are the cells of the catchment edge: on a 31 km2 catchment at a flat bottom of 15 m, 768 of 779 edge cells had a bottom between -800 and -9 891 m, a column 100 times thicker than the 76 m of the others. A no-data pixel now keeps the no-data value and every sampled cell gets the flat elevation. A constant_thickness model and a regular grid on the DEM pixels do not change."

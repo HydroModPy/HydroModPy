@@ -249,29 +249,36 @@ class Surface:
         Return a flat (constant-elevation) substratum below this surface.
 
         The returned surface is ``value`` on every cell whose top sits strictly
-        above ``value + min_gap``. Where the top drops to or below that level the
-        cell has no aquifer (basement outcrop, or a NODATA sentinel left by a
-        watershed-masked / out-of-DEM cell): the bottom is clamped to
-        ``top - min_gap`` so the column stays a thin degenerate cell that the
-        mesh masks out, instead of inverting (bottom above top). This mirrors
-        ``shifted_down_by`` on those cells, so a flat substratum behaves like a
-        constant thickness there and never trips the strict-ordering guard.
+        above ``value + min_gap``. Where the top carries data and drops to or
+        below that level the cell has no aquifer (basement outcrop): the bottom
+        is clamped to ``top - min_gap`` so the column stays a thin degenerate
+        cell, instead of inverting (bottom above top).
+
+        A NODATA cell stays AT the sentinel, as in ``shifted_down_by`` and for
+        the same reason: the support is shared and every consumer recognizes a
+        no-data cell by exact equality with ``nodata``. Clamped to
+        ``nodata - min_gap``, it was sampled as terrain, and a mesh cell whose
+        stencil straddles the mask edge got a bottom blended with it.
 
         Example
         -------
         If ``value=20`` and the terrain is 56..83 m, every cell gets a flat
-        bottom at 20 m. A NODATA cell (top ``-9999``) is clamped to ``-10000``.
+        bottom at 20 m. A NODATA cell (top ``-9999``) keeps ``-9999``.
         """
         top = self.as_array()
         flat = float(value)
         gap = float(min_gap)
-        finite = np.isfinite(top)
+        nodata = getattr(self.support, "nodata", None)
+        masked = np.zeros(top.shape, dtype=bool) if nodata is None else top == float(nodata)
+        finite = np.isfinite(top) & ~masked
         if np.any(finite) and not np.any(top[finite] > flat + gap):
             raise ValueError(
                 f"Flat substratum {flat} m sits at or above the top on every finite "
                 "cell; no aquifer would remain. Lower substratum_elevation."
             )
         bottom = np.where(top > flat + gap, flat, top - gap)
+        if nodata is not None:
+            bottom = np.where(masked, float(nodata), bottom)
         return Surface(name=name, values=bottom, support=self.support)
 
     def assert_strictly_below(self, upper_surface: Surface) -> None:

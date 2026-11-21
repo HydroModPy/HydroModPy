@@ -18,6 +18,12 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
+### Numbers
+
+<!-- numbers:begin -->
+- With depth_model kind = "flat_substratum", the aquifer bottom of a DEM pixel without data was set 1 m under the no-data value, so it stopped being read as no data. A mesh that samples the bottom (triangle, voronoi, a regular grid resampled from the DEM) blended it with the flat elevation on the cells next to the mask. With domain_extent = "watershed" these are the cells of the catchment edge: on a 31 km2 catchment at a flat bottom of 15 m, 768 of 779 edge cells had a bottom between -800 and -9 891 m, a column 100 times thicker than the 76 m of the others. A no-data pixel now keeps the no-data value and every sampled cell gets the flat elevation. A constant_thickness model and a regular grid on the DEM pixels do not change.
+<!-- numbers:end -->
+
 ## [v2.0.0] - 2026-11-20
 
 ### What to do when you update

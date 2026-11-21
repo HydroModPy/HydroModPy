@@ -167,7 +167,7 @@ def test_the_document_counts_the_active_cells_names_the_terrain_digest_and_keeps
 
 
 def test_a_flat_substratum_puts_the_bottom_at_its_elevation_and_none_at_a_nodata_cell(tmp_path):
-    """``flat_like`` clamps ``-9999`` to ``-10000``: the raster once declared one and held the other."""
+    """``flat_like`` once clamped ``-9999`` to ``-10000``: the raster declared one and held the other."""
     job, _ = _succeeds(tmp_path, depth_model=FLAT)
 
     bottom = _band(job, BOTTOM_PATH)
@@ -175,9 +175,9 @@ def test_a_flat_substratum_puts_the_bottom_at_its_elevation_and_none_at_a_nodata
     assert np.isnan(bottom[NODATA_ROWS, NODATA_COLS]).all()
     assert not (bottom == -10000.0).any()
     assert read_document(job.resolve_output(DOMAIN_DOCUMENT_PATH))["depth_model"] == FLAT
-    # The clamp is still there one layer down, so this test guards a live mechanism.
+    # One layer down the nodata cells keep the sentinel, so a sampler leaves them out.
     runtime = build_domain({"depth_model": FLAT}, surface_topo=build_surface_topo_from_dem(job.root.parent / "dem.tif"))  # fmt: skip
-    assert (runtime.substratum.as_array()[NODATA_ROWS, NODATA_COLS] == -10000.0).all()
+    assert (runtime.substratum.as_array()[NODATA_ROWS, NODATA_COLS] == -9999.0).all()
 
 
 def _plain(t: Path) -> dict:

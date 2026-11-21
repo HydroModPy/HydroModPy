@@ -34,7 +34,7 @@ def test_domain_check_and_resample():
 
 
 def test_flat_like():
-    """A masked cell carries the sentinel; it is clamped instead of tripping the order guard."""
+    """A cell under the flat level is clamped under its top; a masked cell keeps the sentinel."""
     top = Surface(name="surface_topo", values=ROW, support=raster_support(1, 2))
     substratum = top.flat_like(2.0)
     assert substratum.support is top.support
@@ -42,10 +42,30 @@ def test_flat_like():
     with pytest.raises(ValueError, match="no aquifer would remain"):
         top.flat_like(11.0)
 
-    masked = Surface(name="surface_topo", values=np.array([[83.0, NODATA, 56.0]]), support=raster_support(1, 3))  # fmt: skip
+    masked = Surface(name="surface_topo", values=np.array([[83.0, NODATA, 15.0, 56.0]]), support=raster_support(1, 4))  # fmt: skip
     clamped = masked.flat_like(20.0, min_gap=1.0)
-    np.testing.assert_allclose(clamped.as_array(), [[20.0, NODATA - 1.0, 20.0]])
-    assert bool((clamped.as_array() < masked.as_array()).all())
+    np.testing.assert_allclose(clamped.as_array(), [[20.0, NODATA, 14.0, 20.0]])
+    data = masked.as_array() != NODATA
+    assert bool((clamped.as_array()[data] < masked.as_array()[data]).all())
+
+
+def test_flat_keeps_the_sentinel():
+    """A flat bottom moved off the sentinel on a masked pixel is blended with the flat level by
+    the sampler: on the Cheze, 768 of 779 cells of the catchment edge got a bottom between -800
+    and -9 891 m for a flat level of 15 m. The right column is outside the mask."""
+    level = 15.0
+    top = surface([[100.0, 100.0, NODATA]] * 3, cell=1.0, x0=0.0, y0=0.0)
+    bottom = top.flat_like(level)
+    values, mask = bottom.as_array(), top.as_array() == NODATA
+
+    assert np.all(values[mask] == NODATA)
+    assert np.all(values[~mask] == level)
+    assert bottom.support.nodata == NODATA
+    grid_x, grid_y = np.meshgrid(np.linspace(0.05, 2.95, 40), np.linspace(0.05, 2.95, 40))
+    sampled = PreparedSurfaceSampler.from_surface(bottom).sample(grid_x, grid_y)
+    defined = np.isfinite(sampled)
+    assert defined.any()
+    np.testing.assert_allclose(sampled[defined], level)
 
 
 def test_from_geographic_dem():
