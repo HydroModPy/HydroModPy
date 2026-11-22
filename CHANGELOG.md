@@ -35,6 +35,11 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The OCS GE department archives now sit once per machine in the user cache, shared by the sealed share, the infiltration ratio and the curve number. A soil map larger than the catchment, such as the global GCN250, is now read only over the window of the forcing grid.
 - `[flow.sinks_sources.recharge.scenario]` replaces the loaded recharge by its mean year, with dry years put in a row, to test a sequence of droughts.
 - `source = "explore2"` reads a DRIAS Explore2 file of projected recharge or runoff under `[data.recharge]` and `[data.runoff]`.
+- `hmp example add` takes several ids (`hmp example add 00 07 08`) or `--all`, and `hmp.example(["00", "07"], add=True)` or `hmp.example(add=True)` does the same from Python. Every id is checked before the first download. The catalog now ships the twelve examples 00 to 11: `python -m tools.dev examples manifest` takes every folder `NN_name` of `examples/projects/` that holds a `project.toml` and a `README.md`, so a new example needs no code. Under `--format json` the command writes one row per example, schema `hmp.example.add.v2`, with the new field `example_id`.
+
+### Fixed
+
+- `hmp publish --package` and the example catalog now ship every data file a TOML names, wherever the key sits. A catchment polygon (`[geographic.catchment] polyg_shp_path`) and a file read by a boundary condition, such as the sea level of example 05, were left out, so the copy failed on a missing file. A shapefile now travels with its `.shx`, `.dbf`, `.prj` and `.cpg`; example 00 shipped its stream network as a lone `.shp`.
 
 ### Numbers
 

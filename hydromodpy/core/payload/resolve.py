@@ -103,7 +103,49 @@ def _references(document: dict, data_root: Path, config: Path) -> set[Path]:
     # Loose paths outside [data]: the mapped networks of a calibration output.
     for path in _loose_paths(document):
         resolved.add(_locate_by_name(path, data_root, config))
-    return resolved
+
+    # Any other key that names a data file: a catchment polygon, a forcing file.
+    others = {key: value for key, value in document.items() if key != "data"}
+    resolved.update(_named_files(others, data_root, config))
+    return resolved | _shapefile_parts(resolved)
+
+
+_SHAPEFILE_PARTS = (".shx", ".dbf", ".prj", ".cpg")
+"""The files a ``.shp`` is read with, shipped beside it when they exist."""
+
+
+def _named_files(node: object, data_root: Path, config: Path) -> set[Path]:
+    """Return the data files a text value names, anywhere under ``node``.
+
+    A workspace name is looked up by its file name under ``data_root``. Any
+    other text is kept when, read from the folder of the configuration, it
+    lands on a file of ``data_root``. Text that is not a path lands on nothing.
+    """
+    if isinstance(node, dict):
+        node = list(node.values())
+    if isinstance(node, list):
+        return {path for item in node for path in _named_files(item, data_root, config)}
+    if not isinstance(node, str) or not node:
+        return set()
+    if is_workspace_name(node):
+        name = node.split(":", 1)[1]
+        return set() if name in ("", ".") else {_locate_by_name(name, data_root, config)}
+    candidate = Path(os.path.normpath(config.parent / node))
+    # os.path.isfile, since Path.is_file may raise on a long caption that is no path.
+    if os.path.isfile(candidate) and candidate.is_relative_to(os.path.normpath(data_root)):
+        return {candidate}
+    return set()
+
+
+def _shapefile_parts(paths: set[Path]) -> set[Path]:
+    """Return the files that travel with each shapefile of ``paths``."""
+    return {
+        part
+        for path in paths
+        if path.suffix.lower() == ".shp"
+        for part in (path.with_suffix(suffix) for suffix in _SHAPEFILE_PARTS)
+        if part.is_file()
+    }
 
 
 _OLD_MAP_KEYS = {"stream_geometry_path", "minimal_stream_geometry_path"}

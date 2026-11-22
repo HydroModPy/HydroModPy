@@ -1,4 +1,4 @@
-"""Write one cataloged example into a scaffolded workspace.
+"""Write cataloged examples into a scaffolded workspace.
 
 Every file goes through the blob cache first, so a second install of the same
 example downloads nothing, and two examples sharing the regional DEM share the
@@ -6,10 +6,13 @@ example downloads nothing, and two examples sharing the regional DEM share the
 
 The example goes into a workspace that already has a ``data/`` folder. An install keeps
 a destination whose content differs, and ``hmp example add --force`` overwrites it.
+``install_examples`` installs several in a row, or all of them, and checks every id
+before the first download.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -17,8 +20,8 @@ from typing import Any
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.payload.install import plan_files, plan_stations, write_file, write_stations
-from hydromodpy.project.examples.blobs import ensure_blob, is_cached
-from hydromodpy.project.examples.manifest import ExampleEntry
+from hydromodpy.project.examples.blobs import ensure_blob, is_cached, resolve_source
+from hydromodpy.project.examples.manifest import ExampleEntry, find_entry, load_catalog
 
 logger = get_logger(__name__)
 
@@ -63,6 +66,7 @@ class InstallReport:
     def to_dict(self) -> dict[str, Any]:
         """Return what the install did as JSON: the paths as text and the files by list."""
         return {
+            "example_id": self.example_id,
             "workspace": str(self.workspace),
             "project_dir": str(self.project_dir),
             "entry_config": self.entry_config,
@@ -74,6 +78,31 @@ class InstallReport:
             "kept": list(self.kept),
             "stations_written": list(self.stations_written),
         }
+
+
+def install_examples(
+    names: Sequence[str] | None,
+    *,
+    workspace: Path,
+    ref: str | None = None,
+    force: bool = False,
+) -> tuple[InstallReport, ...]:
+    """Install the examples named, or every example of the catalog when ``names`` is None.
+
+    Every id is checked before anything is downloaded, so a typo costs nothing.
+    The examples are then installed one after the other, in the order given. A
+    failure stops there: what was written stays, and the same call again only
+    fetches what is still missing.
+    """
+    catalog = load_catalog()
+    if names is None:
+        entries = catalog
+    else:
+        entries = tuple(find_entry(name, catalog) for name in dict.fromkeys(names))
+    source = resolve_source(ref)
+    return tuple(
+        install_example(entry, workspace=workspace, source=source, force=force) for entry in entries
+    )
 
 
 def install_example(

@@ -18,6 +18,9 @@ cd ~/hydromodpy/projects/04_streamflow_intermittence_in_transient
 `hmp example add` downloads the files of the example, about 92 MiB, most of it a regional DEM.
 Files are cached by content, so a second workspace costs nothing. `hmp example list` shows the
 examples your version ships and `hmp example show 04` lists the files one by one.
+`hmp example add 00 07 08` installs several examples at once and `hmp example add --all`
+installs every one. Each becomes a project of the workspace, and the regional DEM they share
+is downloaded once.
 
 ## The model file
 

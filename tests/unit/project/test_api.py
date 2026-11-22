@@ -360,17 +360,22 @@ def test_publish_project_or_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
 def test_example_verb(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _recorder(monkeypatch, "hydromodpy.project.examples.manifest.load_catalog", ("a", "b"))
     _recorder(monkeypatch, "hydromodpy.project.examples.manifest.find_entry", "entry")
-    _recorder(monkeypatch, "hydromodpy.project.examples.blobs.resolve_source", "source")
     installs = _recorder(
-        monkeypatch, "hydromodpy.project.examples.install.install_example", "report"
+        monkeypatch, "hydromodpy.project.examples.install.install_examples", ("r1", "r2")
     )
 
     assert api.example() == ("a", "b")
     assert api.example("04") == "entry"
-    assert api.example("04", add=True, workspace=tmp_path, force=True) == "report"
+    assert api.example(["04", "07"]) == ("entry", "entry")
+    assert api.example("04", add=True, workspace=tmp_path, force=True) == "r1"
     assert installs[0] == (
-        ("entry",),
-        {"workspace": tmp_path.resolve(), "source": "source", "force": True},
+        (["04"],),
+        {"workspace": tmp_path.resolve(), "ref": None, "force": True},
     )
-    with pytest.raises(CommandUsageError, match="name it"):
-        api.example(add=True)
+    assert api.example(["04", "07"], add=True, workspace=tmp_path) == ("r1", "r2")
+    assert installs[1][0] == (["04", "07"],)
+    assert api.example(add=True, workspace=tmp_path, ref="main") == ("r1", "r2")
+    assert installs[2] == (
+        (None,),
+        {"workspace": tmp_path.resolve(), "ref": "main", "force": False},
+    )

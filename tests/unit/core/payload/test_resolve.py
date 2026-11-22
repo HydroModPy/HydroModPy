@@ -193,3 +193,34 @@ def test_a_station_folder_of_the_workspace_ships_its_file_and_its_row(tmp_path: 
     assert [(row.dest, row.id) for row in stations] == [
         ("data/discharge/discharge_file_LOC.csv", "A1")
     ]
+
+
+def test_a_file_named_outside_data_ships_with_its_shapefile_parts(tmp_path: Path) -> None:
+    """A catchment polygon and a forcing file are named outside [data], and still ship."""
+    data_root = tmp_path / "data"
+    polygons = data_root / "watershed_polygon"
+    polygons.mkdir(parents=True)
+    for suffix in (".shp", ".shx", ".dbf", ".prj"):
+        (polygons / f"area{suffix}").write_bytes(b"x")
+    (polygons / "area.qmd").write_bytes(b"QGIS notes")
+    (data_root / "oceanic").mkdir()
+    (data_root / "oceanic" / "tide.csv").write_text("t,v\n", encoding="utf-8")
+    project = tmp_path / "projects" / "coast"
+    project.parent.mkdir()
+    _config(
+        project,
+        '[geographic.catchment]\npolyg_shp_path = "workspace:area.shp"\n'
+        '[flow.bc.ocean]\nforcing = { path_file = "../../data/oceanic/tide.csv" }\n'
+        f'[simulation]\nname = "not/a/path"\ndescription = "{"x" * 300}"\n',
+    )
+
+    files, stations = project_data(project, data_root, root=None)
+
+    assert [path.relative_to(data_root).as_posix() for path in files] == [
+        "oceanic/tide.csv",
+        "watershed_polygon/area.dbf",
+        "watershed_polygon/area.prj",
+        "watershed_polygon/area.shp",
+        "watershed_polygon/area.shx",
+    ]
+    assert stations == ()

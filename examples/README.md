@@ -43,6 +43,27 @@ python py1_run_and_plot.py
 
 The script of example 11 is `py1_run.py`, since it draws nothing.
 
+### In a workspace of your own
+
+After `pip install hydromodpy` there is no `examples/` folder. `hmp example` fetches the
+examples into a workspace, each one as a project under `projects/` with its data in the shared
+`data/` folder:
+
+```bash
+hmp workspace init
+cd ~/hydromodpy
+hmp example list          # what this version ships
+hmp example add 04        # one example
+hmp example add 00 07 08  # several
+hmp example add --all     # every one
+```
+
+The list comes from `hydromodpy/project/examples/catalog.toml`, which
+`python -m tools.dev examples manifest` writes from this folder. A folder `NN_name` that holds
+a `project.toml` and a `README.md` is an example: its id is `NN`, the first heading of the
+README is its title, and the first paragraph its summary, with the sentence "A run takes about
+...". A new example needs no code. Write the folder, run the command, commit the catalog.
+
 ### Suggested reading order
 
 1. **00** - a quick tour: wells, particles, the lab.

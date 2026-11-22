@@ -11,11 +11,203 @@
 schema_version = 1
 
 [[example]]
+id = "00"
+directory = "00_quick_test_of_wide_hydromodpy_capabilities"
+title = "A quick tour on the Aber catchment"
+summary = "The Aber catchment (Finistère), 2.4 km² cut out of a regional 75 m DEM. One year 2017 in monthly stress periods, a 50 m aquifer, seepage at the ground surface, two pumping wells and particles that show where the seepage water comes from. MODFLOW 6 solves the flow and its particle tracking PRT follows the water. A run takes about 5 s."
+runtime = "about 5 s"
+entry_config = "project.toml"
+
+[[example.file]]
+repo_path = "examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/README.md"
+dest = "projects/00_quick_test_of_wide_hydromodpy_capabilities/README.md"
+size = 2552
+sha256 = "20d7aa6d0f968e1994c2c9e29ea81f0bc998325ec09e8246e2dca792529a3869"
+
+[[example.file]]
+repo_path = "examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/project.toml"
+dest = "projects/00_quick_test_of_wide_hydromodpy_capabilities/project.toml"
+size = 6223
+sha256 = "eba6e30e12f49ba2e493ed834028094aba7c476eda76d83577ef414b347b0847"
+
+[[example.file]]
+repo_path = "examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/py1_run_and_plot.py"
+dest = "projects/00_quick_test_of_wide_hydromodpy_capabilities/py1_run_and_plot.py"
+size = 5810
+sha256 = "f7cf36d873b56405a0355f120fcd5bcec0c65f7febd57bc437bd7aa0da38c057"
+
+[[example.data]]
+repo_path = "examples/data/dem/regional_dem_aber.tif"
+dest = "data/dem/regional_dem_aber.tif"
+size = 1689080
+sha256 = "199b3a16cef17da181b02ff38ec421d8bbe2b957d0326a863f0fc0d14f12b836"
+
+[[example.data]]
+repo_path = "examples/data/hydrography/regional_stream_network.cpg"
+dest = "data/hydrography/regional_stream_network.cpg"
+size = 5
+sha256 = "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+
+[[example.data]]
+repo_path = "examples/data/hydrography/regional_stream_network.dbf"
+dest = "data/hydrography/regional_stream_network.dbf"
+size = 265678
+sha256 = "fa9e77a18f20d875be3ceca90ff97c31f80136d7bf2aaf10027d882ddd354361"
+
+[[example.data]]
+repo_path = "examples/data/hydrography/regional_stream_network.prj"
+dest = "data/hydrography/regional_stream_network.prj"
+size = 452
+sha256 = "88fd73ff8b13e826726f33a6da48f15dd720da8dcbb4c135b60918a21325e505"
+
+[[example.data]]
+repo_path = "examples/data/hydrography/regional_stream_network.shp"
+dest = "data/hydrography/regional_stream_network.shp"
+size = 1434736
+sha256 = "7ea4ba0714d8674a55070527ca9236052c1832036c8303b4afc40e5f7ce184e9"
+
+[[example.data]]
+repo_path = "examples/data/hydrography/regional_stream_network.shx"
+dest = "data/hydrography/regional_stream_network.shx"
+size = 3716
+sha256 = "8b4a8d7b716d5915eb54d2fff88f07bbf553ef4e23b5da011b00909c116ddb39"
+
+[[example]]
+id = "01"
+directory = "01_simplified_example_presented_in_the_paper"
+title = "The Canut catchment, the case of the paper"
+summary = "The Canut catchment (Ille-et-Vilaine), 25 km² cut out of a regional 75 m DEM. Steady state under 350 mm/year of recharge, a 50 m aquifer in five layers that thicken with depth, K and Sy that fall as exp(-depth / 20 m), seepage at the ground surface, and particles that show where the seepage water comes from. MODFLOW 6 solves the flow and its particle tracking PRT follows the water. A run takes about a minute."
+runtime = "about a minute"
+entry_config = "project.toml"
+
+[[example.file]]
+repo_path = "examples/projects/01_simplified_example_presented_in_the_paper/README.md"
+dest = "projects/01_simplified_example_presented_in_the_paper/README.md"
+size = 2531
+sha256 = "c82c8f8f0186ca54718bc7212c7906cc031789bb3bf77f5f13f86b79434f69c1"
+
+[[example.file]]
+repo_path = "examples/projects/01_simplified_example_presented_in_the_paper/project.toml"
+dest = "projects/01_simplified_example_presented_in_the_paper/project.toml"
+size = 5220
+sha256 = "a90de0afce06cbec52cc0e94b88d815434dc3810611be705a6832439e9383a73"
+
+[[example.file]]
+repo_path = "examples/projects/01_simplified_example_presented_in_the_paper/py1_run_and_plot.py"
+dest = "projects/01_simplified_example_presented_in_the_paper/py1_run_and_plot.py"
+size = 5739
+sha256 = "003cbb5d6135e4569c46366efb18ec80dabf6e092121681bdad562bac429c505"
+
+[[example.data]]
+repo_path = "examples/data/dem/DEM_armorican_massif.tif"
+dest = "data/dem/DEM_armorican_massif.tif"
+size = 94812848
+sha256 = "e20127a48fa42f9955a64417114c90a0a679b3cece8c94f352f0e78618d69f0f"
+
+[[example.data]]
+repo_path = "examples/data/hydrography/canut_stream_network.gpkg"
+dest = "data/hydrography/canut_stream_network.gpkg"
+size = 380928
+sha256 = "e111acf33cf8802c4a7bc41032ed7fd19df229beb4384b01140ab6c234b131d2"
+
+[[example.data]]
+repo_path = "examples/data/hydrometry/hydrometry_custom_CANUT_19891228_20220125_D.csv"
+dest = "data/hydrometry/hydrometry_custom_CANUT_19891228_20220125_D.csv"
+size = 198109
+sha256 = "0b2f36f1807c486c02f091bae2bafb88054f18c96d22842525f628e54bbc6e47"
+
+[[example.station]]
+dest = "data/hydrometry/hydrometry_custom_LOC.csv"
+row = { "id" = "CANUT", "x" = "327816.965", "y" = "6777886.670", "crs" = "EPSG:2154", "name" = "Canut", "unit" = "m3/s", "constant" = "false" }
+
+[[example]]
+id = "02"
+directory = "02_basic_features_and_overview_of_possibilities"
+title = "A conceptual relief, and the main features of HydroModPy"
+summary = "A conceptual relief of 5 km by 5 km at 75 m, taken whole as the domain, with no download. Steady state, a recharge that changes from cell to cell, an aquifer whose base mirrors the relief under sea level, ten layers that thicken with depth, K in three bands of depth, seepage at the ground surface, and particles. MODFLOW 6 solves the flow and its particle tracking PRT follows the water. A run takes about 25 s."
+runtime = "about 25 s"
+entry_config = "project.toml"
+
+[[example.file]]
+repo_path = "examples/projects/02_basic_features_and_overview_of_possibilities/README.md"
+dest = "projects/02_basic_features_and_overview_of_possibilities/README.md"
+size = 2592
+sha256 = "43a23366592bb8dc207a5e910eced7c2aa875bac9c71eb0890a5997f2714c392"
+
+[[example.file]]
+repo_path = "examples/projects/02_basic_features_and_overview_of_possibilities/project.toml"
+dest = "projects/02_basic_features_and_overview_of_possibilities/project.toml"
+size = 4648
+sha256 = "a25e93748c9e462e7ba9cfd90c94a7babc00c0d5f4bd245ff1e6c565cba49c90"
+
+[[example.file]]
+repo_path = "examples/projects/02_basic_features_and_overview_of_possibilities/py1_run_and_plot.py"
+dest = "projects/02_basic_features_and_overview_of_possibilities/py1_run_and_plot.py"
+size = 4424
+sha256 = "3b3960f33315b61bd2615843ca4527cc2eb3775341f2ab24cd9770fe2d1de8b2"
+
+[[example.data]]
+repo_path = "examples/data/dem/conceptual_dem.tif"
+dest = "data/dem/conceptual_dem.tif"
+size = 8944
+sha256 = "95e4e3796e806c4a06496c79a1d74df1a612a8a1227298cb3266392d3f3197a6"
+
+[[example.data]]
+repo_path = "examples/data/recharge/recharge_conceptual.tif"
+dest = "data/recharge/recharge_conceptual.tif"
+size = 19488
+sha256 = "70611c08d7a7c13210e464e0f579cc3f59e24aa9f237ff0f8bc008069c592409"
+
+[[example.data]]
+repo_path = "examples/data/substratum/conceptual_base.tif"
+dest = "data/substratum/conceptual_base.tif"
+size = 8562
+sha256 = "4cece6cf0103449d6723bd39cc1486ada75914d607e67fc9273f9f8992c78104"
+
+[[example]]
+id = "03"
+directory = "03_hydrographic_network_in_steady_state"
+title = "The stream network a water table feeds"
+summary = "The Canut catchment (Ille-et-Vilaine), 25 km² cut out of a regional 75 m DEM. Steady state under 1.17 mm/day of recharge, a 50 m aquifer in five layers of 10 m, seepage at the ground surface. Where the water table reaches the ground the aquifer seeps, and the seepage cells draw a network beside the mapped one. Its size depends on K. MODFLOW 6 solves the flow. A run takes about 35 s."
+runtime = "about 35 s"
+entry_config = "project.toml"
+
+[[example.file]]
+repo_path = "examples/projects/03_hydrographic_network_in_steady_state/README.md"
+dest = "projects/03_hydrographic_network_in_steady_state/README.md"
+size = 2169
+sha256 = "eb0c7e49836bf166826a62c9b82bdfab3fbe63a88190bccbfaa4651bdd0ed2f3"
+
+[[example.file]]
+repo_path = "examples/projects/03_hydrographic_network_in_steady_state/project.toml"
+dest = "projects/03_hydrographic_network_in_steady_state/project.toml"
+size = 3721
+sha256 = "fddce2c2aa6e8f5f0f57b2a76ea73365ab62adc633a692c76716fedb66dbb597"
+
+[[example.file]]
+repo_path = "examples/projects/03_hydrographic_network_in_steady_state/py1_run_and_plot.py"
+dest = "projects/03_hydrographic_network_in_steady_state/py1_run_and_plot.py"
+size = 4037
+sha256 = "3c81f60a052fd1c3ede1e6b7e08829170e0050d6dbe76f807bf9f18b876501f8"
+
+[[example.data]]
+repo_path = "examples/data/dem/DEM_armorican_massif.tif"
+dest = "data/dem/DEM_armorican_massif.tif"
+size = 94812848
+sha256 = "e20127a48fa42f9955a64417114c90a0a679b3cece8c94f352f0e78618d69f0f"
+
+[[example.data]]
+repo_path = "examples/data/hydrography/canut_stream_network.gpkg"
+dest = "data/hydrography/canut_stream_network.gpkg"
+size = 380928
+sha256 = "e111acf33cf8802c4a7bc41032ed7fd19df229beb4384b01140ab6c234b131d2"
+
+[[example]]
 id = "04"
 directory = "04_streamflow_intermittence_in_transient"
-title = "Streamflow intermittence in transient"
-summary = "Nancon catchment, MODFLOW 6, monthly transient 2000-2002. The seepage network grows in winter and shrinks in summer, and a Python script plays the model step by step and tries three values of Sy."
-runtime = "about 1.5 min for project.toml, about 6 min for py1_run_and_plot.py"
+title = "The seepage network of the Nançon through the seasons"
+summary = "The Nançon catchment at Lécousse (Ille-et-Vilaine), 65 km² cut out of a regional 75 m DEM. A monthly transient run from 2000 to 2002, a 30 m aquifer in one layer, seepage at the ground surface, and the SIM2 recharge and runoff of the catchment. As the recharge swings between wet winters and dry summers, the seepage cells spread out and draw back. MODFLOW 6 solves the flow. A run takes about a minute and a half."
+runtime = "about a minute and a half"
 entry_config = "project.toml"
 
 [[example.file]]
@@ -77,3 +269,327 @@ row = { "id" = "NANCON", "x" = "389285.91", "y" = "6816518.749", "crs" = "EPSG:2
 [[example.station]]
 dest = "data/runoff/runoff_custom_LOC.csv"
 row = { "id" = "NANCON", "x" = "389285.91", "y" = "6816518.749", "crs" = "EPSG:2154", "unit" = "mm/day" }
+
+[[example]]
+id = "05"
+directory = "05_piezometry_in_a_heterogeneous_coastal_aquifer"
+title = "Piezometry in a heterogeneous coastal aquifer"
+summary = "The coastal aquifer of Gouville-sur-Mer (Manche), a strip of 3.2 km² along the shore cut on a 25 m DEM, 39 by 134 cells. One year 2016 in daily stress periods, one layer down to a flat base at 20 m below sea level. The aquifer has two zones: a western strip along the shore with K = 18.5 m/day and Sy = 0.08, and an eastern one inland with K = 95 m/day and Sy = 0.45. The recharge changes every day and the sea level follows the tide. The 549 cells whose ground is at or below the highest sea level of the year are held at the sea level of the day, and every other cell drains at the ground. 1 January is solved in steady state under the mean recharge and the mean sea level. The simulated head is put next to the daily record of the piezometer BSS 01423X0044/F4, in the western strip. MODFLOW 6 solves the flow. A run takes about 40 s."
+runtime = "about 40 s"
+entry_config = "project.toml"
+
+[[example.file]]
+repo_path = "examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/README.md"
+dest = "projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/README.md"
+size = 2795
+sha256 = "688a455cc2ce0b2992c2cfa11cd2bf5db41d7c7387037a81e58ee52e88fbeaeb"
+
+[[example.file]]
+repo_path = "examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/project.toml"
+dest = "projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/project.toml"
+size = 6813
+sha256 = "b341904d5561fd35e66aad4ad4032904294ba3c3041dfceef8ed0431027f120f"
+
+[[example.file]]
+repo_path = "examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/py1_run_and_plot.py"
+dest = "projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/py1_run_and_plot.py"
+size = 7561
+sha256 = "cb2808f693f4b9d2f05a736b116a6771b443d759c72f3f90875c6a129a426d1f"
+
+[[example.data]]
+repo_path = "examples/data/dem/DEM_gouville_25m.tif"
+dest = "data/dem/DEM_gouville_25m.tif"
+size = 22368
+sha256 = "f5a4105099793c65f85c2372f5d9eee2ac2fa91203171ac6f615229e3b80ed6f"
+
+[[example.data]]
+repo_path = "examples/data/masks/gouville_param_zones.gpkg"
+dest = "data/masks/gouville_param_zones.gpkg"
+size = 122880
+sha256 = "e862bf6fee6a280bb8b6e3ee4674f7c24f386cee6d6e1a1a3debc53f6ce6db85"
+
+[[example.data]]
+repo_path = "examples/data/oceanic/oceanic_custom_GOUVILLE_20160101_20161231_D.csv"
+dest = "data/oceanic/oceanic_custom_GOUVILLE_20160101_20161231_D.csv"
+size = 6735
+sha256 = "c8c5ba6485ae246428749c41572c68bee03916c2a8fe3e65ee951e1f48b0c888"
+
+[[example.data]]
+repo_path = "examples/data/piezometry/piezometry_custom_GOUVILLE_F4_20160101_20161231_D.csv"
+dest = "data/piezometry/piezometry_custom_GOUVILLE_F4_20160101_20161231_D.csv"
+size = 5814
+sha256 = "35f0c8eaca8d2f4710a3d1949bf446ae7e67d1740b1aa9bcf7178c5c694bcd18"
+
+[[example.data]]
+repo_path = "examples/data/recharge/recharge_custom_GOUVILLE_20160101_20161231_D.csv"
+dest = "data/recharge/recharge_custom_GOUVILLE_20160101_20161231_D.csv"
+size = 6567
+sha256 = "a26b12127d96501996c57dd623f5ef1e4a510368b2d98b9688a49afe47777860"
+
+[[example.data]]
+repo_path = "examples/data/watershed_polygon/gouville_model_area.cpg"
+dest = "data/watershed_polygon/gouville_model_area.cpg"
+size = 5
+sha256 = "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+
+[[example.data]]
+repo_path = "examples/data/watershed_polygon/gouville_model_area.dbf"
+dest = "data/watershed_polygon/gouville_model_area.dbf"
+size = 88
+sha256 = "be76354af1afbaf6bd4bf44323ba5dbd55ba06e2a2206308ae6fded24ab1d6f1"
+
+[[example.data]]
+repo_path = "examples/data/watershed_polygon/gouville_model_area.prj"
+dest = "data/watershed_polygon/gouville_model_area.prj"
+size = 452
+sha256 = "88fd73ff8b13e826726f33a6da48f15dd720da8dcbb4c135b60918a21325e505"
+
+[[example.data]]
+repo_path = "examples/data/watershed_polygon/gouville_model_area.shp"
+dest = "data/watershed_polygon/gouville_model_area.shp"
+size = 28012
+sha256 = "cacf6f816c381fee4ea03a6b72cb78e9c307c78fdca407065c3edc5273d2ea55"
+
+[[example.data]]
+repo_path = "examples/data/watershed_polygon/gouville_model_area.shx"
+dest = "data/watershed_polygon/gouville_model_area.shx"
+size = 108
+sha256 = "08850ef909ae73781742314d62203a3e470d2f41ca12011fb89fca4b987d4e8e"
+
+[[example.station]]
+dest = "data/piezometry/piezometry_custom_LOC.csv"
+row = { "id" = "GOUVILLE_F4", "x" = "363780.7", "y" = "6897112.7", "crs" = "EPSG:2154", "name" = "Gouville BSS 01423X0044/F4", "unit" = "m", "constant" = "false" }
+
+[[example.station]]
+dest = "data/recharge/recharge_custom_LOC.csv"
+row = { "id" = "GOUVILLE", "x" = "364680.0", "y" = "6897390.0", "crs" = "EPSG:2154", "name" = "Gouville coastal strip", "unit" = "mm/day" }
+
+[[example]]
+id = "06"
+directory = "06_particle_tracking_and_residence_times"
+title = "Particle tracking and residence times on the Lasset catchment"
+summary = "The Lasset catchment (Pyrenees), 3.8 km² cut out of a regional 75 m DEM. Steady state under 1.17 mm/day of recharge, an aquifer whose base is flat at 1000 m, cut in ten layers that thicken with depth, a K that falls with depth, seepage at the ground surface, and particles that give the travel time of the water. MODFLOW 6 solves the flow and its particle tracking PRT follows the water. A run takes about 30 s."
+runtime = "about 30 s"
+entry_config = "project.toml"
+
+[[example.file]]
+repo_path = "examples/projects/06_particle_tracking_and_residence_times/README.md"
+dest = "projects/06_particle_tracking_and_residence_times/README.md"
+size = 3660
+sha256 = "e293fecbd60556c011aaf7b8448fed9132ee5b2792269be0c221fb2eee0eea1b"
+
+[[example.file]]
+repo_path = "examples/projects/06_particle_tracking_and_residence_times/project.toml"
+dest = "projects/06_particle_tracking_and_residence_times/project.toml"
+size = 5136
+sha256 = "bfbca0baff5f6f2a49c7545584711e1d0f335cf7e5ff3275d680f3bc352236c7"
+
+[[example.file]]
+repo_path = "examples/projects/06_particle_tracking_and_residence_times/py1_run_and_plot.py"
+dest = "projects/06_particle_tracking_and_residence_times/py1_run_and_plot.py"
+size = 5773
+sha256 = "b7d51f835cfeeff16712a55e19c1cdf8cf219a2a2a950f34912773e67d84c57a"
+
+[[example.data]]
+repo_path = "examples/data/dem/regional_dem_lasset.tif"
+dest = "data/dem/regional_dem_lasset.tif"
+size = 242483
+sha256 = "95c1d5ee6e2f29efb3a0e43a01d237175db11862fc1fc9a976a481cbaa702ae8"
+
+[[example]]
+id = "07"
+directory = "07_analytical_solution_for_streamflow_recession"
+title = "A hillslope that drains by recession, set against a closed-form solution"
+summary = "A flat hillslope, 1000 m long and one 20 m cell wide, over a flat substratum at 0 m, with a stream on its west edge. A pulse of recharge of 33 mm/day fills the aquifer for 30 days, then 970 days without recharge empty it through the stream. The discharge of the falling limb is compared with the late-time solution of the non-linear Boussinesq equation. MODFLOW 6 solves the flow. A run takes about 15 s."
+runtime = "about 15 s"
+entry_config = "project.toml"
+
+[[example.file]]
+repo_path = "examples/projects/07_analytical_solution_for_streamflow_recession/README.md"
+dest = "projects/07_analytical_solution_for_streamflow_recession/README.md"
+size = 4351
+sha256 = "988075b79b46d928cc823b47da9e4ef896e3ccdce4f86f06c779729897d272a5"
+
+[[example.file]]
+repo_path = "examples/projects/07_analytical_solution_for_streamflow_recession/project.toml"
+dest = "projects/07_analytical_solution_for_streamflow_recession/project.toml"
+size = 9162
+sha256 = "f26ae14a3813eb74b88b72bee89f53b5383fdd4cb5324421d45937e3bb4c97d0"
+
+[[example.file]]
+repo_path = "examples/projects/07_analytical_solution_for_streamflow_recession/py1_run_and_plot.py"
+dest = "projects/07_analytical_solution_for_streamflow_recession/py1_run_and_plot.py"
+size = 6357
+sha256 = "06c6b364b07aa42fa6094e9fccaa4e5c91c3d9335e5a0899549f2891238b34c5"
+
+[[example]]
+id = "08"
+directory = "08_exponential_distribution_of_residence_times"
+title = "The exponential distribution of residence times"
+summary = "A synthetic hillslope, 1000 m long, 20 m wide and 10 m thick, over a flat substratum. A uniform recharge of 1 mm/day feeds it and a stream on its west edge drains it. Steady state, one particle in each cell, tracked until it leaves. MODFLOW 6 solves the flow and its particle tracking PRT follows the water. A run takes about 5 s."
+runtime = "about 5 s"
+entry_config = "project.toml"
+
+[[example.file]]
+repo_path = "examples/projects/08_exponential_distribution_of_residence_times/README.md"
+dest = "projects/08_exponential_distribution_of_residence_times/README.md"
+size = 3601
+sha256 = "2c6e4c4e7527be01e7224999ecf4881137aa8ea8dca368c198f6a96ad6681260"
+
+[[example.file]]
+repo_path = "examples/projects/08_exponential_distribution_of_residence_times/project.toml"
+dest = "projects/08_exponential_distribution_of_residence_times/project.toml"
+size = 3686
+sha256 = "765baf16e8173bdaf5be113f811d6b30e6a4de07a78e132cc4e6c2ffc880c386"
+
+[[example.file]]
+repo_path = "examples/projects/08_exponential_distribution_of_residence_times/py1_run_and_plot.py"
+dest = "projects/08_exponential_distribution_of_residence_times/py1_run_and_plot.py"
+size = 7143
+sha256 = "b655c852b3f18c0d77178aa75c3315e190c8e4cd8d19c7494939235dd92fe2b9"
+
+[[example]]
+id = "09"
+directory = "09_transport_model_for_an_agricultural_catchment"
+title = "Nitrate in the aquifer of an agricultural catchment"
+summary = "The Kervidy catchment at Naizin (Morbihan), 5.0 km² of farmland cut out of a 25 m DEM, in a box of 134 by 165 cells. A synthetic drought year 2003 in 52 weekly stress periods: 2 mm/day of recharge in January, February, November and December, and none from March to October. The aquifer sits on a flat base at sea level, about 100 m under the valley, cut in ten layers that thicken with depth. K and Sy fall with depth, and every cell drains at the ground surface. The nitrate starts at 100 mg/L in the whole aquifer, the recharge brings 50 mg/L, and it decays with a mean life of two years. MODFLOW 6 solves the flow, its transport model GWT carries the nitrate and its particle tracking PRT gives the travel time of the water. A run takes about 20 minutes."
+runtime = "about 20 minutes"
+entry_config = "project.toml"
+
+[[example.file]]
+repo_path = "examples/projects/09_transport_model_for_an_agricultural_catchment/README.md"
+dest = "projects/09_transport_model_for_an_agricultural_catchment/README.md"
+size = 5097
+sha256 = "3c9701b016d88c489cea5c199c1ab7ad84af3f3ac97270e5691a30e5f2df3692"
+
+[[example.file]]
+repo_path = "examples/projects/09_transport_model_for_an_agricultural_catchment/project.toml"
+dest = "projects/09_transport_model_for_an_agricultural_catchment/project.toml"
+size = 8374
+sha256 = "73f93e4390a9e68008ccdc74d23abd6beb4e859c0675d120a85de113f3782c85"
+
+[[example.file]]
+repo_path = "examples/projects/09_transport_model_for_an_agricultural_catchment/py1_run_and_plot.py"
+dest = "projects/09_transport_model_for_an_agricultural_catchment/py1_run_and_plot.py"
+size = 9488
+sha256 = "670316a1ad7eb7de7ccea805334c2dcfa830bedcf6c987644cf10d205a593216"
+
+[[example.data]]
+repo_path = "examples/data/dem/DEM_naizin_25m.tif"
+dest = "data/dem/DEM_naizin_25m.tif"
+size = 513295
+sha256 = "18e46e4eb6cf851dbf6c38b746a65deeaa777e8016e73a854ade7a5fdd4c01db"
+
+[[example.data]]
+repo_path = "examples/data/hydrography/naizin_stream_network.gpkg"
+dest = "data/hydrography/naizin_stream_network.gpkg"
+size = 548864
+sha256 = "49bc6469d884ff28eefbe09245a0cb786115322b69dd9618059f6062833091b6"
+
+[[example.data]]
+repo_path = "examples/data/hydrometry/hydrometry_custom_KERVIDY_20000102_20240418_D.csv"
+dest = "data/hydrometry/hydrometry_custom_KERVIDY_20000102_20240418_D.csv"
+size = 168550
+sha256 = "d7beb192260601d407cbd13429318f7793a181c72de7577a033f9658982384d5"
+
+[[example.data]]
+repo_path = "examples/data/runoff/runoff_custom_KERVIDY_20030101_20031231_D.csv"
+dest = "data/runoff/runoff_custom_KERVIDY_20030101_20031231_D.csv"
+size = 5490
+sha256 = "051092e378120e1d9c8fa683fe214ad97584bfca2ee02b1b6369599dba56bb4d"
+
+[[example.station]]
+dest = "data/hydrometry/hydrometry_custom_LOC.csv"
+row = { "id" = "KERVIDY", "x" = "265545.208", "y" = "6783317.640", "crs" = "EPSG:2154", "name" = "Kervidy at Naizin", "unit" = "m3/s", "constant" = "false" }
+
+[[example.station]]
+dest = "data/runoff/runoff_custom_LOC.csv"
+row = { "id" = "KERVIDY", "x" = "265545.208", "y" = "6783317.640", "crs" = "EPSG:2154", "unit" = "mm/day" }
+
+[[example]]
+id = "10"
+directory = "10_coupling_with_land_surface_model_pyhelp"
+title = "Coupling with a land surface model on the Urse catchment"
+summary = "The Urse catchment (Switzerland, EPSG:2056), 6.2 km² of Alpine grassland between 1800 and 3400 m. The land surface model PyHELP computed the recharge, a grid of daily percolation over 2021-2023 from the rain, the air temperature and the solar radiation, and `examples/data/recharge/recharge_pyhelp_urse.nc` holds that grid. This example models the groundwater flow it forces: steady state, MODFLOW 6, one layer 50 m thick, K of 3.1e-6 m/s, seepage at the ground surface. A second file searches K on the mapped stream network, with no discharge observation. A run takes about 40 s."
+runtime = "about 40 s"
+entry_config = "project.toml"
+
+[[example.file]]
+repo_path = "examples/projects/10_coupling_with_land_surface_model_pyhelp/README.md"
+dest = "projects/10_coupling_with_land_surface_model_pyhelp/README.md"
+size = 4687
+sha256 = "5869248ba503626cd0dc227c9922747e60276b424d67df620df5cb84940f6196"
+
+[[example.file]]
+repo_path = "examples/projects/10_coupling_with_land_surface_model_pyhelp/project.toml"
+dest = "projects/10_coupling_with_land_surface_model_pyhelp/project.toml"
+size = 5279
+sha256 = "6d6d2516d5d7473723332046a6e28781cc663f3be4f40683ecee32a43ab8f5a3"
+
+[[example.file]]
+repo_path = "examples/projects/10_coupling_with_land_surface_model_pyhelp/py1_run_and_plot.py"
+dest = "projects/10_coupling_with_land_surface_model_pyhelp/py1_run_and_plot.py"
+size = 7526
+sha256 = "ccbbb908f4393dc1a5c10aa62d1584de9c6052dcf61b653432fcc241a976deb2"
+
+[[example.file]]
+repo_path = "examples/projects/10_coupling_with_land_surface_model_pyhelp/run_calibration_k.toml"
+dest = "projects/10_coupling_with_land_surface_model_pyhelp/run_calibration_k.toml"
+size = 2956
+sha256 = "ff458d3a73e2afeada0416024a9dd31b4d91655f85876ededdb927ecbf7b8856"
+
+[[example.data]]
+repo_path = "examples/data/dem/DEM_urse_25m.tif"
+dest = "data/dem/DEM_urse_25m.tif"
+size = 644044
+sha256 = "7749f9f51206c6fcfe916930a25ec69e123f013d6c2617f94ef0b8df286532e4"
+
+[[example.data]]
+repo_path = "examples/data/hydrography/urse_stream_network.gpkg"
+dest = "data/hydrography/urse_stream_network.gpkg"
+size = 106496
+sha256 = "cb7fa65b337e727d618898e4690c51bc952459bde70956153d48c9a11f9a858a"
+
+[[example.data]]
+repo_path = "examples/data/recharge/recharge_pyhelp_urse.nc"
+dest = "data/recharge/recharge_pyhelp_urse.nc"
+size = 67842
+sha256 = "90b3ca5066c7dd2d354904cf3fbffcf753009a0dff3412efdca5d652e5259316"
+
+[[example.data]]
+repo_path = "examples/data/watershed_polygon/urse_watershed.gpkg"
+dest = "data/watershed_polygon/urse_watershed.gpkg"
+size = 401408
+sha256 = "61d5d62ea4acbbab8461bd91c3848c385a6241cb5e6495250a9b78145123b5e6"
+
+[[example]]
+id = "11"
+directory = "11_run_from_scratch_without_plots"
+title = "Run from scratch, without a single figure"
+summary = "The Canut catchment (Ille-et-Vilaine), 24.9 km², cut out of a regional 75 m DEM from its outlet. Steady state under 350 mm/year of recharge, a 50 m aquifer in three layers of the same thickness, a K of 1e-5 m/s and a Sy of 0.01 everywhere, seepage at the ground surface, and particles. MODFLOW 6 solves the flow and its particle tracking PRT follows the water. A run takes about 25 s."
+runtime = "about 25 s"
+entry_config = "project.toml"
+
+[[example.file]]
+repo_path = "examples/projects/11_run_from_scratch_without_plots/README.md"
+dest = "projects/11_run_from_scratch_without_plots/README.md"
+size = 3310
+sha256 = "3740eda086c4f1244bb15432d040ba0fa176da0047862016b4fa9b83cabbe3d5"
+
+[[example.file]]
+repo_path = "examples/projects/11_run_from_scratch_without_plots/project.toml"
+dest = "projects/11_run_from_scratch_without_plots/project.toml"
+size = 3500
+sha256 = "a4857294af908ce863ee33a2f7c884db135037b998b08c20c88bf05585dc239c"
+
+[[example.file]]
+repo_path = "examples/projects/11_run_from_scratch_without_plots/py1_run.py"
+dest = "projects/11_run_from_scratch_without_plots/py1_run.py"
+size = 4940
+sha256 = "27819a749c78846ec8c18c678f18016c44d19e1513e58820c80bc778ef2fd5d7"
+
+[[example.data]]
+repo_path = "examples/data/dem/DEM_armorican_massif.tif"
+dest = "data/dem/DEM_armorican_massif.tif"
+size = 94812848
+sha256 = "e20127a48fa42f9955a64417114c90a0a679b3cece8c94f352f0e78618d69f0f"

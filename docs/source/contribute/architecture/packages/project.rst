@@ -50,5 +50,6 @@ replay to ``exchange/replay.py``. In the launcher, a table format or a binding r
 goes to ``plan.py``, a variable of a case environment to ``env.py``, a state that a case can be in
 to ``status.py`` and a column of ``by_case`` or ``by_site`` to ``summary_tables.py``. A command
 that a SLURM script calls is a function of ``slurm.py``, a branch of its ``main`` and a line of
-the template, and the module path stays. A project is added to the example catalog by a line of
-``WHITELIST`` in ``examples/generate.py`` once it runs end to end from a fresh workspace.
+the template, and the module path stays. A folder ``NN_name`` of ``examples/projects/`` with a
+``project.toml`` and a ``README.md`` enters the example catalog at the next
+``python -m tools.dev examples manifest``, with no line of code.

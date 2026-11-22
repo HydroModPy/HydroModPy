@@ -37,7 +37,7 @@ calibrate	function	(source: Source, *, base: PathLike | None = None, phase: str 
 check	function	(source: PathLike | Mapping[str, Any], *, base: PathLike | None = None, partial: bool = True, inputs: bool = False, environment: Environment | None = None) -> list[Diagnostic]
 compare	function	(refs: Sequence[Ref], *, variables: Sequence[str] | None = None, out: PathLike | None = None, by: Literal['run', 'site'] = 'run', workspace: PathLike | None = None) -> Comparison | Path
 doctor	function	() -> DoctorReport
-example	function	(name: str | None = None, *, add: bool = False, workspace: PathLike | None = None, ref: str | None = None, force: bool = False) -> tuple[ExampleEntry, ...] | ExampleEntry | InstallReport
+example	function	(name: str | Sequence[str] | None = None, *, add: bool = False, workspace: PathLike | None = None, ref: str | None = None, force: bool = False) -> tuple[ExampleEntry, ...] | ExampleEntry | InstallReport | tuple[InstallReport, ...]
 export	function	(ref: Ref, variable: str | list[str] | None = None, *, time: str | int | list[str | int] | None = None, period: tuple[str, str] | None = None, format: str | None = None, folder: PathLike | None = None, file: PathLike | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0, deliver: bool = False, workspace: PathLike | None = None, environment: Environment | None = None) -> list[Path] | tuple[PublishedLine, ...]
 index	function	(workspace: str | os.PathLike[str] | None = None) -> Workspace
 open	function	(path: PathLike) -> Project | Run | Session | Workspace

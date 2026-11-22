@@ -41,7 +41,8 @@ def run(args: argparse.Namespace) -> None:
                 f"{row['runtime']}"
             )
         print()
-        print("  hmp example show <id>   file by file")
-        print("  hmp example add <id>    fetch what is missing and write it into a workspace")
+        print("  hmp example show <id>          file by file")
+        print("  hmp example add <id> [<id>]    fetch them and write them into a workspace")
+        print("  hmp example add --all          every example")
 
     emit(args, "example list", rows, table=table)

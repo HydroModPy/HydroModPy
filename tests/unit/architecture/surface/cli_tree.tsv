@@ -358,11 +358,12 @@ hmp doctor --prt	nargs=0
 hmp doctor --workspace,-w	
 hmp example	command
 hmp example add	command
+hmp example add --all	nargs=0
 hmp example add --force	nargs=0
 hmp example add --format	choices=['csv', 'json', 'table'] default='table'
 hmp example add --ref	
 hmp example add --workspace,-w	
-hmp example add <example_id>	required
+hmp example add <example_id>	nargs=*
 hmp example list	command
 hmp example list --format	choices=['csv', 'json', 'table'] default='table'
 hmp example list --workspace,-w	

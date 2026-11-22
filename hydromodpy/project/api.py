@@ -1308,21 +1308,21 @@ def publish(
 
 
 def example(
-    name: str | None = None,
+    name: str | Sequence[str] | None = None,
     *,
     add: bool = False,
     workspace: PathLike | None = None,
     ref: str | None = None,
     force: bool = False,
-) -> tuple[ExampleEntry, ...] | ExampleEntry | InstallReport:
-    """List the examples this build ships, show one, or install one.
+) -> tuple[ExampleEntry, ...] | ExampleEntry | InstallReport | tuple[InstallReport, ...]:
+    """List the examples this build ships, show some, or install one, several or all.
 
     Parameters
     ----------
     name
-        The example id. Without it, every example.
+        The example id, or a list of ids. Without it, every example.
     add
-        Install the example: fetch what is missing from the content-addressed
+        Install the examples: fetch what is missing from the content-addressed
         cache, check every file against its sha256, and write the configs under
         ``projects/<directory>/`` and the data under ``data/<variable>/``.
     workspace
@@ -1334,30 +1334,30 @@ def example(
 
     Returns
     -------
-    tuple of ExampleEntry or ExampleEntry or InstallReport
-        Every example, the one named, or what the install wrote.
+    tuple of ExampleEntry or ExampleEntry or InstallReport or tuple of InstallReport
+        One value for one id given as text, a tuple for a list of ids or for none.
 
     Examples
     --------
     >>> import hydromodpy as hmp
     >>> [entry.id for entry in hmp.example()]  # doctest: +SKIP
     >>> hmp.example("04", add=True).project_dir  # doctest: +SKIP
+    >>> hmp.example(["00", "07"], add=True)  # doctest: +SKIP
     """
     from hydromodpy.project.examples.manifest import find_entry, load_catalog
 
-    if name is None:
-        if add:
-            raise CommandUsageError("example(add=True) installs one example: name it.")
-        return load_catalog()
-    entry = find_entry(name, load_catalog())
     if not add:
-        return entry
+        catalog = load_catalog()
+        if name is None or isinstance(name, str):
+            return catalog if name is None else find_entry(name, catalog)
+        return tuple(find_entry(item, catalog) for item in name)
     from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
-    from hydromodpy.project.examples.blobs import resolve_source
-    from hydromodpy.project.examples.install import install_example
+    from hydromodpy.project.examples.install import install_examples
 
     root = Path(workspace).expanduser().resolve() if workspace is not None else DEFAULT_ROOT
-    return install_example(entry, workspace=root, source=resolve_source(ref), force=force)
+    names = [name] if isinstance(name, str) else name
+    reports = install_examples(names, workspace=root, ref=ref, force=force)
+    return reports[0] if isinstance(name, str) else reports
 
 
 def doctor() -> DoctorReport:

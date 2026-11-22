@@ -12,7 +12,7 @@ import pytest
 from hydromodpy.core.exceptions import CacheCorruptionError, DataRequestError
 from hydromodpy.core.payload.index import PayloadFile, PayloadStation
 from hydromodpy.project.examples import blobs
-from hydromodpy.project.examples.install import install_example
+from hydromodpy.project.examples.install import install_example, install_examples
 from hydromodpy.project.examples.manifest import ExampleEntry
 
 _DEM = b"a regional DEM, shared by several examples\n"
@@ -214,6 +214,7 @@ def test_the_report_gives_its_json_form(source_tree, catalog_entry, workspace) -
     report = install_example(catalog_entry, workspace=workspace, source=str(source_tree))
     document = json.loads(json.dumps(report.to_dict()))
     assert document == {
+        "example_id": "t1",
         "workspace": str(workspace.resolve()),
         "project_dir": str(report.project_dir),
         "entry_config": "step1.toml",
@@ -238,3 +239,27 @@ def test_the_entry_gives_its_json_form(catalog_entry) -> None:
     assert document["stations"] == [
         {"dest": "data/hydrometry/LOC.csv", "row": {"id": "X1", "name": "Gauge"}}
     ]
+
+
+def test_several_examples_install_in_a_row_after_every_id_is_checked(
+    source_tree, catalog_entry, workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The DEM two examples share is downloaded once, and a typo costs no download."""
+    second = replace(catalog_entry, id="t2", directory="tiny2")
+    monkeypatch.setattr(
+        "hydromodpy.project.examples.install.load_catalog", lambda: (catalog_entry, second)
+    )
+    monkeypatch.setenv(blobs.SOURCE_ENV, str(source_tree))
+
+    with pytest.raises(FileNotFoundError, match="Unknown example 'nope'"):
+        install_examples(["t1", "nope"], workspace=workspace)
+    assert not (workspace / "data" / "dem" / "dem.tif").exists()
+
+    first, again = install_examples(["t1", "t2", "t1"], workspace=workspace)
+    assert (first.example_id, again.example_id) == ("t1", "t2")
+    assert sorted(first.downloaded) == ["data/dem/dem.tif", "projects/tiny/step1.toml"]
+    assert again.everything_was_cached is True
+
+    every = install_examples(None, workspace=workspace)
+    assert [report.example_id for report in every] == ["t1", "t2"]
+    assert all(report.written == [] for report in every)

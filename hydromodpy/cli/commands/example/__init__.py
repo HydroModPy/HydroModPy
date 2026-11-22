@@ -1,10 +1,11 @@
-"""``hmp example`` family - drop one shipped example into a workspace.
+"""``hmp example`` family - drop shipped examples into a workspace.
 
 Sub-actions:
 
 - ``hmp example list``: the catalog, offline, with what this machine misses.
 - ``hmp example show <id>``: one example file by file, cached or missing.
-- ``hmp example add <id>``: fetch what is missing and write it into a workspace.
+- ``hmp example add <id> [<id> ...]`` or ``--all``: fetch what is missing and write
+  each example into a workspace as a project.
 
 The catalog is read from ``hydromodpy/project/examples/catalog.toml`` inside the
 wheel, so ``list`` needs no network and cannot promise what the installed
@@ -20,7 +21,7 @@ from hydromodpy.cli.commands.example import list_cmd as list_action
 from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "example"
-HELP: str = "List the shipped examples and install one into a workspace"
+HELP: str = "List the shipped examples and install one, several or all into a workspace"
 
 ACTIONS = (list_action, show, add)
 

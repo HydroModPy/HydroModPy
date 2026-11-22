@@ -502,8 +502,9 @@ OUTPUTS: tuple[Output, ...] = (
         "files",
         "data",
     ),
-    _object(
+    _rows(
         "example add",
+        "example_id",
         "workspace",
         "project_dir",
         "entry_config",
@@ -514,6 +515,7 @@ OUTPUTS: tuple[Output, ...] = (
         "unchanged",
         "kept",
         "stations_written",
+        version=2,
     ),
     # Privacy
     _object(
