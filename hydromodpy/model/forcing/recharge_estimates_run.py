@@ -15,6 +15,7 @@ from dataclasses import replace
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.scoring.baseflow import wallingford
 from hydromodpy.core.units.quantities import SECONDS_PER_DAY
 from hydromodpy.model.contracts import LoadResultProto
 from hydromodpy.model.forcing.cells import spatial_mean_from_fields
@@ -30,7 +31,6 @@ from hydromodpy.model.forcing.recharge_estimates import (
     kessler,
     recession_constant,
     turc,
-    wallingford,
     wtf,
 )
 from hydromodpy.model.forcing.recharge_estimates_config import RechargeEstimatesConfig

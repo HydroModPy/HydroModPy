@@ -553,6 +553,26 @@ def test_block_on_wrong_support_is_refused(block, match) -> None:
         _network_config([block])
 
 
+def test_a_baseflow_index_on_a_head_is_refused() -> None:
+    with pytest.raises(ValueError, match="reads discharge outputs only"):
+        CalibrationConfig.model_validate(
+            {
+                "method": "optuna",
+                "parameters": {"K": {"bounds": [1e-9, 1e-3], "path": "flow.param.K.field.value"}},
+                "outputs": {
+                    "h": {
+                        "variable": "head",
+                        "support": "point",
+                        "x": 0.0,
+                        "y": 0.0,
+                        "observed_values": [1.0, 2.0],
+                    }
+                },
+                "objective_blocks": [{"name": "b", "metric": "bfi_error", "uses_outputs": ["h"]}],
+            }
+        )
+
+
 PROTOCOL = "matching_hydrographic_network"
 K = {"K": {"bounds": [1e-7, 1e-3]}}
 

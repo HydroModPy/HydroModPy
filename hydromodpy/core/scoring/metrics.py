@@ -13,7 +13,8 @@ References
 
 A caller runs ``align`` first, which drops the pairs with NaN, then ``nse``,
 ``log_nse``, ``kge``, ``rmse``, ``mae``, ``bias``, ``pbias``, ``correlation``, or the
-variants ``nse_delta``, ``kge_delta`` and ``nse_seasonal``. A new metric goes here in
+variants ``nse_delta``, ``kge_delta`` and ``nse_seasonal``, or the baseflow index
+signatures ``bfi_gap`` and ``bfi_error``. A new metric goes here in
 NumPy only, a float out, and its name is a row of ``metric_table.py``.
 """
 
@@ -22,6 +23,8 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
+
+from hydromodpy.core.scoring.baseflow import baseflow_indices
 
 LOG_FLOOR_FRACTION = 0.01
 """Share of the median positive observation that ``log_floor`` offsets by."""
@@ -364,3 +367,20 @@ def nse_seasonal(sim: np.ndarray, obs: np.ndarray, *, period: float = 365, times
     if _no_spread(denominator, obs.size, obs):
         return float("nan")
     return float(1.0 - np.sum((sim - obs) ** 2) / denominator)
+
+
+def bfi_gap(sim, obs, *, times_days=None) -> float:
+    """Simulated minus observed baseflow index, Wallingford filter, over the same days.
+
+    Positive: the simulated stream is fed more by its aquifer than the gauged one.
+    The index is blind to volume and to timing (a simulated series twice the
+    observed one scores 0), so it qualifies a fit and never replaces one. NaN unless
+    the series is daily. ``times_days`` is the date of each sample in days.
+    """
+    simulated, observed = baseflow_indices(sim, obs, times_days=times_days)
+    return float(simulated - observed)
+
+
+def bfi_error(sim, obs, *, times_days=None) -> float:
+    """The absolute value of :func:`bfi_gap`, a cost a calibration can minimize."""
+    return float(abs(bfi_gap(sim, obs, times_days=times_days)))

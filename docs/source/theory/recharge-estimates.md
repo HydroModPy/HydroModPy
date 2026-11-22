@@ -67,6 +67,16 @@ the user copies it into
 {toml}`infiltration_ratio|flow.sinks_sources.recharge.soil.infiltration_ratio` when the soil
 should send the rest of its excess to the streams.
 
+The same Wallingford filter also judges a run. The run metric `bfi_gap` is the baseflow index
+of the simulated discharge minus the one of the gauge, both filtered on the same days of the
+metrics window, and the calibration criterion `bfi_error` is its absolute value. It is the index
+of the whole window, not the lowest yearly index above. It asks whether the simulated stream is
+fed by its aquifer in the share the gauge shows: a slower aquifer, or drains that rarely
+overflow, raise it. It is blind to the volume and to the timing, since a simulated series twice
+the observed one scores zero, so it goes beside a fit such as `nse`, never alone. The filter
+reads blocks of five days, so it needs a daily discharge: a monthly run leaves `bfi_gap` empty,
+and the criterion is refused outside a transient run with a daily step.
+
 The closing factor is the number that would scale the run's recharge and runoff onto the
 gauged volume over their common days. Abherve (2022) multiplies the SURFEX recharge by it
 before he calibrates on that same gauge. Here it is only printed, so a user who wants it copies

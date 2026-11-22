@@ -55,6 +55,8 @@ from hydromodpy.core.site.config import resolve_gauge
 from hydromodpy.core.time.selection import grid_edges
 from hydromodpy.core.time.window import (
     build_simulation_time_boundaries,
+    nominal_step_days,
+    parse_step_spec,
     require_flow_simulation_time_grid,
     resolve_simulation_time_window,
 )
@@ -285,6 +287,26 @@ def refuse_a_calibration_without_parameters(cfg: Any, *, sealed: bool) -> None:
     if cfg.calibration is not None and flow_honors(cfg, PROPERTIES) and not cfg.flow.param_list:
         raise ValueError(
             "[calibration] requires flow.param_list to declare at least one tunable parameter"
+        )
+
+
+def refuse_a_baseflow_index_off_a_daily_run(cfg: Any, *, sealed: bool) -> None:
+    """Refuse the ``bfi_error`` criterion unless the run is transient with a daily step."""
+    calibration = cfg.calibration
+    if calibration is None:
+        return
+    if not any(str(block.metric) == "bfi_error" for block in calibration.objective_blocks):
+        return
+    time = cfg.simulation.time
+    step_value, step_unit = parse_step_spec(time.step_value, time.step_unit)
+    daily = nominal_step_days(step_value, step_unit) == 1.0
+    if cfg.flow.flow_regime != "transient" or not daily:
+        raise ValueError(
+            "[calibration] scores bfi_error, the baseflow index of the Wallingford filter, "
+            "which reads blocks of five days of a daily discharge, and this run "
+            f"is {cfg.flow.flow_regime} with a step of {step_value} {step_unit}: "
+            'write [simulation.time] step_value = "1 day" in a transient run, or drop the '
+            "criterion."
         )
 
 
@@ -1034,6 +1056,9 @@ CROSS_RULES: dict[str, CrossRule] = {
         CrossRule(refuse_a_raster_depth_without_its_substratum, _reads("domain", "data")),
         CrossRule(refuse_a_river_mesh_without_a_threshold, _reads("geographic", "mesh", "flow")),
         CrossRule(refuse_a_calibration_without_parameters, _reads("calibration", "flow", "solver")),
+        CrossRule(
+            refuse_a_baseflow_index_off_a_daily_run, _reads("calibration", "flow", "simulation")
+        ),
         # What the flow solver ignores is named before the checks of one section,
         # and the traits it ignores come first, so a lake under a solver without
         # lakes is named for that before any pair it belongs to.
@@ -1167,6 +1192,7 @@ __all__ = [
     "REAL_CATCHMENT_DEFINITIONS",
     "RuleOutcome",
     "check_against_the_solver",
+    "refuse_a_baseflow_index_off_a_daily_run",
     "refuse_a_calibration_without_parameters",
     "refuse_a_cell_address_on_an_irregular_mesh",
     "refuse_a_metrics_window_outside_the_run",

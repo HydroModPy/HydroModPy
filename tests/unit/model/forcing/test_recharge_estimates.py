@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.scoring.baseflow import wallingford
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.forcing.recharge_estimates import (
@@ -23,7 +24,6 @@ from hydromodpy.model.forcing.recharge_estimates import (
     kessler_correction,
     recession_constant,
     turc,
-    wallingford,
     wtf,
 )
 from hydromodpy.model.forcing.recharge_estimates_config import RechargeEstimatesConfig

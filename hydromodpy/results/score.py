@@ -102,7 +102,7 @@ UNSCORED_OBSERVATIONS_CHECK: Final[str] = "observations_scored"
 
 _COLUMNS: Final[tuple[str, ...]] = ("station_id", "variable", "source", "time", "value")
 
-_KERNELS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
+_KERNELS: dict[str, Callable[..., float]] = {
     "nse": kernels.nse,
     "kge": lambda sim, obs: kernels.kge(sim, obs)["kge"],
     "rmse": kernels.rmse,
@@ -114,7 +114,11 @@ _KERNELS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
     "kge_r": lambda sim, obs: kernels.kge(sim, obs)["r"],
     "kge_alpha": lambda sim, obs: kernels.kge(sim, obs)["alpha"],
     "kge_beta": lambda sim, obs: kernels.kge(sim, obs)["beta"],
+    "bfi_gap": kernels.bfi_gap,
 }
+
+_DATED_METRICS: Final[frozenset[str]] = frozenset({"bfi_gap"})
+"""Kernels that read the date of each sample: the baseflow filter needs consecutive days."""
 
 HEADLINE_METRICS: Final[tuple[str, ...]] = ("nse", "kge", "rmse", "nse_log")
 """The metrics :func:`score` computes unless told otherwise."""
@@ -255,7 +259,12 @@ def score_metric(
             sim_values, obs_values = paired["sim"].to_numpy(), paired["obs"].to_numpy()
             if clips:
                 n_clipped = kernels.clip_negatives(sim_values, obs_values)[2]
-            raw = float(kernel(sim_values, obs_values))
+            if metric in _DATED_METRICS:
+                stamps = pd.DatetimeIndex(paired.index).tz_localize(None)
+                days = (stamps - stamps[0]) / pd.Timedelta(days=1)
+                raw = float(kernel(sim_values, obs_values, times_days=np.asarray(days)))
+            else:
+                raw = float(kernel(sim_values, obs_values))
             value = None if math.isnan(raw) else raw
     return MetricScore(
         metric=metric,

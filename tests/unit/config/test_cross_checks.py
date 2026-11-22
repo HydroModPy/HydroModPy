@@ -571,6 +571,7 @@ ORDER = (
     "refuse_a_raster_depth_without_its_substratum",
     "refuse_a_river_mesh_without_a_threshold",
     "refuse_a_calibration_without_parameters",
+    "refuse_a_baseflow_index_off_a_daily_run",
     "refuse_the_traits_the_solver_ignores",
     "refuse_the_reads_the_flow_does_not_write",
     "refuse_face_flows_the_flow_does_not_write",
@@ -1149,6 +1150,30 @@ ROWS += [
         'and "recharge" is not in data.types',
     ),
 ]
+
+
+ROWS += [
+    (
+        "refuse_a_baseflow_index_off_a_daily_run",
+        "monthly",
+        lambda d: _document(
+            d.plain,
+            calibration=_ns(objective_blocks=[_ns(metric="bfi_error")]),
+            simulation=_ns(time=_ns(step_value="1 month", step_unit=None)),
+        ),
+        'write [simulation.time] step_value = "1 day" in a transient run',
+    ),
+]
+
+
+def test_a_baseflow_index_passes_a_daily_transient_run(documents: SimpleNamespace) -> None:
+    document = _document(
+        documents.plain,
+        calibration=_ns(objective_blocks=[_ns(metric="bfi_error"), _ns(metric="nse")]),
+        simulation=_ns(time=_ns(step_value="1 day", step_unit=None)),
+    )
+
+    CROSS_RULES["refuse_a_baseflow_index_off_a_daily_run"].rule(document, sealed=False)
 
 
 def test_a_recharge_formula_passes_a_steady_run(documents: SimpleNamespace) -> None:

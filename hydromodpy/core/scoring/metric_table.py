@@ -1,6 +1,6 @@
-"""The table of the sixteen metrics a score or a trial may be named after.
+"""The table of the eighteen metrics a score or a trial may be named after.
 
-Calibration scores a trial on ten of them, a sealed run is scored on eleven, five
+Calibration scores a trial on eleven of them, a sealed run is scored on twelve, five
 belong to both. Each name has one row here. The names a TOML may write, the
 direction of a metric, its clipping and its documentation all come from these
 rows, so a name is written once.
@@ -173,6 +173,23 @@ _SPECS: tuple[MetricSpec, ...] = (
         "one",
         "Bias term of the KGE, the ratio of sums: tells volume.",
         run_position=10,
+    ),
+    MetricSpec(
+        "bfi_error",
+        "min",
+        "Distance between the simulated and observed baseflow indices (Wallingford, "
+        "daily discharge only); asks whether the stream is fed by its aquifer in the "
+        "right share. Blind to volume and timing, so it goes beside a fit, never alone.",
+        trial_position=10,
+        dimensionless=True,
+    ),
+    MetricSpec(
+        "bfi_gap",
+        "zero",
+        "Simulated minus observed baseflow index (Wallingford, daily discharge only); "
+        "positive when the simulated stream leans more on its aquifer. Empty on a "
+        "monthly run.",
+        run_position=11,
     ),
 )
 

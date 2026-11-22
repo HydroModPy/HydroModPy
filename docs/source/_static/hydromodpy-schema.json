@@ -1449,7 +1449,8 @@
             "nse_seasonal",
             "reservoir",
             "distance_gap",
-            "distance_mean"
+            "distance_mean",
+            "bfi_error"
           ],
           "examples": [
             "rmse"
@@ -1457,6 +1458,7 @@
           "title": "Metric",
           "type": "string",
           "value_docs": {
+            "bfi_error": "Distance between the simulated and observed baseflow indices (Wallingford, daily discharge only); asks whether the stream is fed by its aquifer in the right share. Blind to volume and timing, so it goes beside a fit, never alone.",
             "distance_gap": "Balances the simulated stream network against the mapped one; zero marks the crossing.",
             "distance_mean": "Mean spatial offset between simulated and mapped streams; a diagnostic, not a substitute for distance_gap.",
             "kge": "Kling-Gupta efficiency, 2009 form (bias as the ratio of sums, variability as the ratio of standard deviations); separates correlation, variability and bias when NSE alone is ambiguous.",
@@ -2745,7 +2747,8 @@
                 "nse_seasonal",
                 "reservoir",
                 "distance_gap",
-                "distance_mean"
+                "distance_mean",
+                "bfi_error"
               ],
               "type": "string"
             },
@@ -2757,6 +2760,7 @@
           "description": "Metric scoring this phase's single simulated series, when the phase does not use objective blocks. Same vocabulary as a block's 'metric'.",
           "title": "Objective",
           "value_docs": {
+            "bfi_error": "Distance between the simulated and observed baseflow indices (Wallingford, daily discharge only); asks whether the stream is fed by its aquifer in the right share. Blind to volume and timing, so it goes beside a fit, never alone.",
             "distance_gap": "Balances the simulated stream network against the mapped one; zero marks the crossing.",
             "distance_mean": "Mean spatial offset between simulated and mapped streams; a diagnostic, not a substitute for distance_gap.",
             "kge": "Kling-Gupta efficiency, 2009 form (bias as the ratio of sums, variability as the ratio of standard deviations); separates correlation, variability and bias when NSE alone is ambiguous.",
@@ -3418,7 +3422,8 @@
             "nse_seasonal",
             "reservoir",
             "distance_gap",
-            "distance_mean"
+            "distance_mean",
+            "bfi_error"
           ],
           "examples": [
             "rmse"
@@ -3426,6 +3431,7 @@
           "title": "Objective",
           "type": "string",
           "value_docs": {
+            "bfi_error": "Distance between the simulated and observed baseflow indices (Wallingford, daily discharge only); asks whether the stream is fed by its aquifer in the right share. Blind to volume and timing, so it goes beside a fit, never alone.",
             "distance_gap": "Balances the simulated stream network against the mapped one; zero marks the crossing.",
             "distance_mean": "Mean spatial offset between simulated and mapped streams; a diagnostic, not a substitute for distance_gap.",
             "kge": "Kling-Gupta efficiency, 2009 form (bias as the ratio of sums, variability as the ratio of standard deviations); separates correlation, variability and bias when NSE alone is ambiguous.",
@@ -17317,7 +17323,8 @@
             "nse_seasonal",
             "reservoir",
             "distance_gap",
-            "distance_mean"
+            "distance_mean",
+            "bfi_error"
           ],
           "examples": [
             "rmse"
@@ -17325,6 +17332,7 @@
           "title": "Transient Metric",
           "type": "string",
           "value_docs": {
+            "bfi_error": "Distance between the simulated and observed baseflow indices (Wallingford, daily discharge only); asks whether the stream is fed by its aquifer in the right share. Blind to volume and timing, so it goes beside a fit, never alone.",
             "distance_gap": "Balances the simulated stream network against the mapped one; zero marks the crossing.",
             "distance_mean": "Mean spatial offset between simulated and mapped streams; a diagnostic, not a substitute for distance_gap.",
             "kge": "Kling-Gupta efficiency, 2009 form (bias as the ratio of sums, variability as the ratio of standard deviations); separates correlation, variability and bias when NSE alone is ambiguous.",

@@ -90,6 +90,17 @@ METRIC_FORMULAS: dict[str, MetricFormula] = {
         note="The seasonal half reads the dates as nse_seasonal does. The increments "
         "span ten days, or one sample on a coarser series, and never a gap in the dates.",
     ),
+    "bfi_error": MetricFormula(
+        score=r"\left\lvert \dfrac{\sum_t b^s_t}{\sum_t s_t} - \dfrac{\sum_t b^o_t}{\sum_t o_t} \right\rvert",
+        reads="Whether the simulated stream is fed by its aquifer in the share the gauge "
+        "shows, whatever its volume and its timing.",
+        where=r"b^x_t = \text{Wallingford baseflow of } x \text{ on day } t",
+        note="The Wallingford filter (Gustard et al. 1992) takes the minimum of each block "
+        "of five days and joins the minima below 1/0.9 of their neighbours. Both series "
+        "are filtered on the same days, cut at the gaps of the record, and summed only "
+        "where both baselines exist. Daily series only: a coarser step scores NaN. The "
+        "index is the one of the whole window, not ESPERE's lowest yearly index.",
+    ),
     "distance_gap": MetricFormula(
         score=r"\lvert D_{so} - D_{os} \rvert",
         reads="Eq. 1 of the stream-network method: zero where the simulated network "

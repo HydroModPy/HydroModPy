@@ -1025,6 +1025,27 @@ class CalibrationConfig(HydroModelBase):
         return self
 
     @model_validator(mode="after")
+    def _check_a_baseflow_index_reads_a_discharge(self) -> CalibrationConfig:
+        """Refuse ``bfi_error`` on a head or a lake level: a baseflow index splits a discharge."""
+        for block in self.objective_blocks:
+            if str(block.metric) != "bfi_error":
+                continue
+            wrong = sorted(
+                (name, str(getattr(self.outputs[name], "variable", "")))
+                for name in block.uses_outputs
+                if name in self.outputs
+                and str(getattr(self.outputs[name], "variable", "")) != "discharge"
+            )
+            if wrong:
+                listed = ", ".join(f"{name!r} ({variable})" for name, variable in wrong)
+                raise ValueError(
+                    f"block {block.name!r} scores bfi_error on {listed}: the baseflow index "
+                    "splits a discharge into baseflow and quick flow, so it reads discharge "
+                    "outputs only."
+                )
+        return self
+
+    @model_validator(mode="after")
     def _check_no_output_is_beyond_every_declared_criterion(self) -> CalibrationConfig:
         """Refuse an output no criterion in this file is able to read.
 

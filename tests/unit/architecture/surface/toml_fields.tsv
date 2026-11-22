@@ -7,10 +7,10 @@ calibration.materialize_candidates	bool	False	experimental
 calibration.max_trials	int | Literal['auto']	'auto'	experimental
 calibration.method	str | None	None	experimental
 calibration.method_options	dict[str, Any]	{}	experimental
-calibration.objective	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean']	'nse'	experimental
+calibration.objective	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean', 'bfi_error']	'nse'	experimental
 calibration.objective_blocks	list[table]	[]	experimental
 calibration.objective_blocks.cost_transform	Literal['identity', 'log', 'inverse']	'identity'	experimental
-calibration.objective_blocks.metric	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean']	<required>	experimental
+calibration.objective_blocks.metric	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean', 'bfi_error']	<required>	experimental
 calibration.objective_blocks.name	str	<required>	experimental
 calibration.objective_blocks.normalize_cost	bool	False	experimental
 calibration.objective_blocks.uses_outputs	list[str]	<required>	experimental
@@ -87,7 +87,7 @@ calibration.phases.max_trials	int | Literal['auto'] | None	None	experimental
 calibration.phases.method	str | None	None	experimental
 calibration.phases.method_options	dict[str, Any] | None	None	experimental
 calibration.phases.name	str	<required>	experimental
-calibration.phases.objective	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean'] | None	None	experimental
+calibration.phases.objective	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean', 'bfi_error'] | None	None	experimental
 calibration.phases.objective_blocks	list[str] | dict[str, float]	[]	experimental
 calibration.phases.outputs	list[str]	[]	experimental
 calibration.phases.overrides	dict[str, Any]	{}	experimental
@@ -122,7 +122,7 @@ calibration.protocol.storage	str | Literal[False]	'Sy'	experimental
 calibration.protocol.transient_max_trials	int	120	experimental
 calibration.protocol.transient_method	str	'scipy_nelder_mead'	experimental
 calibration.protocol.transient_method_options	dict[str, Any]	{}	experimental
-calibration.protocol.transient_metric	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean']	'nse_log'	experimental
+calibration.protocol.transient_metric	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean', 'bfi_error']	'nse_log'	experimental
 calibration.protocol.transient_precision	float | None	None	experimental
 calibration.protocol.version	str | None	None	experimental
 calibration.protocol.window	table | None	None	experimental

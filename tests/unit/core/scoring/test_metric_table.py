@@ -38,6 +38,7 @@ TRIAL_BEFORE = (
     "reservoir",
     "distance_gap",
     "distance_mean",
+    "bfi_error",
 )
 RUN_BEFORE = (
     "nse",
@@ -51,6 +52,7 @@ RUN_BEFORE = (
     "kge_r",
     "kge_alpha",
     "kge_beta",
+    "bfi_gap",
 )
 SENSE_BEFORE = {
     "nse": "max",
@@ -69,6 +71,8 @@ SENSE_BEFORE = {
     "pbias": "zero",
     "kge_alpha": "one",
     "kge_beta": "one",
+    "bfi_error": "min",
+    "bfi_gap": "zero",
 }
 
 
@@ -88,14 +92,14 @@ def test_derived_name_lists(derived: tuple[str, ...], before: tuple[str, ...]) -
 
 
 def test_sixteen_names_once() -> None:
-    assert len(METRIC_SPECS) == 16
+    assert len(METRIC_SPECS) == 18
     assert all(name == spec.name for name, spec in METRIC_SPECS.items())
     assert set(METRIC_SPECS) == set(TRIAL_BEFORE) | set(RUN_BEFORE)
 
 
 def test_trial_and_run_name_counts() -> None:
     both = set(TRIAL_METRIC_NAMES) & set(RUN_METRIC_NAMES)
-    assert (len(TRIAL_METRIC_NAMES), len(RUN_METRIC_NAMES), len(both)) == (10, 11, 5)
+    assert (len(TRIAL_METRIC_NAMES), len(RUN_METRIC_NAMES), len(both)) == (11, 12, 5)
     assert all(METRIC_SPECS[name].scores_a_trial for name in TRIAL_METRIC_NAMES)
     assert all(METRIC_SPECS[name].scores_a_run for name in RUN_METRIC_NAMES)
 
@@ -117,7 +121,15 @@ def test_flag_sets() -> None:
     clipping = {n for n, s in METRIC_SPECS.items() if s.clips_negatives}
     dimensionless = {n for n, s in METRIC_SPECS.items() if s.dimensionless}
     assert clipping == {"nse_log"}
-    assert dimensionless == {"nse", "kge", "nse_delta", "nse_seasonal", "nse_log", "reservoir"}
+    assert dimensionless == {
+        "nse",
+        "kge",
+        "nse_delta",
+        "nse_seasonal",
+        "nse_log",
+        "reservoir",
+        "bfi_error",
+    }
     assert dimensionless <= set(TRIAL_METRIC_NAMES)
 
 

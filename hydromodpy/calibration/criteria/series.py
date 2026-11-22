@@ -30,6 +30,7 @@ from hydromodpy.calibration.criteria.hydrographic_network_distance import (
 )
 from hydromodpy.core.scoring.metric_table import METRIC_SPECS
 from hydromodpy.core.scoring.metrics import (
+    bfi_error,
     clip_negatives,
     kge,
     log_nse,
@@ -63,7 +64,7 @@ DAYS_PER_YEAR: float = 365.25
 # Kernels that read the dates of the series: the seasonal cycle and the
 # increment window are lengths of time, so a monthly series holds them in fewer
 # samples than a daily one, and a gap in the record is not one step.
-SAMPLED_BY_DATE: frozenset[str] = frozenset({"nse_delta", "nse_seasonal", "reservoir"})
+SAMPLED_BY_DATE: frozenset[str] = frozenset({"nse_delta", "nse_seasonal", "reservoir", "bfi_error"})
 
 
 def _cycle_samples(sample_days: float | None) -> float:
@@ -169,6 +170,19 @@ def _reservoir_score(
     return 0.5 * float(seasonal) + 0.5 * float(increments)
 
 
+def _bfi_score(
+    sim: np.ndarray,
+    obs: np.ndarray,
+    *,
+    sample_days: float | None = None,
+    times_days: Any = None,
+) -> float:
+    """``bfi_error`` on the dates of the series; NaN on a step coarser than a day."""
+    if times_days is None and sample_days is not None:
+        times_days = np.arange(np.asarray(sim).size, dtype=float) * float(sample_days)
+    return bfi_error(sim, obs, times_days=times_days)
+
+
 METRICS: dict[str, Callable[..., float]] = {
     "nse": nse,
     "rmse": rmse,
@@ -180,6 +194,7 @@ METRICS: dict[str, Callable[..., float]] = {
     "distance_gap": distance_gap,
     "distance_mean": distance_mean,
     "reservoir": _reservoir_score,
+    "bfi_error": _bfi_score,
 }
 
 # Kernels whose score rises with agreement, so the cost is one minus the score.

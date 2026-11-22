@@ -12,7 +12,7 @@ Three families:
   given climates (Kessler on a Hungarian karst, Guttman and Zuckerman on a
   Mediterranean one), so they bound the answer more than they give it.
 - From the gauge, a daily baseflow taken as the recharge that leaves the
-  aquifer: ``wallingford`` (Gustard et al. 1992), ``chapman_maxwell`` (1996) and
+  aquifer: ``wallingford`` (Gustard et al. 1992, in ``core/scoring/baseflow.py``), ``chapman_maxwell`` (1996) and
   ``eckhardt`` (2005). ``closing_factor`` is the number that would scale the
   run's recharge and runoff onto the gauged volume, equation 12 of Abherve (2022).
 - From a piezometer, ``wtf``: the rises of the water table times the specific
@@ -108,35 +108,6 @@ def kessler(
 # ---------------------------------------------------------------------------
 # Gauge, a daily baseflow
 # ---------------------------------------------------------------------------
-
-
-def wallingford(discharge: np.ndarray) -> np.ndarray:
-    """Baseflow by the smoothed minima of blocks of 5 days (Gustard et al. 1992).
-
-    The minimum of a block is a turning point when 0.9 times it stays below the
-    minima of the blocks on each side. The baseflow is the straight line between
-    turning points, never above the discharge, and NaN outside the first and the
-    last turning point (ESPERE writes 0 there, which lowers those years).
-    """
-    q = np.asarray(discharge, dtype=np.float64)
-    n_blocks = q.size // 5
-    if n_blocks < 3:
-        return np.full(q.size, np.nan)
-    blocks = q[: n_blocks * 5].reshape(n_blocks, 5)
-    minima = blocks.min(axis=1)
-    where = np.arange(n_blocks) * 5 + blocks.argmin(axis=1)
-    turning = [
-        b
-        for b in range(1, n_blocks - 1)
-        if 0.9 * minima[b] <= minima[b - 1] and 0.9 * minima[b] <= minima[b + 1]
-    ]
-    baseflow = np.full(q.size, np.nan)
-    if len(turning) < 2:
-        return baseflow
-    days = where[turning]
-    span = np.arange(days[0], days[-1] + 1)
-    baseflow[span] = np.minimum(q[span], np.interp(span, days, minima[turning]))
-    return baseflow
 
 
 def _start_of(q: np.ndarray) -> float:
