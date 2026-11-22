@@ -1171,3 +1171,10 @@ since = "2.0.1"
 versions = ">=2.0.0a1,<=2.0.0"
 quantities = ["heads@modflow6", "fluxes@modflow6", "heads@modflow_nwt", "fluxes@modflow_nwt", "heads@boussinesq", "fluxes@boussinesq", "metrics"]
 text = "With depth_model kind = \"flat_substratum\", the aquifer bottom of a DEM pixel without data was set 1 m under the no-data value, so it stopped being read as no data. A mesh that samples the bottom (triangle, voronoi, a regular grid resampled from the DEM) blended it with the flat elevation on the cells next to the mask. With domain_extent = \"watershed\" these are the cells of the catchment edge: on a 31 km2 catchment at a flat bottom of 15 m, 768 of 779 edge cells had a bottom between -800 and -9 891 m, a column 100 times thicker than the 76 m of the others. A no-data pixel now keeps the no-data value and every sampled cell gets the flat elevation. A constant_thickness model and a regular grid on the DEM pixels do not change."
+
+[[recipe]]
+id = "protocol_1_4_draws_the_map_as_given"
+since = "2.0.1"
+effect = "numbers"
+quantities = ["metrics"]
+text = "map.drawn_by defaults to \"crossing\": the mapped network is drawn on the cells as the data gives it, the rule of the paper, still cut to the catchment. It defaulted to \"heads\", which kept only the stream heads of the map and drew the rest down the model's own descent. A calibration with no pin on the protocol follows 1.4, which differs from 1.3 by this rule alone. A pin on 1.3, or map.drawn_by = \"heads\" in the network output, gives the heads rule back. A run that sealed no network output draws its network figures by the crossing rule too. A file of edition 2.0 that writes no drawn_by moves with it, at the request of the owner, so its K and costs change wherever heads and crossing draw different cells."

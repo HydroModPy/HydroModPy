@@ -27,7 +27,7 @@ calibration.outputs.map.calibrate_on.complete	float	0.5	experimental
 calibration.outputs.map.calibrate_on.permanent	float	0.5	experimental
 calibration.outputs.map.clip_to_catchment	bool	True	experimental
 calibration.outputs.map.complete	Literal['data.hydrography'] | Path | None	None	experimental
-calibration.outputs.map.drawn_by	Literal['heads', 'crossing', 'touch']	'heads'	experimental
+calibration.outputs.map.drawn_by	Literal['heads', 'crossing', 'touch']	'crossing'	experimental
 calibration.outputs.map.heads	table | None	None	experimental
 calibration.outputs.map.heads.min_drained_area	float	0.02	experimental
 calibration.outputs.map.heads.radius	Any	100.0	experimental

@@ -865,8 +865,24 @@ def _registry_path(path: str) -> str:
     return path.replace("[*]", "").replace("{*}", "*")
 
 
+# Each default moved for every file inside edition 2.0, at the owner's request, with the
+# id of the recipe row that says so. Such a move breaks the promise of an edition, so the
+# entry holds only while its row stays in the register.
+MOVED_INSIDE_2_0: dict[str, tuple[Any, Any, str]] = {
+    "calibration.outputs.*.map.drawn_by": (
+        "heads",
+        "crossing",
+        "protocol_1_4_draws_the_map_as_given",
+    ),
+}
+
+
 def _explained(path: str, old: Any, new: Any) -> bool:
     """Whether a row of the register says this default moved."""
+    recipes = {row.id for row in REGISTER.recipes}
+    for pattern, (before, after, recipe) in MOVED_INSIDE_2_0.items():
+        if fnmatchcase(path, pattern) and (before, after) == (old, new) and recipe in recipes:
+            return True
     for row in REGISTER.defaults:
         if fnmatchcase(path, _registry_path(row.key)) and (row.old, row.new) == (old, new):
             return True

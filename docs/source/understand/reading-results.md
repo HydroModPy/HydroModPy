@@ -164,8 +164,9 @@ previous map: the two maps do not count exactly the same cells. How the scores a
   {toml}`calibration.outputs.<name>.model.seepage_threshold` ({doc}`stream-network`). Another
   threshold moves the three classes.
 - *The mapped network is placed on the 75 m grid* with a transfer rule: a one-cell gap can come
-  from the transfer and not from the model. This run uses the default rule
-  ({toml}`calibration.outputs.<name>.map.drawn_by`): it places each stream head of the
+  from the transfer and not from the model. This run uses the `heads` rule
+  ({toml}`calibration.outputs.<name>.map.drawn_by`), the default when it was made, where
+  the default now draws the map as the data gives it. It places each stream head of the
   map on a nearby cell, within 100 m, and draws the rest of the reach down the slope of the
   model, so that field ditches below a head do not count as model errors
   ({doc}`stream-network`).
@@ -347,7 +348,7 @@ The eight figures are real outputs of the run
 `nancon_intermittence_mf6_calibrated_transient_storage`. It was produced on 2026-10-09 by
 a two-stage calibration of example 04 with HydroModPy 2.0.0a4. It is the
 run promoted from trial 8 of the second calibration stage: K = 7.96e-5 m/s, then
-Sy = 0.045. The mapped network is placed on the grid by the default `heads` rule, as described
+Sy = 0.045. The mapped network is placed on the grid by the `heads` rule, the default of that version, as described
 under {ref}`reading-network`.
 
 The images are drawn from the stored run, the way `hmp show --figure` draws them, for instance

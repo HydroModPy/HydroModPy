@@ -1350,7 +1350,7 @@ def test_protocol_lines(
 
     assert (
         normal[0]
-        == "protocol: matching_hydrographic_network@1.3 - Matching the hydrographic network"
+        == "protocol: matching_hydrographic_network@1.4 - Matching the hydrographic network"
     )
     assert "  option away from the recipe: steady_max_trials = 33 (recipe: 'auto')" in normal
     assert normal[-2].startswith(
@@ -1362,9 +1362,12 @@ def test_protocol_lines(
     )
     [departs] = [line for line in normal if line.startswith("  differs from the paper on: ")]
     # One line for every departure, with the value in force; the sentences are for -v.
-    assert "map.drawn_by = 'heads'" in departs
+    assert "verdict.max_catchment_mismatch = 0.05" in departs
+    assert "map.drawn_by" not in departs
     assert departs.endswith("(-v says how)")
-    assert "  differs from the paper on map.drawn_by" in {line.split(":")[0] for line in verbose}
+    assert "  differs from the paper on verdict.max_catchment_mismatch" in {
+        line.split(":")[0] for line in verbose
+    }
     assert {
         "  stage 1",
         "  cite",
@@ -1435,7 +1438,7 @@ def test_launch_logs_warnings_once(tmp_path: Path, monkeypatch, caplog) -> None:
         preflight.refuse_what_the_preflight_refuses(cfg, source=tmp_path / "calib.toml")
 
     assert caplog.text.count("calibration: twice written") == 1
-    assert "protocol: matching_hydrographic_network@1.3" in caplog.text
+    assert "protocol: matching_hydrographic_network@1.4" in caplog.text
 
 
 @pytest.mark.parametrize(

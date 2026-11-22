@@ -140,7 +140,7 @@ def test_other_output_error_kept() -> None:
 
 
 def test_record_version() -> None:
-    assert protocol_record(NAME)["version"] == "1.3"
+    assert protocol_record(NAME)["version"] == "1.4"
 
 
 @pytest.mark.parametrize(
@@ -159,10 +159,10 @@ def test_pin_refused_not_approximated(version, match) -> None:
 def test_unpinned_file_writes_departures() -> None:
     record = session_protocol(NAME)
 
-    assert record.version == "1.3"
+    assert record.version == "1.4"
     departures = {item.key: item for item in record.departures}
-    assert departures["map.drawn_by"].value == "heads"
-    assert departures["map.drawn_by"].written is False
+    # 1.4 draws the map as the data gives it, the rule of the paper.
+    assert "map.drawn_by" not in departures
     assert departures["verdict.max_catchment_mismatch"].value == "0.05"
     assert departures["model.seepage_threshold"].always is False
     assert departures["steady_recharge_window"].always is False
@@ -178,6 +178,14 @@ def test_pin_1_2_writes_defaults() -> None:
     departures = {item.key for item in record.departures}
     assert "map.drawn_by" not in departures
     assert "verdict.max_catchment_mismatch" not in departures
+
+
+def test_pin_1_3_keeps_the_heads_rule() -> None:
+    record = session_protocol({"name": NAME, "version": "1.3"})
+
+    departures = {item.key: item for item in record.departures}
+    assert departures["map.drawn_by"].value == "heads"
+    assert departures["map.drawn_by"].written is False
 
 
 # The transient stage does not score the spin-up year by default.

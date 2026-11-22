@@ -24,7 +24,7 @@ from hydromodpy.core.scoring.stream_defaults import (
 _DEFAULTS = [
     pytest.param("tau_specific_ratio", 1.0e-4, "share of the mean basin recharge", id="tau"),
     pytest.param("diagonal_neighbors", True, "flag", id="d8_descent"),
-    pytest.param("observed_rasterization", "heads", "rule", id="rasterization"),
+    pytest.param("observed_rasterization", "crossing", "rule", id="rasterization"),
     pytest.param("clip_map_to_catchment", True, "flag", id="clip"),
     pytest.param("max_catchment_mismatch", 0.05, "share of the catchment area", id="mismatch"),
     pytest.param("heads_snap_radius_m", 100.0, "m", id="snap_radius"),

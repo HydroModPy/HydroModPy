@@ -3,8 +3,8 @@
 Compared with: the hydraulic conductivity and the stream heads of the run that produced the mapped network.
 
 ``test_twin_matching_stream_network_modflow6.py`` runs one row of cells that
-drains 0.0016 km2, so it has to force the crossing rule. This twin runs what
-protocol 1.3 freezes and writes no key of its network output: the heads rule, the
+drains 0.0016 km2, so it has to force the crossing rule. This twin writes the heads
+rule in its network output and leaves the rest to what the protocol freezes: the
 map cut to the catchment, the catchment bound, D8 where the mesh has corners.
 
 The basin is a comb on a DEM, 80 by 70 cells of 20 m. A main stem runs east to the
@@ -208,6 +208,7 @@ bounds = {bounds}
 [calibration.outputs.seepage_network]
 support = "network"
 map.complete = "{mapped}"
+map.drawn_by = "{rule}"
 {keys}
 
 [calibration.protocol]
@@ -388,6 +389,7 @@ def _calibrate(
     bounds: tuple[float, float] = K_BOUNDS_M_S,
     settings: str = "",
     keys: str = "",
+    rule: str = "heads",
 ) -> Any:
     """Run the protocol against a map, the value under [flow.param.K.field] being no truth."""
     import hydromodpy as hmp
@@ -404,6 +406,7 @@ def _calibrate(
             bounds=list(bounds),
             mapped=_write_map(root / "map.gpkg", lines).as_posix(),
             keys=keys,
+            rule=rule,
         ),
         encoding="utf-8",
     )
@@ -474,7 +477,9 @@ def test_the_map_holds_the_known_heads_and_traces_back_to_the_network(
         truth.metric,
         candidates,
         cell_area_m2=truth.areas,
-        settings=heads_settings(CalibOutputNetwork(support="network", map={"complete": "a"})),
+        settings=heads_settings(
+            CalibOutputNetwork(support="network", map={"complete": "a", "drawn_by": "heads"})
+        ),
     )
     assert trace.n_lost == 0
     assert np.array_equal(np.sort(trace.head_cell), truth.heads)
@@ -504,7 +509,7 @@ def test_a_search_under_the_protocol_recovers_the_conductivity_that_made_the_hea
     )
     assert _what_fails(report, truth) == []
 
-    # The cut left the end past the outlet out, and the bound of 1.3 read a live number.
+    # The cut left the end past the outlet out, and the catchment bound read a live number.
     assert network_metric(best, "n_cut_ends") == 1.0
     assert network_metric(best, "catchment_mismatch") <= 0.05
     assert network_metric(best, "n_forced_heads") == 0.0
@@ -512,7 +517,7 @@ def test_a_search_under_the_protocol_recovers_the_conductivity_that_made_the_hea
     assert network_metric(trial_metrics(report, K_BOUNDS_M_S[0]), "J_signed") > 0.0
     assert network_metric(trial_metrics(report, K_BOUNDS_M_S[1]), "J_signed") < 0.0
 
-    assert report.protocol["version"] == "1.3"
+    assert report.protocol["version"] == "1.4"
     sealed = (Path(report.session_dir) / "config.toml").read_text(encoding="utf-8")
     assert 'drawn_by = "heads"' in sealed
 
@@ -611,7 +616,7 @@ def test_below_its_head_the_path_of_a_line_counts_under_crossing_only(grid_truth
     heads = _calibrate(grid_truth, "wander_heads", lines)
     assert abs(float(heads.best_parameters["K"]) / K_TRUE_M_S - 1.0) <= K_RECOVERY_REL
     assert network_metric(trial_metrics(heads, heads.best_parameters["K"]), "D_optim") == 0.0
-    crossing = _calibrate(grid_truth, "wander_crossing", lines, keys='map.drawn_by = "crossing"')
+    crossing = _calibrate(grid_truth, "wander_crossing", lines, rule="crossing")
     assert abs(float(crossing.best_parameters["K"]) / K_TRUE_M_S - 1.0) > K_RECOVERY_REL
 
 
@@ -672,7 +677,7 @@ parameters = {{ K = {{ bounds = [3.0e-6, 1.2e-5] }}, Sy = {{ bounds = [0.025, 0.
 
 [calibration.outputs.seepage_network]
 support = "network"
-map = {{ complete = "{maximal}", permanent = "{minimal}", heads = {{ min_drained_area = 0.002 }}, calibrate_on = {{ permanent = 0.5, complete = 0.5 }} }}
+map = {{ complete = "{maximal}", permanent = "{minimal}", drawn_by = "heads", heads = {{ min_drained_area = 0.002 }}, calibrate_on = {{ permanent = 0.5, complete = 0.5 }} }}
 model = {{ extent = {{ flowing_at_least = "1 month", dry_at_most = "1 month", year_quorum = 1.0, visible_flow = "0.1 L/s" }} }}
 
 [[calibration.objective_blocks]]

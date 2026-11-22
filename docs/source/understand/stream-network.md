@@ -178,12 +178,13 @@ the {term}`BD TOPO`. It is a reference. The model never receives it.
 The model is built from the relief, the geology, the recharge and the thickness. The map is
 read afterwards, to score and to draw ({doc}`reading-results`). You declare it as a data source ({doc}`../reference/parameters/data/hydrography`), and the code treats it as a {term}`diagnostic`, not as a model input.
 
-To compare the two networks, the lines of the map are first placed on the model cells.
-By default HydroModPy keeps only the places where the map says a stream starts, and lets the
-slope of the model draw the path below them
-({toml}`drawn_by|calibration.outputs.<name>.map.drawn_by`). Field ditches and rectified
-reaches follow paths that a model on a digital elevation model cannot reproduce, and drawn
-cell by cell they would count as errors of the model.
+To compare the two networks, the lines of the map are first placed on the model cells
+({toml}`drawn_by|calibration.outputs.<name>.map.drawn_by`). By default HydroModPy draws the
+map as the data gives it, on every cell a line crosses, the rule of the paper. The `heads`
+rule keeps only the places where the map says a stream starts, and lets the slope of the
+model draw the path below them. Field ditches and rectified reaches follow paths that a
+model on a digital elevation model cannot reproduce, and drawn cell by cell they count as
+errors of the model, which the `heads` rule avoids.
 
 Then the comparison goes both ways, along the slope.
 

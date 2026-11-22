@@ -136,7 +136,7 @@ It is first cut to the delineated catchment
 with the shape {toml}`data.hydrography` clips what it loads to, so a file and that
 section draw the same map, and so does a figure redrawn from the run.
 
-*Heads* (the default) keeps only where the map says a stream starts, and lets the
+*Heads* keeps only where the map says a stream starts, and lets the
 receiver graph draw the rest: the path a ditch gave a mapped line is something a
 model on a DEM cannot reproduce, and drawn cell by cell it would count as error.
 
@@ -166,7 +166,7 @@ The traced map is connected to the outlet by construction.
    The drawn map follows the descent of the model, not the line.
 ```
 
-*Crossing* keeps a cell when a mapped line crosses the segment joining the
+*Crossing*, the default, draws the map as the data gives it. It keeps a cell when a mapped line crosses the segment joining the
 centers of two cells that share an edge: on a structured grid, the cell medians,
 which is what the WhiteboxTools tool `VectorLinesToRaster` of the paper tests.
 The map is one cell wide, like the simulated network. A reach that crosses no

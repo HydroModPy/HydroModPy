@@ -65,6 +65,11 @@ DEFAULTS_BY_VERSION: Mapping[str, Mapping[str, Any]] = {
         "map": {**_DEFAULTS_1_2["map"], "drawn_by": "heads", "clip_to_catchment": True},
         "verdict": {**_DEFAULTS_1_2["verdict"], "max_catchment_mismatch": 0.05},
     },
+    "1.4": {
+        "model": _DEFAULTS_1_2["model"],
+        "map": {**_DEFAULTS_1_2["map"], "drawn_by": "crossing", "clip_to_catchment": True},
+        "verdict": {**_DEFAULTS_1_2["verdict"], "max_catchment_mismatch": 0.05},
+    },
 }
 """What each version of the protocol writes in the network output, one line per version.
 
@@ -78,6 +83,8 @@ model, so a default that moves without a new line here fails.
 1.2 is the method as it ran on 2026-09-28: the mapped network drawn by the
 crossing rule, read whole from a file, with no veto. 1.3 draws it from its heads,
 cuts it to the catchment and refuses a catchment that is not the delineated one.
+1.4 keeps the cut and the refusal of 1.3 and draws the map as the data gives it,
+by the crossing rule. The heads rule is written as map.drawn_by = 'heads'.
 """
 
 
@@ -88,6 +95,10 @@ class MatchingHydrographicNetwork:
     defaults_by_version = DEFAULTS_BY_VERSION
     version = next(reversed(DEFAULTS_BY_VERSION))
     """The last line of :data:`DEFAULTS_BY_VERSION`, what a file without a pin runs.
+
+    Bumped from 1.3 to 1.4: the map is drawn as the data gives it, by the crossing
+    rule, still cut to the catchment and under the catchment bound. The heads rule
+    is an option written in the network output, and a pin on 1.3 keeps it.
 
     Bumped from 1.2 to 1.3: the map is drawn from its heads, cut to the catchment
     with no cut end taken for a head, and a scored catchment too far from the
@@ -371,29 +382,28 @@ class MatchingHydrographicNetwork:
             paper="the mapped network is rasterised onto the model grid by "
             "WhiteboxTools' VectorLinesToRaster, whose own assignment rule is not "
             "restated in the text",
-            here="'heads' from version 1.3 (1.2 draws 'crossing'), and it departs from the "
-            "paper: it keeps the free "
-            "ends of the map and traces the model's own descent from each, so the "
-            "map is connected to the outlet by construction and the path a field "
-            "or a ditch gave the mapped line no longer counts as error; an end the "
-            "cut to the catchment made is no head; 'crossing' "
-            "is offered and matches the paper, a cell belongs to the network when "
+            here="'crossing' by default (1.3 alone draws 'heads'), which matches the paper: "
+            "a cell belongs to the network when "
             "the line crosses the segment joining two edge-sharing cell centres, "
             "WhiteboxTools' own rule on a structured grid, except that a reach "
             "crossing no such segment keeps the cell holding its midpoint where "
             "WhiteboxTools drops it (counted per trial as n_observed_features_"
-            "fallback); 'touch' is offered and departs, keeping every cell the "
-            "line geometry intersects, corners included",
+            "fallback); 'heads' is offered and departs: it keeps the free ends of "
+            "the map and traces the model's own descent from each, so the map is "
+            "connected to the outlet by construction and the path a field or a "
+            "ditch gave the mapped line no longer counts as error, and an end the "
+            "cut to the catchment made is no head; 'touch' is offered and departs, "
+            "keeping every cell the line geometry intersects, corners included",
             why=(
-                "the mapped path below a stream head is shaped by fields, ditches "
-                "and rectified reaches that a model built on a DEM can never "
-                "reproduce, which crossing and touch both score as error; heads "
-                "lets the model draw that path itself and scores only where the "
-                "network starts and how far it reaches. 'crossing' stays the rule "
-                "of the paper and is kept for maps that are not a tree, canals, "
-                "braids and karst, where a free end is not a meaningful head. "
-                "'touch' is kept to replay a session recorded before 2026-09. "
-                "Choosing either leaves the publication. The midpoint fallback of "
+                "'crossing' is the rule of the paper and scores the map as the data "
+                "gives it, and it suits maps that are not a tree, canals, braids and "
+                "karst, where a free end is not a meaningful head. The mapped path "
+                "below a stream head is shaped by fields, ditches and rectified "
+                "reaches that a model built on a DEM can never reproduce, which "
+                "crossing and touch both score as error; heads lets the model draw "
+                "that path itself and scores only where the network starts and how "
+                "far it reaches. 'touch' is kept to replay a session recorded before "
+                "2026-09. Choosing either leaves the publication. The midpoint fallback of "
                 "crossing keeps every mapped reach on the mesh, so none disappears "
                 "silently."
             ),

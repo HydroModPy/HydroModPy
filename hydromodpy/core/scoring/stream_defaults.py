@@ -52,16 +52,16 @@ D8_DESCENT_BY_DEFAULT = True
 ObservedRasterization = Literal["heads", "crossing", "touch"]
 """How the mapped stream network is drawn on the mesh cells.
 
-``"heads"`` keeps only the free ends of the map whose largest drained area
+``"crossing"``, the default, draws the map as the data gives it: it keeps the
+cell holding each point where a line crosses the segment joining two
+edge-sharing cell centers, WhiteboxTools ``VectorLinesToRaster`` on a structured
+grid. ``"heads"`` keeps only the free ends of the map whose largest drained area
 within the snap radius does not exceed that of the other end of their reach,
-lands each on a nearby cell draining enough, and follows
-the criterion graph down from there: the map is drawn by the model's own
-descent, connected to the outlet. ``"crossing"`` keeps the cell holding each
-point where a line crosses the segment joining two edge-sharing cell centers:
-WhiteboxTools ``VectorLinesToRaster`` on a structured grid, and the rule for a
-map that is not a tree (canals, braids, polders, karst). ``"touch"`` keeps
-every cell the line intersects, corners included, the rule of the sessions
-before 2026-09.
+lands each on a nearby cell draining enough, and follows the criterion graph
+down from there: the map is drawn by the model's own descent, connected to the
+outlet. It does not suit a map that is not a tree (canals, braids, polders,
+karst). ``"touch"`` keeps every cell the line intersects, corners included, the
+rule of the sessions before 2026-09.
 """
 
 
@@ -92,15 +92,15 @@ class StreamCriterionDefaults(HydroModelBase):
         ),
     )
     observed_rasterization: Annotated[ObservedRasterization, Profile.EXPERT] = Field(
-        default="heads",
+        default="crossing",
         description=(
-            "How the mapped network is drawn on the mesh. 'crossing' keeps the cells "
-            "where a line crosses the segment joining two edge-sharing cell centres: "
-            "WhiteboxTools VectorLinesToRaster, the tool of the paper, one cell wide "
-            "like the simulated network. 'touch' keeps every cell the line touches, "
-            "corners included, and replays a session made before 2026-09. 'heads' "
-            "keeps the free ends of the map and draws the rest down the model's own "
-            "descent, connected to the outlet."
+            "How the mapped network is drawn on the mesh. 'crossing' draws the map as "
+            "the data gives it, on the cells where a line crosses the segment joining "
+            "two edge-sharing cell centres: WhiteboxTools VectorLinesToRaster, the "
+            "tool of the paper, one cell wide like the simulated network. 'touch' "
+            "keeps every cell the line touches, corners included, and replays a "
+            "session made before 2026-09. 'heads' keeps the free ends of the map "
+            "and draws the rest down the model's own descent, connected to the outlet."
         ),
     )
     clip_map_to_catchment: Annotated[bool, Profile.EXPERT] = Field(
