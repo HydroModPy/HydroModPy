@@ -9,6 +9,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.colors import to_rgba
 from matplotlib.figure import Figure
 from shapely.geometry import LineString, MultiLineString, Point, Polygon
@@ -98,6 +99,44 @@ def test_what_each_one_draws(reads):
     ax = axes()
     overlays.relief(ax, None, THEME)
     assert ax.get_aspect() == 1.0
+
+
+def test_the_relief_is_cut_at_the_cells(monkeypatch):
+    """A square ring of cells: the shade covers the ring, not its hole nor the outside."""
+    cells = [(i, j) for j in range(6) for i in range(6) if not (2 <= i <= 3 and 2 <= j <= 3)]
+    nodes = np.array([[x, y] for y in range(7) for x in range(7)], float) * 100.0
+    faces = np.array(
+        [[j * 7 + i, j * 7 + i + 1, (j + 1) * 7 + i + 1, (j + 1) * 7 + i] for i, j in cells]
+    )
+    centres = np.array([[i + 0.5, j + 0.5] for i, j in cells]) * 100.0
+    mesh = replace(
+        MESH,
+        centres=centres,
+        vertices=nodes,
+        faces=faces,
+        areas=np.full(len(cells), 1e4),
+        zones={"catchment": np.ones(len(cells), bool), "domain": np.ones(len(cells), bool)},
+    )
+    slope = centres[:, 0] * 0.2 + centres[:, 1] * 0.1
+    monkeypatch.setattr(subject, "read_mesh", lambda _run: mesh)
+    monkeypatch.setattr(subject, "read_field", lambda _run, name, **_: slope)
+    figure = Figure()
+    ax = figure.subplots()
+    ax.set_facecolor("0.5")
+    overlays.relief(ax, None, THEME)
+    ax.set_xlim(-100, 700)
+    ax.set_ylim(-100, 700)
+    canvas = FigureCanvasAgg(figure)
+    canvas.draw()
+    pixels = np.asarray(canvas.buffer_rgba())
+
+    def shaded(x, y):
+        column, row = ax.transData.transform((x, y))
+        return tuple(pixels[len(pixels) - 1 - int(row), int(column), :3]) != (128, 128, 128)
+
+    assert shaded(100.0, 300.0) and shaded(300.0, 100.0)  # two sides of the ring
+    assert not shaded(300.0, 300.0)  # its hole, inside the convex hull of the centres
+    assert not shaded(650.0, 300.0)  # the half cell the surface is stretched over, outside
 
 
 def test_the_instant_of_the_panel_reaches_the_overlays_that_read_cells(reads, monkeypatch):

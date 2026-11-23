@@ -21,6 +21,7 @@ import numpy as np
 import shapely
 from matplotlib.collections import LineCollection, PolyCollection
 from matplotlib.colors import LightSource
+from matplotlib.path import Path
 from matplotlib.tri import CubicTriInterpolator, Triangulation
 from scipy import ndimage
 
@@ -133,6 +134,16 @@ def cells(
     )
 
 
+def _footprint(mesh: reads.MeshView, mask: np.ndarray) -> Path:
+    """Return the outline of the cells of ``mask`` as one path, holes included."""
+    shape = shapely.union_all([shapely.Polygon(ring) for ring in _polygons(mesh, mask)])
+    rings = []
+    for part in shapely.get_parts(shape):
+        part = shapely.orient_polygons(part)
+        rings += [part.exterior, *part.interiors]
+    return Path.make_compound_path(*[Path(np.asarray(ring.coords), closed=True) for ring in rings])
+
+
 @quiet
 def relief(ax: Any, subject: Run, theme: Theme) -> None:
     """Shade the map by the relief of ``topography``, dark on the slopes away from the sun.
@@ -142,7 +153,7 @@ def relief(ax: Any, subject: Run, theme: Theme) -> None:
     """
     mesh = reads.read_mesh(subject)
     top = reads.read_field(subject, "topography")
-    keep = np.isfinite(top)
+    keep = np.isfinite(top) & mesh.zones["domain"]
     if keep.sum() < MIN_RELIEF_CELLS:
         logger.info("Overlay relief has too few cells with a topography.")
         return
@@ -168,7 +179,7 @@ def relief(ax: Any, subject: Run, theme: Theme) -> None:
     tone[..., 3] = np.clip(np.abs(shade - flat) * RELIEF_STRENGTH, 0.0, RELIEF_MAX_ALPHA)
     tone[outside, 3] = 0.0
     limits = (ax.get_xlim(), ax.get_ylim()) if ax.has_data() else None
-    ax.imshow(
+    image = ax.imshow(
         tone,
         extent=(
             gx[0] - step[0] / 2,
@@ -181,6 +192,8 @@ def relief(ax: Any, subject: Run, theme: Theme) -> None:
         aspect="equal",
         zorder=Z_RELIEF,
     )
+    # The triangles of the centres fill the convex hull, so the shade is cut at the cells.
+    image.set_clip_path(_footprint(mesh, keep), transform=ax.transData)
     if limits:
         ax.set_xlim(limits[0])
         ax.set_ylim(limits[1])
