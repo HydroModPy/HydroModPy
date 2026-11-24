@@ -66,6 +66,9 @@ ZONE_PREFIX = "zone:"
 ZONES = ("catchment", "domain")
 """Zone stations: ``zone:catchment`` is the basin of the outlet, ``zone:domain`` every active cell."""
 
+PATHLINES_OVERLAY = "pathlines"
+"""The overlay that draws the particle tracks, which no registered field holds."""
+
 OVERLAY_FIELDS: dict[str, tuple[str, ...]] = {
     "relief": ("topography",),
     "outline": (),
@@ -77,7 +80,7 @@ OVERLAY_FIELDS: dict[str, tuple[str, ...]] = {
     "barrier": (),
     "wells": ("well",),
     "seepage": ("seepage_mask",),
-    "pathlines": (),
+    PATHLINES_OVERLAY: (),
     "scale_bar": (),
     "mesh": (),
 }
@@ -180,6 +183,8 @@ class Special:
     keywords: tuple[str, ...] = ()
     variables: tuple[str, ...] = ()
     tables: tuple[str, ...] = ()
+    particles: bool = False
+    """True when the figure is drawn from the particle tracks, so a run with none skips it."""
 
 
 SPECIALS: dict[str, Special] = {
@@ -190,14 +195,14 @@ SPECIALS: dict[str, Special] = {
     "lake_abacus_comparison": Special("run", None, ("station",)),
     "network_comparison": Special("run", "double"),
     "observed_network_heads": Special("run", "double"),
-    "particle_tracks": Special("run", "double", ("time", "variable")),
+    "particle_tracks": Special("run", "double", ("time", "variable"), particles=True),
     "recharge_estimates": Special("run", "medium", tables=("recharge_estimates",)),
     "recharge_regime": Special("run", "double", tables=("recharge_estimates",)),
     "recharge_signals": Special("run", "double", tables=("recharge_estimates",)),
     "recession": Special(
         "run", "medium", ("station",), ("discharge", "hydraulic_conductivity", "specific_yield")
     ),
-    "residence_time_distribution": Special("run", variables=("head",)),
+    "residence_time_distribution": Special("run", variables=("head",), particles=True),
     "root_search": Special("session", tables=("trials",)),
     "sfr_longitudinal_profile": Special(
         "run", "double", ("time",), ("head",), ("sfr_reaches", "timeseries")

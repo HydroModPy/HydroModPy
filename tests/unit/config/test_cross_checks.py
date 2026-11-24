@@ -1268,6 +1268,9 @@ def test_what_the_run_cannot_draw_or_export_is_named_before_the_solve(
         FigureRequest(variable="head", layer=3),
         FigureRequest(preset="root_search"),
         FigureRequest(preset="root_search", when="session"),
+        FigureRequest(preset="particle_tracks"),
+        FigureRequest(preset="residence_time_distribution"),
+        FigureRequest(variable="watertable_depth", overlays=["seepage", "pathlines"]),
     ]
     document = _document(
         plain,
@@ -1285,6 +1288,12 @@ def test_what_the_run_cannot_draw_or_export_is_named_before_the_solve(
         f"layer(s) of the model, 0 to {layers - 1}.",
         "display.figure[3] 'root_search' draws a calibration session and this file "
         "calibrates nothing, so the run does not draw it.",
+        "display.figure[5] 'particle_tracks' is not drawn by the run: pathlines: no solver "
+        f"of this run writes it ({backend}).",
+        "display.figure[6] 'residence_time_distribution' is not drawn by the run: pathlines: "
+        f"no solver of this run writes it ({backend}).",
+        "display.figure[7] 'watertable_depth' is drawn without its 'pathlines' overlay: "
+        f"pathlines: no solver of this run writes it ({backend}).",
         "export[0] is not written by the run: concentration: no solver of this run writes "
         f"it ({backend}).",
     ]

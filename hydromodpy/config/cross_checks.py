@@ -936,7 +936,8 @@ def warn_of_what_the_run_cannot_draw_or_export(cfg: Any, *, sealed: bool) -> lis
     A field no solver of the run writes (a concentration with no transport, the
     particles with no tracking, a budget term the flow solver keeps none of), a layer
     past the last one of the model, and a figure of a calibration session in a file
-    that calibrates nothing. The run skips each of them and says so again. A name
+    that calibrates nothing. The run skips each of them and says so again. A map
+    whose pathlines overlay has no particles is drawn without it, and named. A name
     whose data depends on what the run loads, a series or a layer of the map, is
     left to the run, which skips it when it holds none. A sealed document says
     nothing: its run is made.
@@ -944,7 +945,14 @@ def warn_of_what_the_run_cannot_draw_or_export(cfg: Any, *, sealed: bool) -> lis
     from fnmatch import fnmatch
 
     from hydromodpy.display.presets import PRESETS
-    from hydromodpy.display.request import SESSION, SPECIALS, expand, file_stem, required_variables
+    from hydromodpy.display.request import (
+        PATHLINES_OVERLAY,
+        SESSION,
+        SPECIALS,
+        expand,
+        file_stem,
+        required_variables,
+    )
     from hydromodpy.results import field_registry
     from hydromodpy.results.exporters.export_spec import PATHLINES
 
@@ -990,6 +998,9 @@ def warn_of_what_the_run_cannot_draw_or_export(cfg: Any, *, sealed: bool) -> lis
                 for name in required_variables(request, presets, terms=False)
                 if unwritten(name)
             ]
+            no_particles = unwritten(PATHLINES)
+            if no_particles and figure.special is not None and SPECIALS[figure.special].particles:
+                reasons.append(f"{PATHLINES}: {by_whom}")
             reasons += [
                 reason
                 for panel in figure.panels
@@ -997,6 +1008,14 @@ def warn_of_what_the_run_cannot_draw_or_export(cfg: Any, *, sealed: bool) -> lis
             ]
             if reasons:
                 said.append(f"{where} is not drawn by the run: {'; '.join(reasons)}.")
+            elif no_particles and any(
+                PATHLINES_OVERLAY in (panel.overlays or ()) for panel in figure.panels
+            ):
+                # The overlay never refuses its figure, so the map is drawn without the lines.
+                said.append(
+                    f"{where} is drawn without its {PATHLINES_OVERLAY!r} overlay: "
+                    f"{PATHLINES}: {by_whom}."
+                )
     for index, request in enumerate(getattr(cfg, "export", None) or ()):
         reasons = [f"{name}: {by_whom}" for name in request.names if unwritten(name)]
         if (reason := past_the_layers(request.layer)) is not None:
