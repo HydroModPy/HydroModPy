@@ -10,7 +10,7 @@ state of an attempt, ``annotations.json`` for the protected tag, the
 
 What
 ----
-A plan has nine categories:
+A plan has ten categories:
 
 - ``stale_runs``: a run whose attempt stopped beating without an outcome.
   Its ``outcome.json`` is rewritten ``aborted``; its ``.hmp/`` is kept for a
@@ -36,6 +36,10 @@ A plan has nine categories:
   project more than ``trial_fields_days`` ago, all but the best, in a session
   that names one. Removed after ``purged.json`` says what leaves; a purge cut
   short is taken up again by the next ``gc``.
+- ``old_solver_files``: the ``solver/`` folder of a sealed run older than
+  ``solver_files_days``, kept there by ``keep_solver_files``. Opt-in: the rule
+  is off by default, because a user who keeps the raw solver files may want
+  them for good. The seal never lists the folder, so the run reads the same.
 - ``products``: the product keys over the store cap, its live keys kept.
   ``gc -y`` removes exactly the keys the plan lists that are still not live.
 
@@ -60,6 +64,7 @@ from hydromodpy.core.state.layout import (
     CATALOG_FILENAME,
     INTERNAL_DIRNAME,
     PRODUCTS_DIRNAME,
+    SCRATCH_DIRNAME,
     TRIALS_DIRNAME,
     internal_dir,
     runs_dir_for,
@@ -205,6 +210,9 @@ class RetentionPolicy:
     trial_fields_days: int | None = DEFAULT_TRIAL_FIELDS_DAYS
     """Age past which a kept trial loses its fields. ``None`` disables the rule."""
 
+    solver_files_days: int | None = None
+    """Age past which a sealed run loses its ``solver/``. ``None`` (default) disables the rule."""
+
 
 @dataclass(frozen=True, slots=True)
 class Weight:
@@ -237,6 +245,7 @@ class GcPlan:
     dead_scratch: tuple[str, ...] = ()
     sealed_attempts: tuple[str, ...] = ()
     old_trial_fields: tuple[str, ...] = ()
+    old_solver_files: tuple[str, ...] = ()
     products: tuple[str, ...] = ()
     bytes: dict[str, int] = field(default_factory=dict)
 
@@ -251,6 +260,7 @@ class GcPlan:
             "dead_scratch": list(self.dead_scratch),
             "sealed_attempts": list(self.sealed_attempts),
             "old_trial_fields": list(self.old_trial_fields),
+            "old_solver_files": list(self.old_solver_files),
             "products": list(self.products),
         }
 
@@ -398,6 +408,7 @@ def plan_gc(
     dead_scratch = _dead_scratch(root, now)
     sealed_attempts = _sealed_attempts(root)
     trials = _trial_fields(root, policy, now)
+    solver_files = _solver_files(root, policy, now)
     products = _product_eviction(root, products_cap_bytes)
     weights = {
         "stale_runs": 0,
@@ -408,6 +419,7 @@ def plan_gc(
         "dead_scratch": _bytes_of(root, dead_scratch),
         "sealed_attempts": _bytes_of(root, sealed_attempts),
         "old_trial_fields": sum(sum(item.bytes.values()) for item in trials),
+        "old_solver_files": _bytes_of(root, solver_files),
         "products": products[1],
     }
     return GcPlan(
@@ -420,6 +432,7 @@ def plan_gc(
         dead_scratch=tuple(dead_scratch),
         sealed_attempts=tuple(sealed_attempts),
         old_trial_fields=tuple(item.rel_dir for item in trials),
+        old_solver_files=tuple(solver_files),
         products=products[0],
         bytes=weights,
     )
@@ -437,6 +450,7 @@ def apply_gc(plan: GcPlan, *, now: datetime) -> dict[str, int]:
         "dead_scratch": 0,
         "sealed_attempts": 0,
         "old_trial_fields": 0,
+        "old_solver_files": 0,
         "products": 0,
     }
     for rel_dir in plan.stale_runs:
@@ -458,6 +472,8 @@ def apply_gc(plan: GcPlan, *, now: datetime) -> dict[str, int]:
         freed["sealed_attempts"] += _remove(root / rel_path)
     for item in plan.old_trial_fields:
         freed["old_trial_fields"] += _purge_trial_fields(root / item, now=now)
+    for rel_dir in plan.old_solver_files:
+        freed["old_solver_files"] += _remove(root / rel_dir)
     freed["products"] = _discard_products(root, plan.products)
     return freed
 
@@ -537,7 +553,7 @@ def _dead_scratch(root: Path, now: datetime) -> list[str]:
     """Return the scratch directories whose writer is gone, under the project or a sealed run."""
     cutoff = as_utc(now) - DEAD_SCRATCH_AGE
     out: list[str] = []
-    scratch = internal_dir(root) / "scratch"
+    scratch = internal_dir(root) / SCRATCH_DIRNAME
     for child in _dirs(scratch):
         stem = run_scratch_stem(child.name)
         if stem is None:
@@ -547,7 +563,7 @@ def _dead_scratch(root: Path, now: datetime) -> list[str]:
             continue
         pids = run_scratch_pids(scratch, child.name)
         if not any(process_is_alive(pid) for pid in pids) or _newest_write(child) < cutoff:
-            out.append(f"{INTERNAL_DIRNAME}/scratch/{child.name}")
+            out.append(f"{INTERNAL_DIRNAME}/{SCRATCH_DIRNAME}/{child.name}")
     for run_dir in _dirs(runs_dir_for(root)):
         internal = run_dir / INTERNAL_DIRNAME
         if not internal.is_dir() or not is_sealed(run_dir):
@@ -617,6 +633,30 @@ def _trial_fields(root: Path, policy: RetentionPolicy, now: datetime) -> list[_T
                 if bytes_here:
                     rel = sealed.relative_to(root).as_posix()
                     out.append(_TrialFields(rel, bytes_here))
+    return out
+
+
+def _solver_files(root: Path, policy: RetentionPolicy, now: datetime) -> list[str]:
+    """Return the ``solver/`` folders of sealed runs older than the policy allows.
+
+    The age runs from the later of the seal and the arrival of the folder in
+    this project, as for the fields of a trial. A protected run keeps its
+    folder, and an unsealed run keeps it for its diagnosis.
+    """
+    if policy.solver_files_days is None:
+        return []
+    cutoff = as_utc(now) - timedelta(days=policy.solver_files_days)
+    out: list[str] = []
+    for run_dir in _dirs(runs_dir_for(root)):
+        solver = run_dir / RUN_SOLVER_DIRNAME
+        if not solver.is_dir() or is_protected(run_dir):
+            continue
+        seal = readable(read_seal, run_dir)
+        if seal is None:
+            continue
+        if max(as_utc(seal.sealed_at), _arrival(solver)) >= cutoff:
+            continue
+        out.append(f"{run_dir_rel(run_dir.name)}/{RUN_SOLVER_DIRNAME}")
     return out
 
 
@@ -742,7 +782,7 @@ def _internal_family(name: str) -> str:
     """Return the family of one entry of ``.hmp/``."""
     if name == PRODUCTS_DIRNAME:
         return "products"
-    if name == "scratch":
+    if name == SCRATCH_DIRNAME:
         return "scratch"
     if name == "logs":
         return "logs"

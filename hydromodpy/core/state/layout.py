@@ -14,7 +14,8 @@ project root is::
     jobs/<stamp>/           the journal of each launch, array scripts, frozen case list
     trash/                  runs and sessions deleted by a move; tombstones.txt
     site_overrides/         <site>.toml, the per-site overlays of a [sites] project
-    .hmp/                   strictly rebuildable: index, launcher lease, product store, logs
+    .hmp/                   strictly rebuildable: index, launcher lease, product store, logs,
+                            scratch of live runs, cache of point-to-cell maps
 
 Inside a run, ``.hmp/`` holds the state of the attempt in progress (scratch,
 locks, checkpoints) and is removed when a completed run is
@@ -90,8 +91,12 @@ LAUNCHER_LEASE_FILENAME = "launcher.lease"
 PRODUCTS_DIRNAME = "products"
 """Product store ``<project>/.hmp/products/``, rebuilt from its keys when deleted."""
 
-RUN_INTERNAL_SCRATCH_DIRNAME = "scratch"
-"""Solver scratch of the attempt in progress, ``runs/<case>/.hmp/scratch/``."""
+SCRATCH_DIRNAME = "scratch"
+"""Scratch of live work: ``<project>/.hmp/scratch/<case>.p<pid>/`` for the preprocessing of a
+run, ``runs/<case>/.hmp/scratch/`` for the solver of the attempt in progress."""
+
+CACHE_DIRNAME = "cache"
+"""Rebuildable lookups of the project, ``<project>/.hmp/cache/`` (the point-to-cell maps)."""
 
 RUN_INTERNAL_LOCKS_DIRNAME = "locks"
 """File locks of the attempt in progress, ``runs/<case>/.hmp/locks/``."""
@@ -226,6 +231,7 @@ def project_roots_under(root: Path) -> list[Path]:
 
 
 __all__ = (
+    "CACHE_DIRNAME",
     "CATALOG_FILENAME",
     "CONFIGS_DIRNAME",
     "INTERNAL_DIRNAME",
@@ -240,7 +246,7 @@ __all__ = (
     "RUNS_DIRNAME",
     "RUN_INTERNAL_CHECKPOINTS_DIRNAME",
     "RUN_INTERNAL_LOCKS_DIRNAME",
-    "RUN_INTERNAL_SCRATCH_DIRNAME",
+    "SCRATCH_DIRNAME",
     "SESSIONS_DIRNAME",
     "SITE_OVERRIDES_DIRNAME",
     "STOP_FLAG_FILENAME",

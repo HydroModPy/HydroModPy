@@ -100,7 +100,7 @@ from hydromodpy.core.runtime.interrupts import (
 from hydromodpy.core.state.host import host_name
 from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,
-    RUN_INTERNAL_SCRATCH_DIRNAME,
+    SCRATCH_DIRNAME,
     STOP_FLAG_FILENAME,
     runs_dir_for,
     stop_flag_for,
@@ -867,7 +867,7 @@ def scratch_dir_for_attempt(project_root: Path, run_dir: Path, attempt: int) -> 
     if root:
         project = Path(project_root).resolve().name
         return Path(root).expanduser() / project / f"{run_dir.name}.a{attempt}"
-    return Path(run_dir) / INTERNAL_DIRNAME / RUN_INTERNAL_SCRATCH_DIRNAME
+    return Path(run_dir) / INTERNAL_DIRNAME / SCRATCH_DIRNAME
 
 
 def is_run_product(path: str | Path | None, project_root: Path | str | None) -> bool:

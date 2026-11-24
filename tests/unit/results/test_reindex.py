@@ -218,6 +218,30 @@ def test_stale_pulse(project):
     assert _rows(project, "SELECT status FROM cases WHERE rel_dir = 'runs/epsilon'") == [("stale",)]
 
 
+def test_a_pulse_leaves_the_index_current(project):
+    rebuild_index(project)
+    pulse = project / "runs/delta/logs/heartbeat.json"
+    shutil.copy(pulse, pulse.with_suffix(".tmp"))
+    os.replace(pulse.with_suffix(".tmp"), pulse)
+    os.utime(pulse.parent, (time.time() + 60, time.time() + 60))
+
+    assert index_is_current(project)
+
+
+def test_cases_read_the_pulse_of_a_live_case_on_the_disk(project):
+    rebuild_index(project)
+    old = time.time() - 3600
+    os.utime(project / "runs/delta/logs/heartbeat.json", (old, old))
+    pulse = json.loads((project / "runs/delta/logs/heartbeat.json").read_text())
+    pulse["at"] = "2000-01-01T00:00:00+00:00"
+    (project / "runs/delta/logs/heartbeat.json").write_text(json.dumps(pulse))
+
+    with Catalog(project) as catalog:
+        cases = catalog.cases.set_index("rel_dir")
+
+    assert cases.loc["runs/delta", "status"] == "stale"
+
+
 def test_directory_without_outcome_or_manifest(project):
     (runs_dir_for(project) / "scratch_only").mkdir()
     (runs_dir_for(project) / "scratch_only" / "note.txt").write_text("x")

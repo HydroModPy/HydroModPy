@@ -8,6 +8,7 @@ project leaves its file untouched.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -382,9 +383,12 @@ class ReadsMixin:
         """Every result directory of the project, one row each, through ``v_cases``.
 
         A sealed run carries its label and its headline metric; a running,
-        failed or aborted attempt carries the status its outcome says.
+        failed or aborted attempt carries the status its outcome says. The
+        status and the pulse of a live case are read on the disk, because the
+        index is not written again at each pulse.
         """
-        return self._backend.query("SELECT * FROM v_cases ORDER BY started_at DESC NULLS LAST")
+        frame = self._backend.query("SELECT * FROM v_cases ORDER BY started_at DESC NULLS LAST")
+        return _with_live_status(frame, self._workspace)
 
     @property
     def sites(self) -> pd.DataFrame:
@@ -435,3 +439,31 @@ class ReadsMixin:
         if params:
             return self._backend.query(query, params)
         return self._backend.query(query)
+
+
+_LIVE = ("running", "stale")
+
+
+def _with_live_status(frame: pd.DataFrame, project_root: Path) -> pd.DataFrame:
+    """Return *frame* with the status and pulse of its live cases read on the disk."""
+    if frame.empty or "status" not in frame.columns:
+        return frame
+    live = frame.index[frame["status"].isin(_LIVE)]
+    if live.empty:
+        return frame
+    from datetime import UTC, datetime
+
+    from hydromodpy.results.heartbeat import read_heartbeat
+    from hydromodpy.results.outcome import effective_status
+    from hydromodpy.results.storage.json_io import readable
+
+    now = datetime.now(UTC)
+    frame = frame.copy()
+    for row in live:
+        path = project_root / str(frame.at[row, "rel_dir"])
+        frame.at[row, "status"] = effective_status(path, now=now)
+        if "heartbeat_at" in frame.columns:
+            beat = readable(read_heartbeat, path)
+            if beat is not None:
+                frame.at[row, "heartbeat_at"] = beat.at
+    return frame

@@ -651,6 +651,7 @@ class Project:
         keep_versions: int | None = DEFAULT_KEEP_VERSIONS,
         max_age_days: int | None = None,
         trial_fields_days: int | None = DEFAULT_TRIAL_FIELDS_DAYS,
+        solver_files_days: int | None = None,
     ) -> GcReport:
         """Collect what the project no longer needs, the words of ``hmp catalog gc``.
 
@@ -658,7 +659,9 @@ class Project:
         ``keep_versions`` and the runs older than ``max_age_days``, removes the
         scratch of dead runs and the earlier attempts of sealed ones, evicts the
         product store down to its cap, and removes the fields of kept trials
-        older than ``trial_fields_days``, all but the best. With ``dry_run`` it
+        older than ``trial_fields_days``, all but the best. With
+        ``solver_files_days`` it also removes the ``solver/`` folder of sealed
+        runs older than that, a rule off by default. With ``dry_run`` it
         reports the plan and the bytes of each category, and changes nothing.
         """
         from datetime import UTC, datetime
@@ -671,6 +674,7 @@ class Project:
             keep_versions=keep_versions,
             max_age_days=max_age_days,
             trial_fields_days=trial_fields_days,
+            solver_files_days=solver_files_days,
         )
         report = collect(
             self.root,

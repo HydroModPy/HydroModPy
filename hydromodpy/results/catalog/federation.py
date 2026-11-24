@@ -9,13 +9,13 @@ the index on disk, with its schema in the file. Reading those files is
 enough to list, filter and rank the runs of any set of projects, and it works
 on a project whose index was never built.
 
-What the row does not carry
----------------------------
-The ``label`` is computed at indexing time, from the rules of the build
-that indexes, so the federated frame has no ``label`` column: a reader that
-wants the calibrated runs of a workspace filters on ``calibrated_by_session_id``
-and ``converged``, or opens each project index. The run name is the one the
-seal was written with: a directory renamed since keeps its old name here.
+The label
+---------
+The seal never carries the label: it is computed on read, from the rules and
+the register of this build. The frame computes it the same way the index
+does (:func:`hydromodpy.results.record.label.label_of`) and adds the columns
+``label`` and ``rule_version``. The run name is the one the seal was written
+with: a directory renamed since keeps its old name here.
 """
 
 from __future__ import annotations
@@ -33,6 +33,8 @@ from hydromodpy.core.state.layout import (
     runs_dir_for,
     sessions_dir_for,
 )
+from hydromodpy.results.record.label import label_of
+from hydromodpy.results.record.manifest import read_seal
 from hydromodpy.results.storage.contract import (
     PARQUET_FILE_SUFFIX,
     RUN_MANIFEST_FILENAME,
@@ -46,6 +48,12 @@ logger = get_logger(__name__)
 
 PROJECT_ROOT_COLUMN = "project_root"
 """Column added to the federated frame: the project the row was read from."""
+
+LABEL_COLUMN = "label"
+"""Column added to the federated frame: the label of the run today."""
+
+RULE_VERSION_COLUMN = "rule_version"
+"""Column added to the federated frame: the version of the rule that gave the label."""
 
 
 def sealed_run_dirs(project_root: Path | str) -> list[Path]:
@@ -87,11 +95,17 @@ def read_project_runs(project_root: Path | str) -> pd.DataFrame:
             logger.warning("%s is sealed but carries no %s; skipped", run_dir, snapshot.name)
             continue
         table = readable(read_checked_table, snapshot)
-        if table is None:
+        seal = readable(read_seal, run_dir)
+        if table is None or seal is None:
             continue
-        tables.append(
-            table.append_column(PROJECT_ROOT_COLUMN, pa.array([str(root)] * table.num_rows))
+        result = label_of(seal, run_dir)
+        rows = table.num_rows
+        table = table.append_column(PROJECT_ROOT_COLUMN, pa.array([str(root)] * rows))
+        table = table.append_column(LABEL_COLUMN, pa.array([result.label] * rows))
+        table = table.append_column(
+            RULE_VERSION_COLUMN, pa.array([str(result.rule_version)] * rows)
         )
+        tables.append(table)
     if not tables:
         return pd.DataFrame()
     return pa.concat_tables(tables, promote_options="default").to_pandas()
@@ -140,7 +154,9 @@ def list_workspace_runs(root: Path | str) -> pd.DataFrame:
 
 
 __all__ = [
+    "LABEL_COLUMN",
     "PROJECT_ROOT_COLUMN",
+    "RULE_VERSION_COLUMN",
     "list_workspace_runs",
     "read_project_runs",
     "read_workspace_runs",

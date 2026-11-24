@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.layout import internal_dir
+from hydromodpy.core.state.layout import CACHE_DIRNAME, internal_dir
 
 try:
     from shapely import STRtree
@@ -52,7 +52,7 @@ _LOCATORS: OrderedDict[str, CellLocator] = OrderedDict()
 
 def cell_index_cache_dir(project_root: Path | str) -> Path:
     """Return ``<project>/.hmp/cache/cell_index``, the resolved-point cache."""
-    return internal_dir(Path(project_root)) / "cache" / CELL_INDEX_CACHE_DIRNAME
+    return internal_dir(Path(project_root)) / CACHE_DIRNAME / CELL_INDEX_CACHE_DIRNAME
 
 
 def _coord_key(x: float, y: float) -> str:

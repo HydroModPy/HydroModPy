@@ -91,6 +91,7 @@ from hydromodpy.core.exceptions import CatalogUnreadableError, WriteConflictErro
 from hydromodpy.core.io.lock_file import LockFile
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import (
+    INTERNAL_DIRNAME,
     TRIALS_DIRNAME,
     catalog_path_for,
     runs_dir_for,
@@ -230,11 +231,12 @@ def index_new_runs(
         if unchanged is not None:
             return unchanged
     with index_lock(root) if wait_s is None else index_lock(root, wait_s=wait_s) as lock:
-        disk = scan_tree(root)
         index_path = catalog_path_for(root)
         if not incremental or not _index_is_of_this_build(root, warn=True):
-            return _write_index(root, lock, disk, incremental=False)
-        changed, removed = _diff(disk, _read_indexed(root))
+            return _write_index(root, lock, scan_tree(root), incremental=False)
+        current = _read_indexed(root)
+        disk = scan_tree(root, current)
+        changed, removed = _diff(disk, current)
         if not changed and not removed:
             return IndexReport(index_path, False, (), (), (), (), {})
         return _write_index(root, lock, disk, incremental=True, changed=changed, removed=removed)
@@ -245,8 +247,8 @@ def index_is_current(project_root: Path | str) -> bool:
     root = Path(project_root).expanduser().resolve()
     if not _index_is_of_this_build(root, warn=False):
         return False
-    disk = scan_tree(root)
     current = _read_indexed(root)
+    disk = scan_tree(root, current)
     return {rel: (e.key, e.mtime_ns) for rel, e in disk.items()} == current
 
 
@@ -306,20 +308,26 @@ def reindex_project(workspace: Any, *, incremental: bool = False) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def scan_tree(project_root: Path) -> dict[str, DiskEntry]:
+def scan_tree(
+    project_root: Path, known: Mapping[str, tuple[str, int]] | None = None
+) -> dict[str, DiskEntry]:
     """Return every result directory of the project, keyed by its relative directory.
 
     A directory under ``runs/`` or ``sessions/`` that carries neither an
     outcome, a manifest nor a session descriptor is not a result and is left
     out. A trial is a numbered directory under ``sessions/<name>/trials/``.
+    *known* is ``{rel_dir: (key, stamp)}`` of the index: a run whose stamp did
+    not move keeps its key, so its seal is not read again.
     """
+    known = known or {}
     entries: dict[str, DiskEntry] = {}
     runs_dir = runs_dir_for(project_root)
     if runs_dir.is_dir():
         for path in sorted(runs_dir.iterdir()):
             if not path.is_dir() or path.name.startswith("."):
                 continue
-            entry = _run_entry(run_dir_rel(path.name), "run", path)
+            rel = run_dir_rel(path.name)
+            entry = _run_entry(rel, "run", path, known.get(rel))
             if entry is not None:
                 entries[entry.rel_dir] = entry
     sessions_dir = sessions_dir_for(project_root)
@@ -337,7 +345,7 @@ def scan_tree(project_root: Path) -> dict[str, DiskEntry]:
                 if not trial_path.is_dir() or not trial_path.name.isdigit():
                     continue
                 trial_rel = trial_dir_rel(path.name, int(trial_path.name))
-                trial = _run_entry(trial_rel, "trial", trial_path)
+                trial = _run_entry(trial_rel, "trial", trial_path, known.get(trial_rel))
                 if trial is not None:
                     entries[trial.rel_dir] = trial
     return entries
@@ -355,6 +363,16 @@ def _newest(paths: Iterable[Path]) -> int:
     return max(stamps) if stamps else 0
 
 
+_UNSTAMPED_DIRS = frozenset({RUN_LOGS_DIRNAME, INTERNAL_DIRNAME})
+"""Folders whose dates never move a stamp.
+
+The pulse of a live attempt lands in ``logs/`` every 30 s and its checkpoints in
+``.hmp/``. Stamping them would write the index again at every read while a run
+lives. The status of a live case is read on the disk instead
+(:mod:`hydromodpy.results.catalog.liveness`).
+"""
+
+
 def _tree_stamps(path: Path) -> list[Path]:
     """The directory and its subdirectories, whose dates move when a file lands in them.
 
@@ -362,17 +380,23 @@ def _tree_stamps(path: Path) -> list[Path]:
     ``cases.bytes`` is measured again when one of them gains or loses a file.
     """
     try:
-        return [path, *(child for child in path.iterdir() if child.is_dir())]
+        children = [
+            child
+            for child in path.iterdir()
+            if child.is_dir() and child.name not in _UNSTAMPED_DIRS
+        ]
     except OSError:
         return [path]
+    return [path, *children]
 
 
-def _run_entry(rel_dir: str, kind: EntryKind, path: Path) -> DiskEntry | None:
+def _run_entry(
+    rel_dir: str, kind: EntryKind, path: Path, known: tuple[str, int] | None = None
+) -> DiskEntry | None:
     manifest = path / RUN_MANIFEST_FILENAME
     outcome = path / RUN_OUTCOME_FILENAME
     if not manifest.is_file() and not outcome.is_file():
         return None
-    key = _run_key(path, manifest, outcome)
     stamp = _newest(
         (
             manifest,
@@ -382,7 +406,13 @@ def _run_entry(rel_dir: str, kind: EntryKind, path: Path) -> DiskEntry | None:
             *_tree_stamps(path),
         )
     )
-    return DiskEntry(rel_dir, kind, path, key, stamp)
+    if known is not None and known[1] == stamp and not known[0].startswith(_UNREADABLE):
+        return DiskEntry(rel_dir, kind, path, known[0], stamp)
+    return DiskEntry(rel_dir, kind, path, _run_key(path, manifest, outcome), stamp)
+
+
+_UNREADABLE = "unreadable:"
+"""Prefix of the key of a directory whose id could not be read; it is read again each pass."""
 
 
 def _run_key(path: Path, manifest: Path, outcome: Path) -> str:
@@ -393,7 +423,7 @@ def _run_key(path: Path, manifest: Path, outcome: Path) -> str:
         return f"attempt:{read_json(outcome)['attempt_id']}"
     except (OSError, ValueError, KeyError, TypeError):
         # An unreadable file is re-read on every pass, and reported then.
-        return f"unreadable:{uuid4().hex}"
+        return f"{_UNREADABLE}{uuid4().hex}"
 
 
 def _session_entry(rel_dir: str, path: Path) -> DiskEntry | None:
@@ -407,7 +437,7 @@ def _session_entry(rel_dir: str, path: Path) -> DiskEntry | None:
         else:
             key = f"attempt:{read_json(outcome)['attempt_id']}"
     except (OSError, ValueError, KeyError, TypeError):
-        key = f"unreadable:{uuid4().hex}"
+        key = f"{_UNREADABLE}{uuid4().hex}"
     phases = path / SESSION_PHASES_DIRNAME
     phase_files = list(phases.glob(f"*/{SESSION_DESCRIPTOR_FILENAME}")) if phases.is_dir() else []
     stamp = _newest(
@@ -490,7 +520,8 @@ def _unchanged_report(project_root: Path) -> IndexReport | None:
     """
     if not _index_is_of_this_build(project_root, warn=False):
         return None
-    changed, removed = _diff(scan_tree(project_root), _read_indexed(project_root))
+    current = _read_indexed(project_root)
+    changed, removed = _diff(scan_tree(project_root, current), current)
     if changed or removed:
         return None
     return IndexReport(catalog_path_for(project_root), False, (), (), (), (), {})

@@ -44,3 +44,18 @@ def test_nothing_sealed(tmp_path):
     root = make_project(tmp_path / "empty")
 
     assert read_workspace_runs(root).empty
+
+
+def test_frame_carries_the_label_of_the_index(tmp_path):
+    from hydromodpy.results.catalog.facade import Catalog
+    from hydromodpy.results.catalog.indexer import rebuild_index
+
+    _ws, alpha, _beta = _seed_workspace(tmp_path)
+    rebuild_index(alpha)
+    with Catalog(alpha) as catalog:
+        indexed = catalog.list_simulations().set_index("name")["label"].to_dict()
+
+    frame = read_workspace_runs(alpha).set_index("name")
+
+    assert frame["label"].to_dict() == indexed
+    assert frame["rule_version"].notna().all()

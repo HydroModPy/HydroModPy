@@ -241,6 +241,31 @@ def test_old_trial_fields_leave_but_the_best(tmp_path: Path, arrived_long_ago: N
     assert plan.bytes_of("old_trial_fields") == 10 + 10
 
 
+def test_old_solver_files_leave_only_when_asked(tmp_path: Path, arrived_long_ago: None) -> None:
+    project = make_project(tmp_path / "p")
+    runs = project / "runs"
+    _seal(runs / "old", sealed_at=NOW - timedelta(days=40))
+    _write(runs / "old" / "solver" / "old" / "model.cbc", 30)
+    _seal(runs / "recent", sealed_at=NOW - timedelta(days=10))
+    _write(runs / "recent" / "solver" / "recent" / "model.cbc", 30)
+    _seal(runs / "pinned", sealed_at=NOW - timedelta(days=40))
+    _write(runs / "pinned" / "solver" / "pinned" / "model.cbc", 30)
+    write_annotations(runs / "pinned", Annotations(sim_id="p", tags=("pinned",)))
+    _write(runs / "failed" / "solver" / "failed" / "model.cbc", 30)
+
+    assert plan_gc(project, _policy(), now=NOW).old_solver_files == ()
+
+    plan = plan_gc(project, _policy(solver_files_days=30), now=NOW)
+    assert plan.old_solver_files == ("runs/old/solver",)
+    assert plan.bytes_of("old_solver_files") == 30
+
+    freed = apply_gc(plan, now=NOW)
+    assert freed["old_solver_files"] == 30
+    assert not (runs / "old" / "solver").exists()
+    assert (runs / "old" / RUN_MANIFEST_FILENAME).is_file()
+    assert (runs / "recent" / "solver").is_dir()
+
+
 def test_imported_trials_count_from_arrival(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     session = _trial_session(project, "calib", best=1)

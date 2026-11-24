@@ -1,7 +1,10 @@
 """Parquet-backed DuckDB view helpers for per-run tabular outputs.
 
-Five views map onto ``runs/<name>/tables.parquet/<view>.parquet`` files:
-``timeseries``, ``budgets``, ``mass_balance``, ``metrics`` and ``provenance``.
+Five views map onto ``runs/<name>/tables.parquet/<view>.parquet`` files and onto
+those of the kept trials, ``sessions/<name>/trials/<nnnn>/`` and one folder per
+case below it in a joint session: ``timeseries``, ``budgets``, ``mass_balance``,
+``metrics`` and ``provenance``. Every table carries ``sim_id``, so the rows of a
+trial never mix with those of a run.
 Empty typed views are installed when no file exists yet, then swapped to a
 ``read_parquet`` view on the first write.
 
@@ -16,6 +19,7 @@ from typing import TYPE_CHECKING
 
 import pyarrow as pa
 
+from hydromodpy.core.state.layout import SESSIONS_DIRNAME, TRIALS_DIRNAME
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 from hydromodpy.results.storage.contract import (
     PARQUET_FILE_SUFFIX,
@@ -63,24 +67,32 @@ def _empty_view_ddl_named(schema_name: str, view_name: str) -> str:
     return f"CREATE OR REPLACE VIEW {view_name} AS SELECT\n    {casts}\nWHERE 1=0"
 
 
-def _read_parquet_view_ddl(view_name: str, glob_path: str) -> str:
-    escaped = glob_path.replace("'", "''")
+def _read_parquet_view_ddl(view_name: str, globs: list[str]) -> str:
+    listed = ", ".join("'" + pattern.replace("'", "''") + "'" for pattern in globs)
     return (
         f"CREATE OR REPLACE VIEW {view_name} AS "
-        f"SELECT * FROM read_parquet('{escaped}', union_by_name=true)"
+        f"SELECT * FROM read_parquet([{listed}], union_by_name=true)"
     )
 
 
-def _glob_for_view(runs_dir: Path, view_name: str) -> str:
-    return str(runs_dir / "*" / TABLES_DIRNAME / f"{view_name}{PARQUET_FILE_SUFFIX}")
+def _globs_for_view(runs_dir: Path, view_name: str) -> list[str]:
+    """Return the patterns of *view_name* in the runs and the kept trials that match a file.
 
-
-def _parquet_files_exist(runs_dir: Path, view_name: str) -> bool:
-    if not runs_dir.is_dir():
-        return False
-    return any(
-        p.is_file() for p in runs_dir.glob(f"*/{TABLES_DIRNAME}/{view_name}{PARQUET_FILE_SUFFIX}")
+    DuckDB refuses a pattern that matches nothing, so a pattern enters only
+    while it does. A pattern keeps reading the files that land after the view.
+    """
+    leaf = f"{TABLES_DIRNAME}/{view_name}{PARQUET_FILE_SUFFIX}"
+    sessions_dir = runs_dir.parent / SESSIONS_DIRNAME
+    candidates = (
+        (runs_dir, f"*/{leaf}"),
+        (sessions_dir, f"*/{TRIALS_DIRNAME}/*/{leaf}"),
+        (sessions_dir, f"*/{TRIALS_DIRNAME}/*/*/{leaf}"),
     )
+    return [
+        str(root / pattern)
+        for root, pattern in candidates
+        if root.is_dir() and any(path.is_file() for path in root.glob(pattern))
+    ]
 
 
 def _existing_tables(conn: duckdb.DuckDBPyConnection) -> set[str]:
@@ -126,8 +138,9 @@ def ensure_parquet_views(
     existing = _existing_tables(conn)
     for view in PARQUET_VIEW_NAMES:
         target_view = view_name_for(view, existing)
-        if _parquet_files_exist(runs_dir, view):
-            ddl = _read_parquet_view_ddl(target_view, _glob_for_view(runs_dir, view))
+        globs = _globs_for_view(runs_dir, view)
+        if globs:
+            ddl = _read_parquet_view_ddl(target_view, globs)
         else:
             ddl = _empty_view_ddl_named(view, target_view)
         if temporary:

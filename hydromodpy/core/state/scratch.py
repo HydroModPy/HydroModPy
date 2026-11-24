@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 
-from hydromodpy.core.state.layout import internal_dir
+from hydromodpy.core.state.layout import SCRATCH_DIRNAME, internal_dir
 
 SCRATCH_ROOT_ENV = "HMP_SCRATCH_ROOT"
 """Machine scratch root that replaces the scratch inside the project (``$SLURM_TMPDIR``).
@@ -56,7 +56,7 @@ def scratch_root_for(project_root: Path) -> Path:
     machine = os.environ.get(SCRATCH_ROOT_ENV, "").strip()
     if machine:
         return Path(machine).expanduser() / Path(project_root).resolve().name
-    return internal_dir(project_root) / "scratch"
+    return internal_dir(project_root) / SCRATCH_DIRNAME
 
 
 def active_run_scratch() -> str | None:

@@ -37,6 +37,13 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `[flow.sinks_sources.recharge.scenario]` replaces the loaded recharge by its mean year, with dry years put in a row, to test a sequence of droughts.
 - `source = "explore2"` reads a DRIAS Explore2 file of projected recharge or runoff under `[data.recharge]` and `[data.runoff]`.
 - `hmp example add` takes several ids (`hmp example add 00 07 08`) or `--all`, and `hmp.example(["00", "07"], add=True)` or `hmp.example(add=True)` does the same from Python. Every id is checked before the first download. The catalog now ships the twelve examples 00 to 11: `python -m tools.dev examples manifest` takes every folder `NN_name` of `examples/projects/` that holds a `project.toml` and a `README.md`, so a new example needs no code. Under `--format json` the command writes one row per example, schema `hmp.example.add.v2`, with the new field `example_id`.
+- `hmp catalog gc --solver-files-days DAYS`, and `Project.gc(solver_files_days=...)`, removes the `solver/` folder that `keep_solver_files` kept in the sealed runs older than DAYS. The rule is off by default, so the folders stay unless it is asked. The seal never lists them, so the run reads the same without them. On a daily run such a folder can weigh 5.6 GB, beside 195 MB for its `fields.zarr`.
+- The Parquet views of the index (`timeseries`, `budgets`, `mass_balance` and the Parquet `metrics` and `provenance`) now read the kept trials of the sessions too, each row by its `sim_id`.
+- `read_workspace_runs`, which reads the runs of several projects without any index, now gives `label` and `rule_version` for each run, computed on read as the index does.
+
+### Changed
+
+- The index no longer stamps the `logs/` and `.hmp/` folders of a run, and reads a seal again only when its folder moved. The pulse a live run writes every 30 s made every read of the project write the index again. `Catalog.cases` now reads the status and the pulse of a live case on the disk.
 
 ### Fixed
 

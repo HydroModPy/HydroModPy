@@ -350,7 +350,13 @@ OUTPUTS: tuple[Output, ...] = (
         version=2,
     ),
     _object(
-        "catalog gc", "applied", "keep_versions", "max_age_days", "trial_fields_days", "projects"
+        "catalog gc",
+        "applied",
+        "keep_versions",
+        "max_age_days",
+        "trial_fields_days",
+        "solver_files_days",
+        "projects",
     ),
     _object(
         "catalog reindex", "index", "full", "indexed", "sessions", "removed", "skipped", "rows"

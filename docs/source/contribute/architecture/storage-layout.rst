@@ -64,8 +64,11 @@ Two state roots
 
 **The project** ``.hmp/`` **is strictly rebuildable.** It holds the index (``index.duckdb``), the
 debug log (``logs/hydromodpy_debug.log``, written by each attempt beside its ``run.log``, which
-rotates past 8 MiB and keeps ``.1`` to ``.3``), the launcher lease (``launcher.lease``) and the product store
-(``products/``). A product is a folder keyed by a sha256 of the inputs the step read, the
+rotates past 8 MiB and keeps ``.1`` to ``.3``), the launcher lease (``launcher.lease``), the product store
+(``products/``), the scratch of the live runs (``scratch/<case>.p<pid>/``, where a run does its
+preprocessing, removed once its process is gone) and the cache of the point-to-cell maps
+(``cache/cell_index/``). ``SCRATCH_DIRNAME`` and ``CACHE_DIRNAME`` of
+:mod:`hydromodpy.core.state.layout` name the last two. A product is a folder keyed by a sha256 of the inputs the step read, the
 processing keys and the code of the package that computes it, so the workflow asks the store for
 the mesh, the soil reservoir and the terrain (the conditioned DEM, its D8 directions and its
 accumulation, described by ``terrain.json``) before it computes them. ``[workspace]
@@ -494,7 +497,11 @@ removal, so ``dry_run`` says what would leave and changes nothing. ``keep_versio
 bounds the versions of each run, ``max_age_days`` the age of a run, and ``trial_fields_days`` (90 by
 default) the age of the fields of a kept trial; ``never`` removes none on age. ``gc`` also removes
 the scratch of a dead attempt, the earlier attempts of a sealed run, and the products of the store
-past its cap, and it purges a kept trial past its window but the best. The report gives the plan,
+past its cap, and it purges a kept trial past its window but the best. The ``solver/`` folder that
+``keep_solver_files`` keeps in a sealed run leaves only when ``solver_files_days``
+(``--solver-files-days``) is given, a rule off by default, because a user who keeps the raw files
+of the solver may want them for good. It can weigh 5.6 GB on a daily run, beside 195 MB for its
+``fields.zarr``, and the seal never lists it, so the run reads the same without it. The report gives the plan,
 what it applied, the bytes freed and the weight before and after.
 
 Versions of the stored documents
@@ -693,7 +700,12 @@ its directory, never from its files: a rename moves the directory, so the tree i
 ``attempt_id``: it inserts new directories, updates a row whose directory moved (a rename, a
 restore, an extracted archive), deletes rows whose directory disappeared, and moves the previous
 attempt to ``attempts`` before inserting the new one. Its trigger is the latest modification time
-of the ``outcome.json`` and ``session.json`` files.
+of the ``outcome.json`` and ``session.json`` files. The stamp of a directory reads its subfolders
+too, so a figure or an export written after the seal is indexed, but never ``logs/`` nor ``.hmp/``:
+a live attempt writes its pulse there every 30 s, and stamping them would write the index again at
+every read. A pass reads the seal of a directory only when its stamp moved. ``Catalog.cases``
+reads the status and the pulse of a live case on the disk, by the rule of the status precedence
+below, so a case that stopped beating reads ``stale`` without a new pass.
 
 **A schema change is a full reindex.** There are no SQL migrations: the index is derived, so it is
 rebuilt from the directories. The columns of ``simulations``, ``parameters``, ``metrics`` and
@@ -1135,6 +1147,12 @@ make it cheap, and neither exists.
 **A network file system is not supported.** ``os.mkdir``, ``rename`` and the file locks depend on
 the mount options. The layout reduces the shared writers to one (the launcher) and proves
 death through the scheduler, but it does not make DuckDB safe on NFS.
+
+**An object store is not a project root.** The attempt protocol rests on an exclusive ``mkdir``,
+an atomic rename, file locks and modification times, which an object store such as S3 does not
+give, and a path that is not local is refused. A sealed run never changes, so a platform that
+computes on a local disk and then copies the sealed runs to an object store changes nothing here:
+Zarr 3 and Parquet read well there.
 
 See also
 --------

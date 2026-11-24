@@ -22,6 +22,7 @@ import zarr
 
 from hydromodpy.core.budget.terms import BudgetKeep, kept_budget
 from hydromodpy.core.state.layout import (
+    CACHE_DIRNAME,
     CATALOG_FILENAME,
     CONFIGS_DIRNAME,
     INTERNAL_DIRNAME,
@@ -31,6 +32,7 @@ from hydromodpy.core.state.layout import (
     PRODUCTS_DIRNAME,
     PROJECT_MARKER_FILENAME,
     RUNS_DIRNAME,
+    SCRATCH_DIRNAME,
     SESSIONS_DIRNAME,
     SITE_OVERRIDES_DIRNAME,
     STOP_FLAG_FILENAME,
@@ -130,6 +132,8 @@ REBUILDABLE_INTERNAL_ENTRIES = frozenset(
         PROJECT_LOGS_DIRNAME,
         LAUNCHER_LEASE_FILENAME,
         PRODUCTS_DIRNAME,
+        SCRATCH_DIRNAME,
+        CACHE_DIRNAME,
     }
 )
 """What the project ``.hmp/`` may hold: an index, its companions, a cache, disposable markers."""

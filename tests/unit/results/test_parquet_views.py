@@ -122,3 +122,16 @@ def test_a_tmp_file_is_not_in_the_view(tmp_path):
     sim_id = seal_and_index(tmp_path, store)
     stray.write_bytes(b"corrupted")
     assert count_rows(tmp_path, "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", sim_id) == 5
+
+
+def test_kept_trials_join_the_views(tmp_path):
+    store = open_store(tmp_path)
+    store.write_timeseries(store.sim_id, "P01", "head", head_series(), unit="m")
+    source = store.tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}"
+    seal_and_index(tmp_path, store)
+    for trial in ("sessions/calib/trials/0002", "sessions/joint/trials/0001/caseA"):
+        target = tmp_path / trial / "tables.parquet" / source.name
+        target.parent.mkdir(parents=True)
+        target.write_bytes(source.read_bytes())
+
+    assert count_rows(tmp_path, "SELECT COUNT(*) FROM timeseries") == 15

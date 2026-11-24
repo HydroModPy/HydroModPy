@@ -6,7 +6,8 @@ stopped beating is marked aborted, the versions beyond the retention window
 and the runs past the age limit go to the trash, the scratch of dead runs and
 the earlier attempts of sealed runs leave all but their outcome, the products
 over the store cap leave, and the field store of kept trials older than
-``--trial-fields-days`` leaves behind a ``purged.json``. The output gives the bytes of each category
+``--trial-fields-days`` leaves behind a ``purged.json``. ``--solver-files-days``
+also removes the ``solver/`` folder of sealed runs, a rule off by default. The output gives the bytes of each category
 and the weight of the project before and after.
 """
 
@@ -95,7 +96,8 @@ def register(subparsers) -> argparse.ArgumentParser:
             "  hmp catalog gc\n"
             "  hmp catalog gc --dry-run --format json\n"
             "  hmp catalog gc --keep-versions 3 --max-age-days 180 -y\n"
-            "  hmp catalog gc --trial-fields-days never -y"
+            "  hmp catalog gc --trial-fields-days never -y\n"
+            "  hmp catalog gc --solver-files-days 30 -y"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -126,6 +128,16 @@ def register(subparsers) -> argparse.ArgumentParser:
             f"(default: {DEFAULT_TRIAL_FIELDS_DAYS}, 'never' disables the rule)"
         ),
     )
+    parser.add_argument(
+        "--solver-files-days",
+        type=_positive_days,
+        default=None,
+        metavar="DAYS",
+        help=(
+            "Remove the solver/ folder that keep_solver_files kept in sealed runs older "
+            "than DAYS (default: never, the folders stay)"
+        ),
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -146,6 +158,7 @@ def run(args: argparse.Namespace) -> None:
                 keep_versions=args.keep_versions,
                 max_age_days=args.max_age_days,
                 trial_fields_days=args.trial_fields_days,
+                solver_files_days=args.solver_files_days,
             )
         finally:
             project.close()
@@ -183,9 +196,14 @@ def run(args: argparse.Namespace) -> None:
             if args.trial_fields_days is None
             else f"{args.trial_fields_days} days"
         )
+        solver = (
+            "solver files kept"
+            if args.solver_files_days is None
+            else f"solver files {args.solver_files_days} days"
+        )
         print(
             f"\nRetention: {keep} kept per name, {age}, trial fields {fields}, "
-            f"trash kept {TRASH_RETENTION_DAYS} days."
+            f"{solver}, trash kept {TRASH_RETENTION_DAYS} days."
         )
         if not applied:
             print("Plan only. Re-run with -y to carry it out.")
@@ -198,6 +216,7 @@ def run(args: argparse.Namespace) -> None:
             "keep_versions": args.keep_versions,
             "max_age_days": args.max_age_days,
             "trial_fields_days": args.trial_fields_days,
+            "solver_files_days": args.solver_files_days,
             "projects": report,
         },
         table=table,
