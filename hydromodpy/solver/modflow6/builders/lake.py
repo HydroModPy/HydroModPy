@@ -7,11 +7,11 @@ because ``flopy.mf6.utils.get_lak_connections`` does not support embedded /
 horizontal lakes on DISV (it raises for unstructured grids and only handles the
 trivial surface-lake case).
 
-The lake cells come from the cell mesh. On a mesh whose faces follow the whole
-lake shore (``exact_faces`` and a ``lakes`` face family that covers every shore
-line), a lake owns the regions the shore faces enclose, each cell whole. On any
-other mesh, including one that follows the shore only in part, it owns every cell
-its polygon overlaps by a positive area, credited with that overlap.
+The lake cells come from the cell mesh. On a mesh whose faces follow the lake
+shores (``exact_faces`` and a ``lakes`` face family), a lake owns the regions the
+shore faces enclose and the cells it covers for most of their area, each cell
+whole, also where the faces leave the shore open. On a mesh without lake faces it
+owns every cell its polygon overlaps by a positive area, credited with that overlap.
 
 Each lake cell gets:
 

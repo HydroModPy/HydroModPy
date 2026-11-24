@@ -25,6 +25,7 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import (
     _flat_pass_through,
     _lake_bed_layers,
     _resolve_shared_lake_cells,
+    covered_cells,
     interior_cells,
     polygon_overlap,
 )
@@ -43,7 +44,7 @@ _BED_CLAMP_REPORT_TOL = 0.01
 
 
 # Share of the shore length the lakes faces must cover for the regions they enclose to
-# stand for the lakes. A mesh that follows every shore reports 1 to rounding.
+# be closed. A mesh that follows every shore reports 1 to rounding.
 _CLOSED_SHORE_COVERAGE = 1.0 - 1e-6
 
 
@@ -57,18 +58,27 @@ def resolve_lake_cells(
 ) -> list[int] | tuple[list[int], dict[int, float]]:
     """Return the sorted cell ids of one lake polygon on the cell mesh.
 
-    When the mesh faces follow the whole lake shore (the engine declares
-    ``exact_faces`` and the ``lakes`` face family covers every shore line), the
-    lake owns the regions those faces enclose that its polygon covers for most
-    of their area, and each cell counts with its whole area. Otherwise it owns
-    every cell its polygon overlaps by a positive area, and each cell counts
-    with that overlap, so the edge cells under-fill. An empty result means the
-    polygon misses the mesh, almost always a CRS or extent mistake, so we fail
-    naming the lake. With ``with_areas=True`` also return the per-cell lake
-    area [L2].
+    When the mesh faces follow the lake shores (the engine declares
+    ``exact_faces`` and carries a ``lakes`` face family), the lake owns the
+    regions those faces enclose that its polygon covers for most of their area,
+    and the cells it covers for most of their area, each cell whole. A shore
+    the faces leave open somewhere (a wall that leaves the shore, an arm
+    narrower than a cell) lets the regions run into the land, and the lake
+    then keeps the cells alone: a face on the shore puts a cell on one side or
+    the other, so the cells it covers for most of their area are its own. On a
+    mesh without lake faces it owns every cell its polygon overlaps by a
+    positive area, and each cell counts with that overlap, so the edge cells
+    under-fill. An empty result means the polygon misses the mesh, almost
+    always a CRS or extent mistake, so we fail naming the lake. With
+    ``with_areas=True`` also return the per-cell lake area [L2].
     """
-    if _follows_lake_shores(cell_mesh):
-        cells = interior_cells(cell_mesh, "lakes", polygon)
+    if _has_lake_faces(cell_mesh):
+        # An open ring can still enclose one arm of a lake, and the regions alone
+        # would then keep that arm and lose the rest.
+        if _shores_are_closed(cell_mesh):
+            cells = interior_cells(cell_mesh, "lakes", polygon)
+        else:
+            cells = covered_cells(cell_mesh, polygon)
         areas = cell_mesh.geometry.areas[cells]
         if cells.size == 0 and polygon_overlap(cell_mesh, polygon)[0].size:
             raise ValueError(
@@ -89,15 +99,13 @@ def resolve_lake_cells(
     return cell_ids, {int(cid): float(area) for cid, area in zip(cells, areas, strict=True)}
 
 
-def _follows_lake_shores(cell_mesh: PlanarCellMesh) -> bool:
-    """Whether the mesh faces close every lake shore.
+def _has_lake_faces(cell_mesh: PlanarCellMesh) -> bool:
+    """Whether the mesh puts faces on the lake shores."""
+    return bool(cell_mesh.qa.declarations["exact_faces"] and cell_mesh.face_rows("lakes").any())
 
-    A family that follows the shore only in part (a generated mesh yields the
-    shore where an arm is narrower than a cell) leaves the regions open, so the
-    lake falls back on the overlap rule.
-    """
-    if not cell_mesh.qa.declarations["exact_faces"] or not cell_mesh.face_rows("lakes").any():
-        return False
+
+def _shores_are_closed(cell_mesh: PlanarCellMesh) -> bool:
+    """Whether the lake faces cover every shore line, so each lake is a closed region."""
     covered = cell_mesh.qa.families.get("lakes", {}).get("covered_length_rel", 0.0)
     return covered >= _CLOSED_SHORE_COVERAGE
 

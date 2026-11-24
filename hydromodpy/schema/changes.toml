@@ -1178,3 +1178,10 @@ since = "2.0.1"
 effect = "numbers"
 quantities = ["metrics"]
 text = "map.drawn_by defaults to \"crossing\": the mapped network is drawn on the cells as the data gives it, the rule of the paper, still cut to the catchment. It defaulted to \"heads\", which kept only the stream heads of the map and drew the rest down the model's own descent. A calibration with no pin on the protocol follows 1.4, which differs from 1.3 by this rule alone. A pin on 1.3, or map.drawn_by = \"heads\" in the network output, gives the heads rule back. A run that sealed no network output draws its network figures by the crossing rule too. A file of edition 2.0 that writes no drawn_by moves with it, at the request of the owner, so its K and costs change wherever heads and crossing draw different cells."
+
+[[recipe]]
+id = "lake_keeps_the_cells_it_covers"
+since = "2.0.1"
+effect = "numbers"
+quantities = ["heads@modflow6", "fluxes@modflow6", "metrics"]
+text = "On a mesh whose faces follow the lake shores but leave the ring open somewhere (an arm narrower than a cell, a wall that leaves the shore), a lake owns the cells its polygon covers for more than half of their area, each cell whole. It owned every cell the polygon touched, so a ring of land cells one cell wide joined the lake and had its top carved under the highest stage of the abacus. On a reservoir of 200.3 ha whose shore the faces cover at 99.45 %, the lake goes from 1 256 cells and 296.3 ha to 885 cells and 201.3 ha, and the cells it leaves keep their terrain and get their drain back. A mesh that closes every shore, and a mesh without lake faces, do not change."

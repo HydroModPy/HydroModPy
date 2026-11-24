@@ -339,6 +339,13 @@ def polygon_overlap(
     return candidates[keep].astype(np.int64), np.asarray(areas[keep], dtype=float)
 
 
+def covered_cells(cell_mesh: PlanarCellMesh, polygon: BaseGeometry) -> np.ndarray:
+    """Return the sorted cells ``polygon`` covers for most of their area."""
+    cells, overlap = polygon_overlap(cell_mesh, polygon)
+    areas = np.asarray(cell_mesh.geometry.areas, dtype=float)
+    return cells[overlap > _INTERIOR_SHARE * areas[cells]]
+
+
 def interior_cells(cell_mesh: PlanarCellMesh, family: str, polygon: BaseGeometry) -> np.ndarray:
     """Return the sorted cells of the ``family`` regions ``polygon`` covers for most of their area.
 

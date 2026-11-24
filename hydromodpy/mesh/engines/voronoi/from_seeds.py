@@ -156,8 +156,9 @@ def _with_open_shore_note(cell_mesh: PlanarCellMesh) -> PlanarCellMesh:
     note = (
         f"lakes: the faces follow {100.0 * covered:.1f} % of the shore; where two stretches "
         "of shore, a river or a barrier come closer than about a cell the mirror pairs "
-        "yield, the lake regions stay open and each lake takes the cells it overlaps. "
-        "Refine the lake shore ([mesh.lake_refinement] cell_size) to close it"
+        "yield and the shore stays open there, so each lake keeps the cells it covers for "
+        "most of their area. A finer lake shore ([mesh.lake_refinement] cell_size) closes "
+        "an arm narrower than a cell"
     )
     return cell_mesh.with_qa(dataclasses.replace(cell_mesh.qa, notes=(*cell_mesh.qa.notes, note)))
 

@@ -8,6 +8,7 @@ active cell below for the VERTICAL connection.
 
 from __future__ import annotations
 
+import dataclasses
 from importlib.util import find_spec
 from types import SimpleNamespace
 
@@ -24,7 +25,10 @@ from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.mesh.request import LineFamilySpec
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
-from hydromodpy.solver.modflow6.builders._lake_geometry import _drop_interior_rings
+from hydromodpy.solver.modflow6.builders._lake_geometry import (
+    _drop_interior_rings,
+    polygon_overlap,
+)
 from hydromodpy.solver.modflow6.builders.lake_cells import (
     apply_lake_idomain_mask,
     resolve_lake_cells,
@@ -132,7 +136,8 @@ def test_cells_and_areas_match_gridintersect(make_mesh) -> None:
 
 
 # A shore the generated Voronoi mesh follows in part. Where a lake arm is narrower than
-# a cell the mesh has no shore segment, so the lake owns the cells its polygon overlaps.
+# a cell, or where one face of the ring is missing, the regions of the faces run into
+# the land, so the lake keeps the cells its polygon covers for most of their area.
 
 
 def lake_on_voronoi_mesh(*points: tuple[float, float]) -> tuple[Polygon, PlanarCellMesh]:
@@ -159,7 +164,12 @@ def test_a_shore_followed_whole_gives_whole_cells() -> None:
     assert sum(areas.values()) == pytest.approx(lake.area, rel=1e-6)
 
 
-def test_a_shore_followed_in_part_is_resolved_by_overlap() -> None:
+def overlap_share(mesh: PlanarCellMesh, lake: Polygon, cells: list[int]) -> np.ndarray:
+    polygons = cell_polygons(mesh.mesh.vertices, mesh.geometry.padded_connectivity)[cells]
+    return shapely.area(shapely.intersection(polygons, lake)) / mesh.geometry.areas[cells]
+
+
+def test_a_shore_followed_in_part_gives_the_cells_the_lake_covers() -> None:
     lake, mesh = lake_on_voronoi_mesh(*WITH_ARM)
 
     cells, areas = resolve_lake_cells(
@@ -167,8 +177,36 @@ def test_a_shore_followed_in_part_is_resolved_by_overlap() -> None:
     )
 
     assert mesh.qa.families["lakes"]["covered_length_rel"] < 0.99
-    assert cells
-    assert sum(areas.values()) == pytest.approx(lake.area, rel=1e-6)
+    np.testing.assert_array_equal([areas[c] for c in cells], mesh.geometry.areas[cells])
+    assert overlap_share(mesh, lake, cells).min() > 0.5
+    # The arm, 12 m wide on 40 m cells, is left out: 3 000 m2 of 163 000.
+    assert sum(areas.values()) == pytest.approx(lake.area, rel=0.03)
+
+
+def test_a_ring_open_by_one_face_gives_the_cells_of_the_closed_ring() -> None:
+    """A wall that leaves the shore costs the ring one face, and the lake none of its cells."""
+    lake, mesh = lake_on_voronoi_mesh(*SQUARE)
+    closed = resolve_lake_cells(None, lake_id="lake", polygon=lake, cell_mesh=mesh)
+    table = mesh.face_families
+    keep = np.ones(table.family.size, dtype=bool)
+    keep[np.flatnonzero(mesh.face_rows("lakes"))[0]] = False
+    columns = {
+        column.name: getattr(table, column.name)[keep]
+        for column in dataclasses.fields(table)
+        if column.name != "names"
+    }
+    families = {**mesh.qa.families}
+    families["lakes"] = {**families["lakes"], "covered_length_rel": 0.999}
+    opened = dataclasses.replace(mesh, face_families=dataclasses.replace(table, **columns)).with_qa(
+        dataclasses.replace(mesh.qa, families=families)
+    )
+    # The polygon a user gives is not the smoothed line the faces follow.
+    given = lake.buffer(2.0)
+
+    cells = resolve_lake_cells(None, lake_id="lake", polygon=given, cell_mesh=opened)
+
+    assert cells == closed
+    assert polygon_overlap(opened, given)[0].size > len(closed)
 
 
 # Triangles whose faces follow the lake shores: a lake owns whole cells that tile it.
