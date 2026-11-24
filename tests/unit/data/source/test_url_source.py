@@ -199,3 +199,42 @@ def test_a_sidecar_without_variable_is_no_row(
 
     assert "GET" in calls
     assert res.files[0].path.read_bytes() == b"new"
+
+
+WCS_URL = "https://example.com/ows?service=WCS&request=GetCoverage&coverageId=dem"
+
+
+@pytest.mark.parametrize(
+    ("headers", "suffix"),
+    [
+        ({"Content-Disposition": "inline; filename=ws:dem.tif"}, ".tif"),
+        ({"Content-Type": "image/geotiff"}, ".tif"),
+        ({"Content-Type": "application/x-netcdf"}, ".nc"),
+        ({"Content-Type": "application/octet-stream"}, ".bin"),
+        ({}, ".bin"),
+    ],
+)
+def test_a_path_without_suffix_takes_the_suffix_of_the_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, headers: dict[str, str], suffix: str
+) -> None:
+    out_dir = tmp_path / "dem"
+    head_resp = MagicMock(status_code=200, headers={})
+    get_resp = MagicMock(status_code=200, headers=headers)
+    get_resp.iter_content = MagicMock(return_value=iter([b"raster"]))
+    monkeypatch.setattr(
+        "socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("93.184.216.34", 443))]
+    )
+    monkeypatch.setattr(
+        "requests.Session.request",
+        lambda _self, method, _url, **_kw: head_resp if method == "HEAD" else get_resp,
+    )
+
+    res = DemUrl(url=WCS_URL).fetch(FetchRequest(out_dir=out_dir))
+
+    path = res.files[0].path
+    assert path.suffix == suffix
+    assert path.read_bytes() == b"raster"
+    assert sorted(p.name for p in out_dir.iterdir()) == [path.name, f"{path.name}.json"]
+    if suffix != ".bin":
+        row = CacheIndex(tmp_path).row_for(path)
+        assert row is not None and row.origin == WCS_URL

@@ -141,6 +141,13 @@ def ensure_crs(path: str | Path, crs: str | None) -> None:
         return
     path_str = str(path)
     if path_str.lower().endswith(".tif"):
+        with rio.open(path_str) as src:
+            current = crs_text(src.crs)
+        # A rewrite of the tag is skipped when the CRS already holds: GDAL
+        # rewrites the GeoKeys, and Whitebox fails to read some files it wrote
+        # after that rewrite.
+        if current is not None and same_crs(current, crs):
+            return
         with rio.open(path_str, "r+") as dst:
             dst.crs = crs
         return

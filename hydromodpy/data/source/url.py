@@ -13,14 +13,14 @@ A downloaded file is verified by a pinned sha256 or by the remote headers.
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import ClassVar
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.core.exceptions import DataRequestError
-from hydromodpy.core.io.fetch import download, guard_url, resolve_final_url
+from hydromodpy.core.io.fetch import Fetched, download, guard_url, resolve_final_url
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.data.provenance.lockfile import LockedInputs
 from hydromodpy.data.provenance.sidecars import CacheIndex
@@ -35,6 +35,35 @@ from hydromodpy.data.source.port import (
 )
 
 _SHA256_PATTERN = r"^[0-9a-fA-F]{64}$"
+
+SUFFIX_OF_CONTENT_TYPE: dict[str, str] = {
+    "image/tiff": ".tif",
+    "image/geotiff": ".tif",
+    "application/geotiff": ".tif",
+    "application/netcdf": ".nc",
+    "application/x-netcdf": ".nc",
+    "application/zip": ".zip",
+    "application/geo+json": ".geojson",
+    "application/geopackage+sqlite3": ".gpkg",
+    "text/csv": ".csv",
+}
+"""The suffix a server's ``Content-Type`` gives a file whose URL path has none."""
+
+
+def suffix_of_response(fetched: Fetched) -> str | None:
+    """Return the suffix the answer names, by ``Content-Disposition`` then ``Content-Type``.
+
+    A web service such as a WCS ``GetCoverage`` serves its file from a path with
+    no suffix, and the readers downstream pick a raster driver by suffix. Only
+    the suffix of the server's name is taken, never the name itself.
+    """
+    if fetched.filename:
+        suffix = PurePosixPath(fetched.filename).suffix.lower()
+        if 1 < len(suffix) <= 8 and suffix[1:].isascii() and suffix[1:].isalnum():
+            return suffix
+    if fetched.content_type:
+        return SUFFIX_OF_CONTENT_TYPE.get(fetched.content_type.split(";")[0].strip().lower())
+    return None
 
 
 class UrlSourceOptions(BaseModel):
@@ -184,6 +213,10 @@ class UrlSource:
         dest = out_dir / f"{self.section}_url_{host}_{sha8}{suffix}"
 
         fetched = download(self.url, dest, bounds=request.bounds, sha256=self.sha256)
+        if not Path(parsed.path).suffix:
+            named = suffix_of_response(fetched)
+            if named is not None and named != suffix:
+                dest = fetched.path.replace(dest.with_suffix(named))
         index.record(
             dest,
             variable=variable,

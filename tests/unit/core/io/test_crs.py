@@ -219,3 +219,22 @@ def test_empty_frame() -> None:
     assert measure_linework_length_m(empty) == 0.0
     assert measure_polygon_area_m2(empty) == 0.0
     assert measure_polygon_area_m2(_frame(box(0, 0, 10, 10), "EPSG:2154")) == 100.0
+
+
+def test_ensure_crs_stamps_a_tif_without_one(tmp_path: Path) -> None:
+    path = tmp_path / "bare.tif"
+    values = _write_tif_without_crs(path)
+    crs_io.ensure_crs(path, "EPSG:2154")
+    with rasterio.open(path) as src:
+        assert src.crs.to_epsg() == 2154
+        np.testing.assert_array_equal(src.read(1), values)
+
+
+def test_ensure_crs_leaves_a_tif_whose_crs_holds(tmp_path: Path) -> None:
+    path = tmp_path / "stamped.tif"
+    _write_tif_without_crs(path)
+    with rasterio.open(path, "r+") as dst:
+        dst.crs = "EPSG:2154"
+    before = path.read_bytes()
+    crs_io.ensure_crs(path, L93_PROJ4_WITHOUT_DATUM)
+    assert path.read_bytes() == before

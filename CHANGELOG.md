@@ -48,6 +48,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Fixed
 
+- A `source = "url"` file whose address has no suffix, such as a WCS `GetCoverage` request, now takes the suffix the server names in `Content-Disposition` or `Content-Type`. It was cached as `.bin`, and Whitebox refused to read it as a DEM. The CRS stamp on a Whitebox output is skipped when the file already holds that CRS: rewriting it made Whitebox fail to read back some GeoTIFFs it wrote, such as a DEM served by GeoServer, on the first run of a project.
 - The relief shade of a map now stops at the active cells. On a catchment with a concave outline it used to leave grey streaks across the bays, outside the mesh, and it shaded the inactive cells of the border.
 - `hmp publish --package` and the example catalog now ship every data file a TOML names, wherever the key sits. A catchment polygon (`[geographic.catchment] polyg_shp_path`) and a file read by a boundary condition, such as the sea level of example 05, were left out, so the copy failed on a missing file. A shapefile now travels with its `.shx`, `.dbf`, `.prj` and `.cpg`; example 00 shipped its stream network as a lone `.shp`.
 - A grid of `data/` that a larger one contains is no longer removed when a sealed run or a lockfile cites it. The skip of an identical run and `hmp run --frozen` failed once an enclosing catchment was fetched. `hmp data prune` removes the smaller grid once nothing cites it.

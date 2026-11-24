@@ -13,6 +13,7 @@ of a remote file.
 from __future__ import annotations
 
 import contextlib
+import email.message
 import hashlib
 import ipaddress
 import os
@@ -24,7 +25,7 @@ from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from email.utils import parsedate_to_datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, NamedTuple
 from urllib.parse import parse_qsl, urljoin, urlsplit
 
@@ -84,6 +85,20 @@ class Fetched:
     etag: str | None = None
     last_modified: str | None = None
     content_type: str | None = None
+    filename: str | None = None
+    """The file name the server gives in ``Content-Disposition``, if any."""
+
+
+def _disposition_filename(header: str | None) -> str | None:
+    """Return the base name a ``Content-Disposition`` header gives, or ``None``."""
+    if not header:
+        return None
+    message = email.message.Message()
+    message["Content-Disposition"] = header
+    name = message.get_filename()
+    if not name:
+        return None
+    return PurePosixPath(name.replace("\\", "/")).name or None
 
 
 class _TokenBucket:
@@ -700,6 +715,7 @@ def download(
                 etag = resp.headers.get("ETag") or final_info.etag
                 last_modified = resp.headers.get("Last-Modified") or final_info.last_modified
                 content_type = resp.headers.get("Content-Type")
+                filename = _disposition_filename(resp.headers.get("Content-Disposition"))
 
                 hasher = hashlib.sha256()
                 total_size = 0
@@ -745,6 +761,7 @@ def download(
             etag=etag,
             last_modified=last_modified,
             content_type=content_type,
+            filename=filename,
         )
 
     if client is not None:
