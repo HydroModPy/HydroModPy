@@ -219,8 +219,8 @@ sha256 = "ca5a08f97b47e9ace5fa59c6ed31990aa132732af7e967b34ef5c1252c543b51"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/project.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/project.toml"
-size = 4983
-sha256 = "30419e3bc33141f2109b93a47c418898f00e064292e2b447c6e8387eadd5837d"
+size = 5503
+sha256 = "0b44379abcd38d67b0971a77090f858e13c39e01e44764b8eebf1e6e17e6979a"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"

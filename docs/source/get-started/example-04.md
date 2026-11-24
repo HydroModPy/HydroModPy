@@ -24,10 +24,11 @@ is downloaded once.
 
 ## The model file
 
-The file opens with the catchment. `[site]` names it and its gauge, `NANCON`. Every series
-below reads that station: the discharge, and the SIM2 recharge and runoff averaged over the
-catchment. `[metrics]` sets the window the discharge is scored on, 2001 and 2002, so the year
-2000 is spin-up.
+`hmp run` plays the file as one forward simulation, because it holds no `[calibration]` and no
+`[overview]`. The file opens with the catchment. `[site]` names it and its gauge, `NANCON`.
+Every series below reads that station: the discharge, and the SIM2 recharge and runoff averaged
+over the catchment. `[metrics]` sets the window the discharge is scored on, 2001 and 2002, so
+the year 2000 is spin-up.
 
 ```{hmp-toml}
 :file: 04_streamflow_intermittence_in_transient/project.toml
@@ -52,8 +53,9 @@ workspace, named by `workspace:`. A folder source, `workspace:.`, reads the stat
 :tables: data, data.dem.sources, data.hydrography.sources, data.hydrometry.sources, data.recharge.sources, data.runoff.sources
 ```
 
-The aquifer has one K, one Sy and one Ss. Every cell drains at the ground, with a conductance
-that follows K. The first month is solved in steady state under the recharge of January 2000,
+The flow is transient, so the heads move from one month to the next and the aquifer stores
+water. The aquifer has one K, one Sy and one Ss. Every cell drains at the ground, with a
+conductance that follows K. The first month is solved in steady state under the recharge of January 2000,
 so the run starts from a wet winter water table.
 
 ```{hmp-toml}

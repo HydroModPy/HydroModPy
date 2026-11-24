@@ -8,6 +8,11 @@
 #
 #   hmp run project.toml
 
+# hmp run plays this file as one forward simulation. No key says so: with no
+# [workflow] mode, a file without [calibration] or [overview] simulates. A
+# calibration file that names this one as its base_config and adds
+# [calibration] calibrates, which a written mode = "simulation" would prevent.
+
 # The catchment. The gauge is the station of every series below: the discharge,
 # the recharge and the runoff read station NANCON. The recharge and the runoff
 # are the SIM2 means over the catchment. The uri is the Hub'Eau code of the
@@ -82,7 +87,12 @@ path = "workspace:."
 source = "file"
 path = "workspace:."
 
+# The heads are solved through the 36 months, with storage. The first month is
+# solved in steady state, and [flow.sinks_sources.recharge] says under which
+# recharge.
 [flow]
+flow_regime = "transient"
+first_period_steady = true
 param_list = ["K", "Sy", "Ss"]
 
 # py1_run_and_plot.py gives Sy three values: 0.001, 0.05 and 0.3.
