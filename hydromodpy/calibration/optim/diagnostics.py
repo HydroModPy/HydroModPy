@@ -131,6 +131,48 @@ def parameter_correlation(
     return sub.corr(method="pearson")
 
 
+MIN_RIDGE_POINTS = 5
+"""Fewest points of the best fifth a ridge reading needs."""
+RIDGE_SHARE = 0.2
+"""Share of the trials, the lowest costs, that makes the cloud read for a ridge."""
+RIDGE_EIGEN_FLOOR = 1e-12
+"""Smallest eigenvalue, relative to the largest, that still gives an axis ratio."""
+
+
+def best_fifth_ridge(
+    points: np.ndarray, costs: np.ndarray, names: list[str]
+) -> dict[str, Any] | None:
+    """Read a ridge in the cloud of the best fifth of the trials of a fixed plan.
+
+    ``points`` holds one row per trial and one column per parameter, in search space
+    scaled to the unit box, so that a decade of K and a share of porosity weigh the same.
+    The best fifth (at least :data:`MIN_RIDGE_POINTS`) gives the Spearman correlation
+    of each pair, and ``axis_ratio``, the square root of the ratio of the largest to the
+    smallest eigenvalue of its covariance. A ratio near one is a round cloud, a large one a
+    ridge. Returns None for fewer points, one parameter, or a value that is not finite.
+    """
+    ok = np.isfinite(costs) & np.isfinite(points).all(axis=1)
+    cost, cloud = costs[ok], points[ok]
+    count = max(MIN_RIDGE_POINTS, int(np.ceil(RIDGE_SHARE * len(cost))))
+    if len(names) < 2 or len(cost) < count:
+        return None
+    cloud = cloud[np.argsort(cost, kind="stable")[:count]]
+    frame = pd.DataFrame(cloud, columns=names)
+    ranks = frame.corr(method="spearman")
+    pairs = [
+        (a, b, float(ranks.at[a, b]))
+        for i, a in enumerate(names)
+        for b in names[i + 1 :]
+        if np.isfinite(ranks.at[a, b])
+    ]
+    eigen = np.linalg.eigvalsh(np.atleast_2d(np.cov(cloud, rowvar=False)))
+    found: dict[str, Any] = {"n_points": count, "n_trials": int(len(cost)), "spearman": pairs}
+    # Fewer points than parameters leave a flat axis: the ratio would be noise.
+    if count > len(names) and np.isfinite(eigen).all() and eigen[0] > RIDGE_EIGEN_FLOOR * eigen[-1]:
+        found["axis_ratio"] = float(np.sqrt(eigen[-1] / eigen[0]))
+    return found
+
+
 DEFAULT_CORRELATION_THRESHOLD = 0.8
 
 
@@ -166,6 +208,8 @@ def correlated_parameter_pairs(
 
 
 __all__ = [
+    "MIN_RIDGE_POINTS",
+    "best_fifth_ridge",
     "DEFAULT_CORRELATION_THRESHOLD",
     "convergence_rate",
     "correlated_parameter_pairs",

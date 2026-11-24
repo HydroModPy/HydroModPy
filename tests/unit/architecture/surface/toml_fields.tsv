@@ -1713,6 +1713,20 @@ site.name	str	<required>	stable
 site.uri	str | None	None	stable
 sites	table | None	None	stable
 sites.bind	dict[str, str | list[str]]	{}	stable
+sites.design	table | None	None	stable
+sites.design.method	str	'sobol'	stable
+sites.design.n	int | list[int] | None	None	stable
+sites.design.options	dict[str, Any]	{}	stable
+sites.design.parameters	dict[str, table]	{}	stable
+sites.design.parameters.bounds	list[float] | None	None	stable
+sites.design.parameters.mode	Literal['replace', 'scale']	'replace'	stable
+sites.design.parameters.path	str | None	None	stable
+sites.design.parameters.sampling	Literal['uniform', 'log_uniform', 'normal']	'uniform'	stable
+sites.design.parameters.search_space	Literal['identity', 'log', 'logit']	'identity'	stable
+sites.design.parameters.target	str | None	None	stable
+sites.design.parameters.units	str | None	None	stable
+sites.design.recipe	str | None	None	stable
+sites.design.seed	int | None	None	stable
 sites.enabled	str | None	None	stable
 sites.exclude	list[str]	[]	stable
 sites.export	list[table]	[]	stable
@@ -1741,6 +1755,11 @@ sites.summary.metrics	list[str]	['nse']	stable
 sites.summary.parameters	list[str]	[]	stable
 sites.summary.rank_by	str	'nse'	stable
 sites.summary.variable	list[str]	[]	stable
+sites.summary.window	list[table]	[]	stable
+sites.summary.window.end	str | None	None	stable
+sites.summary.window.months	list[int] | None	None	stable
+sites.summary.window.name	str	<required>	stable
+sites.summary.window.start	str | None	None	stable
 sites.table	Path | None	None	stable
 solver	table	<table>	stable
 solver.backend	str	'modflow6'	stable

@@ -256,7 +256,7 @@ def test_constant_observations() -> None:
 @pytest.mark.parametrize(
     ("simulated", "observed", "metric", "error", "match"),
     [
-        (None, None, "r2", ValueError, "nse, kge, rmse, nse_log"),
+        (None, None, "r2", ValueError, "rmse, nse, kge, mae"),
         (pd.Series([1.0, 2.0]), pd.Series([1.0, 2.0]), "nse", TypeError, "indexed by time"),
     ],
 )
@@ -597,3 +597,38 @@ def test_run_writes_period_rows(tmp_path, promoted) -> None:
     assert {row.n_samples for row in searched} == ({16} if promoted else set())
     assert {row.metric_rule_version for row in rows} == {METRIC_RULE_VERSION}
     assert len(searched) == (len(RUN_METRIC_NAMES) if promoted else 0)
+
+
+def _monthly_pairs(months):
+    ends = pd.date_range("2001-02-01", periods=48, freq="MS", tz="UTC")
+    values = np.arange(48.0)
+    simulated = pd.Series(values, index=ends)
+    observed = pd.Series(values + 1.0, index=ends)
+    return pair(
+        simulated,
+        observed,
+        method="mean",
+        window=DateWindow(start=date(2001, 1, 1), end=date(2005, 1, 31)),
+        period_start="2001-01-01",
+        months=months,
+    )
+
+
+def test_the_sampling_step_is_read_before_the_months_mask(monkeypatch) -> None:
+    from hydromodpy.results.score import score
+
+    seen: list[float | None] = []
+
+    def spy(sim, obs, *, sample_days, times_days):
+        seen.append(sample_days)
+        return 0.0
+
+    monkeypatch.setitem(kernels.DATED_KERNELS, "nse_delta", spy)
+    rule = MetricRule(window=DateWindow(start=date(2001, 1, 1), end=date(2005, 1, 31)))
+    for months in (None, [1, 7]):
+        score(_monthly_pairs(months), rule, ("nse_delta",))
+
+    assert seen[0] == pytest.approx(30.0, abs=1.0)
+    assert seen[1] == pytest.approx(seen[0])
+    assert _monthly_pairs(None).sample_days is None
+    assert _monthly_pairs([1, 7]).sample_days == pytest.approx(30.0, abs=1.0)

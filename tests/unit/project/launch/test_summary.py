@@ -751,3 +751,71 @@ def test_site_summary_evaluated_case(tmp_path: Path) -> None:
 
     by_site = pd.read_parquet(project / "summary" / "by_site.parquet").set_index("site")
     assert by_site.loc["nancon", "best_case"] == "nancon-k2e_5"
+
+
+def test_summary_windows_are_scored_again_into_scores_parquet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hydromodpy.results.run.group import RunSet
+
+    calls = []
+
+    def fake_score(self, windows=None, metrics=None, months=None, station=None):
+        calls.append((windows, metrics, months, len(self)))
+        (name,) = windows
+        return pd.DataFrame({"sim_id": ["a"], "window_name": [name], "value": [0.5]})
+
+    monkeypatch.setattr(RunSet, "score", fake_score)
+    extra = (
+        "[[sites.summary.window]]\nname = 'summers'\nstart = '2016-01-01'\nmonths = [6, 7]\n"
+        "[[sites.summary.window]]\nname = 'all'\n"
+    )
+    root = _project(tmp_path, summary_extra=extra)
+    _plan(root, ["J0014010-base"])
+    _seal(root, "J0014010", "base", nse=0.81, kge=0.70)
+    paths = collect_project(root)
+    assert calls == [
+        ({"summers": ("2016-01-01", None)}, ["nse", "kge"], [6, 7], 1),
+        ({"all": (None, None)}, ["nse", "kge"], None, 1),
+    ]
+    assert paths.scores == root / "summary" / "scores.parquet"
+    assert list(pd.read_parquet(paths.scores)["window_name"]) == ["summers", "all"]
+
+
+def test_a_collect_without_a_window_writes_no_scores(campaign: Path) -> None:
+    assert collect_project(campaign).scores is None
+    assert not (campaign / "summary" / "scores.parquet").exists()
+
+
+@pytest.mark.parametrize(
+    ("window", "match"),
+    [
+        ({"name": "w", "start": "last year"}, "not an ISO date"),
+        ({"name": "w", "months": [13]}, "calendar months"),
+        ({"start": "2016-01-01"}, "name"),
+    ],
+)
+def test_a_summary_window_refuses_what_it_cannot_read(window: dict, match: str) -> None:
+    with pytest.raises(ValidationError, match=match):
+        SitesConfig.model_validate({"summary": {"window": [window]}})
+
+
+def test_window_scores_are_none_without_a_completed_run_or_when_scoring_raises(monkeypatch) -> None:
+    import pandas as pd
+
+    from hydromodpy.config.sites import SitesSummaryConfig
+    from hydromodpy.project.launch.summary import _window_scores
+    from hydromodpy.results.run.group import RunSet
+
+    summary = SitesSummaryConfig.model_validate(
+        {"window": [{"name": "w", "start": "2010-01-01", "end": "2012-12-31"}]}
+    )
+    none = pd.DataFrame({"kind": [], "status": [], "sim_id": []})
+    assert _window_scores(None, none, summary) is None
+
+    def refuse(self, *args, **kwargs):
+        raise ValueError("no series")
+
+    monkeypatch.setattr(RunSet, "score", refuse)
+    done = pd.DataFrame({"kind": ["run"], "status": ["completed"], "sim_id": ["s0"]})
+    assert _window_scores(None, done, summary) is None

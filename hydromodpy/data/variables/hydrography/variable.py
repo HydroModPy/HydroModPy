@@ -45,6 +45,8 @@ from hydromodpy.catchment.algorithms.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME,
+    cut_network,
+    network_in_crs,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.geometry import bbox_hash
@@ -138,7 +140,7 @@ class HydrographyVariable(SourceTable):
         # EU-Hydro in WGS84, and frames in two CRS do not concatenate.
         mask_shape, mask_crs = mask_geometry(self._require_mask_path())
         combined = gpd.GeoDataFrame(
-            pd.concat([_in_crs(gdf, mask_crs) for gdf in vector_gdfs], ignore_index=True),
+            pd.concat([network_in_crs(gdf, mask_crs) for gdf in vector_gdfs], ignore_index=True),
             crs=mask_crs,
         )
         if PERMANENCE_COLUMN in combined.columns:
@@ -567,25 +569,6 @@ _SHAPEFILE_SIDECARS = (".shp", ".shx", ".dbf", ".prj", ".cpg")
 def network_mask(path: str | Path) -> tuple[Any, Any]:
     """Return the shape a network is cut to, and its CRS, from the file of a mask."""
     return mask_geometry(path)
-
-
-def cut_network(network: gpd.GeoDataFrame, shape: Any, crs: object) -> gpd.GeoDataFrame:
-    """Return a network cut to a mask shape, in the CRS of the mask.
-
-    The one cut of the hydrography variable. The network criterion cuts a file it reads
-    with it, so a file and this variable draw the same map. A line that only touches the
-    outline leaves no line: its point is dropped rather than kept in a network of lines.
-    """
-    return gpd.clip(_in_crs(network, crs), shape, keep_geom_type=True)
-
-
-def _in_crs(frame: gpd.GeoDataFrame, crs: object) -> gpd.GeoDataFrame:
-    """*frame* in *crs*; a frame that declares none is taken as WGS84."""
-    if frame.crs is None:
-        frame = frame.set_crs("EPSG:4326")
-    if str(frame.crs) != str(crs):
-        frame = frame.to_crs(crs)
-    return frame
 
 
 def _fetch_question(source: object) -> dict[str, object]:

@@ -140,6 +140,8 @@ Run.project	property	str
 Run.read	method	(self, variable: str, *, time: Any = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Any
 Run.recharge_forcing	method	(self) -> pd.Series
 Run.record	property	RunRecord
+Run.score	method	(self, windows: WindowsArg = None, metrics: Sequence[str] | None = None, months: Sequence[int] | None = None, station: str | None = None) -> pd.DataFrame
+Run.score_network	method	(self, output: str | None = None, window: NetworkWindowArg = None) -> pd.DataFrame
 Run.show	method	(self, what: str, **options: Any) -> Any
 Run.sim_id	property	str
 Run.site	property	str | None
@@ -159,10 +161,13 @@ RunSet.figure	method	(self, name: str | None = None, *, request: Mapping[str, An
 RunSet.filter	method	(self, **criteria) -> RunSet
 RunSet.metrics	property	pd.DataFrame
 RunSet.parameters	property	pd.DataFrame
+RunSet.score	method	(self, windows: WindowsArg = None, metrics: Sequence[str] | None = None, months: Sequence[int] | None = None, station: str | None = None) -> pd.DataFrame
+RunSet.score_network	method	(self, output: str | None = None, window: NetworkWindowArg = None) -> pd.DataFrame
 RunSet.show	method	(self, what: str, **options: Any) -> Any
 RunSet.sim_ids	property	list[str]
 RunSet.sort_by	method	(self, metric: str, *, ascending: bool = True, mixed_windows: bool = False) -> RunSet
 RunSet.table	method	(self, name: str) -> pd.DataFrame
+RunSet.timeseries	method	(self, station: str | None = None, variable: str | None = None, source: str | None = None) -> pd.DataFrame
 RunSet.to_csv	method	(self, path: Path | str) -> None
 RunSet.to_dataframe	method	(self, *, params: list[str] | None = None, metrics: list[str] | None = None) -> pd.DataFrame
 RunSet.to_xarray	method	(self, variable: str, *, dim: str = 'run') -> xr.DataArray
@@ -189,3 +194,5 @@ Session.windows	property	dict[str, PeriodWindow]
 Workspace.projects	property	builtins.list[str]
 Workspace.root	property	Path
 Workspace.runs	method	(self, *, site: str | None = None, project: str | None = None) -> pd.DataFrame
+Workspace.score	method	(self, *args: Any, **kwargs: Any) -> pd.DataFrame
+Workspace.score_network	method	(self, *args: Any, **kwargs: Any) -> pd.DataFrame

@@ -26,6 +26,7 @@ Calibrate K on a network <../get-started/calibrate-k>
 Write calibration phases <../how-to/write-calibration-phases>
 Long transient runs in windows <../how-to/long-transient-runs-in-windows>
 Many catchments <../get-started/many-catchments>
+Plan experiments and score them later <../how-to/plan-and-score-experiments>
 On a cluster <../get-started/cluster>
 Run in Docker <../how-to/run-in-docker>
 Deliver exports <../how-to/deliver-exports>

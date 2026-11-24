@@ -31,9 +31,7 @@ from hydromodpy.calibration.criteria.registry import criterion_for
 from hydromodpy.calibration.criteria.series import (
     HIGHER_IS_BETTER,
     METRICS,
-    RESERVOIR_INCREMENT_DAYS,
     SeriesCriterion,
-    _positions,
 )
 from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer
 from hydromodpy.calibration.metrics.observed_pairing import pair_outputs_with_observations
@@ -43,6 +41,7 @@ from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.scoring import metrics as core
 from hydromodpy.core.scoring.metric_table import METRIC_SENSE, METRIC_SPECS
 from hydromodpy.core.scoring.metrics import (
+    RESERVOIR_INCREMENT_DAYS,
     clip_negatives,
     kge,
     kge_delta,
@@ -51,6 +50,7 @@ from hydromodpy.core.scoring.metrics import (
     nse,
     nse_delta,
     nse_seasonal,
+    sample_positions,
 )
 from hydromodpy.results.derive.time_alignment import align_observed_simulated
 from hydromodpy.results.metric_rule import DateWindow, MetricRule
@@ -383,16 +383,16 @@ POSITIONS = [
 
 
 @pytest.mark.parametrize(("times_days", "sample_days", "expected"), POSITIONS)
-def test_dates_to_positions(times_days, sample_days, expected) -> None:
-    np.testing.assert_allclose(_positions(times_days, sample_days), expected)
+def test_dates_tosample_positions(times_days, sample_days, expected) -> None:
+    np.testing.assert_allclose(sample_positions(times_days, sample_days), expected)
 
 
 @pytest.mark.parametrize(
     ("times_days", "sample_days"),
     [pytest.param(None, None, id="no dates"), pytest.param([5.0, 5.0], None, id="no spacing")],
 )
-def test_no_positions(times_days, sample_days) -> None:
-    assert _positions(times_days, sample_days) is None
+def test_nosample_positions(times_days, sample_days) -> None:
+    assert sample_positions(times_days, sample_days) is None
 
 
 def _daily_record(n_years: int = 3) -> tuple[pd.DatetimeIndex, pd.Series, pd.Series]:

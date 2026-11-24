@@ -18,6 +18,15 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
+### Added
+
+- `Run.score` and `RunSet.score` score stored runs after the fact, on any window, any metric of the table but the two network distances, and an optional months mask: `runs.score(windows={"y2016": ("2016-01-01", "2016-12-31")}, metrics=["nse_log"], months=[4, 5, 6, 7, 8, 9, 10])`. The pairing is the one of the seal, so `run.score()` with no argument gives back the sealed metrics. `RunSet.timeseries` stacks the series of every run in one table.
+- `Run.score_network` and `RunSet.score_network` compute the network criterion of a stored run, with the settings it was calibrated with or the defaults. On a run stored with `[simulation.results.persistence] field_precision = "exact"` they give the numbers a calibration trial computed at the same parameters. With the default `compact` precision a cell at the seepage threshold can flip, and the size of that difference is not measured yet. A set builds the map geometry once for the runs that share it.
+- `[sites.design]` draws a plan of experiments: `method` (`sobol`, `lhs` or `grid`), `n`, `seed`, and `parameters.<name>` with `path`, `bounds` and `sampling`. Each point becomes a recipe `p0001`, `p0002`..., its drawn values are columns of `cases.csv`, and a larger Sobol `n` or a new LHS lot keeps the cases already run.
+- `hmp.index(ws).score(...)` and `.score_network(...)` score every project of a workspace. The run-set figure `parameter_space` draws two parameters on log axes, coloured by a score. `[[sites.summary.window]]` makes `hmp campaign collect` write `summary/scores.parquet`.
+- A calibration phase on a fixed plan (`lhs`, `grid`) reports the correlation and the axis ratio of its best fifth of trials, which shows a ridge between two parameters.
+- The how-to page "Plan and score experiments" walks through these entry points.
+
 ## [v2.0.1] - 2026-11-24
 
 ### Added

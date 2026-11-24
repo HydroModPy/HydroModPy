@@ -19,6 +19,8 @@ from importlib import metadata
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
+import numpy as np
+
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.config_terms import window_bounds
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
@@ -33,8 +35,10 @@ from hydromodpy.calibration.optim.cache import (
     context_fingerprints,
 )
 from hydromodpy.calibration.optim.cost_margin import IntervalWidth
+from hydromodpy.calibration.optim.design import SAMPLERS
 from hydromodpy.calibration.optim.diagnostics import (
     DEFAULT_CORRELATION_THRESHOLD,
+    best_fifth_ridge,
     correlated_parameter_pairs,
 )
 from hydromodpy.calibration.optim.engine import CalibrationEngine
@@ -492,6 +496,33 @@ def _score_a_trial(
     )
 
 
+def _fixed_plan_ridge(
+    cfg: CalibrationConfig,
+    space: ParameterSpace,
+    session: CalibrationSession,
+    values_by_trial: Mapping[int, Mapping[str, float]],
+) -> dict[str, Any] | None:
+    """Return the ridge reading of a ``lhs`` or ``grid`` phase, else None. It changes no cost."""
+    if cfg.method not in SAMPLERS:
+        return None
+    params = list(space)
+    rows = [item for item in session.history if item.trial_id in values_by_trial]
+    if len(params) < 2 or not rows:
+        return None
+    points = np.array(
+        [
+            [
+                (p.to_transformed(values_by_trial[item.trial_id][p.name]) - p.lower_transformed)
+                / (p.upper_transformed - p.lower_transformed)
+                for p in params
+            ]
+            for item in rows
+        ]
+    )
+    costs = np.array([np.nan if item.cost is None else float(item.cost) for item in rows])
+    return best_fifth_ridge(points, costs, [p.name for p in params])
+
+
 def _search_extra(
     cfg: CalibrationConfig,
     session: CalibrationSession,
@@ -545,6 +576,9 @@ def _search_extra(
         extra["correlated_parameters"] = correlated
     if pairs:
         extra["parameter_correlations"] = pairs
+    ridge = _fixed_plan_ridge(cfg, space, session, values_by_trial)
+    if ridge is not None:
+        extra["ridge"] = ridge
     if intervals:
         extra["parameter_intervals"] = [interval.to_dict() for interval in intervals]
     pairing = _first_trial_pairing(session.history)

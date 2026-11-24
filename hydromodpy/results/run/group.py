@@ -34,19 +34,23 @@ Cross-refs
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final
 
 import pandas as pd
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import NothingThereError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
 from hydromodpy.results.catalog.constants import metric_sense
+from hydromodpy.results.errors import RunNotSealedError
 from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.run.point import RunPointProvider
 from hydromodpy.results.run.sealed import RULE_COLUMNS, check_one_rule, headline_metrics
+from hydromodpy.results.score import read_timeseries
+from hydromodpy.results.score_table import NetworkWindowArg, WindowsArg
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -57,6 +61,8 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog.facade import Catalog
     from hydromodpy.results.run.view import Renderer, Run
 
+
+logger = get_logger(__name__)
 
 RUNSET_SHOWS: Final[tuple[str, ...]] = ("table", "figure")
 """The values of ``what`` that :meth:`RunSet.show` reads."""
@@ -453,6 +459,118 @@ class RunSet:
         if not metrics_df.empty:
             df = df.merge(metrics_df, on="sim_id", how="left")
         return df
+
+    def score(
+        self,
+        windows: WindowsArg = None,
+        metrics: Sequence[str] | None = None,
+        months: Sequence[int] | None = None,
+        station: str | None = None,
+    ) -> pd.DataFrame:
+        """Score the stored series of every run again, on any window, after the fact.
+
+        Each run follows :meth:`~hydromodpy.results.run.view.Run.score`, and the
+        rows are stacked. The parameters of each run are added as columns, a name
+        that clashes with a score column getting the prefix ``param_``. A run that
+        has no series at ``station`` or no seal gives no row, with a warning, and
+        the call is refused when no run gives any.
+        """
+        frames: list[pd.DataFrame] = []
+        for run in self:
+            try:
+                frame = run.score(windows, metrics, months, station)
+            except (NothingThereError, RunNotSealedError) as exc:
+                logger.warning("%s", exc)
+                continue
+            except ValueError as exc:
+                logger.warning("Run %s cannot be scored: %s", run.sim_id, exc)
+                continue
+            if not frame.empty:
+                frames.append(frame)
+        if not frames:
+            raise NothingThereError("No run of the set has a series to score.")
+        return self._with_parameters(pd.concat(frames, ignore_index=True))
+
+    def score_network(
+        self,
+        output: str | None = None,
+        window: NetworkWindowArg = None,
+    ) -> pd.DataFrame:
+        """Score the stream-network criterion of every run again, as their trials scored it.
+
+        Each run follows :meth:`~hydromodpy.results.run.view.Run.score_network`, and
+        the rows are stacked with the parameters of each run as columns. The maps of
+        runs that share mesh, maps, recharge and settings are built once. A run that
+        holds nothing to score gives no row, with a warning, and the call is refused
+        when no run gives any.
+        """
+        # Imported here: the scorer reads the session tables, which read the run class.
+        from hydromodpy.results.derive.stream_network.run_score import network_score_table
+
+        geometries: dict[str, Any] = {}
+        frames: list[pd.DataFrame] = []
+        for run in self:
+            try:
+                frame = network_score_table(
+                    run,
+                    output=output,
+                    window=window,
+                    project_root=run._project_root(),
+                    geometries=geometries,
+                )
+            except (NothingThereError, RunNotSealedError) as exc:
+                logger.warning("%s", exc)
+                continue
+            except ValueError as exc:
+                logger.warning("Run %s cannot be scored: %s", run.sim_id, exc)
+                continue
+            if not frame.empty:
+                frames.append(frame)
+        if not frames:
+            raise NothingThereError("No run of the set has a stream network to score.")
+        return self._with_parameters(pd.concat(frames, ignore_index=True))
+
+    def _with_parameters(self, table: pd.DataFrame) -> pd.DataFrame:
+        """Add the parameters of each run as columns, ``param_`` before a clashing name."""
+        params = self.parameters
+        if params.empty:
+            return table
+        params = params.rename(
+            columns={
+                c: f"param_{c}" for c in params.columns if c in table.columns and c != "sim_id"
+            }
+        )
+        params = params.assign(sim_id=params["sim_id"].astype(str))
+        return table.merge(params, on="sim_id", how="left")
+
+    def timeseries(
+        self,
+        station: str | None = None,
+        variable: str | None = None,
+        source: str | None = None,
+    ) -> pd.DataFrame:
+        """Return the stored series of every run, stacked, with ``sim_id`` and ``run``.
+
+        The columns are ``sim_id``, ``run`` (the directory name), ``station_id``,
+        ``variable``, ``source`` (simulated or observed), ``time`` and ``value``.
+        Only ``timeseries.parquet`` of each run is read, never a field. ``station``,
+        ``variable`` and ``source`` keep only the matching rows.
+        """
+        frames: list[pd.DataFrame] = []
+        for run in self:
+            series = read_timeseries(run.dir)
+            for column, wanted in (
+                ("station_id", station),
+                ("variable", variable),
+                ("source", source),
+            ):
+                if wanted is not None:
+                    series = series[series[column].astype(str) == str(wanted)]
+            frames.append(series.assign(run=run.dir.name, sim_id=run.sim_id))
+        columns = ["sim_id", "run", "station_id", "variable", "source", "time", "value"]
+        if not frames:
+            return pd.DataFrame(columns=columns)
+        return pd.concat(frames, ignore_index=True)[columns]
 
     def table(self, name: str) -> pd.DataFrame:
         """Return the table *name* of the set: ``parameters``, ``metrics`` or ``runs``.

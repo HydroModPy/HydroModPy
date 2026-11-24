@@ -43,8 +43,11 @@ __all__ = (
     "period_mean_on_index",
     "period_point_on_index",
     "period_value_on_index",
+    "check_months",
+    "periods_in_months",
     "periods_in_window",
     "runoff_m3_s_on_index",
+    "sampling_step_days",
 )
 
 logger = get_logger(__name__)
@@ -172,6 +175,67 @@ def periods_in_window(
         return np.zeros(len(index), dtype=bool)
     starts = pd.Series(edges[:-1], index=edges[1:]).reindex(index)
     return keep & np.asarray(starts >= first_day, dtype=bool)
+
+
+def sampling_step_days(index: pd.Index) -> float | None:
+    """Median spacing of a dated index, in days.
+
+    ``None`` when the index is not dated or holds fewer than two distinct
+    stamps.
+    """
+    if not isinstance(index, pd.DatetimeIndex) or index.size < 2:
+        return None
+    gaps = np.diff(index.sort_values().asi8) / 86_400e9
+    gaps = gaps[gaps > 0.0]
+    return float(np.median(gaps)) if gaps.size else None
+
+
+def check_months(months: Any) -> tuple[int, ...]:
+    """Return *months* as a sorted tuple of distinct calendar months, 1 to 12.
+
+    Raises ``ValueError`` on an empty list or a value that is not a month.
+    """
+    values = sorted({int(month) for month in months})
+    if not values or values[0] < 1 or values[-1] > 12:
+        raise ValueError(f"months are calendar months from 1 to 12, got {list(months)!r}.")
+    return tuple(values)
+
+
+def periods_in_months(
+    stamps: Any,
+    *,
+    method: str,
+    months: Any,
+    grid: Any = None,
+    period_start: Any = None,
+) -> np.ndarray:
+    """Return which end-stamped values fall in the calendar *months*, one flag per stamp.
+
+    A mean over a period ``[s, e)`` counts when every day of it lies in the
+    months, so a daily mean counts by its day and a monthly mean by its month. A
+    state counts when its stamp falls in them. The periods are cut as
+    :func:`periods_in_window` cuts them, and a period whose start cannot be placed
+    is out.
+    """
+    wanted = frozenset(check_months(months))
+    index = _naive(stamps)
+    if check_time_method(method) == "point":
+        return np.asarray(index.month.isin(list(wanted)), dtype=bool)
+    keep = np.zeros(len(index), dtype=bool)
+    if len(index) == 0:
+        return keep
+    try:
+        edges = period_edges(index if grid is None else grid, start=period_start)
+    except ValueError:
+        return keep
+    starts = pd.Series(edges[:-1], index=edges[1:]).reindex(index)
+    for position, (first, end) in enumerate(zip(starts, index, strict=True)):
+        if pd.isna(first):
+            continue
+        last = end - pd.Timedelta(1, unit="ns")
+        span = (last.year - first.year) * 12 + last.month - first.month + 1
+        keep[position] = all((first.month - 1 + step) % 12 + 1 in wanted for step in range(span))
+    return keep
 
 
 def period_end_stamps(

@@ -1,7 +1,7 @@
 """Stratified Latin hypercube adapter, built on ``scipy.stats.qmc``.
 
-The design is drawn once, in the unit hypercube, with
-:class:`scipy.stats.qmc.LatinHypercube`: with ``optimization=None`` or
+The design is drawn once, in the unit hypercube, by :func:`design.draw_unit`, which
+calls :class:`scipy.stats.qmc.LatinHypercube`: with ``optimization=None`` or
 ``"random-cd"``, every dimension is cut into ``n_samples`` strata and each
 stratum is hit exactly once, which a column of independent uniform draws
 does not guarantee. ``optimization="lloyd"`` is scipy's Lloyd-relaxation
@@ -27,7 +27,8 @@ from typing import Literal
 
 import numpy as np
 
-from hydromodpy.calibration.optim.method_config import LhsMethodConfig
+from hydromodpy.calibration.optim.design import draw_unit
+from hydromodpy.calibration.optim.method_config import LhsMethodConfig, LhsOptions
 from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
@@ -85,14 +86,11 @@ class LhsAdapter:
     ) -> None:
         if n_samples <= 0:
             raise ValueError(f"n_samples must be positive, got {n_samples!r}")
-        from scipy.stats import qmc
-
         self.space = space
         self.n_samples = int(n_samples)
-        sampler = qmc.LatinHypercube(
-            d=space.dim, optimization=optimization, seed=None if seed is None else int(seed)
+        unit_design = draw_unit(
+            "lhs", self.n_samples, space.dim, seed, LhsOptions(optimization=optimization)
         )
-        unit_design = sampler.random(n=self.n_samples)
         columns = [
             _stratified_column(param, unit_design[:, i]) for i, param in enumerate(space.parameters)
         ]

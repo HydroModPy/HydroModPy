@@ -423,6 +423,28 @@ class HydrographicNetworks:
                 yield network
 
 
+def cut_network(network: GeoDataFrame, shape: object, crs: object) -> GeoDataFrame:
+    """Return a network cut to a mask shape, in the CRS of the mask.
+
+    The one cut of a mapped network. The hydrography variable cuts what it loads with
+    it, and the network criterion cuts a file it reads with it, in a trial and on a
+    stored run, so the three draw the same map. A line that only touches the outline
+    leaves no line: its point is dropped rather than kept in a network of lines.
+    """
+    import geopandas as gpd
+
+    return gpd.clip(network_in_crs(network, crs), shape, keep_geom_type=True)
+
+
+def network_in_crs(frame: GeoDataFrame, crs: object) -> GeoDataFrame:
+    """Return *frame* in *crs*; a frame that declares none is taken as WGS84."""
+    if frame.crs is None:
+        frame = frame.set_crs("EPSG:4326")
+    if str(frame.crs) != str(crs):
+        frame = frame.to_crs(crs)
+    return frame
+
+
 __all__ = [
     "HydrographicNetwork",
     "HydrographicNetworks",
@@ -436,6 +458,8 @@ __all__ = [
     "HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME",
     "HYDROGRAPHIC_NETWORK_SIMULATED_ACTIVE_FEATURE_NAME",
     "canonical_feature_name_for_role",
+    "cut_network",
     "default_vector_filename_for_role",
     "hydrographic_network_naming_contract",
+    "network_in_crs",
 ]

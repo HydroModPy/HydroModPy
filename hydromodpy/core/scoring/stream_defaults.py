@@ -186,6 +186,16 @@ and field zero-flow thresholds of about 1 to 3 L/s are in use (Zimmer et al.,
 2020, doi:10.1002/wat2.1436). One litre per second is the low end of both."""
 
 
+Weighting = Literal["cell", "area"]
+"""How the cells count in the average distances. The one place the two names are written."""
+
+DEFAULT_WEIGHTING: Weighting = "cell"
+"""How the cells count in the average distances: one cell, one vote, as in the paper."""
+
+DEFAULT_BOUND_WEIGHT = 0.5
+"""The share of each map when two maps share one calibrated value."""
+
+
 @dataclass(frozen=True, slots=True)
 class VisibleFlow:
     """The routed discharge below which a cell of the closure does not flow.
@@ -270,10 +280,13 @@ VALIDITY_PROVENANCE_BY_CODE: dict[float, str] = {
 
 
 __all__ = (
+    "DEFAULT_BOUND_WEIGHT",
     "DEFAULT_VISIBLE_FLOW",
+    "DEFAULT_WEIGHTING",
     "GEOMETRIC",
     "STREAM_CRITERION_DEFAULTS",
     "VALIDITY_PROVENANCE_BY_CODE",
+    "Weighting",
     "VALIDITY_PROVENANCE_CODE",
     "ObservedRasterization",
     "StreamCriterionDefaults",

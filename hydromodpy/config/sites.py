@@ -20,26 +20,39 @@ TOML form::
     [sites.bind]
     "geographic.catchment.x_outlet" = "x_outlet"            # quoted: one key
 
+    [sites.design]                                          # points instead of a recipe table
+    method = "sobol"
+    n = 64
+    seed = 1
+    [sites.design.parameters.K]
+    path = "flow.param.K.field.value"
+    bounds = [1e-7, 1e-3]
+    sampling = "log_uniform"
+
 ``is_sites_project`` tells a ``[sites]`` project from the others. The plan of a campaign
 built from the section lives in ``project/launch/plan.py``.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
+from hydromodpy.calibration.config_objective import CalibParameterDecl
+from hydromodpy.calibration.optim.design import SAMPLERS, grid_size, sampler_options
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import Names
-from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
+from hydromodpy.core.scoring.metric_table import CONSECUTIVE_METRIC_NAMES, RUN_METRIC_NAMES
 from hydromodpy.core.site.config import SITE_NAME_PATTERN
 from hydromodpy.core.state.names import split_stem_version
+from hydromodpy.core.time.period_aggregation import check_months
 from hydromodpy.core.toml_io.paths import parse as parse_dotted_path
 
 RECIPE_NAME_PATTERN = SITE_NAME_PATTERN
@@ -175,6 +188,45 @@ def _refuse_variables(data: Any, where: str) -> Any:
     return data
 
 
+class SummaryWindow(HydroModelBase):
+    """One window the runs are scored on again after the fact, one ``[[sites.summary.window]]``."""
+
+    name: Annotated[str, Profile.USER] = Field(
+        description="Name of the window, the window_name column of summary/scores.parquet.",
+        examples=["dry-summers"],
+    )
+    start: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="First day of the window, an ISO date. Unset, the start of each run.",
+        examples=["2016-01-01"],
+    )
+    end: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Last day of the window, an ISO date. Unset, the end of each run.",
+        examples=["2018-12-31"],
+    )
+    months: Annotated[list[int] | None, Profile.USER] = Field(
+        default=None,
+        description="Calendar months kept, 1 to 12. Unset, every month.",
+        examples=[[6, 7, 8, 9]],
+    )
+
+    @field_validator("start", "end")
+    @classmethod
+    def _is_a_date(cls, value: str | None) -> str | None:
+        if value is not None:
+            try:
+                dt.date.fromisoformat(value)
+            except ValueError:
+                raise ValueError(f"{value!r} is not an ISO date (YYYY-MM-DD).") from None
+        return value
+
+    @field_validator("months")
+    @classmethod
+    def _are_months(cls, value: list[int] | None) -> list[int] | None:
+        return None if value is None else list(check_months(value))
+
+
 class SitesSummaryConfig(HydroModelBase):
     """What ``summary/`` of a ``[sites]`` project tabulates and draws."""
 
@@ -219,6 +271,13 @@ class SitesSummaryConfig(HydroModelBase):
                 "any": "The best case of the site, calibrated or not.",
             }
         },
+    )
+    window: Annotated[list[SummaryWindow], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            "Windows the runs are scored on again, with the metrics above, into "
+            "summary/scores.parquet. One [[sites.summary.window]] block each."
+        ),
     )
     columns: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
@@ -269,6 +328,17 @@ class SitesSummaryConfig(HydroModelBase):
             )
         return self
 
+    @model_validator(mode="after")
+    def _month_windows_need_no_consecutive_metric(self) -> SitesSummaryConfig:
+        cut = [w for w in self.window if w.months is not None]
+        for name in self.metrics:
+            if name in CONSECUTIVE_METRIC_NAMES and cut:
+                raise ValueError(
+                    f"metric {name!r} needs consecutive days, so it is refused on window "
+                    f"{cut[0].name!r}, which sets months. Drop the metric or the months."
+                )
+        return self
+
 
 class SitesExportRequest(HydroModelBase):
     """One export of a ``[sites]`` project, the vocabulary of ``[[export]]``."""
@@ -317,6 +387,172 @@ class SitesExportRequest(HydroModelBase):
             raise ValueError("[[sites.export]] exports a table or runs: write one of the two.")
         if self.table is not None and self.variable:
             raise ValueError("[[sites.export]] variable goes with runs, not with a table.")
+        return self
+
+
+def _refuse_design_parameter(name: str, decl: CalibParameterDecl) -> None:
+    where = f"[sites.design.parameters.{name}]"
+    written = decl.model_fields_set
+    if decl.resolve_target() is None:
+        raise ValueError(
+            f"{where}: write path = '<dotted.key>'. A name is not looked up in the catalogue "
+            "here; 'hmp config targets' lists the keys."
+        )
+    parse_dotted_path(decl.resolve_target())
+    if "sampling" not in written:
+        raise ValueError(
+            f"{where}: write sampling = 'uniform' or 'log_uniform'. There is no default, "
+            "because a uniform draw on a quantity that spans decades is silently wrong."
+        )
+    if decl.sampling == "normal":
+        raise ValueError(
+            f"{where}: sampling 'normal' has no stratified design for a normal law cut at "
+            "its bounds. Use 'uniform' or 'log_uniform'."
+        )
+    if decl.mode != "replace":
+        raise ValueError(
+            f"{where}: mode = {decl.mode!r} is not read. A drawn value is written as it is; "
+            "write mode = 'replace' or leave it out."
+        )
+    for key in ("search_space", "units"):
+        if key in written:
+            raise ValueError(
+                f"{where}: {key} is not read by a design, the sampling and the bounds "
+                "decide the points. Remove it."
+            )
+    if decl.bounds is None:
+        raise ValueError(f"{where}: write bounds = [low, high].")
+    low, high = decl.bounds
+    if not low < high:
+        raise ValueError(f"{where}: bounds {decl.bounds} are not ordered, low < high.")
+    if decl.sampling == "log_uniform" and low <= 0.0:
+        raise ValueError(
+            f"{where}: the lower bound of a log draw is strictly positive, got {low!r}."
+        )
+
+
+class SitesDesignConfig(HydroModelBase):
+    """Points of an experiment plan, drawn when the plan is expanded."""
+
+    method: Annotated[str, Profile.USER] = Field(
+        default="sobol",
+        description=(
+            "Design that places the points in the box of the parameters. "
+            + "; ".join(f"{name}: {sampler.summary}" for name, sampler in SAMPLERS.items())
+            + ". Each point becomes a recipe: p0001, p0002 for sobol and grid, "
+            "b1p0001 for the first point of the first lot of lhs."
+        ),
+        examples=["sobol"],
+    )
+    n: Annotated[int | list[int] | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Number of points. Required for sobol and lhs, refused for grid whose size is "
+            "the product of options.points_per_dim. For lhs a list gives the size of each "
+            "lot: [60, 60] adds a second lot of 60 points to a first one already run, and "
+            "the first lot does not move. A sobol size that is not a power of two warns, "
+            "its balance holds for powers of two."
+        ),
+        examples=[64, [60, 60]],
+        json_schema_extra=field_metadata(unit="-"),
+    )
+    seed: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Seed of the draw, required for sobol and lhs. Without it every expansion would "
+            "draw other points, give other solution keys to the same case names and run "
+            "everything again."
+        ),
+        examples=[1],
+        json_schema_extra=field_metadata(unit="-"),
+    )
+    recipe: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Recipe of [sites.recipes] that the points replace, and whose file and set they "
+            "start from. Required if the project declares several recipes. The other "
+            "recipes run once per site as before."
+        ),
+        examples=["base"],
+    )
+    options: Annotated[dict[str, Any], Profile.USER] = Field(
+        default_factory=dict,
+        description=(
+            "Options of the method: optimization (random-cd or lloyd) for lhs, "
+            "points_per_dim for grid. The number of points is n, never an option."
+        ),
+        examples=[{"optimization": "random-cd"}],
+    )
+    parameters: Annotated[dict[str, CalibParameterDecl], Profile.USER] = Field(
+        default_factory=dict,
+        description=(
+            "Parameters that move, by name. The name is the column of cases.csv. Each is a "
+            "calibration parameter: path, bounds and sampling are written, and the case "
+            "gets the drawn value as if the recipe table had written it."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _the_design_is_complete(self) -> SitesDesignConfig:
+        if self.method not in SAMPLERS:
+            raise ValueError(
+                f"[sites.design] method {self.method!r} is not a design, known: "
+                f"{', '.join(SAMPLERS)}."
+            )
+        sampler = SAMPLERS[self.method]
+        if "n_samples" in self.options:
+            raise ValueError("[sites.design] options.n_samples is written n, in the section.")
+        try:
+            options = sampler_options(self.method, self.options)
+        except ValidationError as exc:
+            for item in exc.errors():
+                key = str(item["loc"][0]) if item["loc"] else ""
+                owners = [
+                    name
+                    for name, other in SAMPLERS.items()
+                    if key in other.options.model_fields and name != self.method
+                ]
+                if owners:
+                    raise ValueError(
+                        f"[sites.design] options.{key} belongs to {owners[0]}, not to "
+                        f"{self.method}."
+                    ) from None
+            raise ValueError(f"[sites.design] options: {exc}") from exc
+        sizes = [self.n] if isinstance(self.n, int) else list(self.n or [])
+        if sampler.needs_n:
+            if not sizes or any(size <= 0 for size in sizes):
+                raise ValueError(
+                    f"[sites.design] n is required and positive for {self.method}, got {self.n!r}."
+                )
+            if isinstance(self.n, list) and self.method != "lhs":
+                raise ValueError(
+                    f"[sites.design] n is a list of lots for lhs only; {self.method} grows "
+                    "by writing a larger n."
+                )
+        elif self.n is not None:
+            raise ValueError(
+                f"[sites.design] {self.method} takes no n, its {grid_size(len(self.parameters), options)}"
+                " points follow options.points_per_dim."
+            )
+        if sampler.needs_seed and self.seed is None:
+            raise ValueError(
+                f"[sites.design] seed is required for {self.method}: without it every expansion "
+                "draws other points and runs everything again. Write seed = <integer>."
+            )
+        if not self.parameters:
+            raise ValueError(
+                "[sites.design] declares no parameter: write [sites.design.parameters.<name>]."
+            )
+        paths: dict[str, str] = {}
+        for name, decl in self.parameters.items():
+            _refuse_design_parameter(name, decl)
+            path = decl.resolve_target()
+            if path in paths:
+                raise ValueError(
+                    f"[sites.design.parameters] {paths[path]!r} and {name!r} both draw {path}."
+                )
+            paths[path] = name
         return self
 
 
@@ -383,6 +619,13 @@ class SitesConfig(HydroModelBase):
         ),
         examples=[{"geographic.catchment.x_outlet": "x_outlet"}],
     )
+    design: Annotated[SitesDesignConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Experiment plan: points drawn in a box of parameters, each one a recipe of "
+            "the base recipe. Unset, the recipes are the ones written."
+        ),
+    )
     run: Annotated[SitesRunConfig, Profile.USER] = Field(
         default_factory=SitesRunConfig,
         description="How the cases run side by side.",
@@ -447,8 +690,10 @@ __all__ = [
     "RecipeDecl",
     "RecipeSpec",
     "SitesConfig",
+    "SitesDesignConfig",
     "SitesExportRequest",
     "SitesRunConfig",
     "SitesSummaryConfig",
+    "SummaryWindow",
     "is_sites_project",
 ]

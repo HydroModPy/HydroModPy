@@ -116,3 +116,15 @@ def test_refusals(model: type, payload: dict[str, Any], message: str) -> None:
 @pytest.mark.parametrize(("value", "empty"), EMPTY_CELLS)
 def test_empty_cells(value: object, empty: bool) -> None:
     assert is_empty_cell(value) is empty
+
+
+def test_a_consecutive_metric_is_refused_on_a_window_with_months() -> None:
+    from hydromodpy.config.sites import SitesSummaryConfig
+
+    window = {"name": "summer", "start": "2010-01-01", "end": "2012-12-31", "months": [6, 7]}
+    with pytest.raises(ValidationError, match=r"'bfi_gap'.*'summer'"):
+        SitesSummaryConfig.model_validate({"metrics": ["nse", "bfi_gap"], "window": [window]})
+    SitesSummaryConfig.model_validate({"metrics": ["nse"], "window": [window]})
+    SitesSummaryConfig.model_validate(
+        {"metrics": ["bfi_gap"], "window": [{**window, "months": None}]}
+    )

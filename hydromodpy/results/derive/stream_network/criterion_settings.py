@@ -25,16 +25,19 @@ from __future__ import annotations
 import datetime
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_args
 
 import pandas as pd
 
 from hydromodpy.catchment.stream_network.extent import parse_extent_duration
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scoring.stream_defaults import (
+    DEFAULT_BOUND_WEIGHT,
     DEFAULT_VISIBLE_FLOW,
+    DEFAULT_WEIGHTING,
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
+    Weighting,
     parse_visible_flow,
 )
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
@@ -109,6 +112,21 @@ class NetworkCriterionSettings:
     False reads the complete map, the only one when the output declares no
     permanent map.
     """
+
+    complete_map: str | None = None
+    """The sealed ``map.complete``: ``"data.hydrography"``, a file, or None for the defaults."""
+
+    permanent_map: str | None = None
+    """The sealed ``map.permanent``, scored as the minimal map, None when undeclared."""
+
+    bound_weights: tuple[float, float] = (0.0, 1.0)
+    """``(permanent, complete)``, the weights of the two bounds in the two-bound cost."""
+
+    weighting: str = DEFAULT_WEIGHTING
+    """``model.weighting``: ``"cell"`` or ``"area"``."""
+
+    validity_length_m: float | None = None
+    """``verdict.validity_length`` in meters, None for ``"auto"``."""
 
     timestep: int = -1
     """The state a single-state output reads: ``-1`` for ``last``, ``0`` for ``first``.
@@ -340,6 +358,11 @@ def _settings_of_output(
             f"{where}: map.heads.min_drained_area must not be negative, got {area_km2!r}."
         )
     neighbours = model.get("neighbours", "D8" if defaults.diagonal_neighbors else "D4")
+    weighting = str(model.get("weighting", defaults.weighting))
+    if weighting not in get_args(Weighting):
+        raise ValueError(f"{where}: unknown model.weighting {weighting!r}.")
+    validity = (payload.get("verdict") or {}).get("validity_length", "auto")
+    declares_permanent = drawn.get("permanent") is not None
     return NetworkCriterionSettings(
         output=name,
         tau_specific_ratio=tau,
@@ -349,14 +372,35 @@ def _settings_of_output(
         heads_snap_radius_m=float(radius_m),
         heads_min_drained_area_km2=area_km2,
         clip_map_to_catchment=bool(drawn.get("clip_to_catchment", defaults.clip_map_to_catchment)),
-        scores_permanent_map=(
-            drawn.get("permanent") is not None and drawn.get("calibrate_on") == "permanent"
+        scores_permanent_map=(declares_permanent and drawn.get("calibrate_on") == "permanent"),
+        complete_map=None if drawn.get("complete") is None else str(drawn["complete"]),
+        permanent_map=None if drawn.get("permanent") is None else str(drawn["permanent"]),
+        bound_weights=_bound_weights(drawn.get("calibrate_on"), where=where),
+        weighting=weighting,
+        validity_length_m=(
+            None
+            if validity == "auto"
+            else float(parse_to_m(validity, location=f"{where}.verdict.validity_length")[0])
         ),
         timestep=timestep,
         extent=_extent_rules(model.get("extent"), where=where),
         n_network_outputs=n_outputs,
         window=window,
         window_phase=None if window is None else window_phase,
+    )
+
+
+def _bound_weights(calibrate_on: Any, *, where: str) -> tuple[float, float]:
+    """Return ``(permanent, complete)`` as the output's ``map.bound_weights`` reads them."""
+    if calibrate_on == "permanent":
+        return (1.0, 0.0)
+    if calibrate_on is None or calibrate_on == "complete":
+        return (0.0, 1.0)
+    if not isinstance(calibrate_on, Mapping):
+        raise ValueError(f"{where}: unknown map.calibrate_on {calibrate_on!r}.")
+    return (
+        float(calibrate_on.get("permanent", DEFAULT_BOUND_WEIGHT)),
+        float(calibrate_on.get("complete", DEFAULT_BOUND_WEIGHT)),
     )
 
 

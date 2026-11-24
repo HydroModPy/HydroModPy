@@ -21,8 +21,10 @@ from hydromodpy.core.scoring.metric_table import (
     METRIC_SPECS,
     NETWORK_METRIC_NAMES,
     RUN_METRIC_NAMES,
+    SERIES_METRIC_NAMES,
     TRIAL_METRIC_NAMES,
 )
+from hydromodpy.core.scoring.metrics import DATED_KERNELS
 from hydromodpy.results.score import _KERNELS, HEADLINE_METRICS
 
 pytestmark = pytest.mark.unit
@@ -138,7 +140,8 @@ def test_trial_kernels() -> None:
 
 
 def test_run_kernels() -> None:
-    assert tuple(_KERNELS) == RUN_METRIC_NAMES
+    assert set(_KERNELS) | set(DATED_KERNELS) == set(SERIES_METRIC_NAMES)
+    assert set(RUN_METRIC_NAMES) <= set(SERIES_METRIC_NAMES)
 
 
 def test_headlines_and_formulas_are_known() -> None:

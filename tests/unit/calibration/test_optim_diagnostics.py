@@ -207,3 +207,78 @@ def test_closed_reporter_stays_closed(handles) -> None:
 
     assert handles[0].descriptions == drawn
     assert drawn[-1] == "Calibrating (grid) - best 0.5"
+
+
+def _ridge_cloud(n: int = 100) -> tuple[np.ndarray, np.ndarray]:
+    """A unit square whose cost grows with the distance to the line y = x."""
+    rng = np.random.default_rng(0)
+    points = rng.uniform(size=(n, 2))
+    return points, np.abs(points[:, 1] - points[:, 0])
+
+
+def test_the_best_fifth_of_a_ridge_is_correlated_and_flat_across_it() -> None:
+    from hydromodpy.calibration.optim.diagnostics import best_fifth_ridge
+
+    points, costs = _ridge_cloud()
+    found = best_fifth_ridge(points, costs, ["K", "Sy"])
+    assert found["n_points"] == 20 and found["n_trials"] == 100
+    assert found["spearman"][0][:2] == ("K", "Sy") and found["spearman"][0][2] > 0.9
+    assert found["axis_ratio"] > 5.0
+
+
+def test_the_best_fifth_of_a_round_bowl_has_no_ridge() -> None:
+    from hydromodpy.calibration.optim.diagnostics import best_fifth_ridge
+
+    points, _ = _ridge_cloud(400)
+    found = best_fifth_ridge(points, np.hypot(*(points - 0.5).T), ["K", "Sy"])
+    assert abs(found["spearman"][0][2]) < 0.5 and found["axis_ratio"] < 1.6
+
+
+def test_the_ridge_needs_five_points_two_parameters_and_finite_values() -> None:
+    from hydromodpy.calibration.optim.diagnostics import best_fifth_ridge
+
+    points, costs = _ridge_cloud(4)
+    assert best_fifth_ridge(points, costs, ["K", "Sy"]) is None
+    points, costs = _ridge_cloud(30)
+    assert best_fifth_ridge(points[:, :1], costs, ["K"]) is None
+    assert best_fifth_ridge(points, np.full(30, np.nan), ["K", "Sy"]) is None
+    flat = np.column_stack([points[:, 0], np.full(30, 0.3)])
+    found = best_fifth_ridge(flat, costs, ["K", "Sy"])
+    assert "axis_ratio" not in found and found["spearman"] == []
+
+
+def test_a_lhs_phase_reports_its_ridge_in_search_space_and_a_bobyqa_phase_does_not() -> None:
+    from hydromodpy.calibration.runners import search
+
+    space = make_space(("K", 1e-7, 1e-3, "log"), ("Sy", 0.01, 0.3))
+    points, costs = _ridge_cloud(50)
+    values = {
+        i: {"K": 10 ** (-7 + 4 * x), "Sy": 0.01 + 0.29 * y} for i, (x, y) in enumerate(points)
+    }
+    history = [SimpleNamespace(trial_id=i, cost=float(c)) for i, c in enumerate(costs)]
+    session = SimpleNamespace(history=history)
+    found = search._fixed_plan_ridge(SimpleNamespace(method="lhs"), space, session, values)
+    assert found["n_points"] == 10 and found["axis_ratio"] > 5.0
+    assert search._fixed_plan_ridge(SimpleNamespace(method="cma"), space, session, values) is None
+
+
+def test_the_ridge_gives_no_axis_ratio_with_as_many_points_as_parameters() -> None:
+    from hydromodpy.calibration.optim.diagnostics import best_fifth_ridge
+
+    rng = np.random.default_rng(0)
+    names = ["a", "b", "c", "d", "e", "f"]
+    points, costs = rng.random((25, 6)), rng.random(25)
+    # The best fifth is five points, fewer than the six parameters.
+    found = best_fifth_ridge(points, costs, names)
+    assert found is not None and found["n_points"] == 5
+    assert "axis_ratio" not in found
+
+
+def test_the_ridge_floor_is_relative_to_the_largest_eigenvalue() -> None:
+    from hydromodpy.calibration.optim.diagnostics import best_fifth_ridge
+
+    rng = np.random.default_rng(1)
+    first = rng.random(40) * 1e6
+    flat = np.column_stack([first, first * 2.0 + rng.random(40) * 1e-9])
+    found = best_fifth_ridge(flat, rng.random(40), ["a", "b"])
+    assert found is not None and "axis_ratio" not in found

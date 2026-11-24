@@ -16,6 +16,29 @@
       "type": "string",
       "x-hmp-profile": "user"
     },
+    "design_columns": {
+      "description": "Columns of cases.csv that hold drawn values, written only for a design plan",
+      "items": {
+        "type": "string"
+      },
+      "title": "Design Columns",
+      "type": "array",
+      "x-hmp-profile": "user"
+    },
+    "design_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Fingerprint of the design declaration without its size, for a design plan",
+      "title": "Design Hash",
+      "x-hmp-profile": "user"
+    },
     "fingerprints": {
       "additionalProperties": {
         "type": "string"

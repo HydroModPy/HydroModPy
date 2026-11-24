@@ -12,7 +12,7 @@ from hydromodpy.results.run.view import Run
 
 # This version adds read, table, figure and show, the reads behind hydromodpy.show, and steps,
 # what a run stopped by until_step has done. No old name died.
-MAX_PUBLIC_METHODS = 55
+MAX_PUBLIC_METHODS = 57
 
 
 def test_run_public_surface_below_limit() -> None:

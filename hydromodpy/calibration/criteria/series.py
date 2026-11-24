@@ -28,16 +28,14 @@ from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     distance_gap,
     distance_mean,
 )
-from hydromodpy.core.scoring.metric_table import METRIC_SPECS
+from hydromodpy.core.scoring.metric_table import METRIC_SPECS, TRIAL_METRIC_NAMES
 from hydromodpy.core.scoring.metrics import (
-    bfi_error,
+    DATED_KERNELS,
     clip_negatives,
     kge,
     log_nse,
     mae,
     nse,
-    nse_delta,
-    nse_seasonal,
     rmse,
 )
 from hydromodpy.results.catalog.constants import cost_of
@@ -51,136 +49,18 @@ def _kge_score(sim: np.ndarray, obs: np.ndarray) -> float:
     return float(kge(sim, obs)["kge"])
 
 
-# Window, in days, over which the reservoir objective differences the level.
-# A day-to-day increment is wrecked by a two or three day phase shift even when the
-# filling and emptying are right; ten days keeps the flux signal while making such a
-# shift a perturbation rather than a sign flip. A coarser series differences one
-# sample to the next.
-RESERVOIR_INCREMENT_DAYS: float = 10.0
-
-DAYS_PER_YEAR: float = 365.25
-"""Length of the seasonal cycle, in days."""
-
-# Kernels that read the dates of the series: the seasonal cycle and the
-# increment window are lengths of time, so a monthly series holds them in fewer
-# samples than a daily one, and a gap in the record is not one step.
-SAMPLED_BY_DATE: frozenset[str] = frozenset({"nse_delta", "nse_seasonal", "reservoir", "bfi_error"})
-
-
-def _cycle_samples(sample_days: float | None) -> float:
-    """Samples in one seasonal cycle. Without dates, the series is taken as daily."""
-    if sample_days is None:
-        return 365.0
-    return DAYS_PER_YEAR / float(sample_days)
-
-
-def _increment_samples(sample_days: float | None) -> int:
-    """Samples in the increment window of the reservoir score."""
-    if sample_days is None:
-        return int(RESERVOIR_INCREMENT_DAYS)
-    return max(1, round(RESERVOIR_INCREMENT_DAYS / float(sample_days)))
-
-
-def _positions(times_days: Any, sample_days: float | None) -> np.ndarray | None:
-    """Return the date of each sample counted in steps of the series, or ``None``.
-
-    ``times_days`` is the date of each sample in days, from any origin.
-    ``sample_days`` is the step; unset, the median spacing of the dates.
-    """
-    if times_days is None:
-        return None
-    days = np.asarray(times_days, dtype=float).ravel()
-    if sample_days is None:
-        spacing = np.diff(days)
-        spacing = spacing[spacing > 0.0]
-        if spacing.size == 0:
-            return None
-        sample_days = float(np.median(spacing))
-    return (days - np.nanmin(days)) / float(sample_days) if days.size else days
-
-
-def _seasonal_score(
-    sim: np.ndarray,
-    obs: np.ndarray,
-    *,
-    sample_days: float | None = None,
-    times_days: Any = None,
-) -> float:
-    """``nse_seasonal`` with a cycle of one year of the series' own samples."""
-    return nse_seasonal(
-        sim, obs, period=_cycle_samples(sample_days), times=_positions(times_days, sample_days)
-    )
-
-
-def _delta_score(
-    sim: np.ndarray,
-    obs: np.ndarray,
-    *,
-    sample_days: float | None = None,
-    times_days: Any = None,
-) -> float:
-    """``nse_delta`` from one sample to the next, never across a gap of the dates."""
-    return nse_delta(sim, obs, times=_positions(times_days, sample_days))
-
-
+# The kernels that read the dates live in core/scoring, where a stored run reads them too.
 # KGE is NOT offered on increments, on purpose. Its beta term is a ratio of means,
 # and the mean of an increment series is (last - first) / n, i.e. near zero by
 # construction, so the score swings wildly for one and the same run depending only
 # on where the series is cut. NSE has no such term and stays stable, so the
 # increment side of the objective uses it.
 
-
-def _reservoir_score(
-    sim: np.ndarray,
-    obs: np.ndarray,
-    *,
-    sample_days: float | None = None,
-    times_days: Any = None,
-) -> float:
-    """Half seasonal efficiency on the level, half efficiency on its increments.
-
-    Built for an impounded level, where the two usual metrics mislead in opposite
-    ways. ``nse`` on the level compares the model to a flat mean, a benchmark a
-    strongly seasonal signal beats on its own, so a run can score comfortably and
-    still be worse than the seasonal cycle. And a level is an integral, so
-    compensating flux errors cancel in it: a low-water bias and a high-water bias of
-    opposite signs hide behind a mean bias near zero while the increments stay
-    uncorrelated.
-
-    Pairing the two closes both holes: the seasonal term keeps the absolute level
-    honest and demands more than climatology, the increment term makes the water
-    balance count. Equal weights, no tuning knob, so the score stays readable.
-
-    The increments are taken over ``RESERVOIR_INCREMENT_DAYS`` rather than one
-    sample, so a timing error of a few days is not punished as though the model had
-    filled when it should have emptied. ``sample_days`` is the sampling step of the
-    series: the cycle and the window are counted in its samples. Without it the
-    series is taken as daily. ``times_days``, the date of each sample in days,
-    keeps the cycle in phase and the increments off a gap of the record.
-    """
-    seasonal = _seasonal_score(sim, obs, sample_days=sample_days, times_days=times_days)
-    increments = nse_delta(
-        sim,
-        obs,
-        step=_increment_samples(sample_days),
-        times=_positions(times_days, sample_days),
-    )
-    if not np.isfinite(seasonal) or not np.isfinite(increments):
-        return float("nan")
-    return 0.5 * float(seasonal) + 0.5 * float(increments)
-
-
-def _bfi_score(
-    sim: np.ndarray,
-    obs: np.ndarray,
-    *,
-    sample_days: float | None = None,
-    times_days: Any = None,
-) -> float:
-    """``bfi_error`` on the dates of the series; NaN on a step coarser than a day."""
-    if times_days is None and sample_days is not None:
-        times_days = np.arange(np.asarray(sim).size, dtype=float) * float(sample_days)
-    return bfi_error(sim, obs, times_days=times_days)
+SAMPLED_BY_DATE: frozenset[str] = frozenset(
+    name for name in DATED_KERNELS if name in TRIAL_METRIC_NAMES
+)
+"""Trial kernels that read the dates of the series: a year and a window are counted in
+its samples, and a gap in the record is not one step."""
 
 
 METRICS: dict[str, Callable[..., float]] = {
@@ -188,13 +68,13 @@ METRICS: dict[str, Callable[..., float]] = {
     "rmse": rmse,
     "mae": mae,
     "kge": _kge_score,
-    "nse_delta": _delta_score,
-    "nse_seasonal": _seasonal_score,
+    "nse_delta": DATED_KERNELS["nse_delta"],
+    "nse_seasonal": DATED_KERNELS["nse_seasonal"],
     "nse_log": log_nse,
     "distance_gap": distance_gap,
     "distance_mean": distance_mean,
-    "reservoir": _reservoir_score,
-    "bfi_error": _bfi_score,
+    "reservoir": DATED_KERNELS["reservoir"],
+    "bfi_error": DATED_KERNELS["bfi_error"],
 }
 
 # Kernels whose score rises with agreement, so the cost is one minus the score.
@@ -272,8 +152,6 @@ class SeriesCriterion:
 __all__ = [
     "HIGHER_IS_BETTER",
     "METRICS",
-    "DAYS_PER_YEAR",
-    "RESERVOIR_INCREMENT_DAYS",
     "SAMPLED_BY_DATE",
     "SeriesCriterion",
 ]

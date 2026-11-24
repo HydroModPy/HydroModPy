@@ -77,8 +77,8 @@ def test_a_preset_takes_its_name_from_its_key():
     assert all(request.name == key for key, request in PRESETS.items())
 
 
-def test_there_are_five_panel_presets_and_sixteen_specials():
-    assert (len(PANELS), len(SPECIALS), len(PRESETS)) == (5, 16, 21)
+def test_there_are_five_panel_presets_and_seventeen_specials():
+    assert (len(PANELS), len(SPECIALS), len(PRESETS)) == (5, 17, 22)
 
 
 @pytest.mark.parametrize("name", PANELS)

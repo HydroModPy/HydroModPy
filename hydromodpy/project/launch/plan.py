@@ -26,12 +26,13 @@ from __future__ import annotations
 import copy
 import csv
 import hashlib
+import json
 import math
 import os
 import re
 import tomllib
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -40,9 +41,15 @@ import pandas as pd
 from pydantic import TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo
 
+from hydromodpy.calibration.optim.design import DesignParameter, design_points
 from hydromodpy.config.config_migration import migrate_layers, migrate_merged_doc
 from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
-from hydromodpy.config.sites import RECIPE_NAME_PATTERN, RecipeSpec, SitesConfig
+from hydromodpy.config.sites import (
+    RECIPE_NAME_PATTERN,
+    RecipeSpec,
+    SitesConfig,
+    SitesDesignConfig,
+)
 from hydromodpy.core.config_kit.introspect import (
     LIST_ITEM_MARK,
     TABLE_KEY_MARK,
@@ -99,6 +106,7 @@ CASE_SEPARATOR = "-"
 PLAN_HASH_LENGTH = 16
 RECIPE_COLUMN = "recipe"
 RECIPE_FILE_COLUMN = "file"
+DESIGN_LABEL = "[sites.design]"
 GEOMETRY_X_COLUMN, GEOMETRY_Y_COLUMN = "geometry_x", "geometry_y"
 CATALOG_BIND = {
     "site.name": "site",
@@ -465,6 +473,7 @@ class ResolvedRecipe:
     row: TableRow | None
     binds: tuple[Bind, ...]
     own_binds: tuple[Bind, ...]
+    table: Table | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -501,6 +510,7 @@ class DraftCase:
     kept_solves: int
     done: bool
     experimental_keys: tuple[str, ...] = ()
+    design: Mapping[str, float] = field(default_factory=dict)
 
     def toml(self) -> str:
         """Return the document as TOML text."""
@@ -522,6 +532,7 @@ class PlanDraft:
     warnings: tuple[PlanIssue, ...] = ()
     inputs: tuple[Path, ...] = ()
     steps: tuple[str, ...] = ()
+    design_hash: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -615,8 +626,13 @@ def expand_plan(
         recipe_table = read_table(file, label=_label(file, root))
         if RECIPE_COLUMN not in recipe_table.columns:
             raise SitesProjectError(f"{recipe_table.label}: a recipe table has a 'recipe' column")
+    design = (
+        _design(config.design, root, binds, (site_table, recipe_table))
+        if config.design is not None
+        else None
+    )
     tables = (site_table, recipe_table)
-    recipes = _recipes(config, root, head, binds, recipe_table, tables, inputs)
+    recipes = _recipes(config, root, head, binds, recipe_table, tables, inputs, design)
     if path != head.path:
         recipes = [r for r in recipes if r.file == path]
         if not recipes:
@@ -631,6 +647,10 @@ def expand_plan(
     cli = copy.deepcopy(dict(set_overrides or {}))
     envp = env_overrides(os.environ if env is None else env)
     migrate_layers([(SET_SOURCE, cli), (ENV_SOURCE, envp)])
+    if design is not None:
+        _refuse_set_on_drawn_keys(design, cli, envp)
+        _refuse_design_overrides(design, sites)
+        _refuse_points_that_moved(root, design)
     cases: list[DraftCase] = []
     taken: dict[str, str] = {}
     for site in sites:
@@ -638,12 +658,22 @@ def expand_plan(
             case_id = _case_id(site, recipe, taken, errors)
             if case_id is None:
                 continue
-            case = _case(site, recipe, case_id, root, (cli, envp), tables, errors)
+            case = _case(site, recipe, case_id, root, (cli, envp), site_table, errors)
             if case is not None:
                 cases.append(case)
-    warnings, files = tuple(_near_outlets(sites, near)), tuple(dict.fromkeys(inputs))
+    warnings = (*(design.warnings if design else ()), *_near_outlets(sites, near))
+    files = tuple(dict.fromkeys(inputs))
     drafted = (tuple(sites), tuple(recipes), tuple(cases), tuple(errors))
-    return PlanDraft(root, head.path, path, config, *drafted, warnings, files)
+    return PlanDraft(
+        root,
+        head.path,
+        path,
+        config,
+        *drafted,
+        warnings,
+        files,
+        design_hash=design.fingerprint if design else None,
+    )
 
 
 def single_case_draft(
@@ -800,12 +830,13 @@ def _recipes(
     recipe_table: Table | None,
     tables: Sequence[Table | None],
     inputs: list[Path],
+    design: DesignPlan | None = None,
 ) -> list[ResolvedRecipe]:
-    declared: dict[str, tuple[Path, Mapping[str, Any], TableRow | None]] = {}
+    declared: dict[str, tuple[Path, Mapping[str, Any], TableRow | None, Table | None]] = {}
     for name, decl in config.recipes.items():
         spec = decl if isinstance(decl, RecipeSpec) else None
         file = (root / (spec.file if spec else decl)).resolve()
-        declared[name] = (file, spec.set if spec else {}, None)
+        declared[name] = (file, spec.set if spec else {}, None, None)
     for row in recipe_table.rows if recipe_table is not None else ():
         where = row.origin(recipe_table, RECIPE_COLUMN)
         cell = row.cells.get(RECIPE_COLUMN)
@@ -823,12 +854,20 @@ def _recipes(
             head.path if is_empty_cell(file) else (root / str(file)).resolve(),
             {},
             row,
+            recipe_table,
         )
     if not declared:
-        declared[head.path.stem] = (head.path, {}, None)
+        declared[head.path.stem] = (head.path, {}, None, None)
+    if design is not None:
+        declared = _declare_points(declared, design)
+    all_tables = [t for t in (*tables, design.table if design else None) if t is not None]
 
     out = []
-    for name, (file, set_table, row) in declared.items():
+    cached: ResolvedRecipe | None = None
+    for name, (file, set_table, row, table) in declared.items():
+        if design is not None and cached is not None and table is design.table:
+            out.append(replace(cached, name=name, row=row))
+            continue
         where = f"[sites.recipes] {name}"
         if not file.is_file():
             raise SitesProjectError(f"{where}: no such file {file}")
@@ -853,7 +892,16 @@ def _recipes(
         bind = (own.get("sites") or {}).get("bind") or {}
         own_binds = resolve_binds(bind, label) if bind else []
         binds = [*project_binds, *own_binds]
-        _check_columns(binds, [t for t in tables if t is not None], label)
+        if design is not None and table is design.table:
+            for bind in own_binds:
+                for name, path in design.paths.items():
+                    if tuple(parse(path).parts)[: len(bind.path.parts)] == tuple(bind.path.parts):
+                        raise SitesProjectError(
+                            f"{where}: {label} binds {bind.path} in [sites.bind], which the "
+                            f"parameter {name!r} of [sites.design] draws. A key has one source."
+                        )
+            binds += design.binds
+        _check_columns(binds, all_tables, label)
         payload: dict[str, Any] = {}
         for key, value in set_table.items():
             try:
@@ -866,10 +914,240 @@ def _recipes(
                 f"{where}: {label} writes [site] in a [sites] project; remove "
                 "it, each case takes its site from the table."
             )
-        out.append(
-            ResolvedRecipe(name, file, base, own, payload, row, tuple(binds), tuple(own_binds))
+        if (
+            design is not None
+            and table is design.table
+            and ("calibration" in base or "calibration" in own)
+        ):
+            raise SitesProjectError(
+                f"{where}: {label} holds [calibration]. A plan of experiments has no objective "
+                "to search; every point is one simulation. Use a recipe without [calibration]."
+            )
+        made = ResolvedRecipe(
+            name, file, base, own, payload, row, tuple(binds), tuple(own_binds), table
         )
+        cached = made if design is not None and table is design.table else cached
+        out.append(made)
     return out
+
+
+@dataclass(frozen=True, slots=True)
+class DesignPlan:
+    """The points of a ``[sites.design]``, as the table a recipe table would have been."""
+
+    config: SitesDesignConfig
+    table: Table
+    binds: list[Bind]
+    paths: dict[str, str]
+    warnings: tuple[PlanIssue, ...]
+    fingerprint: str
+
+
+def _design(
+    config: SitesDesignConfig,
+    root: Path,
+    project_binds: Sequence[Bind],
+    tables: Sequence[Table | None] = (),
+) -> DesignPlan:
+    """Draw the points and present them as an in-memory table with one bind line per parameter.
+
+    A parameter named like a column of the site table or of the recipes table is refused.
+    """
+    table_columns = {c: t.label for t in tables if t is not None for c in t.columns}
+    paths = {name: str(decl.resolve_target()) for name, decl in config.parameters.items()}
+    binds: list[Bind] = []
+    taken = {str(b.path) for b in project_binds}
+    for name, path in paths.items():
+        where = f"{DESIGN_LABEL} parameters.{name}"
+        if name in CASE_COLUMNS or name == RECIPE_COLUMN:
+            raise SitesProjectError(
+                f"{where}: {name!r} is a column the plan writes for each case "
+                f"({', '.join(CASE_COLUMNS)}). Rename the parameter."
+            )
+        if name in table_columns:
+            raise SitesProjectError(
+                f"{where}: {name!r} is also a column of {table_columns[name]}. Rename the parameter."
+            )
+        try:
+            field = resolve_field(HydroModPyConfig, parse(path))
+        except UnknownPathError as exc:
+            raise SitesProjectError(
+                f"{where}: {exc}. 'hmp config targets' lists the keys."
+            ) from exc
+        except ValueError as exc:
+            raise SitesProjectError(f"{where}: {path!r}: {exc}") from exc
+        if iter_basemodels(field.annotation):
+            raise SitesProjectError(f"{where}: {path} is a table, a drawn value is one number.")
+        shape = {}
+        assign(shape, parse(path), 0.0)
+        if any(_match(shape, pattern.split(".")) for pattern in _site_patterns()):
+            raise SitesProjectError(
+                f"{where}: {path} belongs to one catchment, so it is bound from the site table. "
+                "A key of the basin is not drawn."
+            )
+        if path in taken:
+            raise SitesProjectError(
+                f"{where}: {path} is also bound in [sites.bind]. A key has one source; remove "
+                "the bind line or the parameter."
+            )
+        taken.add(path)
+        binds.append(Bind(parse(path), (name,), field))
+    parameters = [
+        DesignParameter(name, *map(float, decl.bounds), decl.sampling)
+        for name, decl in config.parameters.items()
+    ]
+    points = design_points(config.method, config.n, config.seed, parameters, config.options)
+    columns = tuple(config.parameters)
+    rows = tuple(
+        TableRow(i, None, {"recipe": p.recipe, **p.values}) for i, p in enumerate(points, 1)
+    )
+    table = Table(root / "sites.design", DESIGN_LABEL, ("recipe", *columns), rows)
+    warnings = []
+    if config.method == "sobol" and config.n & (config.n - 1):
+        warnings.append(
+            PlanIssue(
+                f"n = {config.n} is not a power of two. A scrambled Sobol sequence is balanced "
+                "for powers of two; its first points are the same whatever n, so n can grow to "
+                f"{1 << config.n.bit_length()} and keep these cases."
+            )
+        )
+    return DesignPlan(config, table, binds, paths, tuple(warnings), _fingerprint(config))
+
+
+def _fingerprint(config: SitesDesignConfig) -> str:
+    """Hash the declaration of a design without its size, so a resized plan compares equal."""
+    declaration = {
+        "method": config.method,
+        "seed": config.seed,
+        "options": dict(config.options),
+        "parameters": {
+            name: [decl.resolve_target(), list(decl.bounds), decl.sampling]
+            for name, decl in config.parameters.items()
+        },
+    }
+    return _sha256(json.dumps(declaration, sort_keys=True))[:PLAN_HASH_LENGTH]
+
+
+def _site_patterns() -> tuple[str, ...]:
+    return tuple(sorted({*site_scoped_paths(HydroModPyConfig), *EXTRA_SITE_SCOPED}))
+
+
+def _declare_points(
+    declared: dict[str, tuple[Path, Mapping[str, Any], TableRow | None, Table | None]],
+    design: DesignPlan,
+) -> dict[str, tuple[Path, Mapping[str, Any], TableRow | None, Table | None]]:
+    """Replace the base recipe by one recipe per point, in the place of the base."""
+    names = list(declared)
+    wanted = design.config.recipe
+    if wanted is None:
+        if len(names) > 1:
+            raise SitesProjectError(
+                f"{DESIGN_LABEL}: the project declares {len(names)} recipes "
+                f"({', '.join(names)}). Name the one the points vary: recipe = '<name>'."
+            )
+        wanted = names[0]
+    if wanted not in declared:
+        raise SitesProjectError(
+            f"{DESIGN_LABEL}: recipe {wanted!r} is not declared, found {', '.join(names)}."
+        )
+    file, set_table, row, _ = declared[wanted]
+    if row is not None:
+        raise SitesProjectError(
+            f"{DESIGN_LABEL}: recipe {wanted!r} comes from the recipes_table. Name a recipe "
+            "of [sites.recipes], or the file of the project."
+        )
+    twice = sorted(set(map(str, design.paths.values())) & {str(k) for k in set_table})
+    if twice:
+        raise SitesProjectError(
+            f"{DESIGN_LABEL}: recipe {wanted!r} sets {', '.join(twice)}, which a parameter "
+            "draws. A key has one source; remove it from set or from the parameters."
+        )
+    clash = sorted({r.cells["recipe"] for r in design.table.rows} & (set(names) - {wanted}))
+    if clash:
+        raise SitesProjectError(
+            f"{DESIGN_LABEL}: point name(s) {', '.join(clash)} are also declared recipes. "
+            "Rename the recipe."
+        )
+    out: dict[str, tuple[Path, Mapping[str, Any], TableRow | None, Table | None]] = {}
+    for name, item in declared.items():
+        if name != wanted:
+            out[name] = item
+            continue
+        for point in design.table.rows:
+            out[str(point.cells["recipe"])] = (file, set_table, point, design.table)
+    return out
+
+
+def _writes_drawn(payload: Mapping[str, Any], path: str) -> bool:
+    """Return whether *payload* writes the dotted *path*, or a value on a parent table of it."""
+    parts = tuple(parse(path).parts)
+    return any(parts[: len(leaf)] == leaf for leaf in _leaves(payload))
+
+
+def _refuse_set_on_drawn_keys(
+    design: DesignPlan, cli: Mapping[str, Any], envp: Mapping[str, Any]
+) -> None:
+    for layer, label in ((cli, SET_SOURCE), (envp, ENV_SOURCE)):
+        for name, path in design.paths.items():
+            if not _writes_drawn(layer, path):
+                continue
+            raise SitesProjectError(
+                f"{label} writes {path}, or a table above it, which the parameter {name!r} of "
+                "[sites.design] draws. It would overwrite every point at once; remove it."
+            )
+
+
+def _refuse_design_overrides(design: DesignPlan, sites: Sequence[ResolvedSite]) -> None:
+    """Refuse a ``site_overrides/<site>.toml`` that writes a drawn key, it would hide every point."""
+    for site in sites:
+        for name, path in design.paths.items():
+            if _writes_drawn(site.override, path):
+                raise SitesProjectError(
+                    f"site_overrides/{site.name}.toml writes {path}, which the parameter "
+                    f"{name!r} of [sites.design] draws. A key has one source; remove it."
+                )
+
+
+def _refuse_points_that_moved(root: Path, design: DesignPlan) -> None:
+    """Refuse a draw that differs from the points of sealed cases of the current plan.
+
+    Only when the declaration is the one of the stored plan, its size excepted. A new bound,
+    seed, method or parameter is a new plan, and sealed cases of old points get a new version.
+
+    The disk is the truth. A size changed on lhs, or a scipy that draws other points, would
+    give the same case names other solution keys, and the sealed cases would run again.
+    """
+    if current_plan_hash(root) is None:
+        return
+    stored = readable(read_plan, root)
+    if stored is None or stored.design is None:
+        return
+    if stored.plan.design_hash != design.fingerprint:
+        # Another method, seed, option or parameter is a new plan, not a drift of this one.
+        return
+    fresh = {str(r.cells["recipe"]): r.cells for r in design.table.rows}
+    old = stored.design.set_index("case_id")
+    moved: list[str] = []
+    for case in stored.cases:
+        point = fresh.get(case.recipe or "")
+        if point is None or case.case_id not in old.index:
+            continue
+        drawn = [c for c in old.columns if c in point]
+        if all(
+            float(old.at[case.case_id, c]) == point[c] for c in drawn if old.at[case.case_id, c]
+        ):
+            continue
+        if case_is_done(root, case.case_id, case.config_hash, "simulation"):
+            moved.append(case.case_id)
+    if moved:
+        shown = ", ".join(moved[:3]) + (f" and {len(moved) - 3} more" if len(moved) > 3 else "")
+        raise SitesProjectError(
+            f"{DESIGN_LABEL}: the points of {len(moved)} sealed case(s) ({shown}) differ from the "
+            "ones the current plan ran, so they would run again under _v2. To add points to lhs, "
+            "write n as a list of lots, [60] then [60, 40]: a lot added at the end moves nothing. "
+            "If the draw changed with a new scipy, copy the drawn columns of plan/current/cases.csv "
+            "into a recipes_table, and the sealed cases stay read as done."
+        )
 
 
 # -- cases --------------------------------------------------------------------
@@ -902,7 +1180,7 @@ def _case(
     case_id: str,
     root: Path,
     layers: tuple[Mapping[str, Any], Mapping[str, Any]],
-    tables: tuple[Table, Table | None],
+    site_table: Table,
     errors: list[PlanIssue],
 ) -> DraftCase | None:
     from hydromodpy.workflow.solution_key import planned_solution_key
@@ -911,7 +1189,7 @@ def _case(
         errors.append(PlanIssue(message, origin, target, case_id))
 
     cli, envp = layers
-    site_table, recipe_table = tables
+    recipe_table = recipe.table
     payload, bound = dict(site.payload), list(site.bound)
     row_payload: Mapping[str, Any] = {}
     try:
@@ -989,7 +1267,12 @@ def _case(
         solves, kept = max(1, solves), max(1, int(cal.save_best_n))
     done = case_is_done(root, case_id, key, kind)
     keys = written_experimental_keys(cfg)
-    return DraftCase(case_id, site.name, recipe.name, doc, key, kind, solves, kept, done, keys)
+    drawn = {}
+    if recipe.row is not None and recipe.table is not None and recipe.table.label == DESIGN_LABEL:
+        drawn = {c: v for c, v in recipe.row.cells.items() if c != RECIPE_COLUMN}
+    return DraftCase(
+        case_id, site.name, recipe.name, doc, key, kind, solves, kept, done, keys, drawn
+    )
 
 
 def _owner(
@@ -1057,7 +1340,9 @@ def _text(value: Any) -> str:
     return "" if is_empty_cell(value) else str(value)
 
 
-def build_plan(draft: PlanDraft) -> tuple[Plan, pd.DataFrame, list[PlanCase], dict[str, str]]:
+def build_plan(
+    draft: PlanDraft,
+) -> tuple[Plan, pd.DataFrame, list[PlanCase], dict[str, str], pd.DataFrame | None]:
     """Return what :func:`hydromodpy.results.plan_store.write_plan` takes, from a draft."""
     if draft.errors:
         raise PlanError(draft.errors)
@@ -1077,6 +1362,7 @@ def build_plan(draft: PlanDraft) -> tuple[Plan, pd.DataFrame, list[PlanCase], di
         for p in draft.inputs
     }
     hashed = plan_hash(draft.cases, digests)
+    drawn = list(dict.fromkeys(name for c in draft.cases for name in c.design))
     # The same plan written again is the same plan: it keeps its instant.
     exists = plan_path(draft.project_root, hashed).is_dir()
     previous = readable(read_plan, draft.project_root, hashed) if exists else None
@@ -1092,13 +1378,22 @@ def build_plan(draft: PlanDraft) -> tuple[Plan, pd.DataFrame, list[PlanCase], di
             "solves": sum(c.solves for c in draft.cases),
             "kept_solves": sum(c.kept_solves for c in draft.cases),
         },
+        design_columns=drawn,
+        design_hash=draft.design_hash if drawn else None,
     )
     columns = list(dict.fromkeys(k for s in draft.sites for k in s.row.cells if k != "site"))
     rows = [
         {"site": s.name, **{k: _text(s.row.cells.get(k)) for k in columns}} for s in draft.sites
     ]
     sites = pd.DataFrame(rows, columns=["site", *columns], dtype=str)
-    return plan, sites, cases, {c.case_id: c.toml() for c in draft.cases}
+    design = None
+    if drawn:
+        records = [
+            {"case_id": c.case_id, **{k: _text(c.design.get(k)) for k in drawn}}
+            for c in draft.cases
+        ]
+        design = pd.DataFrame(records, columns=["case_id", *drawn], dtype=str)
+    return plan, sites, cases, {c.case_id: c.toml() for c in draft.cases}, design
 
 
 def running_cases(project_root: Path, case_ids: Iterable[str]) -> list[str]:
@@ -1140,7 +1435,7 @@ def refuse_env_overrides(env: Mapping[str, str], config_path: str | Path) -> Non
 def write_plan_draft(project_root: str | Path, draft: PlanDraft, *, force: bool = False) -> Path:
     """Write ``plan/<hash>/`` from *draft* and return the directory."""
     root = Path(project_root).resolve()
-    plan, sites, cases, tomls = build_plan(draft)
+    plan, sites, cases, tomls, design = build_plan(draft)
     if not force:
         ids = {case.case_id for case in cases}
         current = readable(read_plan, root) if current_plan_hash(root) is not None else None
@@ -1151,7 +1446,7 @@ def write_plan_draft(project_root: str | Path, draft: PlanDraft, *, force: bool 
                 f"case(s) running: {', '.join(running)}; a plan is not rewritten under a "
                 "running case. Wait, or pass --force."
             )
-    return write_plan(root, plan, sites, cases, tomls)
+    return write_plan(root, plan, sites, cases, tomls, design)
 
 
 # -- what a plan costs, as --dry-run says it ----------------------------------

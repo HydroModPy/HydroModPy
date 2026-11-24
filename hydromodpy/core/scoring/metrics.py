@@ -21,6 +21,8 @@ NumPy only, a float out, and its name is a row of ``metric_table.py``.
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -39,6 +41,15 @@ by them is a huge finite number instead of NaN.
 """
 
 __all__ = [
+    "CYCLE_DAYS",
+    "DATED_KERNELS",
+    "RESERVOIR_INCREMENT_DAYS",
+    "bfi_error_on_dates",
+    "bfi_gap_on_dates",
+    "delta_on_dates",
+    "reservoir_on_dates",
+    "sample_positions",
+    "seasonal_on_dates",
     "kge_delta",
     "nse_delta",
     "nse_seasonal",
@@ -384,3 +395,160 @@ def bfi_gap(sim, obs, *, times_days=None) -> float:
 def bfi_error(sim, obs, *, times_days=None) -> float:
     """The absolute value of :func:`bfi_gap`, a cost a calibration can minimize."""
     return float(abs(bfi_gap(sim, obs, times_days=times_days)))
+
+
+RESERVOIR_INCREMENT_DAYS: float = 10.0
+"""Window, in days, over which the reservoir score differences the level.
+
+A day-to-day increment is wrecked by a two or three day phase shift even when the
+filling and emptying are right. Ten days keeps the flux signal and makes such a
+shift a perturbation rather than a sign flip. A coarser series differences one
+sample to the next.
+"""
+
+
+CYCLE_DAYS: float = 365.25
+"""Length of the seasonal cycle, in days."""
+
+
+def _cycle_samples(sample_days: float | None) -> float:
+    """Samples in one seasonal cycle. Without dates, the series is taken as daily."""
+    if sample_days is None:
+        return 365.0
+    return CYCLE_DAYS / float(sample_days)
+
+
+def _increment_samples(sample_days: float | None) -> int:
+    """Samples in the increment window of the reservoir score."""
+    if sample_days is None:
+        return int(RESERVOIR_INCREMENT_DAYS)
+    return max(1, round(RESERVOIR_INCREMENT_DAYS / float(sample_days)))
+
+
+def sample_positions(times_days: Any, sample_days: float | None) -> np.ndarray | None:
+    """Return the date of each sample counted in steps of the series, or ``None``.
+
+    ``times_days`` is the date of each sample in days, from any origin.
+    ``sample_days`` is the step; unset, the median spacing of the dates.
+    """
+    if times_days is None:
+        return None
+    days = np.asarray(times_days, dtype=float).ravel()
+    if sample_days is None:
+        spacing = np.diff(days)
+        spacing = spacing[spacing > 0.0]
+        if spacing.size == 0:
+            return None
+        sample_days = float(np.median(spacing))
+    return (days - np.nanmin(days)) / float(sample_days) if days.size else days
+
+
+def seasonal_on_dates(
+    sim: np.ndarray,
+    obs: np.ndarray,
+    *,
+    sample_days: float | None = None,
+    times_days: Any = None,
+) -> float:
+    """``nse_seasonal`` with a cycle of one year of the series' own samples."""
+    return nse_seasonal(
+        sim,
+        obs,
+        period=_cycle_samples(sample_days),
+        times=sample_positions(times_days, sample_days),
+    )
+
+
+def delta_on_dates(
+    sim: np.ndarray,
+    obs: np.ndarray,
+    *,
+    sample_days: float | None = None,
+    times_days: Any = None,
+) -> float:
+    """``nse_delta`` from one sample to the next, never across a gap of the dates."""
+    return nse_delta(sim, obs, times=sample_positions(times_days, sample_days))
+
+
+def reservoir_on_dates(
+    sim: np.ndarray,
+    obs: np.ndarray,
+    *,
+    sample_days: float | None = None,
+    times_days: Any = None,
+) -> float:
+    """Half seasonal efficiency on the level, half efficiency on its increments.
+
+    Built for an impounded level, where the two usual metrics mislead in opposite
+    ways. ``nse`` on the level compares the model to a flat mean, a benchmark a
+    strongly seasonal signal beats on its own, so a run can score comfortably and
+    still be worse than the seasonal cycle. And a level is an integral, so
+    compensating flux errors cancel in it: a low-water bias and a high-water bias of
+    opposite signs hide behind a mean bias near zero while the increments stay
+    uncorrelated.
+
+    Pairing the two closes both holes: the seasonal term keeps the absolute level
+    honest and demands more than climatology, the increment term makes the water
+    balance count. Equal weights, no tuning knob, so the score stays readable.
+
+    The increments are taken over ``RESERVOIR_INCREMENT_DAYS`` rather than one
+    sample, so a timing error of a few days is not punished as though the model had
+    filled when it should have emptied. ``sample_days`` is the sampling step of the
+    series: the cycle and the window are counted in its samples. Without it the
+    series is taken as daily. ``times_days``, the date of each sample in days,
+    keeps the cycle in phase and the increments off a gap of the record.
+    """
+    seasonal = seasonal_on_dates(sim, obs, sample_days=sample_days, times_days=times_days)
+    increments = nse_delta(
+        sim,
+        obs,
+        step=_increment_samples(sample_days),
+        times=sample_positions(times_days, sample_days),
+    )
+    if not np.isfinite(seasonal) or not np.isfinite(increments):
+        return float("nan")
+    return 0.5 * float(seasonal) + 0.5 * float(increments)
+
+
+def _days_of(sim: np.ndarray, sample_days: float | None, times_days: Any) -> Any:
+    """The dates of the samples; evenly spaced by ``sample_days`` when only that is known."""
+    if times_days is None and sample_days is not None:
+        return np.arange(np.asarray(sim).size, dtype=float) * float(sample_days)
+    return times_days
+
+
+def bfi_gap_on_dates(
+    sim: np.ndarray,
+    obs: np.ndarray,
+    *,
+    sample_days: float | None = None,
+    times_days: Any = None,
+) -> float:
+    """``bfi_gap`` on the dates of the series; NaN on a step coarser than a day."""
+    return bfi_gap(sim, obs, times_days=_days_of(sim, sample_days, times_days))
+
+
+def bfi_error_on_dates(
+    sim: np.ndarray,
+    obs: np.ndarray,
+    *,
+    sample_days: float | None = None,
+    times_days: Any = None,
+) -> float:
+    """``bfi_error`` on the dates of the series; NaN on a step coarser than a day."""
+    return bfi_error(sim, obs, times_days=_days_of(sim, sample_days, times_days))
+
+
+DATED_KERNELS: dict[str, Callable[..., float]] = {
+    "nse_delta": delta_on_dates,
+    "nse_seasonal": seasonal_on_dates,
+    "reservoir": reservoir_on_dates,
+    "bfi_gap": bfi_gap_on_dates,
+    "bfi_error": bfi_error_on_dates,
+}
+"""Kernels that read the dates of the samples, by metric name.
+
+Each takes ``sample_days``, the step of the series, and ``times_days``, the date of
+each sample in days. A year, a window and a gap are counted from them, so a monthly
+series holds them in fewer samples than a daily one.
+"""

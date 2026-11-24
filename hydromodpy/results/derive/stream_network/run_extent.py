@@ -13,8 +13,10 @@ graph, and above the visible flow when one is set.
 The stack is read a chunk of timesteps at a time and only the per-block counts
 are kept, so a daily run on a fine mesh never sits whole in memory.
 
-Nothing here scores. The distances belong to the calibration layer; this
-module only rebuilds the masks and the cells they share with the maps.
+Nothing here scores. This module only rebuilds the masks and the cells they
+share with the maps; the distances are in
+:mod:`hydromodpy.results.derive.stream_network.criterion_score`, which a trial and
+:mod:`hydromodpy.results.derive.stream_network.run_score` both call.
 """
 
 from __future__ import annotations

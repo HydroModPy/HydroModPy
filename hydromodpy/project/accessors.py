@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 
+from hydromodpy.core.exceptions import NothingThereError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import (
     PROJECT_MARKER_FILENAME,
@@ -481,6 +482,36 @@ class Workspace:
             wanted = str((self._root / PROJECTS_DIRNAME / project).resolve())
             frame = frame[frame[PROJECT_ROOT_COLUMN] == wanted]
         return frame.reset_index(drop=True)
+
+    def score(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
+        """Run ``RunSet.score`` on the runs of every project, with a ``project`` column first.
+
+        The arguments are those of :meth:`hydromodpy.results.run.group.RunSet.score`.
+        A project with nothing to score gives no row, with a warning.
+        """
+        return self._stacked("score", args, kwargs)
+
+    def score_network(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
+        """Run ``RunSet.score_network`` on every project, with a ``project`` column first.
+
+        The arguments are those of
+        :meth:`hydromodpy.results.run.group.RunSet.score_network`.
+        """
+        return self._stacked("score_network", args, kwargs)
+
+    def _stacked(self, method: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> pd.DataFrame:
+        frames: builtins.list[pd.DataFrame] = []
+        for name in self.projects:
+            try:
+                table = getattr(self[name].runs(), method)(*args, **kwargs)
+            except NothingThereError as exc:
+                logger.warning("project %s: %s", name, exc)
+                continue
+            frames.append(table.assign(project=name))
+        if not frames:
+            raise NothingThereError(f"No project of {self._root} has runs to {method}.")
+        table = pd.concat(frames, ignore_index=True)
+        return table[["project", *(c for c in table.columns if c != "project")]]
 
     def __repr__(self) -> str:
         return f"Workspace({str(self._root)!r}, projects={len(self.projects)})"

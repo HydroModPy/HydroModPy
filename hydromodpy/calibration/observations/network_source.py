@@ -236,7 +236,8 @@ def cut_to_the_catchment(
     mask = _map_mask_file(run_ctx)
     if mask is None or observed.geometry.crs is None:
         return observed
-    from hydromodpy.data.variables.hydrography.variable import cut_network, network_mask
+    from hydromodpy.catchment.algorithms.hydrographic_network import cut_network
+    from hydromodpy.data.variables.hydrography.variable import network_mask
 
     shape, crs = network_mask(mask)
     if observed.clipped:

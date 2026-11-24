@@ -25050,6 +25050,19 @@
             }
           }
         },
+        "design": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SitesDesignConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Experiment plan: points drawn in a box of parameters, each one a recipe of the base recipe. Unset, the recipes are the ones written.",
+          "x-hmp-profile": "user"
+        },
         "run": {
           "$ref": "#/$defs/SitesRunConfig",
           "description": "How the cases run side by side.",
@@ -25111,6 +25124,139 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        }
+      }
+    },
+    "SitesDesignConfig": {
+      "additionalProperties": false,
+      "description": "Points of an experiment plan, drawn when the plan is expanded.",
+      "properties": {
+        "method": {
+          "default": "sobol",
+          "description": "Design that places the points in the box of the parameters. sobol: scrambled Sobol sequence, nested: doubling n keeps the first points; lhs: Latin hypercube, one point per stratum, grown by independent lots; grid: regular grid, its size is the product of points_per_dim. Each point becomes a recipe: p0001, p0002 for sobol and grid, b1p0001 for the first point of the first lot of lhs.",
+          "examples": [
+            "sobol"
+          ],
+          "title": "Method",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "n": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of points. Required for sobol and lhs, refused for grid whose size is the product of options.points_per_dim. For lhs a list gives the size of each lot: [60, 60] adds a second lot of 60 points to a first one already run, and the first lot does not move. A sobol size that is not a power of two warns, its balance holds for powers of two.",
+          "examples": [
+            64,
+            [
+              60,
+              60
+            ]
+          ],
+          "title": "N",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Seed of the draw, required for sobol and lhs. Without it every expansion would draw other points, give other solution keys to the same case names and run everything again.",
+          "examples": [
+            1
+          ],
+          "title": "Seed",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        },
+        "recipe": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Recipe of [sites.recipes] that the points replace, and whose file and set they start from. Required if the project declares several recipes. The other recipes run once per site as before.",
+          "examples": [
+            "base"
+          ],
+          "title": "Recipe",
+          "x-hmp-profile": "user"
+        },
+        "options": {
+          "additionalProperties": true,
+          "description": "Options of the method: optimization (random-cd or lloyd) for lhs, points_per_dim for grid. The number of points is n, never an option.",
+          "examples": [
+            {
+              "optimization": "random-cd"
+            }
+          ],
+          "title": "Options",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CalibParameterDecl"
+          },
+          "description": "Parameters that move, by name. The name is the column of cases.csv. Each is a calibration parameter: path, bounds and sampling are written, and the case gets the drawn value as if the recipe table had written it.",
+          "title": "Parameters",
+          "type": "object",
+          "x-hmp-profile": "user",
+          "patternProperties": {
+            "^.+__delete$": {
+              "const": true,
+              "description": "Remove the inherited key. Only the literal true is accepted."
+            },
+            "^.+__append$": {
+              "type": "array"
+            },
+            "^.+__merge$": {
+              "type": "array"
+            }
+          }
+        }
+      },
+      "title": "SitesDesignConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^n__append$": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "^n__merge$": {
+          "type": "array",
+          "items": {
+            "type": "integer"
           }
         }
       }
@@ -25404,6 +25550,15 @@
           },
           "x-hmp-profile": "user"
         },
+        "window": {
+          "description": "Windows the runs are scored on again, with the metrics above, into summary/scores.parquet. One [[sites.summary.window]] block each.",
+          "items": {
+            "$ref": "#/$defs/SummaryWindow"
+          },
+          "title": "Window",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
         "columns": {
           "description": "Extra columns read from the manifest.json of each run, as dotted paths without index (checks.budget_pct, metrics.nse).",
           "examples": [
@@ -25485,6 +25640,18 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "^window__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SummaryWindow"
+          }
+        },
+        "^window__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SummaryWindow"
           }
         }
       }
@@ -26487,6 +26654,100 @@
                 "$ref": "#/$defs/UrlSubstratumSource"
               }
             ]
+          }
+        }
+      }
+    },
+    "SummaryWindow": {
+      "additionalProperties": false,
+      "description": "One window the runs are scored on again after the fact, one ``[[sites.summary.window]]``.",
+      "properties": {
+        "name": {
+          "description": "Name of the window, the window_name column of summary/scores.parquet.",
+          "examples": [
+            "dry-summers"
+          ],
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "First day of the window, an ISO date. Unset, the start of each run.",
+          "examples": [
+            "2016-01-01"
+          ],
+          "title": "Start",
+          "x-hmp-profile": "user"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Last day of the window, an ISO date. Unset, the end of each run.",
+          "examples": [
+            "2018-12-31"
+          ],
+          "title": "End",
+          "x-hmp-profile": "user"
+        },
+        "months": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Calendar months kept, 1 to 12. Unset, every month.",
+          "examples": [
+            [
+              6,
+              7,
+              8,
+              9
+            ]
+          ],
+          "title": "Months",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "SummaryWindow",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^months__append$": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "^months__merge$": {
+          "type": "array",
+          "items": {
+            "type": "integer"
           }
         }
       }

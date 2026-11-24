@@ -42,7 +42,11 @@ from hydromodpy.calibration.optim.objective import SimulationOutput, build_objec
 from hydromodpy.catchment.stream_network.cost import MAXIMAL_SUFFIX, MINIMAL_SUFFIX
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time.period_aggregation import period_edges, periods_in_window
+from hydromodpy.core.time.period_aggregation import (
+    period_edges,
+    periods_in_window,
+    sampling_step_days,
+)
 from hydromodpy.core.time.selection import TimeSelectionError, period_label, resolve_state
 from hydromodpy.results.derive.time_alignment import first_period_start
 
@@ -55,19 +59,6 @@ if TYPE_CHECKING:
     from hydromodpy.calibration.optim.objective import Objective
 
 logger = get_logger(__name__)
-
-
-def sampling_step_days(index: pd.Index) -> float | None:
-    """Median spacing of a dated index, in days.
-
-    ``None`` when the index is not dated or holds fewer than two distinct
-    stamps.
-    """
-    if not isinstance(index, pd.DatetimeIndex) or index.size < 2:
-        return None
-    gaps = np.diff(index.sort_values().asi8) / 86_400e9
-    gaps = gaps[gaps > 0.0]
-    return float(np.median(gaps)) if gaps.size else None
 
 
 def elapsed_days(index: pd.DatetimeIndex) -> np.ndarray:

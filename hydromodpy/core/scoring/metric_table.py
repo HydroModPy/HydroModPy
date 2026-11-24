@@ -41,6 +41,7 @@ class MetricSpec:
     clips_negatives: bool = False
     dimensionless: bool = False
     network: bool = False
+    consecutive: bool = False
 
     @property
     def scores_a_trial(self) -> bool:
@@ -182,6 +183,7 @@ _SPECS: tuple[MetricSpec, ...] = (
         "right share. Blind to volume and timing, so it goes beside a fit, never alone.",
         trial_position=10,
         dimensionless=True,
+        consecutive=True,
     ),
     MetricSpec(
         "bfi_gap",
@@ -190,6 +192,7 @@ _SPECS: tuple[MetricSpec, ...] = (
         "positive when the simulated stream leans more on its aquifer. Empty on a "
         "monthly run.",
         run_position=11,
+        consecutive=True,
     ),
 )
 
@@ -219,14 +222,26 @@ ratio of the sums, ``alpha`` the ratio of the standard deviations).
 NETWORK_METRIC_NAMES: Final[tuple[str, ...]] = tuple(s.name for s in _SPECS if s.network)
 """The metrics that score a stream network, not a series."""
 
+SERIES_METRIC_NAMES: Final[tuple[str, ...]] = tuple(s.name for s in _SPECS if not s.network)
+"""The metrics that score one simulated series against its observed twin, in table order.
+
+A stored run can be scored on any of them after the fact. This is wider than
+``RUN_METRIC_NAMES``, which is what the seal of a run writes and stays as it is.
+"""
+
+CONSECUTIVE_METRIC_NAMES: Final[frozenset[str]] = frozenset(s.name for s in _SPECS if s.consecutive)
+"""The metrics that need consecutive days, which a series cut by months cannot give."""
+
 METRIC_SENSE: Final[dict[str, MetricSense]] = {s.name: s.sense for s in _SPECS}
 """Direction of every metric the catalog knows how to rank."""
 
 __all__ = [
+    "CONSECUTIVE_METRIC_NAMES",
     "METRIC_SENSE",
     "METRIC_SPECS",
     "NETWORK_METRIC_NAMES",
     "RUN_METRIC_NAMES",
+    "SERIES_METRIC_NAMES",
     "TRIAL_METRIC_NAMES",
     "MetricSense",
     "MetricSpec",

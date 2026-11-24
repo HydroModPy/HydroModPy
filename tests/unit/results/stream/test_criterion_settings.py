@@ -444,3 +444,19 @@ def test_a_run_whose_step_count_cannot_be_read_holds_one_state() -> None:
     run = Counting(**vars(run_with_time("2002-10-15", edges=None)))
 
     assert network_criterion_settings(run).timestep == 0
+
+
+@pytest.mark.parametrize(("weighting", "ok"), [("cell", True), ("area", True), ("mass", False)])
+def test_the_weighting_names_are_those_of_the_literal(weighting: str, ok: bool) -> None:
+    from typing import get_args
+
+    from hydromodpy.core.scoring.stream_defaults import Weighting
+
+    assert get_args(Weighting) == ("cell", "area")
+    run = run_with_outputs({"streams": network_output(model={"weighting": weighting})})
+
+    if ok:
+        assert network_criterion_settings(run).weighting == weighting
+    else:
+        with pytest.raises(ValueError, match="model.weighting"):
+            network_criterion_settings(run)

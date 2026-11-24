@@ -199,6 +199,7 @@ SPECIALS: dict[str, Special] = {
     "recharge_estimates": Special("run", "medium", tables=("recharge_estimates",)),
     "recharge_regime": Special("run", "double", tables=("recharge_estimates",)),
     "recharge_signals": Special("run", "double", tables=("recharge_estimates",)),
+    "parameter_space": Special("runset", "single", ("station", "time", "variable")),
     "recession": Special(
         "run", "medium", ("station",), ("discharge", "hydraulic_conductivity", "specific_yield")
     ),
@@ -209,7 +210,7 @@ SPECIALS: dict[str, Special] = {
     ),
     "water_balance_loop": Special("run", "medium", tables=("recharge_estimates",)),
 }
-"""The sixteen special figures, keyed by the name of their module. The table is closed."""
+"""The seventeen special figures, keyed by the name of their module. The table is closed."""
 
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$")
 

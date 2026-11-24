@@ -33,28 +33,16 @@ from hydromodpy.calibration.observations.network_geometry import (
     mesh_cell_m,
     network_maps_from_run,
 )
-from hydromodpy.catchment.stream_network.cost import (
-    DISTANCE_METHOD,
-    MAXIMAL_SUFFIX,
-    MINIMAL_SUFFIX,
-    VALIDATION_SUFFIX,
-    SeepageDistanceResult,
-    score_on_geometry,
-    weighted_pair,
-    with_suffix,
-)
+from hydromodpy.catchment.stream_network.cost import DISTANCE_METHOD
 from hydromodpy.catchment.stream_network.extent import (
-    Bound,
     CalendarYears,
     calendar_years,
     dry_steps,
-    extent_masks,
     extent_step_problems,
     flowing_steps,
     parse_extent_duration,
     yearly_flow_counts,
 )
-from hydromodpy.catchment.stream_network.network import build_simulated_network
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
@@ -71,6 +59,12 @@ from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.core.time.window import nominal_step_days
 from hydromodpy.core.units.quantities import normalize_m3_per_s_unit
+from hydromodpy.results.derive.stream_network.criterion_score import (
+    SHARED_GEOMETRY_KEYS,
+    ScoredMap,
+    score_extent,
+    score_one_state,
+)
 from hydromodpy.solver.base.plan import RunContext
 from hydromodpy.solver.base.registry import solvers
 
@@ -597,31 +591,27 @@ def catchment_saturation(
     return out
 
 
-SHARED_GEOMETRY_KEYS = ("R_mean_m_s", "catchment_mismatch", "basin_mismatch")
-"""Geometry diagnostics that depend on the topography alone, the same for both maps."""
-
-
-def _map_components(
-    scored: SeepageDistanceResult,
-    geometry: Any,
-    source: Any,
-    projection: Any,
-) -> dict[str, float]:
-    """Return what one map was scored to, and what qualifies the map itself."""
-    return {
-        **scored.components,
-        **{
-            key: value
-            for key, value in geometry.diagnostics.items()
-            if key not in SHARED_GEOMETRY_KEYS
+def _scored_map(geometry: Any, source: Any, projection: Any) -> ScoredMap:
+    """Return one map with what qualifies it: its cut, its cells, its fallback reaches."""
+    return ScoredMap(
+        geometry=geometry,
+        facts={
+            # What qualifies the geometry the trial was scored against, not the trial.
+            "observed_network_clipped": 1.0 if source.clipped else 0.0,
+            # What the output's map.drawn_by drew: every cell the map
+            # holds on the mesh, and the reaches kept at their midpoint cell.
+            "n_observed_cells": float(int(projection.mask.sum())),
+            "n_observed_features_fallback": float(projection.n_fallback_parts),
         },
-        # What qualifies the geometry the trial was scored against, not the trial.
-        "observed_network_clipped": 1.0 if source.clipped else 0.0,
-        # What the output's map.drawn_by drew: every cell the map
-        # holds on the mesh, and the reaches kept at their midpoint cell.
-        "n_observed_cells": float(int(projection.mask.sum())),
-        "n_observed_features_fallback": float(projection.n_fallback_parts),
-    }
+    )
+
+
+def _scored_maps(maps: NetworkMaps) -> tuple[ScoredMap, ScoredMap | None]:
+    """Return the maximal map and the minimal one, None when the output declares none."""
+    maximal = _scored_map(maps.maximal, maps.maximal_source, maps.maximal_projection)
+    if maps.minimal is None:
+        return maximal, None
+    return maximal, _scored_map(maps.minimal, maps.minimal_source, maps.minimal_projection)
 
 
 def _score_one_state(
@@ -634,33 +624,14 @@ def _score_one_state(
     of the papers is the permanent one (Abherve et al. 2025). The other map is
     scored at the same state as a validation that never reaches the cost.
     """
-    geometry = maps.maximal
-    simulated = build_simulated_network(
+    maximal, minimal = _scored_maps(maps)
+    return score_one_state(
         result.values,
-        threshold_m3_s=geometry.threshold_m3_s,
-        metric=geometry.metric,
+        maximal,
+        minimal,
+        calibrate_on_complete=output.map.calibrate_on == "complete",
+        **_scoring_options(output),
     )
-    options = _scoring_options(output)
-    if maps.minimal is None:
-        scored = score_on_geometry(simulated, geometry, **options)
-        bound = _map_components(scored, geometry, maps.maximal_source, maps.maximal_projection)
-        return weighted_pair(scored), {**bound, **with_suffix(bound, MAXIMAL_SUFFIX)}
-
-    permanent = (maps.minimal, maps.minimal_source, maps.minimal_projection)
-    complete = (geometry, maps.maximal_source, maps.maximal_projection)
-    cost, checked, cost_suffix, checked_suffix = (
-        (complete, permanent, MAXIMAL_SUFFIX, MINIMAL_SUFFIX)
-        if output.map.calibrate_on == "complete"
-        else (permanent, complete, MINIMAL_SUFFIX, MAXIMAL_SUFFIX)
-    )
-    scored = score_on_geometry(simulated, cost[0], **options)
-    bound = _map_components(scored, *cost)
-    validation = _map_components(score_on_geometry(simulated, checked[0], **options), *checked)
-    return weighted_pair(scored), {
-        **bound,
-        **with_suffix(bound, cost_suffix),
-        **with_suffix(validation, f"{checked_suffix}{VALIDATION_SUFFIX}"),
-    }
 
 
 def _scoring_options(output: CalibOutputNetwork) -> dict[str, Any]:
@@ -808,96 +779,22 @@ def _score_two_bounds(
         visible_flow=visible,
         outlet=geometry.outlet,
     )
-    masks = extent_masks(
+    maximal, minimal = _scored_maps(maps)
+    weights = output.map.bound_weights
+    return score_extent(
+        name,
         counts,
+        years,
+        maximal,
+        minimal,
         maximal_flowing_steps=maximal_steps,
         minimal_dry_steps=dry,
         year_quorum=extent.year_quorum,
+        weights=(float(weights.permanent), float(weights.complete)),
+        step_days=step_days,
+        visible=visible,
+        **_scoring_options(output),
     )
-    options = _scoring_options(output)
-    weights = output.map.bound_weights
-    bounds: list[tuple[Bound, Any, Any, Any, str, float]] = [
-        (
-            "maximal",
-            geometry,
-            maps.maximal_source,
-            maps.maximal_projection,
-            MAXIMAL_SUFFIX,
-            float(weights.complete),
-        )
-    ]
-    if maps.minimal is not None:
-        bounds.insert(
-            0,
-            (
-                "minimal",
-                maps.minimal,
-                maps.minimal_source,
-                maps.minimal_projection,
-                MINIMAL_SUFFIX,
-                float(weights.permanent),
-            ),
-        )
-    threshold = geometry.threshold_m3_s
-    pair: list[float] = []
-    components: dict[str, float] = {}
-    for bound, bound_geometry, source, projection, suffix, weight in bounds:
-        scored = score_on_geometry(
-            masks.network(bound, threshold_m3_s=threshold), bound_geometry, **options
-        )
-        described = _map_components(scored, bound_geometry, source, projection)
-        if len(bounds) == 1:
-            pair.extend(weighted_pair(scored))
-            components.update(described)
-        else:
-            pair.extend(weighted_pair(scored, weight))
-            components[f"weight{suffix}"] = weight
-        components.update(with_suffix(described, suffix))
-        for year in masks.years:
-            yearly = score_on_geometry(
-                masks.network(bound, threshold_m3_s=threshold, year=year),
-                bound_geometry,
-                **options,
-            )
-            components[f"J_signed{suffix}_y{year}"] = float(yearly.signed_gap)
-            components[f"n_network_sim{suffix}_y{year}"] = yearly.components["n_network_sim"]
-    components.update(
-        {
-            **{f"year_scored_y{year}": 1.0 for year in years.years},
-            **{f"year_scored_y{year}": 0.0 for year in (*years.incomplete, *years.outside_window)},
-            "n_years_scored": float(len(masks.years)),
-            "n_years_outside_window": float(len(years.outside_window)),
-            "n_years_required": float(masks.n_years_required),
-            "first_year_scored": float(masks.years[0]),
-            "last_year_scored": float(masks.years[-1]),
-            "n_steps_min_per_year": float(years.n_steps.min()),
-            "year_quorum": float(extent.year_quorum),
-            "maximal_flowing_steps": float(maximal_steps),
-            "minimal_dry_steps": float(dry),
-            "step_days": float(step_days),
-            "visible_flow_m3_s": visible.discharge_m3_s,
-            "visible_flow_outlet_share": visible.outlet_share,
-        }
-    )
-    logger.info(
-        "Output %s: %d bound(s) scored over %d complete year(s) %s%s, a cell entering a "
-        "mask in %d of them; maximal mask %d cell(s), minimal mask %d cell(s); flowing "
-        "means the closure of the seepage carrying at least %s.",
-        name,
-        len(bounds),
-        len(masks.years),
-        ", ".join(map(str, masks.years)),
-        (
-            f" (outside the window: {', '.join(map(str, years.outside_window))})"
-            if years.outside_window
-            else ""
-        ),
-        masks.n_years_required,
-        int(masks.maximal.sum()),
-        int(masks.minimal.sum()),
-        visible.label(),
-    )
-    return pair, components
 
 
 def score_network_output(

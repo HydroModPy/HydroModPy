@@ -55,16 +55,15 @@ class RandomSearchMethodConfig(BaseModel):
     model_config = _MODEL_CONFIG
 
 
-class LhsMethodConfig(BaseModel):
-    """One Latin hypercube design, drawn before any solve and evaluated whole.
+class LhsOptions(BaseModel):
+    """How one Latin hypercube design is drawn, whatever sizes it.
 
-    Each stratum of each parameter is hit once. Use it for an even scan with a
-    fixed budget on more parameters than a grid affords.
+    A calibration and a ``[sites.design]`` plan both read it, so the option is
+    written once.
     """
 
     model_config = _MODEL_CONFIG
 
-    n_samples: int = Field(gt=0, description="Points drawn in the design. Required.")
     optimization: Literal["random-cd", "lloyd"] | None = Field(
         default=None,
         description="Post-processing passed to scipy.stats.qmc.LatinHypercube: "
@@ -74,6 +73,22 @@ class LhsMethodConfig(BaseModel):
         "relaxation that is not guaranteed to keep the one-point-per-stratum "
         "property.",
     )
+
+
+class SobolOptions(BaseModel):
+    """A scrambled Sobol sequence takes no option: its size and its seed are all it reads."""
+
+    model_config = _MODEL_CONFIG
+
+
+class LhsMethodConfig(LhsOptions):
+    """One Latin hypercube design, drawn before any solve and evaluated whole.
+
+    Each stratum of each parameter is hit once. Use it for an even scan with a
+    fixed budget on more parameters than a grid affords.
+    """
+
+    n_samples: int = Field(gt=0, description="Points drawn in the design. Required.")
 
 
 class ScipyDEMethodConfig(BaseModel):
@@ -492,11 +507,13 @@ __all__ = [
     "GPMappingMethodConfig",
     "GridMethodConfig",
     "LhsMethodConfig",
+    "LhsOptions",
     "OptunaMethodConfig",
     "RandomSearchMethodConfig",
     "REFUSED_OPTIONS",
     "ScipyDEMethodConfig",
     "ScipyNelderMeadMethodConfig",
+    "SobolOptions",
     "default_relative_precision",
     "method_options_are_its_defaults",
     "method_options_problem",

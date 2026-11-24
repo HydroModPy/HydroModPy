@@ -11,12 +11,14 @@ run loaded are read from its seal (``run.record.inputs``). Mixed into
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from functools import cached_property
 
 import pandas as pd
 
+from hydromodpy.core.exceptions import NothingThereError
 from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
-from hydromodpy.core.time.period_aggregation import naive_timestamp, period_end_stamps
+from hydromodpy.core.time.period_aggregation import check_months, naive_timestamp, period_end_stamps
 from hydromodpy.core.time.selection import in_series_window
 from hydromodpy.results.derive.downsample import (
     DEFAULT_TARGET_POINTS,
@@ -24,9 +26,18 @@ from hydromodpy.results.derive.downsample import (
     should_downsample,
 )
 from hydromodpy.results.derive.time_alignment import solver_time_index
+from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 from hydromodpy.results.record.manifest import RUNTIME_VARIABLE, is_sealed
 from hydromodpy.results.run.sealed import metrics_frame
 from hydromodpy.results.run.tables import has_rows, read_run_table
+from hydromodpy.results.score import read_timeseries
+from hydromodpy.results.score_table import (
+    NetworkWindowArg,
+    WindowsArg,
+    check_metrics,
+    resolve_windows,
+    score_table,
+)
 
 
 class RunTimeseriesMixin:
@@ -79,6 +90,116 @@ class RunTimeseriesMixin:
         """
         frame = metrics_frame(self._record() if is_sealed(self.dir) else None)
         return frame[frame["variable"] != RUNTIME_VARIABLE].reset_index(drop=True)
+
+    def score(
+        self,
+        windows: WindowsArg = None,
+        metrics: Sequence[str] | None = None,
+        months: Sequence[int] | None = None,
+        station: str | None = None,
+    ) -> pd.DataFrame:
+        """Score the stored series of this run again, on any window, after the fact.
+
+        No model is run: the series come from ``timeseries.parquet`` and are paired
+        as the seal pairs them, a simulated stamp closing its period.
+
+        Parameters
+        ----------
+        windows
+            ``{name: (start, end)}`` with ISO dates, either bound ``None`` for open,
+            or a list of :class:`~hydromodpy.results.metric_rule.DateWindow`. ``None``
+            scores the ``[metrics]`` window of the seal.
+        metrics
+            Names of the metric table. ``None`` means every metric a series pair
+            can give. A network metric is refused, and so is a metric that needs
+            consecutive days when ``months`` is set.
+        months
+            Calendar months, 1 to 12, that the paired periods must fall in.
+        station
+            Score only this station. ``None`` scores every observed station the
+            run simulates.
+
+        Returns
+        -------
+        pandas.DataFrame
+            One row per station, variable, metric and window: ``sim_id``, ``run``,
+            ``station``, ``variable``, ``metric``, ``window_name``, ``window_start``,
+            ``window_end``, ``months``, ``value``, ``n_samples``, ``n_sim_nan``.
+        """
+        names = check_metrics(metrics, None if months is None else check_months(months))
+        series = read_timeseries(self.dir)
+        row = self._load_row()
+        start = row.get("period_start")
+        period_start = None if start is None or pd.isna(start) else start
+        if windows is None:
+            sealed = self.metrics
+            sealed = sealed[
+                (sealed["window_name"] == HEADLINE_WINDOW) & sealed["window_start"].notna()
+            ]
+            if sealed.empty:
+                raise NothingThereError(
+                    f"{self.dir.name} was sealed without a [metrics] window, so it has no "
+                    "window of its own. Pass windows={name: (start, end)}."
+                )
+            first = sealed.iloc[0]
+            windows = {HEADLINE_WINDOW: (first["window_start"], first["window_end"])}
+        table = score_table(
+            series,
+            resolve_windows(windows, series, period_start),
+            metrics=names,
+            months=months,
+            station=station,
+            period_start=period_start,
+        )
+        if table.empty and station is not None:
+            held = sorted(series["station_id"].astype(str).unique()) if len(series) else []
+            raise NothingThereError(
+                f"{self.dir.name} has no scored series at station {station!r}. "
+                f"It holds: {', '.join(held) or 'no series'}."
+            )
+        table.insert(0, "run", self.dir.name)
+        table.insert(0, "sim_id", self._sim_id)
+        return table
+
+    def score_network(
+        self,
+        output: str | None = None,
+        window: NetworkWindowArg = None,
+    ) -> pd.DataFrame:
+        """Score the stream-network criterion of this run again, as its trial scored it.
+
+        No model is run. The release field, the mesh, the maps and the criterion
+        recharge come from the store, and the settings from the network output the
+        run sealed, or the defaults of that output when it sealed none. The value
+        is the one a calibration trial gives at the same parameters and window.
+
+        Parameters
+        ----------
+        output
+            The sealed network output to read. ``None`` reads the only one, or the
+            defaults.
+        window
+            ``(start, end)`` or ``{name: (start, end)}``, ISO dates, either bound
+            ``None`` for open. It picks the complete years of the two-bound mode.
+            ``None`` reads the window the run was scored with, else every year.
+            One state reads no window.
+
+        Returns
+        -------
+        pandas.DataFrame
+            One row per quantity: ``sim_id``, ``run``, ``output``, ``mode``
+            (``one_state`` or ``two_bounds``), ``window_name``, ``window_start``,
+            ``window_end``, ``bound`` (``minimal``, ``maximal``, a validation map,
+            or empty), ``year`` (empty for the climatological value), ``quantity``
+            (``J_signed``, ``D_so``, ``D_os``, ``D_optim``, ``r_optim_valid``,
+            ``n_years_scored``, ...) and ``value``.
+        """
+        # Imported here: the scorer reads the session tables, which read this class.
+        from hydromodpy.results.derive.stream_network.run_score import network_score_table
+
+        return network_score_table(
+            self, output=output, window=window, project_root=self._project_root()
+        )
 
     def has_table(self, table: str) -> bool:
         """Return True when the run holds at least one row of ``table``.

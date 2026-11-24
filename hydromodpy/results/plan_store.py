@@ -3,7 +3,8 @@
 A plan is addressed by the fingerprint of what made it, written once, never rewritten in place,
 so a launcher and an array job read the plan they were given. ``plan.json`` is :class:`Plan`.
 ``cases.csv`` holds one row per :class:`PlanCase`, the :data:`CASE_COLUMNS` first, then the
-columns of the table of sites as text. ``<case_id>.toml`` is the resolved configuration of a
+columns of the table of sites as text, then the values a ``[sites.design]`` drew for the case
+(named by ``Plan.design_columns``). ``<case_id>.toml`` is the resolved configuration of a
 case. The directory is staged beside its final name and renamed into place.
 """
 
@@ -68,6 +69,14 @@ class Plan(HydroModelBase):
     fingerprints: dict[str, str] = Field(default_factory=dict, description="Digest of each input")
     n_cases: int = Field(ge=0, description="Number of cases")
     budget: dict[str, Any] = Field(default_factory=dict, description="Announced budget")
+    design_columns: list[str] = Field(
+        default_factory=list,
+        description="Columns of cases.csv that hold drawn values, written only for a design plan",
+    )
+    design_hash: str | None = Field(
+        default=None,
+        description="Fingerprint of the design declaration without its size, for a design plan",
+    )
 
     @model_validator(mode="after")
     def _schema(self) -> Plan:
@@ -84,6 +93,7 @@ class StoredPlan:
     plan: Plan
     cases: tuple[PlanCase, ...]
     sites: pd.DataFrame
+    design: pd.DataFrame | None = None
 
     def case_toml(self, case_id: str) -> str:
         """Return the resolved configuration of one case."""
@@ -112,20 +122,30 @@ def write_plan(
     sites: pd.DataFrame,
     cases: list[PlanCase],
     case_tomls: Mapping[str, str],
+    design: pd.DataFrame | None = None,
 ) -> Path:
     """Write ``plan/<hash>/`` once, point ``plan/current`` at it, return the directory.
 
-    *sites* is one row of text per site with a ``site`` column. Other content under an
-    existing hash raises :class:`PlanConflictError` and leaves the plan as it was.
+    *sites* is one row of text per site with a ``site`` column. *design* is one row of text
+    per case with a ``case_id`` column and the drawn values, named by ``plan.design_columns``.
+    Other content under an existing hash raises :class:`PlanConflictError` and leaves the plan
+    as it was.
     """
     _check_cases(plan, cases, case_tomls, sites)
+    _check_design(plan, cases, design, sites)
     final = plan_path(project_root, plan.plan_hash)
     final.parent.mkdir(parents=True, exist_ok=True)
     staging = final.parent / f".staging-{plan.plan_hash}-{uuid.uuid4().hex[:8]}"
     staging.mkdir()
     try:
-        write_json_atomic(staging / PLAN_FILENAME, plan.model_dump(mode="json", by_alias=True))
-        _write_cases(staging / PLAN_CASES_FILENAME, cases, sites)
+        document = plan.model_dump(mode="json", by_alias=True)
+        if not plan.design_columns:
+            # A plan without a design stays byte for byte what it was before the key existed.
+            document.pop("design_columns")
+        if plan.design_hash is None:
+            document.pop("design_hash")
+        write_json_atomic(staging / PLAN_FILENAME, document)
+        _write_cases(staging / PLAN_CASES_FILENAME, cases, sites, design)
         for case in cases:
             (staging / case.config_path).write_text(case_tomls[case.case_id], encoding="utf-8")
         if final.exists():
@@ -156,12 +176,17 @@ def read_plan(project_root: str | Path, plan_hash: str | None = None) -> StoredP
     table = pd.read_csv(directory / PLAN_CASES_FILENAME, dtype=str, keep_default_na=False)
     records = table[list(CASE_COLUMNS)].to_dict("records")
     rows = [{**r, "site": r["site"] or None, "recipe": r["recipe"] or None} for r in records]
-    sites = table.drop(columns=[c for c in CASE_COLUMNS if c != "site"]).drop_duplicates("site")
+    stored = read_stored(Plan, payload)
+    drawn = list(stored.design_columns)
+    sites = table.drop(columns=[c for c in CASE_COLUMNS if c != "site"] + drawn)
+    sites = sites.drop_duplicates("site")
+    design = table[["case_id", *drawn]].reset_index(drop=True) if drawn else None
     return StoredPlan(
         directory,
-        read_stored(Plan, payload),
+        stored,
         tuple(read_stored(PlanCase, row) for row in rows),
         sites.reset_index(drop=True),
+        design,
     )
 
 
@@ -184,11 +209,32 @@ def _check_cases(
         )
 
 
-def _write_cases(target: Path, cases: list[PlanCase], sites: pd.DataFrame) -> None:
-    """Write one row per case: the fixed columns, then the cells of its site."""
+def _check_design(
+    plan: Plan, cases: list[PlanCase], design: pd.DataFrame | None, sites: pd.DataFrame
+) -> None:
+    drawn = list(plan.design_columns)
+    if not drawn:
+        if design is not None and len(design.columns) > 1:
+            raise ValueError("a design frame is given and plan.design_columns is empty")
+        return
+    if design is None or list(design.columns) != ["case_id", *drawn]:
+        raise ValueError(f"plan.design_columns are {drawn}, the design frame must hold them")
+    if sorted(design["case_id"]) != sorted(case.case_id for case in cases):
+        raise ValueError("the design frame holds one row for each case")
+    clash = sorted(set(drawn) & (set(CASE_COLUMNS) | set(sites.columns)))
+    if clash:
+        raise ValueError(f"drawn columns {clash} are also case or site columns")
+
+
+def _write_cases(
+    target: Path, cases: list[PlanCase], sites: pd.DataFrame, design: pd.DataFrame | None = None
+) -> None:
+    """Write one row per case: the fixed columns, the cells of its site, the drawn values."""
     rows = [{name: getattr(case, name) or "" for name in CASE_COLUMNS} for case in cases]
     frame = pd.DataFrame(rows, columns=list(CASE_COLUMNS), dtype=str)
     frame = frame.merge(sites.drop_duplicates("site"), on="site", how="left").fillna("")
+    if design is not None and len(design.columns) > 1:
+        frame = frame.merge(design, on="case_id", how="left").fillna("")
     frame.to_csv(target, index=False, lineterminator="\n")
 
 

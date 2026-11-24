@@ -628,3 +628,59 @@ def test_a_network_only_bisection_recovers_the_conductivity_that_made_the_networ
     )
     assert math.isclose(extra["t_over_r_m"], extra["k_over_r"] * d_sat, rel_tol=IDENTITY_REL)
     assert math.isclose(extra["t_optim_m2_s"], k_hat * d_sat, rel_tol=IDENTITY_REL)
+
+
+STORED_QUANTITIES = ("J_signed", "D_so", "D_os", "D_optim", "r_optim_valid", "n_network_sim")
+"""What a stored trial must give again, bit for bit, beside the rest of its components."""
+
+
+@pytest.mark.mf6
+@pytest.mark.xdist_group(name="twin_matching_stream_mf6")
+@pytest.mark.parametrize("solver", ["modflow6"])
+def test_a_stored_trial_scores_its_network_as_the_trial_did(
+    solver: str, truth: Truth, tmp_path: Path
+) -> None:
+    """``Run.score_network`` on a kept trial gives every number its journal holds.
+
+    The bisection keeps every trial as a run. Each is scored again from its store,
+    with the settings it sealed, and each component it published comes back equal,
+    the distances of the cost first. The set scores them all with one geometry.
+    """
+    import hydromodpy as hmp
+    from hydromodpy.results.run.group import RunSet
+
+    config = tmp_path / "calibration.toml"
+    config.write_text(
+        _project_toml(solver=solver, mode="calibration", name="stored_trials", k_m_s=1.0e-5)
+        + _CALIBRATION_TOML.format(
+            rel_tol=REL_TOL,
+            k_low=K_BOUNDS_M_S[0],
+            k_high=K_BOUNDS_M_S[1],
+            output=NETWORK_OUTPUT,
+            mapped=truth.mapped_path.as_posix(),
+        ).replace('save_runs = "none"', 'save_runs = "all"'),
+        encoding="utf-8",
+    )
+    report = hmp.calibrate(config)
+    project = hmp.open(tmp_path)
+    kept = [row for _, row in report.trials.iterrows() if row["rel_dir"]]
+    assert len(kept) >= 7, len(kept)
+
+    for row in kept:
+        table = hmp.open(tmp_path / row["rel_dir"]).score_network()
+        climate = table[table["year"].isna()]
+        for bound, quantity, number in zip(
+            climate["bound"], climate["quantity"], climate["value"], strict=True
+        ):
+            key = f"{NETWORK_OUTPUT}.{quantity}" + ("" if bound is None else f"_{bound}")
+            published = row["components"][key]
+            assert number == published or (math.isnan(number) and math.isnan(published)), key
+        for quantity in STORED_QUANTITIES:
+            assert f"{NETWORK_OUTPUT}.{quantity}_maximal" in row["components"]
+        # One block on one map: the trial's cost is the gap the stored run gives.
+        gap = climate[(climate["quantity"] == "J_signed") & (climate["bound"] == "maximal")]
+        assert row["cost"] == abs(float(gap["value"].iloc[0]))
+
+    stacked = RunSet([str(row["sim_id"]) for row in kept], project.store).score_network()
+    assert stacked["sim_id"].nunique() == len(kept)
+    assert "K" in stacked.columns

@@ -62,6 +62,8 @@ from typing import TYPE_CHECKING, Any, Final
 
 from pydantic import ValidationError
 
+from hydromodpy.core.exceptions import NothingThereError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, summary_dir_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.display.cohort import cohort_figure_names, draw_cohort_figures
@@ -100,7 +102,10 @@ if TYPE_CHECKING:
     from hydromodpy.config.sites import SitesExportRequest, SitesSummaryConfig
     from hydromodpy.results.publication import PublicationConfig
 
+logger = get_logger(__name__)
+
 CATALOG_CSV_FILENAME: Final[str] = "catalog.csv"
+SCORES_FILENAME: Final[str] = "scores.parquet"
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +122,8 @@ class SummaryPaths:
     rocrate: Path
     skipped: tuple[str, ...] = ()
     """Cohort figures not drawn, each as ``<figure> of <variable>: <reason>``."""
+    scores: Path | None = None
+    """``summary/scores.parquet``, written when ``[[sites.summary.window]]`` names a window."""
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +170,7 @@ def collect_project(
     _refuse_left_out(index_new_runs(root).skipped)
     with Catalog(root) as catalog:
         cases = catalog.cases
+        scores = _window_scores(catalog, cases, settings.summary)
     by_case, by_site, site_rows = _tables(
         root, cases, planned, settings, mixed_windows=mixed_windows
     )
@@ -177,6 +185,10 @@ def collect_project(
     by_case_path, by_site_path, map_frame = _write_tables(
         summary, root.name, by_case, by_site, collected_at
     )
+    scores_path = None
+    if scores is not None:
+        scores_path = summary / SCORES_FILENAME
+        scores.to_parquet(scores_path, index=False)
     catalog_path = (
         write_site_rows(summary / CATALOG_CSV_FILENAME, site_rows) if write_sites else None
     )
@@ -230,7 +242,34 @@ def collect_project(
         readme=readme,
         rocrate=rocrate,
         skipped=tuple(skipped),
+        scores=scores_path,
     )
+
+
+def _window_scores(
+    catalog: Any, cases: pd.DataFrame, summary: SitesSummaryConfig
+) -> pd.DataFrame | None:
+    """Score the completed runs again on each ``[[sites.summary.window]]``, or None without one."""
+    import pandas as pd
+
+    from hydromodpy.results.run.group import RunSet
+
+    if not summary.window:
+        return None
+    done = cases[(cases["kind"] == "run") & (cases["status"] == "completed")]
+    if done.empty:
+        logger.warning("No completed run to score on the summary windows: no scores table.")
+        return None
+    runs = RunSet([str(sim_id) for sim_id in done["sim_id"]], catalog)
+    frames = []
+    for w in summary.window:
+        try:
+            frames.append(runs.score({w.name: (w.start, w.end)}, summary.metrics, w.months))
+        except (NothingThereError, ValueError) as exc:
+            logger.warning("Summary window %r is not scored: %s", w.name, exc)
+    if not frames:
+        return None
+    return pd.concat(frames, ignore_index=True)
 
 
 def _write_tables(

@@ -63,3 +63,37 @@ def test_an_empty_set(runs):
     assert group.parameters.empty
     assert group.metrics.empty
     assert group.to_dataframe().empty
+
+
+def _fake_set(monkeypatch, outcomes):
+    class Fake:
+        def __init__(self, sim_id, outcome):
+            self.sim_id, self._outcome = sim_id, outcome
+
+        def score(self, *args, **kwargs):
+            if isinstance(self._outcome, Exception):
+                raise self._outcome
+            return self._outcome
+
+    fakes = [Fake(f"s{i}", o) for i, o in enumerate(outcomes)]
+    monkeypatch.setattr(RunSet, "__iter__", lambda self: iter(fakes))
+    monkeypatch.setattr(RunSet, "_with_parameters", lambda self, table: table)
+    return RunSet([], None)
+
+
+def test_score_skips_a_run_that_raises_value_error_and_an_empty_frame(monkeypatch, caplog):
+    import pandas as pd
+    import pytest
+
+    from hydromodpy.core.exceptions import NothingThereError
+
+    good = pd.DataFrame({"sim_id": ["s0"], "value": [1.0]})
+    group = _fake_set(monkeypatch, [good, ValueError("open window"), pd.DataFrame()])
+
+    table = group.score()
+
+    assert list(table["sim_id"]) == ["s0"]
+    assert "s1" in caplog.text
+    group = _fake_set(monkeypatch, [ValueError("bad"), pd.DataFrame()])
+    with pytest.raises(NothingThereError):
+        group.score()

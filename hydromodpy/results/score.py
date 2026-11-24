@@ -59,8 +59,17 @@ import pandas as pd
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import OBSERVED, SIMULATED
 from hydromodpy.core.scoring import metrics as kernels
-from hydromodpy.core.scoring.metric_table import METRIC_SPECS, RUN_METRIC_NAMES
-from hydromodpy.core.time.period_aggregation import period_edges, periods_in_window
+from hydromodpy.core.scoring.metric_table import (
+    METRIC_SPECS,
+    RUN_METRIC_NAMES,
+    SERIES_METRIC_NAMES,
+)
+from hydromodpy.core.time.period_aggregation import (
+    period_edges,
+    periods_in_months,
+    periods_in_window,
+    sampling_step_days,
+)
 from hydromodpy.core.time.time_method import TimeMethod
 from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
@@ -114,11 +123,8 @@ _KERNELS: dict[str, Callable[..., float]] = {
     "kge_r": lambda sim, obs: kernels.kge(sim, obs)["r"],
     "kge_alpha": lambda sim, obs: kernels.kge(sim, obs)["alpha"],
     "kge_beta": lambda sim, obs: kernels.kge(sim, obs)["beta"],
-    "bfi_gap": kernels.bfi_gap,
 }
-
-_DATED_METRICS: Final[frozenset[str]] = frozenset({"bfi_gap"})
-"""Kernels that read the date of each sample: the baseflow filter needs consecutive days."""
+"""Kernels of a plain pair. The kernels that read dates are ``kernels.DATED_KERNELS``."""
 
 HEADLINE_METRICS: Final[tuple[str, ...]] = ("nse", "kge", "rmse", "nse_log")
 """The metrics :func:`score` computes unless told otherwise."""
@@ -139,6 +145,8 @@ class Pairs:
     n_simulated_nan: int
     simulated: pd.Series
     period_start: Any = None
+    sample_days: float | None = None
+    """Step of the dated pairs before the months mask, ``None`` when no mask was set."""
 
     def dated(self) -> pd.DataFrame:
         """Return the pairs dated by the instant they are read at.
@@ -169,13 +177,15 @@ def pair(
     method: TimeMethod,
     window: DateWindow | tuple[Any, Any] | None,
     period_start: Any = None,
+    months: Sequence[int] | None = None,
 ) -> Pairs:
     """Pair *observed* with *simulated* on the periods *window* holds.
 
     *window* is a :class:`DateWindow`, two bounds where ``None`` is open, or
     ``None`` to keep every period both series share. *period_start* is the start
     of the first simulated period; without it the first period is inferred from
-    the spacing of the stamps.
+    the spacing of the stamps. *months*, calendar months from 1 to 12, keeps only
+    the periods that fall in them (:func:`periods_in_months`), after the window.
     """
     bounds = _bounds(window)
     frame = align_observed_simulated(observed, simulated, method=method, start=period_start)
@@ -202,12 +212,37 @@ def pair(
                 period_start=period_start,
             )
         ]
+    sample_days = None
+    if months is not None:
+        unmasked = Pairs(frame, method, 0, simulated, period_start).dated()
+        sample_days = sampling_step_days(unmasked["sim"].index)
+        if len(dry):
+            dry = dry[
+                periods_in_months(
+                    dry,
+                    method=method,
+                    months=months,
+                    grid=normalize_datetime_series(simulated).index,
+                    period_start=period_start,
+                )
+            ]
+        if not frame.empty:
+            frame = frame.loc[
+                periods_in_months(
+                    frame.index,
+                    method=method,
+                    months=months,
+                    grid=normalize_datetime_series(simulated).dropna().index,
+                    period_start=period_start,
+                )
+            ]
     return Pairs(
         frame=frame,
         method=method,
         n_simulated_nan=len(dry),
         simulated=simulated,
         period_start=period_start,
+        sample_days=sample_days,
     )
 
 
@@ -233,6 +268,7 @@ def score_metric(
     *,
     station: str | None = None,
     variable: str | None = None,
+    sample_days: float | None = None,
 ) -> MetricScore:
     """Score *simulated* against *observed* under *rule* on one metric.
 
@@ -240,11 +276,14 @@ def score_metric(
     ``rule.window`` count, and only the instants both series carry a finite
     value at. Without a window the score is ``None`` with zero samples: a run
     nobody declared a window for has no rank. *station* and *variable* name
-    where the series were read; they are recorded, not checked.
+    where the series were read; they are recorded, not checked. *sample_days* is the
+    sampling step of the dated metrics when the caller read it before a months mask,
+    else it is read from the series scored.
     """
-    kernel = _KERNELS.get(metric)
+    dated = kernels.DATED_KERNELS.get(metric)
+    kernel = dated or _KERNELS.get(metric)
     if kernel is None:
-        raise ValueError(f"unknown metric {metric!r}; known: {', '.join(RUN_METRIC_NAMES)}")
+        raise ValueError(f"unknown metric {metric!r}; known: {', '.join(SERIES_METRIC_NAMES)}")
     clips = METRIC_SPECS[metric].clips_negatives
     window = rule.window
     n = 0
@@ -259,10 +298,19 @@ def score_metric(
             sim_values, obs_values = paired["sim"].to_numpy(), paired["obs"].to_numpy()
             if clips:
                 n_clipped = kernels.clip_negatives(sim_values, obs_values)[2]
-            if metric in _DATED_METRICS:
+            if dated is not None:
                 stamps = pd.DatetimeIndex(paired.index).tz_localize(None)
                 days = (stamps - stamps[0]) / pd.Timedelta(days=1)
-                raw = float(kernel(sim_values, obs_values, times_days=np.asarray(days)))
+                raw = float(
+                    kernel(
+                        sim_values,
+                        obs_values,
+                        sample_days=sample_days
+                        if sample_days is not None
+                        else sampling_step_days(sim.index),
+                        times_days=np.asarray(days),
+                    )
+                )
             else:
                 raw = float(kernel(sim_values, obs_values))
             value = None if math.isnan(raw) else raw
@@ -297,7 +345,15 @@ def score(
     """
     dated = pairs.dated()
     scores = [
-        score_metric(dated["sim"], dated["obs"], rule, metric, station=station, variable=variable)
+        score_metric(
+            dated["sim"],
+            dated["obs"],
+            rule,
+            metric,
+            station=station,
+            variable=variable,
+            sample_days=pairs.sample_days,
+        )
         for metric in metrics
     ]
     if not scores or min(item.n_samples for item in scores) >= MIN_PAIRED_PERIODS:
@@ -393,7 +449,7 @@ def score_timeseries(
     ``time`` and ``value``, simulated and observed rows together.
     *period_start* is the start of the first simulated period.
     """
-    pairs, unscored = _series_pairs(timeseries)
+    pairs, unscored = series_pairs(timeseries)
     return _score_series(pairs, tuple(unscored), rule, period_start)
 
 
@@ -432,7 +488,7 @@ def _score_series(
     return RunScores(rows=tuple(rows), score=_headline(at_station, rule), unscored=unscored)
 
 
-def _series_pairs(
+def series_pairs(
     timeseries: pd.DataFrame,
 ) -> tuple[list[_SeriesPair], list[UnscoredObservation]]:
     """Return ``(station, variable, simulated, observed)`` for every observed series that meets one.
@@ -572,7 +628,7 @@ def score_run_under_its_rule(cfg: Any, *, store: RunStore) -> None:
     site = facts.site
     rule = MetricRule.from_config(cfg, gauge=None if site is None else site.gauge)
     try:
-        pairs, unscored = _series_pairs(read_timeseries(store.run_dir))
+        pairs, unscored = series_pairs(read_timeseries(store.run_dir))
         headline = _score_series(pairs, tuple(unscored), rule, facts.period_start)
         searched = [
             _score_series(pairs, (), period, facts.period_start)
@@ -608,5 +664,6 @@ __all__ = [
     "score",
     "score_metric",
     "score_run_under_its_rule",
+    "series_pairs",
     "score_timeseries",
 ]

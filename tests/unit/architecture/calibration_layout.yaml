@@ -123,6 +123,7 @@ solver_access:
 public:
   - hydromodpy.calibration
   - hydromodpy.calibration.config
+  - hydromodpy.calibration.config_objective
   - hydromodpy.calibration.targets
   - hydromodpy.calibration.parameter_resolution
   - hydromodpy.calibration.preflight
@@ -130,6 +131,7 @@ public:
   - hydromodpy.calibration.protocols
   - hydromodpy.calibration.protocols.registry
   - hydromodpy.calibration.report
+  - hydromodpy.calibration.optim.design
   - hydromodpy.calibration.optim.parameters
   - hydromodpy.calibration.runners.cli_runner
   - hydromodpy.calibration.runners.document

@@ -38,9 +38,12 @@ from hydromodpy.core.config_kit.types import (
 )
 from hydromodpy.core.scoring.metric_table import NETWORK_METRIC_NAMES
 from hydromodpy.core.scoring.stream_defaults import (
+    DEFAULT_BOUND_WEIGHT,
     DEFAULT_VISIBLE_FLOW,
+    DEFAULT_WEIGHTING,
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
+    Weighting,
     parse_visible_flow,
 )
 from hydromodpy.core.units.types import Length
@@ -311,14 +314,14 @@ class CalibNetworkBoundWeights(HydroModelBase):
     """
 
     permanent: Annotated[float, Profile.USER] = Field(
-        default=0.5,
+        default=DEFAULT_BOUND_WEIGHT,
         ge=0.0,
         le=1.0,
         description="Weight of the permanent map, scored against the minimal mask.",
         json_schema_extra={"unit": "-"},
     )
     complete: Annotated[float, Profile.USER] = Field(
-        default=0.5,
+        default=DEFAULT_BOUND_WEIGHT,
         ge=0.0,
         le=1.0,
         description="Weight of the complete map, scored against the maximal mask.",
@@ -627,8 +630,8 @@ class CalibNetworkModel(HydroModelBase):
         "edges either way; on a Voronoi mesh the two graphs are the same one.",
         json_schema_extra=moved_from("diagonal_neighbors"),
     )
-    weighting: Annotated[Literal["cell", "area"], Profile.USER] = Field(
-        default="cell",
+    weighting: Annotated[Weighting, Profile.USER] = Field(
+        default=DEFAULT_WEIGHTING,
         description="Average one cell one vote (the paper) or weighted by cell area. "
         "Both values are always reported; use 'area' on a mesh refined along the "
         "streams, where cell density is highest exactly where distances are smallest.",

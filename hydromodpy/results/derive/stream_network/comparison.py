@@ -25,6 +25,7 @@ produces those gets the same comparison.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -38,7 +39,7 @@ from hydromodpy.catchment.stream_network.geometry import (
     build_network_geometry,
     criterion_supports,
 )
-from hydromodpy.catchment.stream_network.heads import HeadsSettings
+from hydromodpy.catchment.stream_network.heads import HeadsSettings, concat_candidates
 from hydromodpy.catchment.stream_network.network import build_simulated_network
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scoring.stream_defaults import (
@@ -56,6 +57,8 @@ from hydromodpy.results.field_registry import REBUILT_FIELDS
 from hydromodpy.results.run.geographic import geographic_metadata
 
 if TYPE_CHECKING:
+    import geopandas as gpd
+
     from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
@@ -65,7 +68,9 @@ __all__ = (
     "AGREEMENT_MISSING",
     "AGREEMENT_NEITHER",
     "AGREEMENT_VALID",
+    "DrawnGeometry",
     "NetworkComparison",
+    "criterion_geometry",
     "has_recharge_source",
     "network_comparison_from_run",
     "no_release_flux_reason",
@@ -142,18 +147,21 @@ def _with_kept_budget(reason: str, field: str, sim: Run) -> str:
     return f"{reason}. {explanation}" if explanation else reason
 
 
-def unavailable_reason_for_comparison(sim: Run, *, role: str = _REFERENCE_ROLE) -> str | None:
+def unavailable_reason_for_comparison(
+    sim: Run, *, role: str | None = _REFERENCE_ROLE
+) -> str | None:
     """Return why this run cannot be compared to a mapped network, or ``None``.
 
     ``role`` picks which stored hydrographic network stands in for the
     observation, the same choice :func:`network_comparison_from_run` takes.
+    None asks nothing of the stored networks, for a map read from a file.
 
     Answered before rendering so a figure is skipped with a sentence rather
     than failing halfway through a graph build.
     """
     if not sim.has_field("release_flux"):
         return no_release_flux_reason(sim)
-    if not sim.has_hydrographic_network(role):
+    if role is not None and not sim.has_hydrographic_network(role):
         return f"run carries no {role!r} hydrographic network"
     # ``Run.mesh`` raises on a run that has no mesh at all, a lumped GR4J one
     # for instance. A gallery asks this question of every figure of every run,
@@ -239,84 +247,24 @@ def network_comparison_from_run(
     if reason is not None:
         raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {reason}")
 
-    mesh = sim.mesh
-    vertices = np.asarray(mesh.vertices, dtype=float)
-    connectivity = np.asarray(mesh.face_node_connectivity)
-    topography = np.asarray(mesh.topography, dtype=float).reshape(-1)
-    n_cells = int(topography.size)
-    polygons = cell_polygons(vertices, connectivity)
-    areas = np.asarray(
-        [0.0 if polygon is None else float(polygon.area) for polygon in polygons],
-        dtype=float,
-    )
-    centres = np.asarray(mesh.cell_centers(), dtype=float)
-
     network = sim.hydrographic_network(role)
     if network is None or network.empty:
         raise ValueError(f"the {role!r} hydrographic network of {sim.sim_id} holds no feature.")
-    lines = list(network.geometry)
-    outlet_xy = _snapped_outlet_of(sim)
-    observed: np.ndarray | None = None
-    heads: tuple[HeadCandidates, HeadsSettings] | None = None
-    if observed_rasterization == "heads":
-        heads = (
-            map_heads(
-                lines,
-                mesh_crs=mesh.crs,
-                geometry_crs=network.crs,
-                outlet_xy=outlet_xy,
-                dam_foot=np.asarray(sim.descent.dam_foot, dtype=np.int64),
-                **(_cut_of_the_map(sim) if clip_map_to_catchment else {}),
-            ),
-            HeadsSettings(
-                snap_radius_m=float(heads_snap_radius_m),
-                min_drained_area_m2=float(heads_min_drained_area_km2) * 1.0e6,
-            ),
-        )
-    elif observed_rasterization in ("crossing", "touch"):
-        observed = mapped_cells(
-            observed_rasterization,
-            lines,
-            polygons=polygons,
-            vertices=vertices,
-            connectivity=connectivity,
-            centres=centres,
-            mesh_crs=mesh.crs,
-            geometry_crs=network.crs,
-        ).mask
-    else:
-        raise ValueError(
-            "observed_rasterization must be 'heads', 'crossing' or 'touch', "
-            f"got {observed_rasterization!r}."
-        )
-
-    open_water = np.asarray(sim.descent.open_water(), dtype=bool)
-    outline = sim.descent.catchment_cells()
-    geometry = build_network_geometry(
-        topography=topography,
-        face_node_connectivity=connectivity,
-        vertices=vertices,
-        observed=observed,
-        heads=heads,
-        cell_area_m2=areas,
-        cell_centroids=centres,
-        mean_recharge_m_s=_criterion_recharge(sim, ratio=tau_specific_ratio),
-        tau_specific_ratio=float(tau_specific_ratio),
-        excluded=open_water if open_water.any() else None,
-        delineated_catchment=basin_reference(
-            sim.descent.stored_basin(), outline, source=f"run {sim.sim_id}"
-        ),
-        catchment_outline=outline,
-        delineated_outlet_xy=outlet_xy,
-        diagonal_neighbors=bool(diagonal_neighbors),
+    geometry = criterion_geometry(
+        sim,
+        [network],
+        tau_specific_ratio=tau_specific_ratio,
+        diagonal_neighbors=diagonal_neighbors,
+        observed_rasterization=observed_rasterization,
         observed_position_accuracy_m=observed_position_accuracy_m,
-        alpha_warning_threshold=float(alpha_warning_threshold),
-        clipping_warning_share=float(clipping_warning_share),
-        clipping_warning_gap=float(clipping_warning_gap),
-        # The build of the run compared its basin of D with the polygon and warned
-        # about the gap then. The criterion reads the same basin, so it logs it only.
-        catchment_mismatch_warning_share=math.inf,
-    )
+        alpha_warning_threshold=alpha_warning_threshold,
+        clipping_warning_share=clipping_warning_share,
+        clipping_warning_gap=clipping_warning_gap,
+        heads_snap_radius_m=heads_snap_radius_m,
+        heads_min_drained_area_km2=heads_min_drained_area_km2,
+        clip_map_to_catchment=clip_map_to_catchment,
+    ).geometry
+    n_cells = int(geometry.metric.graph.active.size)
 
     release = np.asarray(sim.field("release_flux", time=timestep), dtype=float).reshape(-1)
     if release.size != n_cells:
@@ -351,6 +299,125 @@ def network_comparison_from_run(
         tau_specific_ratio=float(tau_specific_ratio),
         n_cells=n_cells,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class DrawnGeometry:
+    """The criterion geometry of a run on one map, and what drawing the map cost."""
+
+    geometry: NetworkGeometry
+    n_fallback_parts: int
+
+
+def criterion_geometry(
+    sim: Run,
+    networks: Sequence[gpd.GeoDataFrame],
+    *,
+    tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
+    diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
+    observed_rasterization: ObservedRasterization = (
+        STREAM_CRITERION_DEFAULTS.observed_rasterization
+    ),
+    observed_position_accuracy_m: float | None = None,
+    alpha_warning_threshold: float = STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
+    clipping_warning_share: float = STREAM_CRITERION_DEFAULTS.clipping_warning_share,
+    clipping_warning_gap: float = STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
+    heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
+    heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
+    clip_map_to_catchment: bool = STREAM_CRITERION_DEFAULTS.clip_map_to_catchment,
+) -> DrawnGeometry:
+    """Build the criterion geometry of a run on the union of ``networks``.
+
+    One network is one map. Two are the maximal map a trial scores beside a
+    minimal one: under ``"crossing"`` and ``"touch"`` the union of their cells, under
+    ``"heads"`` the trace of the heads of both, the first network's first. The
+    settings are those of :func:`network_comparison_from_run`.
+    """
+    mesh = sim.mesh
+    vertices = np.asarray(mesh.vertices, dtype=float)
+    connectivity = np.asarray(mesh.face_node_connectivity)
+    topography = np.asarray(mesh.topography, dtype=float).reshape(-1)
+    polygons = cell_polygons(vertices, connectivity)
+    areas = np.asarray(
+        [0.0 if polygon is None else float(polygon.area) for polygon in polygons],
+        dtype=float,
+    )
+    centres = np.asarray(mesh.cell_centers(), dtype=float)
+
+    outlet_xy = _snapped_outlet_of(sim)
+    observed: np.ndarray | None = None
+    heads: tuple[HeadCandidates, HeadsSettings] | None = None
+    n_fallback = 0
+    if observed_rasterization == "heads":
+        drawn = [
+            map_heads(
+                list(network.geometry),
+                mesh_crs=mesh.crs,
+                geometry_crs=network.crs,
+                outlet_xy=outlet_xy,
+                dam_foot=np.asarray(sim.descent.dam_foot, dtype=np.int64),
+                **(_cut_of_the_map(sim) if clip_map_to_catchment else {}),
+            )
+            for network in networks
+        ]
+        candidates = drawn[0]
+        for more in drawn[1:]:
+            candidates = concat_candidates(candidates, more)
+        heads = (
+            candidates,
+            HeadsSettings(
+                snap_radius_m=float(heads_snap_radius_m),
+                min_drained_area_m2=float(heads_min_drained_area_km2) * 1.0e6,
+            ),
+        )
+    elif observed_rasterization in ("crossing", "touch"):
+        for network in networks:
+            cells = mapped_cells(
+                observed_rasterization,
+                list(network.geometry),
+                polygons=polygons,
+                vertices=vertices,
+                connectivity=connectivity,
+                centres=centres,
+                mesh_crs=mesh.crs,
+                geometry_crs=network.crs,
+            )
+            observed = cells.mask if observed is None else observed | cells.mask
+            n_fallback += int(cells.n_fallback_parts)
+    else:
+        raise ValueError(
+            "observed_rasterization must be 'heads', 'crossing' or 'touch', "
+            f"got {observed_rasterization!r}."
+        )
+
+    open_water = np.asarray(sim.descent.open_water(), dtype=bool)
+    outline = sim.descent.catchment_cells()
+    geometry = build_network_geometry(
+        topography=topography,
+        face_node_connectivity=connectivity,
+        vertices=vertices,
+        observed=observed,
+        heads=heads,
+        cell_area_m2=areas,
+        cell_centroids=centres,
+        mean_recharge_m_s=_criterion_recharge(sim, ratio=tau_specific_ratio),
+        tau_specific_ratio=float(tau_specific_ratio),
+        excluded=open_water if open_water.any() else None,
+        delineated_catchment=basin_reference(
+            sim.descent.stored_basin(), outline, source=f"run {sim.sim_id}"
+        ),
+        catchment_outline=outline,
+        delineated_outlet_xy=outlet_xy,
+        diagonal_neighbors=bool(diagonal_neighbors),
+        observed_position_accuracy_m=observed_position_accuracy_m,
+        alpha_warning_threshold=float(alpha_warning_threshold),
+        clipping_warning_share=float(clipping_warning_share),
+        clipping_warning_gap=float(clipping_warning_gap),
+        # The build of the run compared its basin of D with the polygon and warned
+        # about the gap then. The criterion reads the same basin, so it logs it only.
+        catchment_mismatch_warning_share=math.inf,
+    )
+    return DrawnGeometry(geometry=geometry, n_fallback_parts=n_fallback)
 
 
 def _cut_of_the_map(sim: Run) -> dict[str, object]:

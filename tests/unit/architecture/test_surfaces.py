@@ -956,6 +956,8 @@ NEW_FIELDS: dict[str, tuple[Any, str]] = {
     ),
     "flow.sinks_sources.recharge.soil.snow": (_UNSET, "unset, no snow, as in 2.0"),
     "recharge_estimates": (_UNSET, "unset, nothing is estimated; it never enters the model"),
+    "sites.design": (_UNSET, "unset, the plan holds the recipes it is written with"),
+    "sites.summary.window": ([], "no window, the collect writes no scores table"),
 }
 
 

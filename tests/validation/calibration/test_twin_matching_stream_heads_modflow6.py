@@ -51,6 +51,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from hydromodpy.calibration.config_network import CalibOutputNetwork
@@ -672,7 +673,7 @@ ONE_CELL_M = tol("twin_k_and_sy_on_two_maps")
 
 _TWO_MAPS_TOML = """
 [calibration]
-save_runs = "none"
+save_runs = "all"
 parameters = {{ K = {{ bounds = [3.0e-6, 1.2e-5] }}, Sy = {{ bounds = [0.025, 0.1] }} }}
 
 [calibration.outputs.seepage_network]
@@ -787,3 +788,26 @@ def test_two_maps_read_k_and_leave_sy_within_one_cell(tmp_path: Path) -> None:
             assert max(gaps) < 0.0, gaps
         else:
             assert max(abs(gap) for gap in gaps) <= ONE_CELL_M, gaps
+
+    # Every kept trial, scored again from its store, gives every number of its
+    # journal, the yearly ones and the weighted cost included.
+    kept = [row for _, row in report.trials.iterrows() if row["rel_dir"]]
+    assert len(kept) >= 7, len(kept)
+    for row in kept:
+        table = hmp.open(tmp_path / row["rel_dir"]).score_network()
+        assert set(table["mode"]) == {"two_bounds"}
+        for bound, year, quantity, number in zip(
+            table["bound"], table["year"], table["quantity"], table["value"], strict=True
+        ):
+            key = (
+                f"{NETWORK_OUTPUT}.{quantity}"
+                + ("" if bound is None else f"_{bound}")
+                + ("" if pd.isna(year) else f"_y{int(year)}")
+            )
+            published = row["components"][key]
+            assert number == published or (math.isnan(number) and math.isnan(published)), key
+        gaps = table[(table["quantity"] == "J_signed") & table["year"].isna()]
+        weights = table[table["quantity"] == "weight"].set_index("bound")["value"]
+        assert row["cost"] == sum(
+            weights[bound] * abs(gap) for bound, gap in zip(gaps["bound"], gaps["value"])
+        )

@@ -70,7 +70,14 @@ def run(args: argparse.Namespace) -> None:
 
     def table() -> None:
         print(f"wrote {summary}")
-        for path in (paths.by_case, paths.by_site, paths.catalog, paths.report, paths.readme):
+        for path in (
+            paths.by_case,
+            paths.by_site,
+            paths.catalog,
+            paths.scores,
+            paths.report,
+            paths.readme,
+        ):
             if path is not None:
                 print(f"  {path.relative_to(summary).as_posix()}")
 
@@ -85,6 +92,7 @@ def run(args: argparse.Namespace) -> None:
             "by_case": paths.by_case,
             "by_site": paths.by_site,
             "catalog": paths.catalog,
+            "scores": paths.scores,
             "report": paths.report,
             "readme": paths.readme,
             "figures_not_drawn": list(paths.skipped),
