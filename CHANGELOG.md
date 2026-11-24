@@ -18,6 +18,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
+## [v2.0.1] - 2026-11-24
+
 ### Added
 
 - `hmp check` takes `--overlay` and `--set`, merged as `hmp run` merges them, so a model and the site file it runs with are checked together: `hmp check project.toml --overlay sites/canut.toml`. `hydromodpy.check` takes them as `overlays` and `set`. A `[sites]` project refuses an overlay and names the recipe or the site file to write it in.
