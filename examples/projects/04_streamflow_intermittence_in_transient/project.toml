@@ -63,7 +63,10 @@ thickness = "30 m"
 
 # The DEM, the mapped streams, the gauge, and the monthly recharge and runoff of
 # station NANCON. The mapped streams are drawn and exported. The model does not
-# read them.
+# read them. Each name is read in the folder of its variable, data/dem/,
+# data/hydrometry/ and so on. A chronicle CSV is read with the location file of
+# its folder, here hydrometry_custom_LOC.csv, recharge_custom_LOC.csv and
+# runoff_custom_LOC.csv, which give the place and the unit of station NANCON.
 [data]
 types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
 
@@ -75,17 +78,19 @@ path = "workspace:DEM_armorican_massif.tif"
 source = "file"
 path = "workspace:nancon_stream_network.gpkg"
 
+# Daily discharge of the gauge, 1982 to 2022.
 [[data.hydrometry.sources]]
 source = "file"
-path = "workspace:."
+path = "workspace:hydrometry_custom_NANCON_19820201_20220125_D.csv"
 
+# Monthly SIM2 recharge and runoff of the catchment, 2000 to 2002, in mm/day.
 [[data.recharge.sources]]
 source = "file"
-path = "workspace:."
+path = "workspace:recharge_custom_NANCON_20000101_20021231_M.csv"
 
 [[data.runoff.sources]]
 source = "file"
-path = "workspace:."
+path = "workspace:runoff_custom_NANCON_20000101_20021231_M.csv"
 
 # The heads are solved through the 36 months, with storage. The first month is
 # solved in steady state, and [flow.sinks_sources.recharge] says under which

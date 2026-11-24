@@ -45,8 +45,9 @@ cells, and the aquifer is one layer of 30 m under the ground.
 ```
 
 `[data]` lists what the run reads, each from a file of the shared `data/` folder of the
-workspace, named by `workspace:`. A folder source, `workspace:.`, reads the station that
-{toml}`site.gauge` names.
+workspace, named by `workspace:` and read in the folder of its variable. The discharge, the
+recharge and the runoff are chronicles of the station {toml}`site.gauge` names, each read with
+the location file of its folder, which gives the place and the unit of the station.
 
 ```{hmp-toml}
 :file: 04_streamflow_intermittence_in_transient/project.toml
