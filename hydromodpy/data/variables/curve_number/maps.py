@@ -114,8 +114,15 @@ def curve_number_grid(
     return np.where(groups >= 0, grid, NODATA).astype(np.float32)
 
 
-def write_grid(target: Path, grid: np.ndarray, transform: Any, crs: str) -> Path:
-    """Write ``grid`` as a one-band float32 GeoTIFF with nodata -1."""
+def write_grid(
+    target: Path,
+    grid: np.ndarray,
+    transform: Any,
+    crs: str,
+    *,
+    tags: dict[str, str] | None = None,
+) -> Path:
+    """Write ``grid`` as a one-band float32 GeoTIFF with nodata -1, and its *tags*."""
     import rasterio
 
     from hydromodpy.core.io.atomic_replace import staged_path
@@ -135,6 +142,8 @@ def write_grid(target: Path, grid: np.ndarray, transform: Any, crs: str) -> Path
             compress="deflate",
         ) as out:
             out.write(grid.astype("float32"), 1)
+            if tags:
+                out.update_tags(**tags)
     return target
 
 

@@ -40,6 +40,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp catalog gc --solver-files-days DAYS`, and `Project.gc(solver_files_days=...)`, removes the `solver/` folder that `keep_solver_files` kept in the sealed runs older than DAYS. The rule is off by default, so the folders stay unless it is asked. The seal never lists them, so the run reads the same without them. On a daily run such a folder can weigh 5.6 GB, beside 195 MB for its `fields.zarr`.
 - The Parquet views of the index (`timeseries`, `budgets`, `mass_balance` and the Parquet `metrics` and `provenance`) now read the kept trials of the sessions too, each row by its `sim_id`.
 - `read_workspace_runs`, which reads the runs of several projects without any index, now gives `label` and `rule_version` for each run, computed on read as the index does.
+- The sidecar of a sealed share, an infiltration ratio or a curve number built from OCS GE now gives the editions read, one per department, in `product_version`.
 
 ### Changed
 
@@ -49,6 +50,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 - The relief shade of a map now stops at the active cells. On a catchment with a concave outline it used to leave grey streaks across the bays, outside the mesh, and it shaded the inactive cells of the border.
 - `hmp publish --package` and the example catalog now ship every data file a TOML names, wherever the key sits. A catchment polygon (`[geographic.catchment] polyg_shp_path`) and a file read by a boundary condition, such as the sea level of example 05, were left out, so the copy failed on a missing file. A shapefile now travels with its `.shx`, `.dbf`, `.prj` and `.cpg`; example 00 shipped its stream network as a lone `.shp`.
+- A grid of `data/` that a larger one contains is no longer removed when a sealed run or a lockfile cites it. The skip of an identical run and `hmp run --frozen` failed once an enclosing catchment was fetched. `hmp data prune` removes the smaller grid once nothing cites it.
 
 ### Numbers
 

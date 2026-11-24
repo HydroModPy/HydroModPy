@@ -101,6 +101,7 @@ def test_ocsge_covers_burn_their_rows_and_leave_the_sealed_ground_out(monkeypatc
     )  # fmt: skip
 
     assert read(path) == [NODATA, 35.0, 57.0, NODATA]
+    assert ocsge.editions_of(path) == "D035"
 
 
 def test_a_clc_raster_of_the_user_becomes_a_curve_number_map(tmp_path):

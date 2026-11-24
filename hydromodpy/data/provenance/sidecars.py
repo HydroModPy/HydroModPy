@@ -35,7 +35,7 @@ import math
 import os
 import threading
 import time
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -585,13 +585,22 @@ class CacheIndex:
     The index notes the instant it opened and the rows it recorded itself.
     :meth:`subsume` uses both to leave alone a file another process wrote
     after that instant, which that process may still be reading.
+
+    *cited* returns the sha256 of every file a sealed run or a lockfile cites.
+    ``data`` cannot read the runs, so the caller hands it in. :meth:`subsume`
+    calls it only when a grid would leave, and never removes a cited one.
     """
 
     def __init__(
-        self, data_root: Path | str | None, *, locked: frozen.LockedInputs | None = None
+        self,
+        data_root: Path | str | None,
+        *,
+        locked: frozen.LockedInputs | None = None,
+        cited: Callable[[], frozenset[str]] | None = None,
     ) -> None:
         self.data_root = None if data_root is None else Path(data_root).expanduser().resolve()
         self.locked = locked
+        self._cited = cited
         self._rows: dict[Path, CacheRow] | None = None
         self._report: ScanReport | None = None
         self._guard = threading.RLock()
@@ -983,12 +992,15 @@ class CacheIndex:
         *keep* without a box removes nothing. A row stays when another process
         wrote its sidecar after this index opened: the prepare children of
         nested sites share one data folder, and the child that wrote that file
-        may still read it. ``hmp data prune`` removes such a row later.
+        may still read it. A row stays too when a sealed run or a lockfile
+        cites its bytes, so a replay and a frozen run still find them. ``hmp
+        data prune`` removes such a row once nothing cites it.
         """
         if keep.bbox is None:
             return 0
         first, last = _naive(keep.date_start), _naive(keep.date_end)
         count = 0
+        cited: frozenset[str] | None = None
         with self._guard:
             for row in list(self._loaded().values()):
                 if (
@@ -1008,6 +1020,14 @@ class CacheIndex:
                 if last is not None and not (
                     (end := _naive(row.date_end)) is not None and end <= last
                 ):
+                    continue
+                if self._cited is not None and cited is None:
+                    try:
+                        cited = self._cited()
+                    except DataCacheError as exc:
+                        logger.warning("Smaller grids kept: %s", exc)
+                        return count
+                if cited is not None and row.sha256 in cited:
                     continue
                 self._drop(row, delete_file=True)
                 count += 1

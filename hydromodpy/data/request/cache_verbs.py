@@ -8,7 +8,9 @@ Each function takes the root of a workspace that is already resolved.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -57,6 +59,7 @@ def request_data(
     source: str | None = None,
     workspace_root: Path | None = None,
     environment_bounds: Bounds | None = None,
+    cited_by: Callable[[Path], frozenset[str]] | None = None,
 ) -> dict:
     """Serve a data request into ``out`` and return its report.
 
@@ -65,7 +68,9 @@ def request_data(
     workspace's when ``workspace_root`` is given, otherwise one in
     memory. ``environment_bounds`` are the bounds of the call that
     asked for data, so the fetcher refuses the hosts they do not allow;
-    the object they come from never enters this package.
+    the object they come from never enters this package. ``cited_by``
+    returns the files the runs and lockfiles of a workspace cite, which the
+    cache keeps when a larger grid arrives.
     """
     from hydromodpy.data.loading.store import DataStore
     from hydromodpy.data.request.engine import run_request
@@ -90,6 +95,7 @@ def request_data(
         store = DataStore(
             workspace_root=workspace_root,
             bounds=environment_bounds,
+            cited=None if cited_by is None else partial(cited_by, workspace_root),
         )
     report = run_request(
         request,

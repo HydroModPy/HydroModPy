@@ -18,6 +18,7 @@ from hydromodpy.data.common.clients.ocsge import (
     burn_map,
     cover_polygons,
     department_archives,
+    editions_of,
 )
 from hydromodpy.data.source.port import (
     FetchRequest,
@@ -97,7 +98,11 @@ class OcsgeImpervious:
             variables=self.variables,
             extent=extent,
             files=(record,),
-            metadata={"year": self.year, "sealed_covers": list(SEALED_COVERS)},
+            metadata={
+                "year": self.year,
+                "sealed_covers": list(SEALED_COVERS),
+                "product_version": editions_of(path),
+            },
         )
 
 

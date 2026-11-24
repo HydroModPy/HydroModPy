@@ -96,7 +96,7 @@ def test_load_data_attaches_the_network(monkeypatch, tmp_path) -> None:
     captured: dict[str, object] = {}
 
     class FakeLoader:
-        def __init__(self, *, config_path, data_plan, bounds) -> None:
+        def __init__(self, *, config_path, data_plan, bounds, cited_by) -> None:
             captured["config_path"] = config_path
             captured["bounds"] = bounds
             captured["data_plan"] = data_plan

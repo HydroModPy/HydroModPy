@@ -30,7 +30,10 @@ The code is ``hydromodpy/data/provenance/sidecars.py``:
 - ``scan(data_root)`` walks the folder once and returns the rows;
 - ``CacheIndex`` keeps those rows in memory and answers by variable, source,
   station, product, extent and period;
-- ``prune`` removes rows, and never a file that a run or a lockfile cites.
+- ``prune`` removes rows, and never a file that a run or a lockfile cites;
+- ``subsume`` removes the grids a larger one contains when it arrives, and keeps one that a run
+  or a lockfile cites. ``data`` cannot read the runs, so the citations come from
+  :mod:`hydromodpy.workflow.cited_inputs`, handed to the cache of a run and of ``hmp data get``.
 
 Three rules say what is a row. A sidecar names its variable, and a sidecar
 written without one is listed apart and is no row. Locks, writes in progress,
@@ -85,7 +88,8 @@ Exposed through:
 - CLI verb ``hmp catalog ...``
 - :func:`hydromodpy.results.catalog.federation.read_workspace_runs`, the read
   across the projects of a workspace, on the ``simulation.parquet`` of each
-  run and never on an index
+  run and never on an index, with the label of each run computed on read as
+  the index computes it
 - :func:`hydromodpy.core.state.layout.project_roots_under`, the single place
   that turns a directory into the project roots it stands for
 

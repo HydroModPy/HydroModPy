@@ -143,6 +143,18 @@ def ocsge_grid(bbox: tuple[float, float, float, float]):
     return from_origin(xmin, ymax, PIXEL_M, PIXEL_M), height, width
 
 
+EDITIONS_TAG = "ocsge_editions"
+"""GeoTIFF tag of a map built from OCS GE: the editions it read, one per department."""
+
+
+def editions_of(path: Path) -> str | None:
+    """Return the OCS GE editions a map was built from, ``None`` for a map without the tag."""
+    import rasterio
+
+    with rasterio.open(path) as dataset:
+        return dataset.tags().get(EDITIONS_TAG) or None
+
+
 def burn_map(
     target: Path,
     bbox: tuple[float, float, float, float],
@@ -181,11 +193,12 @@ def burn_map(
         ) as out:
             out.write(grid, 1)
             # The editions read, one per department, stay with the map.
-            out.update_tags(ocsge_editions=" ".join(editions))
+            out.update_tags(**{EDITIONS_TAG: " ".join(editions)})
     return target
 
 
 __all__ = [
+    "EDITIONS_TAG",
     "OCSGE_ORIGIN",
     "PIXEL_M",
     "SEALED_COVERS",
@@ -195,5 +208,6 @@ __all__ = [
     "department_archives",
     "edition",
     "editions",
+    "editions_of",
     "ocsge_grid",
 ]

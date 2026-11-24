@@ -16,6 +16,7 @@ and sidecars in place, one station chronicle at a time under its file lock.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,9 @@ class DataStore:
         Bounding box (xmin, ymin, xmax, ymax) for spatial filtering.
     project_period : tuple[datetime, datetime], optional
         (start, end) for temporal filtering.
+    cited : callable, optional
+        Returns the sha256 of every file a sealed run or a lockfile cites. The
+        index never removes such a file when a larger grid arrives.
     """
 
     def __init__(
@@ -65,6 +69,7 @@ class DataStore:
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
         bounds: Bounds | None = None,
+        cited: Callable[[], frozenset[str]] | None = None,
     ):
         if data_root is not None:
             self.data_root = Path(data_root).expanduser().resolve()
@@ -86,7 +91,9 @@ class DataStore:
             self.workspace_root = None
             self.data_root = None
 
-        self.index = index if index is not None else CacheIndex(self.data_root, locked=locked)
+        self.index = (
+            index if index is not None else CacheIndex(self.data_root, locked=locked, cited=cited)
+        )
         self.locked = self.index.locked
 
         self.project_extent = project_extent

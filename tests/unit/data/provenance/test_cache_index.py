@@ -239,6 +239,31 @@ def test_row_without_box_subsumes_nothing(data_root: Path) -> None:
     assert other.path.exists()
 
 
+def test_subsume_spares_a_cited_grid(data_root: Path) -> None:
+    cited: set[str] = set()
+    index = CacheIndex(data_root, cited=lambda: frozenset(cited))
+    small = _record(index, "recharge/small.nc", bbox=(1, 1, 2, 2), body=b"small")
+    other = _record(index, "recharge/other.nc", bbox=(2, 2, 3, 3), body=b"other")
+    cited.add(str(small.sha256))
+    keep = _record(index, "recharge/big.nc", bbox=BOX, body=b"big")
+
+    assert index.subsume(keep) == 1
+    assert small.path.exists()
+    assert not other.path.exists()
+
+
+def test_unknown_citations_keep_every_grid(data_root: Path) -> None:
+    def unreadable() -> frozenset[str]:
+        raise DataCacheError("the inputs of a run cannot be read")
+
+    index = CacheIndex(data_root, cited=unreadable)
+    small = _record(index, "recharge/small.nc", bbox=(1, 1, 2, 2), body=b"small")
+    keep = _record(index, "recharge/big.nc", bbox=BOX, body=b"big")
+
+    assert index.subsume(keep) == 0
+    assert small.path.exists()
+
+
 def test_subsume_spares_a_newer_grid(data_root: Path) -> None:
     # A sibling process may still read a grid it wrote after this index opened.
     index = CacheIndex(data_root)

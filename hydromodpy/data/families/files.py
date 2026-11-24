@@ -139,8 +139,16 @@ class ProviderRasterVariable(RasterFileVariable):
         path = result.files[0].path
         crs = result.extent.crs
         bbox = result.extent.bbox
+        version = result.metadata.get("product_version")
         if self.index is not None:
-            self.index.record(path, variable=self.VARIABLE_NAME, source=name, bbox=bbox, crs=crs)
+            self.index.record(
+                path,
+                variable=self.VARIABLE_NAME,
+                source=name,
+                product_version=None if version is None else str(version),
+                bbox=bbox,
+                crs=crs,
+            )
         return [
             FieldRecord(
                 variable=self.VARIABLE_NAME,

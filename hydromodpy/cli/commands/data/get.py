@@ -96,6 +96,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.data.request.cache_verbs import request_data
+    from hydromodpy.workflow.cited_inputs import cited_input_digests
 
     workspace_root = resolve_workspace(args.workspace) if args.workspace is not None else None
     stations = [code.strip() for code in args.stations.split(",")] if args.stations else None
@@ -113,6 +114,7 @@ def run(args: argparse.Namespace) -> None:
                 source=args.source,
                 workspace_root=workspace_root,
                 environment_bounds=environment_from_args(args).bounds,
+                cited_by=cited_input_digests,
             )
     except ValueError as exc:
         refuse(str(exc), EXIT_CONFIG, cause=exc)

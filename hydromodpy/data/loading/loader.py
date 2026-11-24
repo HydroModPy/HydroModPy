@@ -13,8 +13,9 @@ parameter rather than being repaired.
 from __future__ import annotations
 
 import importlib
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime as dt
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -60,10 +61,12 @@ class DataLoader:
         data_plan: DataLoadPlan,
         bounds: Any = None,
         locked: LockedInputs | None = None,
+        cited_by: Callable[[Path], frozenset[str]] | None = None,
     ) -> None:
         self.config_path = Path(config_path).resolve()
         self.data_plan = data_plan
         self.locked = locked
+        self.cited_by = cited_by
         self.bounds = bounds if bounds is not None else Bounds()
         self._store: DataStore | None = None
 
@@ -78,6 +81,7 @@ class DataLoader:
             workspace_root=workspace_paths.root,
             bounds=self.bounds,
             locked=self.locked,
+            cited=None if self.cited_by is None else partial(self.cited_by, workspace_paths.root),
         )
 
     def _require_store(self) -> DataStore:

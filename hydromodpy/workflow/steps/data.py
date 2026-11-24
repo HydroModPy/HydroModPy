@@ -82,6 +82,7 @@ from hydromodpy.model.forcing.soil_forcing import compute_soil_forcings, ru_ladd
 from hydromodpy.model.forcing.soil_grids import load_forcing_grid, window_days
 from hydromodpy.model.forcing.soil_ru_budget import ru_closing_budget
 from hydromodpy.results.products.key import array_digest, product_key
+from hydromodpy.workflow.cited_inputs import cited_input_digests
 from hydromodpy.workflow.products import ask
 from hydromodpy.workflow.record.run_store import run_dir_of_state
 from hydromodpy.workflow.state import PipelineState
@@ -157,6 +158,7 @@ def step_data_loading(ctx: WorkflowContext) -> None:
         data_plan=data_plan,
         bounds=ctx.bounds,
         locked=getattr(ctx.setup, "locked_inputs", None),
+        cited_by=cited_input_digests,
     )
     loader.load_all(ctx)
     scenario = getattr(

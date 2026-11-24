@@ -22,6 +22,7 @@ from hydromodpy.data.common.clients.ocsge import (
     burn_map,
     cover_polygons,
     department_archives,
+    editions_of,
 )
 from hydromodpy.data.source.port import (
     FetchRequest,
@@ -132,7 +133,11 @@ class OcsgeInfiltrationRatio:
             variables=self.variables,
             extent=extent,
             files=(record,),
-            metadata={"year": self.year, "ratios": self.ratios},
+            metadata={
+                "year": self.year,
+                "ratios": self.ratios,
+                "product_version": editions_of(path),
+            },
         )
 
 

@@ -38,6 +38,7 @@ from hydromodpy.results.record.manifest import InputEntry
 from hydromodpy.results.storage.attempt import RunClaim, is_run_product
 from hydromodpy.results.storage.digests import path_size_bytes
 from hydromodpy.schema.sources import input_licence
+from hydromodpy.workflow.cited_inputs import cited_input_digests
 from hydromodpy.workflow.steps.data_description import (
     iter_loaded_records,
     record_input_files,
@@ -338,6 +339,7 @@ class DataOverviewLauncher:
             config_path=self.config_path,
             data_plan=data_plan,
             bounds=self.bounds,
+            cited_by=cited_input_digests,
         )
         loader.load_all(context)
         if state.geographic_features is not None:

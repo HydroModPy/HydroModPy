@@ -120,7 +120,12 @@ def fetch_ocsge_curve_number(
     import pandas as pd
     from rasterio.features import rasterize
 
-    from hydromodpy.data.common.clients.ocsge import cover_polygons, department_archives, ocsge_grid
+    from hydromodpy.data.common.clients.ocsge import (
+        EDITIONS_TAG,
+        cover_polygons,
+        department_archives,
+        ocsge_grid,
+    )
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -128,7 +133,7 @@ def fetch_ocsge_curve_number(
     target = output_dir / f"curve_number_ocsge_{year or 'latest'}_{digest}.tif"
     if target.exists() and not force_refresh:
         return target
-    archives, _editions = department_archives(bbox=bbox, year=year, bounds=bounds)
+    archives, editions = department_archives(bbox=bbox, year=year, bounds=bounds)
     covers = pd.concat([cover_polygons(archive, bbox) for archive in archives])
     labels = sorted({str(code) for code in covers["code_cs"]})
     index = {label: i for i, label in enumerate(labels)}
@@ -146,7 +151,7 @@ def fetch_ocsge_curve_number(
     grid = curve_number_grid(
         classes_grid, labels, crosswalk_of("ocsge", classes), groups, section=SECTION
     )
-    return write_grid(target, grid, transform, "EPSG:2154")
+    return write_grid(target, grid, transform, "EPSG:2154", tags={EDITIONS_TAG: " ".join(editions)})
 
 
 class _LandCoverSource:
@@ -287,6 +292,8 @@ class OcsgeCurveNumber(_LandCoverSource):
         require_selectors(self, request)
         require_period(self, request)
         extent = extent_for(self, request)
+        from hydromodpy.data.common.clients.ocsge import editions_of
+
         path = fetch_ocsge_curve_number(
             output_dir=request.out_dir,
             bbox=extent.bbox,
@@ -297,7 +304,7 @@ class OcsgeCurveNumber(_LandCoverSource):
             force_refresh=self.force_refresh,
             bounds=getattr(request, "bounds", None),
         )
-        return self._result(path, extent, {"year": self.year})
+        return self._result(path, extent, {"year": self.year, "product_version": editions_of(path)})
 
 
 __all__ = [
