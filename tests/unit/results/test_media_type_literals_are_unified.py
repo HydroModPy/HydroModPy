@@ -43,6 +43,16 @@ ALLOWLIST: tuple[tuple[str, str], ...] = (
     ("data/variables/dem/apis/geoplateforme_wms.py", "image/geotiff"),
     # The column default the GeoPackage standard imposes in the gpkg_metadata DDL.
     ("results/identity.py", "text/xml"),
+    # Content-Type values a server answers with, read to name a file whose URL has no suffix.
+    ("data/source/url.py", "image/tiff"),
+    ("data/source/url.py", "image/geotiff"),
+    ("data/source/url.py", "application/geotiff"),
+    ("data/source/url.py", "application/netcdf"),
+    ("data/source/url.py", "application/x-netcdf"),
+    ("data/source/url.py", "application/zip"),
+    ("data/source/url.py", "application/geo+json"),
+    ("data/source/url.py", "application/geopackage+sqlite3"),
+    ("data/source/url.py", "text/csv"),
 )
 
 # Pinned by hand from hydromodpy/schema/media_types.py (read character by

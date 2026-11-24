@@ -59,7 +59,8 @@ from 600 kB to 706 kB, and the limit keeps the same margin of about 100 kB."""
 
 RUNS = {
     "demo": ("demo", "exploratory"),
-    "calage": ("calibrated_run", "calibrated"),
+    # Sealed by 2.0.0, which the bug flat_substratum_sentinel_at_the_mask_edge declassifies.
+    "calage": ("calibrated_run", "exploratory"),
 }
 """Run directory: its key in ``expected.json`` and the label of the rules it was sealed under."""
 

@@ -67,6 +67,14 @@ class _FromLandCover(HydroModelBase):
             "Hydrologic soil group of the whole area, A (low runoff potential) to D (high). "
             "Write it, or hsg_path, never both: HydroModPy picks no soil group for a site."
         ),
+        json_schema_extra=field_metadata(
+            value_docs={
+                "A": "Low runoff potential, sand or gravel that drains freely.",
+                "B": "Moderately low runoff potential, loam of moderate infiltration.",
+                "C": "Moderately high runoff potential, fine soil of slow infiltration.",
+                "D": "High runoff potential, clay or a shallow soil on rock.",
+            }
+        ),
     )
     hsg_path: Annotated[
         Path | None,
@@ -169,7 +177,13 @@ class WorldcoverCurveNumberSource(_FromLandCover):
             "Map read: 2020 (algorithm v100) or 2021 (v200). The two differ by their "
             "algorithm as much as by the ground, so a change between them is no trend."
         ),
-        json_schema_extra=field_metadata(unit="year"),
+        json_schema_extra=field_metadata(
+            unit="year",
+            value_docs={
+                "2020": "Map of 2020, algorithm v100.",
+                "2021": "Map of 2021, algorithm v200.",
+            },
+        ),
     )
 
 

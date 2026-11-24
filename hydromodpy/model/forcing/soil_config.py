@@ -384,7 +384,7 @@ class SoilReservoirConfig(HydroModelBase):
             "on its own. [data.infiltration_ratio] gives it cell by cell instead, and then "
             "it is not written here."
         ),
-        json_schema_extra=field_metadata(stability="experimental"),
+        json_schema_extra=field_metadata(unit="-", stability="experimental"),
     )
     runoff_time: Annotated[DurationDays, Profile.USER] = Field(
         default=1.0,

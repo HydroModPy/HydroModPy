@@ -67,7 +67,7 @@ def test_reviewed_claims() -> None:
 
 def test_undetermined_sources() -> None:
     undetermined = {slug for slug in SOURCES if slug not in CLAIMED}
-    assert undetermined == {"file", "url", "constant", "synthetic"}
+    assert undetermined == {"file", "url", "land_cover", "constant", "synthetic"}
 
 
 def test_licence_ref_only_without_spdx_id() -> None:
