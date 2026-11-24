@@ -20,6 +20,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Added
 
+- `hmp check` takes `--overlay` and `--set`, merged as `hmp run` merges them, so a model and the site file it runs with are checked together: `hmp check project.toml --overlay sites/canut.toml`. `hydromodpy.check` takes them as `overlays` and `set`. A `[sites]` project refuses an overlay and names the recipe or the site file to write it in.
 - `Run.hydrographic_network("mesh_constraint")` returns the rivers the mesh carries, one line per chain of river cells through their solver centers. `hmp compare` scores the flowing cells against it beside the mapped networks.
 - The `network` table of `hmp compare` now keeps how each row was cut: the field, the active rule, its thresholds, the buffer, the distance rule and, for the mesh row, the contributing area or cell count that traced its streams.
 - `[flow.sinks_sources.recharge.soil] method` names the storage law of the soil reservoir: `fao56` (the law so far, the default), `thornthwaite`, `dingman` or `edijatno_michel` (the production store of GR4J). The sealed share, the curve number, the bypass and the transit work the same under each law.

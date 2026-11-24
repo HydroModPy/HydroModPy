@@ -162,3 +162,44 @@ def test_sites_project_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert {(kwargs["inputs"], kwargs["bounds"]) for kwargs in seen} == {(True, bounds)}
     assert [item for item in found if item.code.startswith("input")] == [unreachable]
     assert all(item.code != "to_fill" for item in found)
+
+
+def _at(found: list[Diagnostic], key: str) -> list[str]:
+    return [item.severity for item in found if item.path == key]
+
+
+def test_overlay_and_set_are_checked_with_the_file(tmp_path: Path) -> None:
+    # hmp check took the file alone, so a file run with --overlay could not be checked.
+    path = _write(tmp_path, "[flow]\nflow_regime = 'bogus'\n")
+    fixed = _write(tmp_path, "[flow]\nflow_regime = 'steady'\n", "fixed.toml")
+
+    assert _at(check(path), "flow.flow_regime") == ["error"]
+    assert _at(check(path, overlays=[fixed]), "flow.flow_regime") == []
+    # --set is merged after the overlays, as hmp run merges it.
+    broken = check(path, overlays=[fixed], set={"flow.flow_regime": "bogus"})
+    assert _at(broken, "flow.flow_regime") == ["error"]
+
+
+@pytest.mark.parametrize(
+    "layers", [{"overlays": ["x.toml"]}, {"set": {"flow.flow_regime": "steady"}}]
+)
+def test_document_takes_no_layer(tmp_path: Path, layers: dict) -> None:
+    from hydromodpy.project.check_source import MEMORY_TAKES_NO_LAYER
+
+    [found] = check({}, base=tmp_path, **layers)
+
+    assert (found.code, found.detail) == ("refused_value", MEMORY_TAKES_NO_LAYER)
+
+
+def test_sites_project_refuses_an_overlay_and_reads_set(tmp_path: Path) -> None:
+    from hydromodpy.project.check_source import SITES_TAKE_NO_OVERLAY
+    from tests.unit.project.launch.test_plan import write_sites_project
+
+    project = write_sites_project(tmp_path)
+    overlay = _write(tmp_path, "[flow]\nflow_regime = 'steady'\n", "overlay.toml")
+
+    [found] = check(project / "project.toml", overlays=[overlay])
+    assert (found.code, found.detail) == ("sites_case", SITES_TAKE_NO_OVERLAY)
+
+    changed = check(project / "project.toml", set={"flow.flow_regime": "bogus"})
+    assert "error" in _at(changed, "flow.flow_regime")

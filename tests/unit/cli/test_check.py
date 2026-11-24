@@ -322,3 +322,21 @@ def test_old_key_refused(tmp_path) -> None:
     assert "calibration.protocol.steady_engine_options" in result.stderr
     assert "written by a pre-release of 2.0" in result.stderr
     assert "This version does not rewrite the file." in result.stderr
+
+
+def test_overlay_and_set_reach_the_check(tmp_path) -> None:
+    # hmp check had no --overlay, so a model run with a site file could not be checked.
+    path = tmp_path / "draft.toml"
+    path.write_text('[flow]\nflow_regime = "bogus"\n', encoding="utf-8")
+    site = tmp_path / "site.toml"
+    site.write_text('[flow]\nflow_regime = "steady"\n', encoding="utf-8")
+
+    def regime_refused(*args: str) -> bool:
+        result = check_file(path, "--format", "json", "--partial", *args)
+        found = json.loads(result.stdout)["data"]["diagnostics"]
+        return any(item["pointer"] == "/flow/flow_regime" for item in found)
+
+    assert regime_refused()
+    assert not regime_refused("--overlay", str(site))
+    assert regime_refused("--overlay", str(site), "--set", "flow.flow_regime=bogus")
+    assert check_file(path, "--overlay", str(tmp_path / "gone.toml")).exit_code == 10

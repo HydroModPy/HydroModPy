@@ -27,12 +27,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.config.loading import MEMORY_NEEDS_BASE
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import CommandUsageError, ConfigError, NothingThereError
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, SESSIONS_DIRNAME
 from hydromodpy.core.state.result_dirs import resolve_project_root
-from hydromodpy.project.check_source import check_document, check_file
+from hydromodpy.project.check_source import check_file, check_mapping
 from hydromodpy.project.environment import Environment
 from hydromodpy.project.facade import Project
 from hydromodpy.project.lab import Lab  # noqa: F401 - no verb takes it, the facade reads it here
@@ -367,6 +366,8 @@ def check(
     base: PathLike | None = None,
     partial: bool = True,
     inputs: bool = False,
+    overlays: Sequence[PathLike] = (),
+    set: Mapping[str, Any] | None = None,
     environment: Environment | None = None,
 ) -> list[Diagnostic]:
     """Check a configuration, a draft or a file, and return every diagnostic it holds.
@@ -391,6 +392,9 @@ def check(
     inputs
         True also reads the header of each input file the document names, and
         downloads nothing.
+    overlays, set
+        TOML files merged over a file, then dotted paths and their values, as
+        ``hmp run --overlay`` and ``--set``. A mapping refuses both.
     environment
         The bounds an input header may be read within. The default is the
         bounds of a bare ``Environment``.
@@ -414,21 +418,16 @@ def check(
     folder = None if base is None else Path(base).expanduser().resolve()
     try:
         if isinstance(source, Mapping):
-            if folder is None:
-                return [
-                    Diagnostic(
-                        path="", code="refused_value", severity="error", detail=MEMORY_NEEDS_BASE
-                    )
-                ]
-            return check_document(
-                source, partial=partial, inputs=inputs, base=folder, bounds=bounds
-            )
+            layered = bool(overlays or set)
+            return check_mapping(source, partial, inputs, folder, bounds, layered=layered)
         return check_file(
             Path(source).expanduser().resolve(),
             partial=partial,
             inputs=inputs,
             bounds=bounds,
             base=folder,
+            overlays=[Path(item) for item in overlays],
+            changes=set,
         )
     except Exception as exc:  # noqa: BLE001 - a check reports, an unexpected error is a finding too
         return [

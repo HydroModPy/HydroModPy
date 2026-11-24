@@ -211,8 +211,10 @@ hmp check --debug	nargs=0
 hmp check --format	choices=['csv', 'json', 'table'] default='table'
 hmp check --inputs	nargs=0
 hmp check --lang	choices=['en', 'fr'] default='en'
+hmp check --overlay	default=[]
 hmp check --partial	nargs=0
 hmp check --quiet,-q	nargs=0
+hmp check --set	default=[]
 hmp check --verbose,-v	nargs=0
 hmp check --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp check --workspace,-w	

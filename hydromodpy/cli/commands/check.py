@@ -11,11 +11,18 @@ resolves to, with its folders. ``hydromodpy.project.api.check`` does the checkin
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import (
+    add_override_arguments,
+    changes_of_args,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
 from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.cli.refs import base_named_by_w
@@ -38,6 +45,7 @@ def register(subparsers) -> argparse.ArgumentParser:
             "  hmp check draft.toml --partial\n"
             "  hmp check calibration.toml -v\n"
             "  hmp check project.toml --inputs --lang fr\n"
+            "  hmp check project.toml --overlay sites/canut.toml\n"
             "Every fault is listed at once, one line each. A key the file does not write\n"
             "yet is an error, or with --partial a to_fill that stops nothing.\n"
             "A calibration is read by its preflight and says which published method it\n"
@@ -64,6 +72,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         default="en",
         help="Language of the phrase of each diagnostic (default: en)",
     )
+    add_override_arguments(parser)
     parser.set_defaults(_handler=run)
     return parser
 
@@ -88,7 +97,21 @@ def run(args: argparse.Namespace) -> None:
     verbosity = current_verbosity()
     verbose = verbosity in ("verbose", "debug")
     base = base_named_by_w(args.workspace)
-    diagnostics = check(path, partial=args.partial, inputs=args.inputs, base=base)
+    try:
+        changes = changes_of_args(args, os.environ)
+    except ValueError as exc:
+        refuse(f"Invalid override: {exc}", EXIT_CONFIG, cause=exc)
+    for overlay in args.overlay:
+        if not overlay.expanduser().is_file():
+            refuse(f"File not found: {overlay}", EXIT_NOT_FOUND)
+    diagnostics = check(
+        path,
+        partial=args.partial,
+        inputs=args.inputs,
+        base=base,
+        overlays=args.overlay,
+        set=changes,
+    )
     if verbosity != "quiet":
         for line in _calibration_notes(path, verbose=verbose):
             print(line, file=sys.stderr)

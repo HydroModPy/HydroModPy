@@ -26,6 +26,7 @@ from hydromodpy.core.toml_io.loader import (
     ChainFile,
     config_base_dir,
     merge_toml_chain,
+    merge_toml_layers,
     read_toml_chain,
 )
 from hydromodpy.project.launch.plan import (
@@ -46,6 +47,13 @@ if TYPE_CHECKING:
 
 
 _EXPERIMENTAL_KEY = "experimental_key"
+MEMORY_TAKES_NO_LAYER = (
+    "A document given as a mapping takes no overlay and no set: write the keys in it."
+)
+SITES_TAKE_NO_OVERLAY = (
+    "A [sites] project takes no overlay: write its keys in a recipe of [sites.recipes], "
+    "or in <overrides>/<site>.toml for one site."
+)
 _PROJECT_ROOT_KEYS = ("workspace", "project_root")
 
 
@@ -63,13 +71,45 @@ def check_document(
     return check(document, partial=partial, inputs=inputs, base=base, bounds=bounds)
 
 
-def check_file(
-    target: Path, *, partial: bool, inputs: bool, bounds: Bounds, base: Path | None
+def check_mapping(
+    document: Mapping[str, Any],
+    partial: bool,
+    inputs: bool,
+    base: Path | None,
+    bounds: Bounds,
+    *,
+    layered: bool,
 ) -> list[Diagnostic]:
-    """Check the file *target* the way a run reads it, against *base* when it is given."""
+    """Check a document given as a mapping, which needs a base and takes no overlay or set."""
+    from hydromodpy.config.loading import MEMORY_NEEDS_BASE
+
+    if base is None or layered:
+        detail = MEMORY_NEEDS_BASE if base is None else MEMORY_TAKES_NO_LAYER
+        return [Diagnostic(path="", code="refused_value", severity="error", detail=detail)]
+    return check_document(document, partial=partial, inputs=inputs, base=base, bounds=bounds)
+
+
+def check_file(
+    target: Path,
+    *,
+    partial: bool,
+    inputs: bool,
+    bounds: Bounds,
+    base: Path | None,
+    overlays: Sequence[Path] = (),
+    changes: Mapping[str, Any] | None = None,
+) -> list[Diagnostic]:
+    """Check the file *target* the way a run reads it, against *base* when it is given.
+
+    *overlays* and *changes* are merged over the chain as ``hmp run --overlay`` and
+    ``--set`` merge them, so a file and the overlay it runs with are checked together.
+    """
     try:
         # As written: the check says the old forms it finds, and does not rewrite them.
         chain = read_toml_chain(target, root=None)
+        layers = [
+            read_toml_chain(Path(item).expanduser().resolve(), root=None) for item in overlays
+        ]
     except tomllib.TOMLDecodeError as exc:
         return [
             Diagnostic(
@@ -94,9 +134,17 @@ def check_file(
     except SitesProjectError as exc:
         return [Diagnostic(path="", code="sites_case", severity="error", detail=str(exc))]
     if sites_file is not None:
-        return _check_sites_project(target, partial=partial, inputs=inputs, bounds=bounds)
+        if overlays:
+            return [
+                Diagnostic(
+                    path="", code="sites_case", severity="error", detail=SITES_TAKE_NO_OVERLAY
+                )
+            ]
+        return _check_sites_project(
+            target, partial=partial, inputs=inputs, bounds=bounds, changes=changes
+        )
     try:
-        document, told = _read_as_loaded(target, chain)
+        document, told = _read_as_loaded(chain, layers, changes)
     except ValueError as exc:
         # Two bases that disagree, or a directive the merge cannot apply.
         return [
@@ -125,9 +173,31 @@ def check_file(
 
 
 def _read_as_loaded(
-    target: Path, written: Sequence[ChainFile]
+    written: Sequence[ChainFile],
+    overlays: Sequence[Sequence[ChainFile]] = (),
+    changes: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[Diagnostic]]:
     """Return the merged document as a load reads it, and one ``old_key`` per old form.
+
+    The chain of each overlay is read like the chain of the file, then merged over
+    it, and *changes* last, the order of ``hmp run``.
+    """
+    from hydromodpy.config.loading import changes_payload
+
+    chains: list[list[ChainFile]] = []
+    told: list[Diagnostic] = []
+    for chain in (written, *overlays):
+        files, said = _migrated_chain(chain)
+        chains.append(files)
+        told.extend(said)
+    if len(chains) == 1 and not changes:
+        return merge_toml_chain(chains[0], root=None), told
+    payload = changes_payload(changes) or None
+    return merge_toml_layers(chains, root=None, cli_overrides=payload), told
+
+
+def _migrated_chain(written: Sequence[ChainFile]) -> tuple[list[ChainFile], list[Diagnostic]]:
+    """Return the files of one chain each migrated on its own, and one ``old_key`` per old form.
 
     Each file of the chain is migrated on its own, so an old form is told under
     the file that holds it. The migration returns its changes as values, so the
@@ -149,16 +219,16 @@ def _read_as_loaded(
         try:
             changes = migrate_config_doc(own)
         except (HydroModPyError, ValueError):
-            return merge_toml_chain(written, root=None), []
+            return list(written), []
         # The migration marks a change a load refuses by a subclass of str.
         if any(type(change) is not str for change in changes):
-            return merge_toml_chain(written, root=None), []
+            return list(written), []
         if not is_sealed_run_config(item.path):
             told.extend(
                 _old_form(item.path, change) for change in changes if CANNOT_REWRITE not in change
             )
         files.append(ChainFile(path=item.path, own=own, bases=item.bases))
-    return merge_toml_chain(files, root=None), told
+    return files, told
 
 
 def _old_form(path: Path, change: str) -> Diagnostic:
@@ -168,17 +238,27 @@ def _old_form(path: Path, change: str) -> Diagnostic:
 
 
 def _check_sites_project(
-    target: Path, *, partial: bool, inputs: bool, bounds: Bounds
+    target: Path,
+    *,
+    partial: bool,
+    inputs: bool,
+    bounds: Bounds,
+    changes: Mapping[str, Any] | None = None,
 ) -> list[Diagnostic]:
     """Expand the ``[sites]`` project *target* and return the issues of its cases, grouped.
 
     With *inputs*, the header of each input file a case names is read once, and
     a fault shared by several cases is told once.
     """
+    from hydromodpy.config.loading import changes_payload
     from hydromodpy.core.exceptions import ConfigError
 
     try:
-        draft: PlanDraft = expand_plan(resolve_project_root(target.parent), target)
+        draft: PlanDraft = expand_plan(
+            resolve_project_root(target.parent),
+            target,
+            set_overrides=changes_payload(changes) or None,
+        )
     except ConfigError as exc:
         return [Diagnostic(path="", code="sites_case", severity="error", detail=str(exc))]
     keys = dict.fromkeys(key for case in draft.cases for key in case.experimental_keys)
