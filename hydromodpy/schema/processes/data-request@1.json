@@ -4205,6 +4205,12 @@
                 "default": null,
                 "description": "Hydrologic soil group of the whole area, A (low runoff potential) to D (high). Write it, or hsg_path, never both: HydroModPy picks no soil group for a site.",
                 "title": "Hsg",
+                "value_docs": {
+                  "A": "Low runoff potential, sand or gravel that drains freely.",
+                  "B": "Moderately low runoff potential, loam of moderate infiltration.",
+                  "C": "Moderately high runoff potential, fine soil of slow infiltration.",
+                  "D": "High runoff potential, clay or a shallow soil on rock."
+                },
                 "x-hmp-profile": "user"
               },
               "hsg_path": {
@@ -4643,6 +4649,12 @@
                 "default": null,
                 "description": "Hydrologic soil group of the whole area, A (low runoff potential) to D (high). Write it, or hsg_path, never both: HydroModPy picks no soil group for a site.",
                 "title": "Hsg",
+                "value_docs": {
+                  "A": "Low runoff potential, sand or gravel that drains freely.",
+                  "B": "Moderately low runoff potential, loam of moderate infiltration.",
+                  "C": "Moderately high runoff potential, fine soil of slow infiltration.",
+                  "D": "High runoff potential, clay or a shallow soil on rock."
+                },
                 "x-hmp-profile": "user"
               },
               "hsg_path": {
@@ -8694,6 +8706,12 @@
                 "default": null,
                 "description": "Hydrologic soil group of the whole area, A (low runoff potential) to D (high). Write it, or hsg_path, never both: HydroModPy picks no soil group for a site.",
                 "title": "Hsg",
+                "value_docs": {
+                  "A": "Low runoff potential, sand or gravel that drains freely.",
+                  "B": "Moderately low runoff potential, loam of moderate infiltration.",
+                  "C": "Moderately high runoff potential, fine soil of slow infiltration.",
+                  "D": "High runoff potential, clay or a shallow soil on rock."
+                },
                 "x-hmp-profile": "user"
               },
               "hsg_path": {
@@ -8775,6 +8793,10 @@
                 "title": "Year",
                 "type": "integer",
                 "unit": "year",
+                "value_docs": {
+                  "2020": "Map of 2020, algorithm v100.",
+                  "2021": "Map of 2021, algorithm v200."
+                },
                 "x-hmp-profile": "user"
               }
             },
