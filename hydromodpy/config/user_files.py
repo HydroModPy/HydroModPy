@@ -86,6 +86,7 @@ def user_file_inputs(project_root: Path) -> tuple[list[LockedInput], list[tuple[
     refused while the other configurations are locked.
     """
     from hydromodpy.config.loading import load
+    from hydromodpy.data.ingest.custom_points import location_files_beside
     from hydromodpy.data.source.file import FileSource
     from hydromodpy.data.source.port import FetchRequest
 
@@ -95,7 +96,7 @@ def user_file_inputs(project_root: Path) -> tuple[list[LockedInput], list[tuple[
 
     def add(config: Any) -> None:
         for variable, path, licence in _declared_user_files(config):
-            source = FileSource(path=path)
+            source = FileSource(path=path, beside=location_files_beside(Path(path), variable))
             source.section = variable
             source.variables = (variable,)
             result = source.fetch(FetchRequest(out_dir=root, bounds=Bounds()))

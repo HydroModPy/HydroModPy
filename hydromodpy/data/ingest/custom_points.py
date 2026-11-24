@@ -2,7 +2,9 @@
 
 Replaces the per-variable custom.py boilerplate. Handles:
 - Location file discovery ({variable}_custom_LOC.*)
-- Chronicle file discovery ({variable}_custom_{id}_*.csv)
+- Chronicle file discovery ({variable}_custom_{id}_*.csv), or one chronicle the
+  config names, read with the location file of its folder. A station with two
+  chronicles in a folder is refused, since nothing tells which one to read.
 - Unit resolution (strict or fallback)
 - Constant expansion over project period
 - Optional value clamping (intermittency)
@@ -11,6 +13,8 @@ Replaces the per-variable custom.py boilerplate. Handles:
 
 from __future__ import annotations
 
+import re
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
@@ -26,6 +30,7 @@ from hydromodpy.data.common.files import (
     safe_file_token,
 )
 from hydromodpy.data.common.units import convert_array
+from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
 logger = get_logger(__name__)
@@ -35,10 +40,18 @@ _VAR_FILE_PREFIX = {
     "water_quality": "waterquality",
 }
 
+_CHRONICLE_TAIL = re.compile(r"(?:_(?:\d{8}_\d{8}_)?[A-Za-z0-9]+)?\.csv")
+"""What may follow the station id in a chronicle name.
+
+Nothing, a frequency (``_D``), or two dates and a frequency
+(``_20000101_20021231_M``). ``NANCON_REA_19900101_20201231_D.csv`` is thus no
+chronicle of station ``NANCON``.
+"""
+
 
 def load_file_points(
     *,
-    data_dir: Path,
+    path: Path,
     variable_name: str,
     internal_unit: str,
     project_period: tuple[datetime, datetime] | None = None,
@@ -57,12 +70,14 @@ def load_file_points(
     expand_constants: bool = True,
     source_unit_override: str | None = None,
 ) -> list[PointRecord]:
-    """Load point records from a CSV directory.
+    """Load point records from a folder of chronicle CSVs, or from one chronicle CSV.
 
     Parameters
     ----------
-    data_dir : Path
-        Directory containing LOC file and chronicle CSVs.
+    path : Path
+        Folder holding the location file and the chronicle CSVs, or one
+        chronicle CSV. A chronicle is read with the location file of its
+        folder, for the one station the source reads.
     variable_name : str
         Variable name for file discovery (e.g. "hydrometry").
     internal_unit : str
@@ -83,8 +98,16 @@ def load_file_points(
         Unit of the values for a station whose LOC row has none. A LOC unit
         that differs from it is refused, not chosen between.
     """
-    if not data_dir.is_dir():
-        raise FileNotFoundError(f"Custom data directory not found: {data_dir}")
+    path = Path(path)
+    named_file = path.is_file()
+    if named_file and path.suffix.lower() != ".csv":
+        raise DataSourceError(
+            f"{variable_name}: {path.name} is no chronicle. A station source reads a "
+            "folder of chronicles or one .csv chronicle."
+        )
+    if not named_file and not path.is_dir():
+        raise FileNotFoundError(f"Custom data path not found: {path}")
+    data_dir = path.parent if named_file else path
 
     loc_file = _find_location_file(data_dir, variable_name)
     locations = read_locations(
@@ -95,6 +118,7 @@ def load_file_points(
         col_crs=col_crs,
         default_crs=default_crs,
     )
+    known_ids = [loc.id for loc in locations]
 
     if station_ids:
         requested = set(station_ids)
@@ -110,6 +134,8 @@ def load_file_points(
                 f"{loc_file.name}. Known ids: {shown or '(none)'}."
             )
         locations = [loc for loc in locations if loc.id in requested]
+    if named_file:
+        locations = [_station_of_file(path, locations, variable_name)]
 
     logger.debug("Custom: %d stations from %s", len(locations), loc_file.name)
     location_files = _location_parts(loc_file)
@@ -118,7 +144,9 @@ def load_file_points(
     records: list[PointRecord] = []
 
     for loc in locations:
-        chronicle_path = _find_chronicle_file(data_dir, variable_name, loc.id)
+        chronicle_path = (
+            path if named_file else _find_chronicle_file(data_dir, variable_name, loc.id, known_ids)
+        )
         if chronicle_path is None:
             logger.warning("No chronicle for station %s", loc.id)
             continue
@@ -219,9 +247,9 @@ def load_file_multiformat(
     Returns list[PointRecord] for CSV, list[FieldRecord] for .nc/.tif.
     """
     path = Path(path)
-    if path.is_dir():
+    if path.is_dir() or path.suffix.lower() == ".csv":
         return load_file_points(
-            data_dir=path,
+            path=path,
             variable_name=variable_name,
             internal_unit=internal_unit,
             project_period=project_period,
@@ -260,7 +288,8 @@ def load_file_multiformat(
         )
     else:
         raise ValueError(
-            f"Unsupported custom format: {path.suffix}. Use a directory (CSV), .nc, or .tif."
+            f"Unsupported custom format: {path.suffix}. Use a folder of chronicles, one "
+            ".csv chronicle, a .nc or a .tif."
         )
 
 
@@ -317,22 +346,93 @@ def _find_location_file(data_dir: Path, variable_name: str) -> Path:
     )
 
 
+def location_files_beside(chronicle: Path, variable_name: str) -> tuple[Path, ...]:
+    """Return the location file a named chronicle is read with, and its parts.
+
+    Empty for a path that is no .csv file, or whose folder holds no location
+    file of the variable.
+    """
+    chronicle = Path(chronicle)
+    if not chronicle.is_file() or chronicle.suffix.lower() != ".csv":
+        return ()
+    try:
+        loc_file = _find_location_file(chronicle.parent, variable_name)
+    except FileNotFoundError:
+        return ()
+    return _location_parts(loc_file)
+
+
+def _station_of_file(
+    chronicle: Path, locations: list[StationLocation], variable_name: str
+) -> StationLocation:
+    """Return the one station a named chronicle belongs to."""
+    if len(locations) != 1:
+        ids = ", ".join(loc.id for loc in locations[:10]) or "none"
+        raise DataSourceError(
+            f"{variable_name}: {chronicle.name} is the chronicle of one station, and the "
+            f"source reads {len(locations)} ({ids}). Name its station in station_ids, or "
+            "in [site] gauge."
+        )
+    (loc,) = locations
+    parsed = parse_chronicle_filename(chronicle.name)
+    if parsed is not None and parsed["id"] not in {loc.id, safe_file_token(loc.id)}:
+        raise DataSourceError(
+            f"{variable_name}: {chronicle.name} is named for station {parsed['id']}, and "
+            f"the source reads station {loc.id}. Point the path at the chronicle of "
+            f"{loc.id}, or set station_ids to {parsed['id']}."
+        )
+    return loc
+
+
+def _chronicle_heads(variable_name: str, station_id: str) -> list[str]:
+    """Return the name starts a chronicle of the station may have."""
+    tokens = dict.fromkeys((safe_file_token(station_id), station_id))
+    return [
+        f"{prefix}_{kind}_{token}"
+        for prefix in _file_prefixes(variable_name)
+        for kind in ("file", "custom")
+        for token in tokens
+    ]
+
+
+def _is_chronicle_of(name: str, heads: Sequence[str]) -> bool:
+    return any(
+        name.startswith(head) and _CHRONICLE_TAIL.fullmatch(name[len(head) :]) is not None
+        for head in heads
+    )
+
+
 def _find_chronicle_file(
     data_dir: Path,
     variable_name: str,
     station_id: str,
+    known_ids: Sequence[str] = (),
 ) -> Path | None:
-    safe_id = safe_file_token(station_id)
-    for prefix in _file_prefixes(variable_name):
-        for kind in ("file", "custom"):
-            for pattern in (
-                f"{prefix}_{kind}_{safe_id}_*.csv",
-                f"{prefix}_{kind}_{station_id}_*.csv",
-            ):
-                matches = sorted(data_dir.glob(pattern))
-                if matches:
-                    return matches[0]
-            exact = data_dir / f"{prefix}_{kind}_{safe_id}.csv"
-            if exact.exists():
-                return exact
-    return None
+    """Return the one chronicle of a station in a folder, None when it has none.
+
+    A file that also reads as the chronicle of a longer id of *known_ids*
+    (``NANCON_REA`` beside ``NANCON``) belongs to that station. Two chronicles
+    for one station are refused rather than picked by name order.
+    """
+    heads = _chronicle_heads(variable_name, station_id)
+    longer = [
+        _chronicle_heads(variable_name, other)
+        for other in known_ids
+        if other != station_id
+        and safe_file_token(other).startswith(f"{safe_file_token(station_id)}_")
+    ]
+    found = sorted(
+        candidate
+        for candidate in data_dir.glob("*.csv")
+        if _is_chronicle_of(candidate.name, heads)
+        and not any(_is_chronicle_of(candidate.name, other) for other in longer)
+    )
+    if len(found) > 1:
+        names = ", ".join(candidate.name for candidate in found)
+        raise DataSourceError(
+            f"{variable_name}: station {station_id} has {len(found)} chronicles in "
+            f"{data_dir}: {names}. Nothing tells which one to read. Point the path of "
+            f'the source at the one to read, as path = "workspace:{found[0].name}" in '
+            "a workspace."
+        )
+    return found[0] if found else None

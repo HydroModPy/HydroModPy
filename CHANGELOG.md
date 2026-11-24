@@ -26,9 +26,11 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp.index(ws).score(...)` and `.score_network(...)` score every project of a workspace. The run-set figure `parameter_space` draws two parameters on log axes, coloured by a score. `[[sites.summary.window]]` makes `hmp campaign collect` write `summary/scores.parquet`.
 - A calibration phase on a fixed plan (`lhs`, `grid`) reports the correlation and the axis ratio of its best fifth of trials, which shows a ridge between two parameters.
 - The how-to page "Plan and score experiments" walks through these entry points.
+- A station source of `source = "file"` can name one chronicle CSV, `path = "workspace:recharge_file_NANCON_20000101_20021231_M.csv"`. It is read with the location file of its folder for the one station of `station_ids` or of `[site] gauge`, and that location file is pinned with it by `hmp data lock` and checked on a frozen replay. `hmp publish --package` and the example catalog ship the row of its station.
 
 ### Fixed
 
+- A folder that holds two chronicles of one station, such as `recharge_file_NANCON_..._M.csv` and `..._D.csv`, now stops the run and lists them. The loader used to read the first name in alphabetical order without a word. A chronicle of `NANCON_REA` is no longer taken for one of `NANCON`: after the id, a name holds nothing, a step, or two dates and a step.
 - A network calibration whose best trial matches the map exactly, so that `D_so = D_os = 0`, now seals that trial. The parts of the cost the trial could not define, such as `D_so_over_D_os` or `catchment_mismatch` on a domain with no delineated catchment, are written `null` in `checks.calibrated_by.components`, where the seal refused the run before.
 
 ## [v2.0.1] - 2026-11-24

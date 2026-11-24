@@ -55,7 +55,7 @@ class OceanicSourceConfig(
         InputFile(role="oceanic", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        description="Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
 

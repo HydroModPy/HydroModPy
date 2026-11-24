@@ -226,10 +226,13 @@ def _declared_path(raw: str, variable: str, data_root: Path, config: Path) -> Pa
 
 
 def _station_rows(document: dict, data_root: Path, config: Path) -> list[PayloadStation]:
-    """Return the registry row of every station a folder source names.
+    """Return the registry row of every station a station source names.
 
     A station file carries values only: its coordinates, CRS and unit live in
     ``<variable>_file_LOC.csv`` of its folder, and a load without that row fails.
+    A source that names one chronicle CSV is read with the registry of the
+    chronicle's folder, so its station row ships too. A named CSV in a folder
+    without a registry is no station chronicle and brings no row.
     """
     rows: list[PayloadStation] = []
     data_section = document.get("data")
@@ -243,19 +246,32 @@ def _station_rows(document: dict, data_root: Path, config: Path) -> list[Payload
                 continue
             if not source.get("path"):
                 continue
-            folder = _declared_path(str(source["path"]), variable, data_root, config)
-            if not folder.is_dir():
+            target = _declared_path(str(source["path"]), variable, data_root, config)
+            named = target.is_file() and target.suffix.lower() == ".csv"
+            if not named and not target.is_dir():
                 continue
+            folder = target.parent if named else target
             registry = folder / f"{variable}_file_LOC.csv"
             if not registry.is_file():
                 registry = folder / f"{variable}_custom_LOC.csv"
             if not registry.is_file():
+                if named:
+                    continue
                 raise ConfigError(
                     f"{config.name} reads {variable} stations, and {registry} does not exist."
                 )
             with registry.open(newline="", encoding="utf-8") as handle:
                 known = {row["id"]: row for row in csv.DictReader(handle)}
-            for station in _stations_of(source, document):
+            stations = _stations_of(source, document)
+            if named and not stations and len(known) == 1:
+                stations = list(known)
+            if named and len(stations) != 1:
+                raise ConfigError(
+                    f"{config.name} names the chronicle {target.name}, which belongs to one "
+                    f"station, and the source names {len(stations)}. Set station_ids, or "
+                    "[site] gauge, to the station of the file."
+                )
+            for station in stations:
                 row = known.get(str(station))
                 if row is None:
                     raise ConfigError(

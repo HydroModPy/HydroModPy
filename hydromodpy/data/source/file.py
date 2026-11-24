@@ -14,6 +14,7 @@ lockfile reads any file.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -56,9 +57,13 @@ class FileSource:
         *,
         path: str | Path | None = None,
         locked: LockedInputs | None = None,
+        beside: Sequence[str | Path] = (),
         **kwargs: object,
     ) -> None:
         self.path = Path(path) if path is not None else None
+        # Files read together with a named file, such as the location file of a
+        # station chronicle. They are listed and checked as inputs too.
+        self.beside = tuple(Path(f) for f in beside)
         self.locked = locked
         self.variables = (self.section,) if self.section else ("file",)
         self.hosts = ()
@@ -84,7 +89,9 @@ class FileSource:
 
         records: tuple[FileRecord, ...]
         if self.path.is_file():
-            records = (FileRecord.of(self.path, state=None, origin="file"),)
+            records = tuple(
+                FileRecord.of(f, state=None, origin="file") for f in (self.path, *self.beside)
+            )
         elif self.path.is_dir():
             files = sorted(
                 f for f in self.path.iterdir() if f.is_file() and not f.name.startswith(".")

@@ -6342,7 +6342,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.",
+          "description": "Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -14299,7 +14299,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "description": "Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -14793,7 +14793,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs.",
+          "description": "Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -15318,7 +15318,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs.",
+          "description": "Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -15835,7 +15835,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs.",
+          "description": "Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -16103,7 +16103,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs.",
+          "description": "Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -16371,7 +16371,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs.",
+          "description": "Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -16763,7 +16763,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs.",
+          "description": "Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -19855,7 +19855,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "description": "Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -21508,7 +21508,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs.",
+          "description": "Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -21953,7 +21953,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.",
+          "description": "Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -22521,7 +22521,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "description": "Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -23236,7 +23236,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "description": "Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -24223,7 +24223,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "description": "Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -26036,7 +26036,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "description": "Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -27344,7 +27344,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "description": "Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -29098,7 +29098,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs.",
+          "description": "Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
@@ -29454,7 +29454,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "description": "Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
           "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"

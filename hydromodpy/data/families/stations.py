@@ -127,7 +127,7 @@ class StationVariable(VariableBase):
         from hydromodpy.data.ingest.custom_points import load_file_points
 
         records = load_file_points(
-            data_dir=Path(source_cfg.path),
+            path=Path(source_cfg.path),
             variable_name=self.VARIABLE_NAME,
             internal_unit=self.INTERNAL_UNIT,
             project_period=self.project_period,

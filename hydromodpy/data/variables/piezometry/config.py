@@ -55,7 +55,7 @@ class PiezometrySourceConfig(
         InputFile(role="piezometry", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs.",
+        description="Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
 

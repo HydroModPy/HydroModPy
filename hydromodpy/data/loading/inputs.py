@@ -52,6 +52,7 @@ def resolve_inputs(
     reach the caller. *locked* is the lockfile of a frozen run: a file or url source
     the lockfile does not pin is refused, and ``None`` is a run that is not frozen.
     """
+    from hydromodpy.data.ingest.custom_points import location_files_beside
     from hydromodpy.data.variables.dem.resolver import resolve_dem
 
     effective_bounds = bounds if bounds is not None else Bounds()
@@ -81,7 +82,11 @@ def resolve_inputs(
                     if path_val:
                         p = Path(path_val)
                         resolved_path = (project_root / p).resolve() if not p.is_absolute() else p
-                        fs = FileSource(path=resolved_path, locked=locked)
+                        fs = FileSource(
+                            path=resolved_path,
+                            locked=locked,
+                            beside=location_files_beside(resolved_path, var_name),
+                        )
                         fs.section = var_name
                         fs.variables = (var_name,)
                         req = FetchRequest(out_dir=out_dir, bounds=effective_bounds)

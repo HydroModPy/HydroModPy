@@ -392,7 +392,7 @@ def test_frozen_replay_of_a_station_folder(
     (folder / "piezometry_custom_LOC.csv").write_text("id,x,y\nW1,305.0,305.0\n")
     (folder / "piezometry_custom_W1_D.csv").write_text("datetime,value\n2003-01-01,2.0\n")
     (record,) = load_file_points(
-        data_dir=folder, variable_name="piezometry", internal_unit="m", default_unit="m"
+        path=folder, variable_name="piezometry", internal_unit="m", default_unit="m"
     )
     named = [record.file_path, *record.location_files]
     assert [path.name for path in named] == [

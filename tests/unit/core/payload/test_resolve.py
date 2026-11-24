@@ -195,6 +195,43 @@ def test_a_station_folder_of_the_workspace_ships_its_file_and_its_row(tmp_path: 
     ]
 
 
+@pytest.mark.parametrize(
+    ("registry", "extra", "shipped", "refusal"),
+    [
+        ("id,x,y\nA1,1,2\nB2,3,4\n", 'station_ids = ["A1"]', ["A1"], None),
+        ("id,x,y\nA1,1,2\n", "", ["A1"], None),
+        ("id,x,y\nA1,1,2\nB2,3,4\n", "", [], r"belongs to one station, and the source names 0"),
+        (None, "", [], None),
+    ],
+)
+def test_a_named_chronicle_ships_the_row_of_its_station(
+    tmp_path: Path, registry: str | None, extra: str, shipped: list[str], refusal: str | None
+) -> None:
+    """A named chronicle is read with the registry of its folder, so that row ships too."""
+    data = tmp_path / "data"
+    folder = data / "discharge"
+    folder.mkdir(parents=True)
+    chronicle = folder / "discharge_file_A1_20000101_20001231_M.csv"
+    chronicle.write_text("", encoding="utf-8")
+    (folder / "discharge_file_A1_20000101_20001231_D.csv").write_text("", encoding="utf-8")
+    if registry is not None:
+        (folder / "discharge_file_LOC.csv").write_text(registry, encoding="utf-8")
+    project = tmp_path / "project"
+    _config(
+        project,
+        SOURCE.format(variable="discharge", path=f"workspace:{chronicle.name}", extra=extra),
+    )
+
+    if refusal is not None:
+        with pytest.raises(ConfigError, match=refusal):
+            project_data(project, data, root=ROOT_CONFIG)
+        return
+    files, stations = project_data(project, data, root=ROOT_CONFIG)
+
+    assert files == [chronicle]
+    assert [row.id for row in stations] == shipped
+
+
 def test_a_file_named_outside_data_ships_with_its_shapefile_parts(tmp_path: Path) -> None:
     """A catchment polygon and a forcing file are named outside [data], and still ship."""
     data_root = tmp_path / "data"

@@ -35,7 +35,7 @@ class LakeLevelsSourceConfig(LakeChronicleSourceConfig):
         InputFile(role="lake_levels", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs.",
+        description="Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
 
@@ -92,7 +92,7 @@ class LakeInflowSourceConfig(LakeChronicleSourceConfig):
         InputFile(role="lake_inflow", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs.",
+        description="Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
 
@@ -148,7 +148,7 @@ class LakeOutflowSourceConfig(LakeChronicleSourceConfig):
         InputFile(role="lake_outflow", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs.",
+        description="Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
 
@@ -204,7 +204,7 @@ class LakeWithdrawalSourceConfig(LakeChronicleSourceConfig):
         InputFile(role="lake_withdrawal", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs.",
+        description="Folder of chronicle CSVs and their location file, or one chronicle CSV read with the location file of its folder.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
 

@@ -40,7 +40,7 @@ class WindSourceConfig(UrlSourceFieldsMixin, Sim2GridSourceConfig):
         InputFile(role="wind", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        description="Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
 
@@ -85,7 +85,7 @@ class HumiditySourceConfig(UrlSourceFieldsMixin, Sim2GridSourceConfig):
         InputFile(role="humidity", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        description="Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
 
@@ -131,7 +131,7 @@ class RunoffSourceConfig(UrlSourceFieldsMixin, Sim2GridSourceConfig):
         InputFile(role="runoff", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        description="Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
 
@@ -177,7 +177,7 @@ class SoilMoistureSourceConfig(UrlSourceFieldsMixin, Sim2GridSourceConfig):
         InputFile(role="soil_moisture", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        description="Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
 
@@ -223,7 +223,7 @@ class TemperatureSourceConfig(UrlSourceFieldsMixin, Sim2GridSourceConfig):
         InputFile(role="temperature", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        description="Folder of chronicle CSVs and their location file, one chronicle CSV read with the location file of its folder, or a single .nc/.tif file.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
 

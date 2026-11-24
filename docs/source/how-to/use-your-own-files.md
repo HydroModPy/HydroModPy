@@ -44,6 +44,22 @@ runoff, a source without `station_ids` reads the gauge of `[site]`. The files a
 provider cached in the same folder carry the name of the provider, such as
 `hydrometry_hubeau_...`, and this source does not read them.
 
+When a folder holds two chronicles of one station, a monthly and a daily series
+for example, the run stops and lists them. I then name the one to read, and
+HydroModPy reads it with the location file of its folder.
+
+```toml
+[[data.recharge.sources]]
+source = "file"
+path = "workspace:recharge_file_NANCON_20000101_20021231_M.csv"
+```
+
+A named chronicle belongs to one station, the one of `station_ids` or of the
+gauge of `[site]`. A file whose name says another station is refused. After the
+id, a chronicle name holds nothing, a step such as `_D`, or the two dates and the
+step, so `hydrometry_file_NANCON_REA_...` is a chronicle of station
+`NANCON_REA` and never of `NANCON`.
+
 The name does not depend on where the project sits in the workspace, and it
 follows `[workspace] data_dir` when the data folder lives elsewhere, on a shared
 disk for example. A run writes the same form in its frozen configuration and in
