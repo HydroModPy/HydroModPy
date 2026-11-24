@@ -93,7 +93,8 @@ jobs:
   validation:
     name: Nightly / validation no PETSc on ${{ matrix.target_branch }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # The suite reached 74 % after 30 minutes on 2026-11-22.
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:

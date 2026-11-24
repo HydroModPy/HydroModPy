@@ -17,13 +17,21 @@ updates:
       python-dependencies:
         patterns:
           - "*"
-    # A major version of these two breaks the tree and is taken by hand.
+    # A major version of these five breaks the tree and is taken by hand.
     # whitebox-workflows 2 dropped the `compress` argument of write_raster,
     # pandas 3 returns NaN where the frozen runs expect None.
+    # optuna 5 turns on constant_liar in TPE, plotly 7 embeds one slider
+    # frame only, duckdb 2 refuses a second attach of the index file.
     ignore:
       - dependency-name: "whitebox-workflows"
         update-types: ["version-update:semver-major"]
       - dependency-name: "pandas"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "optuna"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "plotly"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "duckdb"
         update-types: ["version-update:semver-major"]
     labels:
       - dependencies
