@@ -27,8 +27,8 @@ sha256 = "20d7aa6d0f968e1994c2c9e29ea81f0bc998325ec09e8246e2dca792529a3869"
 [[example.file]]
 repo_path = "examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/project.toml"
 dest = "projects/00_quick_test_of_wide_hydromodpy_capabilities/project.toml"
-size = 6223
-sha256 = "eba6e30e12f49ba2e493ed834028094aba7c476eda76d83577ef414b347b0847"
+size = 6202
+sha256 = "4db5f8d884c44e0e086207092ae83316bdfee25f74e1834ddd1fa26ae14850c8"
 
 [[example.file]]
 repo_path = "examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/py1_run_and_plot.py"
