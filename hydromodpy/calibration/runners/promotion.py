@@ -29,6 +29,7 @@ moved. ``hmp campaign prune <case> --keep best`` trashes the other kept trials.
 
 from __future__ import annotations
 
+import math
 import uuid
 from collections import Counter
 from collections.abc import Mapping, Sequence
@@ -428,6 +429,17 @@ def promotion_facts(row: Mapping[str, Any]) -> PromotionFacts:
     )
 
 
+def _defined(value: Any) -> float | None:
+    """Return *value* as a float, or None when it is not finite.
+
+    A seal is strict JSON. A part of the cost a trial could not define, such as
+    ``D_so / D_os`` when both distances are zero, is written null instead of
+    refusing the seal of the best trial.
+    """
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
 def calibrated_by_of(
     descriptor: SessionDescriptor,
     phase: PhaseDescriptor | None,
@@ -461,7 +473,7 @@ def calibrated_by_of(
         validation_cost=row["components"].get(VALIDATION_COST),
         rule=row.get("rule"),
         components={
-            str(key): float(value)
+            str(key): _defined(value)
             for key, value in row["components"].items()
             if key != VALIDATION_COST
         },

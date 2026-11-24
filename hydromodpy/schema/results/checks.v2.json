@@ -6,9 +6,16 @@
       "properties": {
         "components": {
           "additionalProperties": {
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
-          "description": "Parts of the cost of the case at that trial, by name, without the validation cost, which has its own field",
+          "description": "Parts of the cost of the case at that trial, by name, without the validation cost, which has its own field; null for a part the trial could not define, such as the ratio of two distances that are both zero",
           "title": "Components",
           "type": "object",
           "x-hmp-profile": "user"

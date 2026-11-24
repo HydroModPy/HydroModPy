@@ -173,8 +173,9 @@ def _calibration_paragraph(seal: RunSeal, lang: Lang) -> str:
                 sentences.append(_say("calib_cost_unnamed", lang, cost=_number(by.cost)))
         if by.validation_cost is not None:
             sentences.append(_say("calib_validation_cost", lang, cost=_number(by.validation_cost)))
-        if by.components:
-            parts = ", ".join(f"{name} {_number(by.components[name])}" for name in by.components)
+        defined = {name: value for name, value in by.components.items() if value is not None}
+        if defined:
+            parts = ", ".join(f"{name} {_number(value)}" for name, value in defined.items())
             sentences.append(_say("calib_components", lang, components=parts))
         if by.rule:
             sentences.append(_say("calib_rule", lang, rule=by.rule))

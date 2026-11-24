@@ -252,6 +252,13 @@ def test_sparse_search(
         assert absent not in calibration
 
 
+def test_undefined_part_seals_and_reads(tmp_path: Path) -> None:
+    by = _by(components={"network.D_so_over_D_os": None, "network.D_so": 0.0})
+    calibration = _paragraphs(tmp_path, "en", checks=make_checks(calibrated_by=by))[2]
+    assert "network.D_so 0" in calibration
+    assert "D_so_over_D_os" not in calibration
+
+
 def test_bounds_and_period_roles(tmp_path: Path) -> None:
     windows = {
         "a": CALIBRATION,

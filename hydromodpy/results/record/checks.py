@@ -139,10 +139,11 @@ class CalibratedBy(HydroModelBase):
         description="Version of the metric rule the cost of the case was read under; "
         "null when not recorded",
     )
-    components: dict[str, float] = Field(
+    components: dict[str, float | None] = Field(
         default_factory=dict,
         description="Parts of the cost of the case at that trial, by name, without the "
-        "validation cost, which has its own field",
+        "validation cost, which has its own field; null for a part the trial could not "
+        "define, such as the ratio of two distances that are both zero",
     )
 
 

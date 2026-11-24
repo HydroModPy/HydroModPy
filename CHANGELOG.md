@@ -27,6 +27,10 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A calibration phase on a fixed plan (`lhs`, `grid`) reports the correlation and the axis ratio of its best fifth of trials, which shows a ridge between two parameters.
 - The how-to page "Plan and score experiments" walks through these entry points.
 
+### Fixed
+
+- A network calibration whose best trial matches the map exactly, so that `D_so = D_os = 0`, now seals that trial. The parts of the cost the trial could not define, such as `D_so_over_D_os` or `catchment_mismatch` on a domain with no delineated catchment, are written `null` in `checks.calibrated_by.components`, where the seal refused the run before.
+
 ## [v2.0.1] - 2026-11-24
 
 ### Added
