@@ -18,6 +18,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
+## [v2.0.1] - 2026-11-25
+
 ### Added
 
 - `Run.score` and `RunSet.score` score stored runs after the fact, on any window, any metric of the table but the two network distances, and an optional months mask: `runs.score(windows={"y2016": ("2016-01-01", "2016-12-31")}, metrics=["nse_log"], months=[4, 5, 6, 7, 8, 9, 10])`. The pairing is the one of the seal, so `run.score()` with no argument gives back the sealed metrics. `RunSet.timeseries` stacks the series of every run in one table.
@@ -27,16 +29,6 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A calibration phase on a fixed plan (`lhs`, `grid`) reports the correlation and the axis ratio of its best fifth of trials, which shows a ridge between two parameters.
 - The how-to page "Plan and score experiments" walks through these entry points.
 - A station source of `source = "file"` can name one chronicle CSV, `path = "workspace:recharge_file_NANCON_20000101_20021231_M.csv"`. It is read with the location file of its folder for the one station of `station_ids` or of `[site] gauge`, and that location file is pinned with it by `hmp data lock` and checked on a frozen replay. `hmp publish --package` and the example catalog ship the row of its station.
-
-### Fixed
-
-- A folder that holds two chronicles of one station, such as `recharge_file_NANCON_..._M.csv` and `..._D.csv`, now stops the run and lists them. The loader used to read the first name in alphabetical order without a word. A chronicle of `NANCON_REA` is no longer taken for one of `NANCON`: after the id, a name holds nothing, a step, or two dates and a step.
-- A network calibration whose best trial matches the map exactly, so that `D_so = D_os = 0`, now seals that trial. The parts of the cost the trial could not define, such as `D_so_over_D_os` or `catchment_mismatch` on a domain with no delineated catchment, are written `null` in `checks.calibrated_by.components`, where the seal refused the run before.
-
-## [v2.0.1] - 2026-11-24
-
-### Added
-
 - `hmp check` takes `--overlay` and `--set`, merged as `hmp run` merges them, so a model and the site file it runs with are checked together: `hmp check project.toml --overlay sites/canut.toml`. `hydromodpy.check` takes them as `overlays` and `set`. A `[sites]` project refuses an overlay and names the recipe or the site file to write it in.
 - `Run.hydrographic_network("mesh_constraint")` returns the rivers the mesh carries, one line per chain of river cells through their solver centers. `hmp compare` scores the flowing cells against it beside the mapped networks.
 - The `network` table of `hmp compare` now keeps how each row was cut: the field, the active rule, its thresholds, the buffer, the distance rule and, for the mesh row, the contributing area or cell count that traced its streams.
@@ -66,6 +58,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Fixed
 
+- A folder that holds two chronicles of one station, such as `recharge_file_NANCON_..._M.csv` and `..._D.csv`, now stops the run and lists them. The loader used to read the first name in alphabetical order without a word. A chronicle of `NANCON_REA` is no longer taken for one of `NANCON`: after the id, a name holds nothing, a step, or two dates and a step.
+- A network calibration whose best trial matches the map exactly, so that `D_so = D_os = 0`, now seals that trial. The parts of the cost the trial could not define, such as `D_so_over_D_os` or `catchment_mismatch` on a domain with no delineated catchment, are written `null` in `checks.calibrated_by.components`, where the seal refused the run before.
 - `hmp check` now names, before the solve, the particle figures (`particle_tracks`, `residence_time_distribution`) a run without particle tracking will skip, and each map whose `pathlines` overlay will be drawn empty. Only the `pathlines` export was named so far, and a `[transport.modflow6_prt]` table with no transport entry in `[[simulation.process]]` went unnoticed until the end of the run.
 - A `source = "url"` file whose address has no suffix, such as a WCS `GetCoverage` request, now takes the suffix the server names in `Content-Disposition` or `Content-Type`. It was cached as `.bin`, and Whitebox refused to read it as a DEM. The CRS stamp on a Whitebox output is skipped when the file already holds that CRS: rewriting it made Whitebox fail to read back some GeoTIFFs it wrote, such as a DEM served by GeoServer, on the first run of a project.
 - The relief shade of a map now stops at the active cells. On a catchment with a concave outline it used to leave grey streaks across the bays, outside the mesh, and it shaded the inactive cells of the border.
