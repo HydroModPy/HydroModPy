@@ -351,11 +351,18 @@ def attach_a_linearized_width(
     return replace(report, parameter_uncertainty=widths)
 
 
-def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: Any) -> dict:
+def _engine_kwargs(
+    cfg: CalibrationConfig,
+    space: ParameterSpace,
+    *,
+    start_at: Any,
+    interval_width: IntervalWidth,
+) -> dict:
     """Return everything the engine is constructed with beyond the space and the seed.
 
     A root search is also told how many roots its network outputs score, so
-    its budget counts both when an output is scored on two bounds.
+    its budget counts both when an output is scored on two bounds. An engine
+    that narrows its search on the margin of the phase is handed that margin.
     """
     kwargs = stopping_kwargs(
         cfg.method, space, precision=cfg.precision, declared=cfg.method_options
@@ -366,6 +373,8 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
         kwargs["start_at"] = start_at
     if traits.takes_width:
         kwargs["width"] = cfg.parallel
+    if traits.takes_interval_width:
+        kwargs["interval_width"] = interval_width
     if cfg.method == BisectionAdapter.name:
         declared = cfg.outputs or {}
         kwargs["roots"] = roots_scored(
@@ -377,8 +386,9 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
     return kwargs
 
 
-_OPTIMIZER_ARGUMENTS_APART = frozenset({"self", "space", "seed", "start_at"})
-"""Constructor arguments of a method that are no option: the space, the seed and the start."""
+_OPTIMIZER_ARGUMENTS_APART = frozenset({"self", "space", "seed", "start_at", "interval_width"})
+"""Constructor arguments of a method that are no option: the space, the seed, the start and the
+margin, which the session records as ``interval_width``."""
 
 
 def resolved_optimizer_options(method: str, given: Mapping[str, Any]) -> dict[str, Any]:
@@ -720,7 +730,12 @@ def run_calibration_core(
     if cfg.parallel > 1 and trial_ctx is not None:
         evaluator = pool_for(type(evaluator), evaluator_options, width=cfg.parallel)
 
-    engine_kwargs = _engine_kwargs(cfg, space, start_at=start_at)
+    engine_kwargs = _engine_kwargs(
+        cfg,
+        space,
+        start_at=start_at,
+        interval_width=interval_width if interval_width is not None else cfg.interval_width_for(),
+    )
     optimizer = build_optimizer(cfg.method, space, seed=cfg.seed, **engine_kwargs)
     persistence.record_optimizer(
         context.name,

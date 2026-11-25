@@ -22,6 +22,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 - `hmp run` on a `[sites]` project shows the launch while it runs. On a terminal it draws a bar over the cases with the time left, and one line per running case with the step it is on and, while MODFLOW solves, its stress periods. Without a terminal it prints one line per finished case with the counts and the time left. Each case writes its progress events to `jobs/<stamp>-local/progress/` while it runs.
 
+- `method = "lhs_zoom"` calibrates one parameter with Latin hypercubes in turn, `method_options = { levels = [24, 16] }`. Level 1 covers the bounds of the phase. Each next level covers the range of the trials whose cost stays within the margin of the phase of the best one, widened to the solved trial on each side and by at least one stratum, so a flat bottom such as `Sy` is found with its width. The budget is the sum of the levels (`max_trials = "auto"` counts it), a second parameter is refused by `hmp check`, and the report lists the box of each level under `zoom`. Write the margin as `cost_margin` in the phase.
+
 ### Changed
 
 - MODFLOW 6 runs with `FORT_BUFFERED=TRUE` in the environment of its process, so the Intel Fortran release binary buffers what it writes. On a Windows server a daily model of 28 545 cells went from 6.7 s to 0.38 s per simulated day alone, and from 11.5 s to 0.37 s eight at a time. The head and budget files are the same byte for byte. The observations of lakes and SFR reaches are now written in binary, `<model>.lak.obs.bin` and `<model>.sfr.obs.bin`, because the buffer garbles the CSV MODFLOW 6 writes. A model that still writes an observation CSV runs without the buffer, and a `FORT_BUFFERED` the user set is kept.
@@ -32,6 +34,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Fixed
 
+- The `cost_profile` interval of a calibrated value says it reaches a bound of its range when no solved trial lies beyond that end. This holds for a search drawn over the whole box (`lhs`, `lhs_zoom`, `random_search`, `scipy_de`). It said so only for a trial exactly on the bound, which such a design never has, so a band running to a bound was reported as closed. A local search keeps the old rule.
 - A `[sites]` project with one site accepts a site key written in the project file itself, such as the path of a station folder, so a plan on one catchment needs no `site_overrides/` file. With several sites the key is still refused, since every catchment would read the same value.
 
 ### Numbers

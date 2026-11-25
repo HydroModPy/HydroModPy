@@ -37,7 +37,11 @@ from hydromodpy.calibration.metrics import composite
 from hydromodpy.calibration.optim import engine as engine_mod
 from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
 from hydromodpy.calibration.optim.cache import ParamsHashCache, params_hash
-from hydromodpy.calibration.optim.cost_margin import IntervalWidth, ParameterInterval
+from hydromodpy.calibration.optim.cost_margin import (
+    IntervalWidth,
+    ParameterInterval,
+    cell_measured_by_the_criterion,
+)
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.persistence import DEFAULT_PHASE, CalibrationPersistence, PhaseContext
@@ -379,9 +383,21 @@ def test_failed_perturbed_run_gives_no_width(
 def test_width_reaches_parallel_engines(method, parallel, width) -> None:
     cfg = make_config(method=method, parallel=parallel)
 
-    kwargs = _engine_kwargs(cfg, space_from_config(cfg), start_at=None)
+    kwargs = _engine_kwargs(
+        cfg, space_from_config(cfg), start_at=None, interval_width=cfg.interval_width_for()
+    )
 
     assert kwargs.get("width") == width
+    assert "interval_width" not in kwargs
+
+
+def test_the_margin_of_the_phase_reaches_the_engine_that_reads_it() -> None:
+    cfg = make_config(method="lhs_zoom")
+    width = cfg.interval_width_for()
+
+    kwargs = _engine_kwargs(cfg, space_from_config(cfg), start_at=None, interval_width=width)
+
+    assert kwargs["interval_width"] is width
 
 
 @pytest.mark.parametrize(
@@ -2043,8 +2059,8 @@ def test_mesh_cell_first_finite() -> None:
     ]
     measured = search_record.width_read_off_the_trials(_width(None), results[3], results)
 
-    assert search_record._cell_measured_by_the_criterion(results[:3]) is None
-    assert search_record._cell_measured_by_the_criterion(results) == 30.0
+    assert cell_measured_by_the_criterion(results[:3]) is None
+    assert cell_measured_by_the_criterion(results) == 30.0
     assert measured.margin == 30.0
 
 

@@ -14,6 +14,7 @@ from hydromodpy.calibration.optim.adapters.bisection_adapter import (
 from hydromodpy.calibration.optim.cost_margin import (
     IntervalWidth,
     ParameterInterval,
+    cell_measured_by_the_criterion,
     margin_intervals,
 )
 from hydromodpy.calibration.optim.engine import CalibrationSession
@@ -24,7 +25,7 @@ from hydromodpy.calibration.report import (
     interval_best_is_on_a_bound,
     interval_is_degenerate,
 )
-from hydromodpy.calibration.runners.session_scope import root_search_record
+from hydromodpy.calibration.runners.session_scope import root_search_record, zoom_record
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scoring.stream_defaults import VALIDITY_PROVENANCE_BY_CODE
@@ -97,6 +98,8 @@ def margin_intervals_or_none(
             bounds=bounds,
             margin=float(width.margin),
             kind=width.kind,
+            # Every engine that serves a fixed plan draws over the whole box.
+            samples_the_box=bool(getattr(getattr(optimizer, "traits", None), "fixed_plan", False)),
         )
     except ValueError as exc:
         logger.warning(
@@ -107,27 +110,12 @@ def margin_intervals_or_none(
         return []
 
 
-def _cell_measured_by_the_criterion(results: Iterable[EvaluationResult | None]) -> float | None:
-    """Return the mesh cell the network criterion measured on a trial, or ``None``.
-
-    Every trial of one search scores the same mesh, so the first finite value
-    is the cell. ``None`` when no trial scored a network output.
-    """
-    for result in results:
-        if result is None:
-            continue
-        for key, value in (result.components or {}).items():
-            if str(key).endswith(".cell_spacing_m") and math.isfinite(float(value)):
-                return float(value)
-    return None
-
-
 def width_read_off_the_trials(
     width: IntervalWidth, best: EvaluationResult | None, history: Iterable[EvaluationResult]
 ) -> IntervalWidth:
     """Return ``width`` with its one mesh cell measured, and log the width read."""
     if width.margin is None:
-        cell = _cell_measured_by_the_criterion([best, *history])
+        cell = cell_measured_by_the_criterion([best, *history])
         if cell is not None:
             width = width.measured(cell)
     where = {
@@ -444,7 +432,7 @@ def _recharge_window(trial_ctx: Any) -> tuple[str, str] | None:
 
 
 def search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
-    """Return how the search stopped, and the root search's final bracket.
+    """Return how the search stopped, the root search's final bracket and the zoomed zones.
 
     ``search`` records why the engine stopped (``stop_state``), whether that
     is convergence, the rule, the declared budget and the extension granted
@@ -459,6 +447,9 @@ def search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
     BisectionAdapter.roots_record`): per bound its root ``k_star``, weight
     and final bracket, then ``delta_log10 = log10(K*_maximal / K*_minimal)``
     and the combined ``value``, the trial the search returns.
+
+    A zoomed Latin hypercube publishes ``zoom`` (:func:`~hydromodpy.calibration.runners.
+    session_scope.zoom_record`): per level its size, its box and the margin the box was read with.
     """
     extra: dict[str, Any] = {
         "search": {
@@ -472,6 +463,7 @@ def search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
     }
     root_search = root_search_record(session) or {}
     extra.update(root_search)
+    extra.update(zoom_record(session) or {})
     if "roots" in root_search:
         _log_the_two_roots(root_search["roots"])
     return extra

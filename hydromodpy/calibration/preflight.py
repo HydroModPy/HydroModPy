@@ -808,14 +808,15 @@ def _declared_precisions(
 def _check_the_budgets(calibration: Any) -> list[Diagnostic]:
     """Refuse a budget below the nominal count of its engine, announce one below its worst.
 
-    Three engines count their evaluations before the first solve. The root
+    Four engines count their evaluations before the first solve. The root
     search counts them from its bounds, sweep, precision and bracket expansions
     (:func:`~hydromodpy.calibration.optim.adapters.bisection_adapter.
     root_search_budget`), so a budget that cannot close the bracket even with
     the root inside the bounds is a configuration error, found here rather
     than after the budget is spent. The grid and the Latin hypercube count
-    their design, and a budget below it would cut the sweep short. ``"auto"``
-    is always enough. Every other engine cannot count, and nothing is checked.
+    their design, and the zoomed Latin hypercube the sum of its levels. A budget
+    below it would cut the sweep short. ``"auto"`` is always enough. Every other
+    engine cannot count, and nothing is checked.
     """
     from hydromodpy.calibration.optim.stopping import AUTO_BUDGET, short_budget
 
@@ -864,12 +865,17 @@ def _counted_budget(
     )
     from hydromodpy.calibration.optim.adapters.grid_adapter import GridAdapter, grid_budget
     from hydromodpy.calibration.optim.adapters.lhs_adapter import LhsAdapter, design_budget
+    from hydromodpy.calibration.optim.adapters.lhs_zoom_adapter import LhsZoomAdapter
+    from hydromodpy.calibration.optim.method_config import LhsZoomMethodConfig
 
     if method == GridAdapter.name:
         return grid_budget(len(names), kwargs.get("points_per_dim"))
     if method == LhsAdapter.name:
         n_samples = kwargs.get("n_samples")
         return design_budget(int(n_samples)) if n_samples is not None else None
+    if method == LhsZoomAdapter.name:
+        levels = kwargs.get("levels", LhsZoomMethodConfig.model_fields["levels"].default)
+        return design_budget(sum(int(n) for n in levels))
     if method != BisectionAdapter.name or len(names) != 1:
         return None
     decl = (calibration.parameters or {}).get(names[0])

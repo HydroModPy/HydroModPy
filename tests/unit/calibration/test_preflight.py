@@ -279,6 +279,23 @@ def test_preflight_refuses_budget_below_design(method: str, options: dict) -> No
     assert "max_trials = 4 is below the 9 evaluations" in findings[0].detail
 
 
+@pytest.mark.parametrize(
+    ("max_trials", "options", "count"),
+    [(39, {"levels": [24, 16]}, 40), (20, {"levels": [10, 6, 6]}, 22), (39, {}, 40)],
+    ids=["written_levels", "three_levels", "default_levels"],
+)
+def test_preflight_refuses_budget_below_the_levels_of_a_zoom(max_trials, options, count) -> None:
+    findings = _check_the_budgets(_config("lhs_zoom", max_trials, options))
+
+    assert [finding.severity for finding in findings] == ["error"]
+    assert f"max_trials = {max_trials} is below the {count} evaluations" in findings[0].detail
+
+
+@pytest.mark.parametrize("max_trials", [40, "auto"])
+def test_preflight_passes_budget_covering_the_levels_of_a_zoom(max_trials) -> None:
+    assert _check_the_budgets(_config("lhs_zoom", max_trials, {"levels": [24, 16]})) == []
+
+
 @pytest.mark.parametrize("max_trials", [9, "auto"])
 def test_preflight_passes_budget_covering_design(max_trials: int | str) -> None:
     assert _check_the_budgets(_config("lhs", max_trials, {"n_samples": 9})) == []

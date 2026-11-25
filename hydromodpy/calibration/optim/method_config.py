@@ -18,7 +18,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 # All method configs forbid unknown keys so typos and method/kwarg
 # mismatches raise at validation time instead of leaking into the adapter
@@ -89,6 +89,36 @@ class LhsMethodConfig(LhsOptions):
     """
 
     n_samples: int = Field(gt=0, description="Points drawn in the design. Required.")
+
+
+class LhsZoomMethodConfig(LhsOptions):
+    """Latin hypercubes in turn, each one in the zone the trials so far leave open.
+
+    Level 1 covers the bounds of the phase. Each next level covers the range of the
+    trials whose cost stays within the phase margin of the best one, widened to the solved
+    trial on each side and by at least one stratum of the level before. It moves one
+    parameter, whose cost curve it reads. Use it to find a flat bottom and its width with a
+    fixed budget.
+    """
+
+    levels: list[int] = Field(
+        default=[24, 16],
+        description="Points of each level, in order. Each level is a Latin hypercube. At "
+        "least two levels of at least two points. The budget is their sum. A multiple of "
+        "``parallel`` keeps the workers busy.",
+    )
+
+    @field_validator("levels")
+    @classmethod
+    def _levels_are_a_zoom(cls, levels: list[int]) -> list[int]:
+        if len(levels) < 2:
+            raise ValueError(
+                "a zoom needs at least two levels, so the second can be drawn in the zone of "
+                "the first. For one level write method = 'lhs' with n_samples"
+            )
+        if min(levels) < 2:
+            raise ValueError(f"each level needs at least two points, got {levels}")
+        return levels
 
 
 class ScipyDEMethodConfig(BaseModel):
@@ -508,6 +538,7 @@ __all__ = [
     "GridMethodConfig",
     "LhsMethodConfig",
     "LhsOptions",
+    "LhsZoomMethodConfig",
     "OptunaMethodConfig",
     "RandomSearchMethodConfig",
     "REFUSED_OPTIONS",

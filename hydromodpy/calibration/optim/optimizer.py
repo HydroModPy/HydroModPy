@@ -115,6 +115,7 @@ _BUILTIN_PATHS: dict[str, str] = {
     "gp_mapping": "hydromodpy.calibration.optim.adapters.gp_mapping_adapter:GPMappingOptimizer",
     "grid": "hydromodpy.calibration.optim.adapters.grid_adapter:GridAdapter",
     "lhs": "hydromodpy.calibration.optim.adapters.lhs_adapter:LhsAdapter",
+    "lhs_zoom": "hydromodpy.calibration.optim.adapters.lhs_zoom_adapter:LhsZoomAdapter",
     "optuna": "hydromodpy.calibration.optim.adapters.optuna_adapter:OptunaAdapter",
     "random_search": (
         "hydromodpy.calibration.optim.adapters.random_search_adapter:RandomSearchAdapter"
@@ -234,6 +235,13 @@ class EngineTraits:
 
     takes_width: bool = False
     """Whether the engine is built knowing the ``parallel`` of the search, as ``width``."""
+
+    takes_interval_width: bool = False
+    """Whether the engine is built knowing the margin of the phase, as ``interval_width``.
+
+    The margin is the :class:`~hydromodpy.calibration.optim.cost_margin.IntervalWidth` the
+    report reads its interval with, so an engine that narrows its search on it and the report
+    say the same thing at two moments."""
 
     libraries: tuple[str, ...] = ()
     """The distributions the engine runs on, by distribution name.

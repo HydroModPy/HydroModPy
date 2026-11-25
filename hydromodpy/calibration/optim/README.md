@@ -12,7 +12,7 @@ The class carries `ask`, `tell`, `best` and `converged`, a `name` attribute that
 
 ## How an optimizer registers
 
-Ten methods ship as dotted paths in `_BUILTIN_PATHS`: `bisection`, `cma_es`, `da_mh_gp`, `gp_mapping`, `grid`, `lhs`, `optuna`, `random_search`, `scipy_de` and `scipy_nelder_mead`. Only `da_mh_gp` is not announced, so the docs and the preflight refusals do not print it, though a file that names it still runs. A third-party method publishes an entry point named on its id in the `hydromodpy.calibration.optimizer` group, or calls `optimizers.register(YourClass)`, and the engine loop finds it through `optimizers.get(name)`.
+Eleven methods ship as dotted paths in `_BUILTIN_PATHS`: `bisection`, `cma_es`, `da_mh_gp`, `gp_mapping`, `grid`, `lhs`, `lhs_zoom`, `optuna`, `random_search`, `scipy_de` and `scipy_nelder_mead`. Only `da_mh_gp` is not announced, so the docs and the preflight refusals do not print it, though a file that names it still runs. A third-party method publishes an entry point named on its id in the `hydromodpy.calibration.optimizer` group, or calls `optimizers.register(YourClass)`, and the engine loop finds it through `optimizers.get(name)`.
 
 ## What is refused and what tests it
 

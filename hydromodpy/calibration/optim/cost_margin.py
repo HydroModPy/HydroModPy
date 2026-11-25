@@ -36,7 +36,8 @@ interval says what it is: ``crossed`` when the cost was seen to cross the margin
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+import math
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any, Literal
 
@@ -44,6 +45,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.calibration.optim.diagnostics import _META_COLUMNS, iterations_to_dataframe
+from hydromodpy.calibration.optim.optimizer import EvaluationResult
 from hydromodpy.core.scoring.cost_margin import CostMargin, MarginKind
 
 DEFAULT_MARGIN = 0.05
@@ -177,6 +179,7 @@ def margin_intervals(
     kind: MarginKind = "relative",
     objective: str = "cost",
     bounds: Mapping[str, tuple[float, float]] | None = None,
+    samples_the_box: bool = False,
 ) -> list[ParameterInterval]:
     """Return, per parameter, the range of trials whose cost matched the best.
 
@@ -199,7 +202,14 @@ def margin_intervals(
     bounds
         The search range per parameter. Given, an interval that runs into one
         is marked, which is the difference between a determined value and one
-        the search merely ran out of room to vary.
+        the search merely ran out of room to vary. An end runs into its bound
+        when a trial sits on it.
+    samples_the_box
+        Whether the search drew its points over the whole box (grid, Latin
+        hypercube, random draws, a population). Such a design never puts a
+        sample exactly on a bound, so an end then runs into its bound when no
+        solved trial lies beyond it. A local search that never went that far
+        leaves the end open instead.
     """
     if margin < 0.0:
         raise ValueError(f"margin must not be negative, got {margin}")
@@ -233,6 +243,7 @@ def margin_intervals(
             continue
         lower = float(np.min(selected))
         upper = float(np.max(selected))
+        solved = values[finite & np.isfinite(values)]
         low_bound, high_bound = (bounds or {}).get(name, (None, None))
         intervals.append(
             ParameterInterval(
@@ -245,11 +256,120 @@ def margin_intervals(
                 threshold=float(threshold),
                 n_within=int(selected.size),
                 n_trials=int(np.count_nonzero(finite)),
-                reaches_lower_bound=low_bound is not None and lower <= float(low_bound),
-                reaches_upper_bound=high_bound is not None and upper >= float(high_bound),
+                reaches_lower_bound=low_bound is not None
+                and (
+                    lower <= float(low_bound)
+                    or (samples_the_box and not bool(np.any(solved < lower)))
+                ),
+                reaches_upper_bound=high_bound is not None
+                and (
+                    upper >= float(high_bound)
+                    or (samples_the_box and not bool(np.any(solved > upper)))
+                ),
             )
         )
     return intervals
+
+
+ZoneEnd = Literal["bound", "crossed"]
+"""What stops one end of a zone: the bound of the search, or a solved trial beyond it."""
+
+
+@dataclass(frozen=True)
+class Zone:
+    """The range of the search variable a next level of a zoomed design draws in.
+
+    ``lower`` and ``upper`` are in the variable the search walks, and each end
+    says what stops it: ``bound`` when no solved trial lies beyond it, so the
+    zone runs to the bound of the search, ``crossed`` when a solved trial does.
+    ``best_cost`` and ``threshold`` are the cost of the best trial and the cost
+    its margin allows, ``n_within`` the solved trials under the threshold and
+    ``n_lost`` the trials that gave no finite cost. A zone with both ends at a
+    bound is the whole box: the trials did not narrow it.
+    """
+
+    lower: float
+    upper: float
+    lower_end: ZoneEnd
+    upper_end: ZoneEnd
+    best_cost: float | None
+    threshold: float | None
+    n_within: int
+    n_lost: int
+
+    @property
+    def narrowed(self) -> bool:
+        """Whether the zone is smaller than the box of the search."""
+        return self.lower_end == "crossed" or self.upper_end == "crossed"
+
+
+def zone_of_the_trials(
+    values: Sequence[float],
+    costs: Sequence[float | None],
+    *,
+    margin: float | None,
+    kind: MarginKind,
+    bounds: tuple[float, float],
+    stratum: float,
+) -> Zone:
+    """Return the zone of the search variable the trials leave open for the best cost.
+
+    ``values`` and ``costs`` hold one entry per trial, in the search variable.
+    A trial with no finite cost is lost and counts neither in the margin nor as
+    a neighbor. The zone runs over the solved trials whose cost is within
+    ``margin`` of the best one, widened to the solved trial just below and just
+    above them, and by at least ``stratum`` on each side, then clipped to
+    ``bounds``. With no solved trial, no margin to read (``None``, or a share of
+    a best cost that is not positive) or a cost that no trial tells apart, the
+    zone is the whole box.
+    """
+    if margin is not None and margin < 0.0:
+        raise ValueError(f"margin must not be negative, got {margin}")
+    low_bound, high_bound = float(bounds[0]), float(bounds[1])
+    x = np.asarray(values, dtype=float)
+    cost = np.asarray([np.nan if c is None else c for c in costs], dtype=float)
+    solved = np.isfinite(x) & np.isfinite(cost)
+    lost = int(x.size - np.count_nonzero(solved))
+    whole = Zone(low_bound, high_bound, "bound", "bound", None, None, 0, lost)
+    if margin is None or not solved.any():
+        return whole
+    best_cost = float(np.min(cost[solved]))
+    try:
+        threshold = _cost_threshold(best_cost, margin, kind)
+    except ValueError:
+        return replace(whole, best_cost=best_cost)
+    within = solved & (cost <= threshold)
+    first, last = float(np.min(x[within])), float(np.max(x[within]))
+    below, above = x[solved & (x < first)], x[solved & (x > last)]
+    lower = float(np.max(below)) if below.size else low_bound
+    upper = float(np.min(above)) if above.size else high_bound
+    lower = max(low_bound, min(lower, first - stratum))
+    upper = min(high_bound, max(upper, last + stratum))
+    return Zone(
+        lower,
+        upper,
+        "bound" if lower <= low_bound else "crossed",
+        "bound" if upper >= high_bound else "crossed",
+        best_cost,
+        float(threshold),
+        int(np.count_nonzero(within)),
+        lost,
+    )
+
+
+def cell_measured_by_the_criterion(results: Iterable[EvaluationResult | None]) -> float | None:
+    """Return the mesh cell the network criterion measured on a trial, or ``None``.
+
+    Every trial of one search scores the same mesh, so the first finite value
+    is the cell. ``None`` when no trial scored a network output.
+    """
+    for result in results:
+        if result is None:
+            continue
+        for key, value in (result.components or {}).items():
+            if str(key).endswith(".cell_spacing_m") and math.isfinite(float(value)):
+                return float(value)
+    return None
 
 
 def _solved(cost: float | None) -> bool:
@@ -322,7 +442,11 @@ __all__ = [
     "IntervalWidth",
     "ParameterInterval",
     "WidthSource",
+    "Zone",
+    "ZoneEnd",
+    "cell_measured_by_the_criterion",
     "choose_interval_width",
     "margin_intervals",
     "root_interval",
+    "zone_of_the_trials",
 ]

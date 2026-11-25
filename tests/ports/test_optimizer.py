@@ -32,10 +32,10 @@ from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpa
 from ._installed_probe import REPO_ROOT, collected, run_suite, unpack
 
 SYS_IDS = optimizers.names()
-"""The ids this interpreter serves: the ten shipped, plus an installed one."""
+"""The ids this interpreter serves: the shipped, plus an installed one."""
 
 SHIPPED_IDS = tuple(sorted(optimizers.names(shipped_only=True)))
-"""The ten ids the build declares in ``_BUILTIN_PATHS``, in case order."""
+"""The ids the build declares in ``_BUILTIN_PATHS``, in case order."""
 
 
 @pytest.mark.parametrize("name", SYS_IDS)
@@ -51,15 +51,15 @@ def test_the_registry_serves_every_id_it_reads(name: str) -> None:
 def test_a_shipped_id_builds_from_its_reader(name: str) -> None:
     """A shipped id builds through ``build_optimizer`` with the shared arguments.
 
-    The two adapters whose constructor demands a per-call fact are judged by
-    that fact: one parameter for the root search, a written budget for the
+    The adapters whose constructor demands a per-call fact are judged by that
+    fact: the number of parameters the traits allow, and a written budget for the
     Latin hypercube.
     """
     from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
     keyword: dict[str, object] = {"n_samples": 8} if name == "lhs" else {}
     space = ParameterSpace([CalibParameter("x", 1e-6, 1e-2, sampling="log", search_space="log")])
-    if name != "bisection":
+    if engine_traits(name).max_parameters != 1:
         space = ParameterSpace([CalibParameter("x", -2.0, 2.0), CalibParameter("y", -2.0, 2.0)])
     optimizer = build_optimizer(name, space, **keyword)
     assert optimizer.name == name

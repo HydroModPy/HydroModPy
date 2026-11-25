@@ -23,6 +23,7 @@ from hydromodpy.calibration.config import (
 from hydromodpy.calibration.optim.adapters.bisection_adapter import (
     BisectionAdapter,
 )
+from hydromodpy.calibration.optim.adapters.lhs_zoom_adapter import LhsZoomAdapter
 from hydromodpy.calibration.optim.cache import (
     context_fingerprints,
     differing_members,
@@ -169,6 +170,16 @@ def root_search_record(session: CalibrationSession | None) -> dict[str, Any] | N
     if outside is not None:
         record["root_outside_bounds"] = outside
     return record or None
+
+
+def zoom_record(session: CalibrationSession | None) -> dict[str, Any] | None:
+    """Return the ``zoom`` record of a zoomed Latin hypercube, None for any other search.
+
+    It lists, level by level, the box the level was drawn in and what the zone was read from.
+    """
+    if session is None or not isinstance(session.optimizer, LhsZoomAdapter):
+        return None
+    return {"zoom": session.optimizer.zone_record()}
 
 
 def search_status(session: CalibrationSession) -> SessionStatus:

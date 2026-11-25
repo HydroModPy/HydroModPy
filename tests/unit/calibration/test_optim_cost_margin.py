@@ -17,7 +17,12 @@ from pydantic import ValidationError
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
-from hydromodpy.calibration.optim.cost_margin import ONE_MESH_CELL, margin_intervals, root_interval
+from hydromodpy.calibration.optim.cost_margin import (
+    ONE_MESH_CELL,
+    margin_intervals,
+    root_interval,
+    zone_of_the_trials,
+)
 from hydromodpy.calibration.preflight import preflight_calibration
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 from hydromodpy.calibration.runners.document import load_toml_calibration
@@ -549,6 +554,41 @@ def test_interval_inside_bounds() -> None:
     assert interval.reaches_upper_bound is False
 
 
+def test_band_that_runs_to_a_bound_reaches_it_with_no_trial_on_it() -> None:
+    # A sampled design never lands on a bound: the band reaches it when nothing lies beyond.
+    (interval,) = margin_intervals(_FLAT, bounds={"K": (0.5, 6.0)}, samples_the_box=True)
+
+    assert interval.reaches_lower_bound is True
+    assert interval.reaches_upper_bound is True
+
+
+def test_local_search_band_with_nothing_beyond_stays_open() -> None:
+    # A local search that never went past the band says nothing about the bound.
+    (interval,) = margin_intervals(_FLAT, bounds={"K": (0.5, 6.0)})
+
+    assert interval.to_dict()["lower_end"] == "open"
+    assert interval.to_dict()["upper_end"] == "open"
+
+
+def test_band_closed_by_a_solved_trial_on_one_side_only() -> None:
+    (interval,) = margin_intervals(
+        _SHARP, margin=8.5, kind="absolute", bounds={"K": (0.5, 6.0)}, samples_the_box=True
+    )
+
+    assert (interval.lower, interval.upper) == (2.0, 4.0)
+    assert interval.reaches_lower_bound is False
+    assert interval.reaches_upper_bound is False
+
+
+def test_a_lost_trial_does_not_close_the_band() -> None:
+    trace = _trace([(1.0, float("nan")), (2.0, 1.0), (3.0, 1.02), (4.0, 9.0)])
+
+    (interval,) = margin_intervals(trace, bounds={"K": (0.5, 6.0)}, samples_the_box=True)
+
+    assert interval.reaches_lower_bound is True
+    assert interval.reaches_upper_bound is False
+
+
 def test_absolute_margin() -> None:
     (interval,) = margin_intervals(_SHARP, margin=8.5, kind="absolute")
 
@@ -578,3 +618,110 @@ NO_INTERVAL = [
 @pytest.mark.parametrize(("trace", "kwargs"), NO_INTERVAL)
 def test_no_interval(trace, kwargs) -> None:
     assert margin_intervals(trace, **kwargs) == []
+
+
+# ---- the zone a zoomed design draws its next level in ----
+
+_NAN = float("nan")
+_BOX = (0.0, 10.0)
+_ZONES = [
+    pytest.param(
+        [1, 3, 5, 7, 9],
+        [5.0, 2.0, 1.0, 3.0, 6.0],
+        {},
+        (3.0, 7.0, "crossed", "crossed", 1, 0),
+        id="the_solved_neighbors_frame_the_best",
+    ),
+    pytest.param(
+        [0, 4.9, 5.0, 5.1, 10],
+        [9.0, 3.0, 1.0, 3.0, 9.0],
+        {},
+        (4.5, 5.5, "crossed", "crossed", 1, 0),
+        id="a_stratum_is_the_least_each_side",
+    ),
+    pytest.param(
+        [1, 3, 5, 7, 9],
+        [5.0, _NAN, 1.0, None, 6.0],
+        {},
+        (1.0, 9.0, "crossed", "crossed", 1, 2),
+        id="a_lost_trial_is_no_neighbor",
+    ),
+    pytest.param(
+        [2, 4, 5, 6, 8],
+        [5.0, 1.0, _NAN, 1.02, 5.0],
+        {},
+        (2.0, 8.0, "crossed", "crossed", 2, 1),
+        id="a_lost_trial_between_two_good_ones",
+    ),
+    pytest.param(
+        [1, 3, 5],
+        [1.0, 2.0, 5.0],
+        {"margin": 1.5, "kind": "absolute"},
+        (0.0, 5.0, "bound", "crossed", 2, 0),
+        id="an_absolute_margin_and_a_zone_to_the_bound",
+    ),
+    pytest.param(
+        [4, 5, 6],
+        [1.0, 1.0, 1.0],
+        {},
+        (0.0, 10.0, "bound", "bound", 3, 0),
+        id="a_flat_cost_gives_the_box",
+    ),
+    pytest.param(
+        [0.1, 5, 9.9],
+        [1.0, 5.0, 1.0],
+        {"stratum": 3.0},
+        (0.0, 10.0, "bound", "bound", 2, 0),
+        id="a_stratum_is_clipped_to_the_bounds",
+    ),
+    pytest.param(
+        [1, 5],
+        [_NAN, None],
+        {},
+        (0.0, 10.0, "bound", "bound", 0, 2),
+        id="no_solved_trial_gives_the_box",
+    ),
+    pytest.param([], [], {}, (0.0, 10.0, "bound", "bound", 0, 0), id="no_trial_gives_the_box"),
+    pytest.param(
+        [1, 5, 9],
+        [0.0, 3.0, 4.0],
+        {},
+        (0.0, 10.0, "bound", "bound", 0, 0),
+        id="a_share_of_a_best_cost_of_zero_gives_the_box",
+    ),
+    pytest.param(
+        [1, 5, 9],
+        [2.0, 3.0, 4.0],
+        {"margin": None},
+        (0.0, 10.0, "bound", "bound", 0, 0),
+        id="an_unmeasured_margin_gives_the_box",
+    ),
+]
+
+
+@pytest.mark.parametrize(("values", "costs", "given", "expected"), _ZONES)
+def test_the_zone_of_the_trials(values, costs, given, expected) -> None:
+    options = {"margin": 0.05, "kind": "relative", "bounds": _BOX, "stratum": 0.5, **given}
+
+    zone = zone_of_the_trials(values, costs, **options)
+
+    lower, upper, lower_end, upper_end, n_within, n_lost = expected
+    assert (zone.lower, zone.upper) == pytest.approx((lower, upper))
+    assert (zone.lower_end, zone.upper_end) == (lower_end, upper_end)
+    assert (zone.n_within, zone.n_lost) == (n_within, n_lost)
+    assert zone.narrowed is (lower_end == "crossed" or upper_end == "crossed")
+
+
+def test_the_zone_names_the_best_cost_and_its_threshold() -> None:
+    zone = zone_of_the_trials(
+        [1, 3, 5, 7], [4.0, 2.0, 1.0, 6.0], margin=0.5, kind="relative", bounds=_BOX, stratum=0.1
+    )
+
+    assert zone.best_cost == 1.0
+    assert zone.threshold == pytest.approx(1.5)
+    assert zone.n_within == 1
+
+
+def test_a_negative_margin_is_refused_by_the_zone() -> None:
+    with pytest.raises(ValueError, match="must not be negative"):
+        zone_of_the_trials([1], [1.0], margin=-1.0, kind="absolute", bounds=_BOX, stratum=0.5)

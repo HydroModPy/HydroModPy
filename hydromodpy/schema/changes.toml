@@ -1213,3 +1213,10 @@ since = "2.0.2"
 effect = "refusal"
 quantities = []
 text = "A specific yield is accepted down to 1e-6, in a field and in the bounds of a calibration. The floor was 1e-4, so a search could not go below 0.01 per cent, while a sparsely fractured bedrock drains some 1e-5. A value that was accepted reads as before."
+
+[[recipe]]
+id = "interval_end_at_the_bound_when_nothing_lies_beyond"
+since = "2.0.2"
+effect = "label"
+quantities = []
+text = "An end of the cost_profile interval of a calibrated value is marked as reaching the bound of its range when no solved trial lies beyond it. It was marked only when a trial sat exactly on the bound, which a design drawn over the whole box (lhs, lhs_zoom, random_search, scipy_de) never does, so a band that ran to a bound was reported as closed. A local search (scipy_nelder_mead, cma_es) keeps the old rule, since its band may stop where it stopped looking. The interval itself and the calibrated value do not change, and a session sealed before keeps the flag it was written with."

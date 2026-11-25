@@ -653,7 +653,12 @@ SINGLE_ROOT_CONFIGS = [
 def test_config_gives_one_root(tmp_path, minimal, extent, role):
     cfg = load_config(tmp_path, minimal=minimal, extent=extent, role=role)
 
-    assert _engine_kwargs(cfg, log_space(*BOUNDS), start_at=None)["roots"] == 1
+    assert (
+        _engine_kwargs(
+            cfg, log_space(*BOUNDS), start_at=None, interval_width=cfg.interval_width_for()
+        )["roots"]
+        == 1
+    )
 
 
 @pytest.mark.parametrize("width", [1, 2, 4, 7])

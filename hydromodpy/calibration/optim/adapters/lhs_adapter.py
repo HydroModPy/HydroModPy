@@ -43,7 +43,7 @@ from hydromodpy.calibration.optim.parameters import (
 from hydromodpy.calibration.optim.stopping import CountedBudget
 
 
-def _stratified_column(param: CalibParameter, unit_column: np.ndarray) -> np.ndarray:
+def stratified_column(param: CalibParameter, unit_column: np.ndarray) -> np.ndarray:
     """Map one stratified unit-interval column into *param*'s search space."""
     refuse_normal_sampling("lhs", param.name, param.sampling)
     if param.sampling == "log_uniform":
@@ -92,7 +92,7 @@ class LhsAdapter:
             "lhs", self.n_samples, space.dim, seed, LhsOptions(optimization=optimization)
         )
         columns = [
-            _stratified_column(param, unit_design[:, i]) for i, param in enumerate(space.parameters)
+            stratified_column(param, unit_design[:, i]) for i, param in enumerate(space.parameters)
         ]
         self._design = np.column_stack(columns) if columns else np.empty((self.n_samples, 0))
         self._cursor = 0
@@ -132,4 +132,4 @@ class LhsAdapter:
         return self._cursor >= self.n_samples
 
 
-__all__ = ["LhsAdapter", "design_budget"]
+__all__ = ["LhsAdapter", "design_budget", "stratified_column"]
