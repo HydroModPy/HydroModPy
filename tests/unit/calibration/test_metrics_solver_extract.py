@@ -1010,9 +1010,9 @@ def write_lake_outputs(
     stages: tuple[float, ...] = (86.97, 87.01, 87.05),
 ) -> None:
     """Write a minimal LAK obs CSV + JSON sidecar for one lake."""
-    obs_csv = f"{model_name}.lak.obs.csv"
+    obs_file = f"{model_name}.lak.obs.csv"
     meta = {
-        "obs_csv": obs_csv,
+        "obs_file": obs_file,
         "budgetcsv": None,
         "entries": [
             {"obsname": f"{lake_id}_stage", "lake_id": lake_id, "quantity": "stage"},
@@ -1023,7 +1023,7 @@ def write_lake_outputs(
     lines = [f"time,{lake_id}_stage,{lake_id}_volume"]
     for step, stage in enumerate(stages, start=1):
         lines.append(f"{float(step)},{stage},{stage * 1000.0}")
-    (output_dir / obs_csv).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (output_dir / obs_file).write_text("\n".join(lines) + "\n", encoding="utf-8")
     write_head_file(output_dir / f"{model_name}.hds", n_periods=len(stages))
 
 

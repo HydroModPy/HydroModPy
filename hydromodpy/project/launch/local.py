@@ -48,7 +48,7 @@ from __future__ import annotations
 import os
 import time
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -63,6 +63,7 @@ from hydromodpy.project.launch.children import (
     Child,
     PlannedCase,
     close_dead_child,
+    drop_progress,
     exit_of,
     log_tail,
     planned_cases,
@@ -79,6 +80,7 @@ from hydromodpy.project.launch.prepare import (
     write_lockfile_once,
 )
 from hydromodpy.project.launch.selection import (
+    drawn_paths,
     effective_parallel,
     effective_prepare_parallel,
     select_cases,
@@ -183,6 +185,7 @@ def run_plan(
     force: bool = False,
     resume: bool = False,
     environment_flags: Sequence[str] = (),
+    on_event: Callable[[dict[str, Any]], None] | None = None,
 ) -> LaunchReport:
     """Launch the current plan of *project_root* and return what happened.
 
@@ -200,6 +203,11 @@ def run_plan(
     identical sealed run and the refusal of a stale case whose death is not
     proven; a stale calibration session is reopened under the same rule.
     :func:`plan_project` takes it too, to plan over a running case.
+
+    *on_event* receives every line of the journal as it is written, so a
+    command can show the launch while it runs. The ``prepare_start`` and
+    ``case_start`` lines name the ``progress`` file the child writes its
+    progress events to while it runs.
     """
     if until not in (None, UNTIL_DATA):
         raise ConfigError(
@@ -218,7 +226,7 @@ def run_plan(
             force=force,
         )
         job_dir = new_job_dir(root, "local")
-        journal = Journal(job_dir)
+        journal = Journal(job_dir, on_event)
         journal.append(
             "launch_start",
             plan_hash=stored.plan.plan_hash,
@@ -315,6 +323,7 @@ def _launch(
             parallel=prepare_parallel,
             threads_per_case=run_config.threads_per_case,
             environment_flags=environment_flags,
+            drawn=drawn_paths(root),
         )
         failed_prepare = {item.case_id for item in prepared if not item.ok}
         prepared_ok = tuple(item.case_id for item in prepared if item.ok)
@@ -402,6 +411,7 @@ def _run_cases(
                     solves=case.solves,
                     flags=flags,
                     log=str(child.log_path),
+                    progress=str(child.progress_path),
                 )
                 running.append(child)
                 used += case.solves
@@ -438,6 +448,7 @@ def _close_case(root: Path, child: Child, *, journal: Journal) -> CaseOutcome:
     returncode = child.process.returncode
     assert returncode is not None
     exit_code, signal = exit_of(returncode)
+    drop_progress(child)
     if exit_code != 0:
         close_dead_child(root, child, exit_code, signal)
     try:

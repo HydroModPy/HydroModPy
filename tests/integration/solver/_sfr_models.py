@@ -7,7 +7,6 @@ inflow plus a distributed runoff, with NO lake anywhere.
 
 from __future__ import annotations
 
-import csv
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,6 +20,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     build_sfr_package_args,
     resolve_sfr_networks,
 )
+from hydromodpy.solver.modflow6.extractors.obs_common import read_obs
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -161,10 +161,14 @@ def run_standalone_sfr_model(ws: Path, *, connected: bool):
     success, _buff = sim.run_simulation(silent=True)
     assert success, "standalone SFR MF6 run did not converge"
 
-    with open(ws / f"{MODEL_NAME}.sfr.obs.csv", encoding="utf-8") as fh:
-        last = list(csv.DictReader(fh))[-1]
-    obs = {key.upper(): float(value) for key, value in last.items()}
+    obs = _last_obs(ws / f"{MODEL_NAME}.sfr.obs.bin")
     return networks[NETWORK_ID], obs
+
+
+def _last_obs(path: Path) -> dict[str, float]:
+    """Return the last row of an MF6 observation file, by column name."""
+    header, rows = read_obs(path)
+    return dict(zip(header, rows[-1], strict=True))
 
 
 COUPLED_MODEL_NAME = "sfrlak"
@@ -391,7 +395,7 @@ def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
         digits=10,
         print_input=False,
         continuous={
-            f"{COUPLED_MODEL_NAME}.lak.obs.csv": [
+            (f"{COUPLED_MODEL_NAME}.lak.obs.bin", "binary"): [
                 ("lac0_stage", "stage", (0,)),
                 ("lac0_from_mvr", "from-mvr", (0,)),
             ]
@@ -431,8 +435,6 @@ def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
     success, _buff = sim.run_simulation(silent=True)
     assert success, "coupled SFR-LAK MF6 run did not converge"
 
-    with open(ws / f"{COUPLED_MODEL_NAME}.sfr.obs.csv", encoding="utf-8") as fh:
-        sfr_obs = {k.upper(): float(v) for k, v in list(csv.DictReader(fh))[-1].items()}
-    with open(ws / f"{COUPLED_MODEL_NAME}.lak.obs.csv", encoding="utf-8") as fh:
-        lak_obs = {k.upper(): float(v) for k, v in list(csv.DictReader(fh))[-1].items()}
+    sfr_obs = _last_obs(ws / f"{COUPLED_MODEL_NAME}.sfr.obs.bin")
+    lak_obs = _last_obs(ws / f"{COUPLED_MODEL_NAME}.lak.obs.bin")
     return networks[NETWORK_ID], sfr_obs, lak_obs

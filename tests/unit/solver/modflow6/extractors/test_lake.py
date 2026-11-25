@@ -30,7 +30,7 @@ NODATA_FLOW = 3.0e30  # MODFLOW 6 no-data value
 def _spec(*obsnames_and_quantities: tuple[str, str], lake_id: str = "lac0") -> LakeObsSpec:
     return LakeObsSpec.from_mapping(
         {
-            "obs_csv": "m.lak.obs.csv",
+            "obs_file": "m.lak.obs.csv",
             "entries": [
                 {"obsname": obsname, "lake_id": lake_id, "quantity": quantity}
                 for obsname, quantity in obsnames_and_quantities
@@ -40,7 +40,7 @@ def _spec(*obsnames_and_quantities: tuple[str, str], lake_id: str = "lac0") -> L
 
 
 def _write(tmp_path: Path, spec: LakeObsSpec, values: list[float]) -> Path:
-    obs = tmp_path / spec.obs_csv
+    obs = tmp_path / spec.obs_file
     header = ",".join(["TIME"] + [entry.obsname.upper() for entry in spec.entries])
     obs.write_text(
         f"{header}\n{SECONDS_PER_DAY},{','.join(str(v) for v in values)}\n", encoding="utf-8"
@@ -100,7 +100,7 @@ def test_outlet_feeds_the_receiver(tmp_path) -> None:
     # The upstream lake loses water through its outlet, the downstream lake receives it.
     spec = LakeObsSpec.from_mapping(
         {
-            "obs_csv": "m.lak.obs.csv",
+            "obs_file": "m.lak.obs.csv",
             "entries": [
                 {"obsname": "up_outlet_0", "lake_id": "up", "quantity": "outlet"},
                 {"obsname": "down_outlet_inflow", "lake_id": "down", "quantity": "outlet_inflow"},
@@ -183,7 +183,7 @@ def connection_spec(*under_dam: bool) -> LakeObsSpec:
         for iconn, flag in enumerate(under_dam)
     ]
     return LakeObsSpec.from_mapping(
-        {"obs_csv": "m.lak.obs.csv", "budget_bin": "m.lak.cbc", "entries": entries}
+        {"obs_file": "m.lak.obs.csv", "budget_bin": "m.lak.cbc", "entries": entries}
     )
 
 
@@ -192,7 +192,7 @@ def test_exchange_sums_connections(tmp_path, monkeypatch) -> None:
     (tmp_path / "m.lak.cbc").write_bytes(b"")
     monkeypatch.setattr(lake_extractor, "Mf6CellBudgetReader", _Budget)
 
-    exchange = read_applied_exchange(spec, tmp_path / spec.obs_csv, times=[SECONDS_PER_DAY])
+    exchange = read_applied_exchange(spec, tmp_path / spec.obs_file, times=[SECONDS_PER_DAY])
 
     assert exchange["lac0"].total == pytest.approx([SECONDS_PER_DAY / 2])
     assert exchange["lac0"].under_dam == pytest.approx([SECONDS_PER_DAY])
@@ -203,4 +203,4 @@ def test_other_connection_count_gives_none(tmp_path, monkeypatch) -> None:
     (tmp_path / "m.lak.cbc").write_bytes(b"")
     monkeypatch.setattr(lake_extractor, "Mf6CellBudgetReader", _Budget)
 
-    assert read_applied_exchange(spec, tmp_path / spec.obs_csv, times=[SECONDS_PER_DAY]) == {}
+    assert read_applied_exchange(spec, tmp_path / spec.obs_file, times=[SECONDS_PER_DAY]) == {}

@@ -459,7 +459,7 @@ class Modflow6OutputAdapter:
             return {}
         final_stages: dict[str, float] = {}
         with progress.status("Building lake timeseries"):
-            obs_path = solver_output_dir / spec.obs_csv
+            obs_path = solver_output_dir / spec.obs_file
             calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
             factor = factor_to_seconds(time_units)
             calendar_times: np.ndarray | None = None
@@ -555,7 +555,7 @@ class Modflow6OutputAdapter:
         if spec is None:
             return
         with progress.status("Building SFR timeseries"):
-            obs_path = solver_output_dir / spec.obs_csv
+            obs_path = solver_output_dir / spec.obs_file
             calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
             factor = factor_to_seconds(time_units)
             calendar_times: np.ndarray | None = None

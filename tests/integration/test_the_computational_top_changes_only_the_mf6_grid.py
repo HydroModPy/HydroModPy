@@ -313,7 +313,7 @@ def written_inputs(folder: Path) -> dict[str, str | bytes]:
     """Return every input file MODFLOW 6 and the extractor read, by name."""
     files: dict[str, str | bytes] = {}
     for path in sorted(folder.iterdir()):
-        if not path.is_file() or path.suffix in _OUTPUT_SUFFIXES:
+        if not path.is_file() or path.suffix in _OUTPUT_SUFFIXES or path.name.endswith(".obs.bin"):
             continue
         if path.suffix == ".npz":
             with np.load(path) as payload:

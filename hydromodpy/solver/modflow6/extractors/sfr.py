@@ -35,7 +35,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.extractors.lake import read_lake_meta
 from hydromodpy.solver.modflow6.extractors.obs_common import (
     obs_rows_on_stamps,
-    read_obs_csv,
+    read_obs,
     rows_matrix,
     verify_obs_time_alignment,
 )
@@ -93,7 +93,7 @@ def sfr_station_id(network_id: str, reach_ifno: int) -> str:
 class SfrObsEntry:
     """One SFR observation: which obs column maps to which reach quantity.
 
-    ``obsname`` is the column header in the SFR obs CSV (MF6 upper-cases it).
+    ``obsname`` is the column header in the SFR obs file (MF6 upper-cases it).
     ``reach`` is the 0-based reach ``ifno``; ``quantity`` the HMP-side series name.
     """
 
@@ -152,7 +152,7 @@ class SfrReachGeometry:
 class SfrObsSpec:
     """Build-time description of the SFR outputs, persisted as a JSON sidecar."""
 
-    obs_csv: str
+    obs_file: str
     network_id: str
     reach_count: int
     entries: list[SfrObsEntry] = field(default_factory=list)
@@ -172,7 +172,7 @@ class SfrObsSpec:
         ]
         reaches = [SfrReachGeometry.from_mapping(item) for item in payload.get("reaches", [])]
         return cls(
-            obs_csv=str(payload["obs_csv"]),
+            obs_file=str(payload["obs_file"]),
             network_id=str(payload.get("network_id", "")),
             reach_count=int(payload.get("reach_count", 0)),
             entries=entries,
@@ -230,10 +230,10 @@ def build_sfr_columns(
     seconds_per_time_unit: float,
     calendar_times: Sequence[Any] | None = None,
 ) -> tuple[dict[str, np.ndarray], list[dict[str, Any]]]:
-    """Parse the SFR obs CSV into ``(timeseries_columns, budget_records)``.
+    """Parse the SFR obs file into ``(timeseries_columns, budget_records)``.
 
     ``times`` are the solver output ``totim`` values (TDIS time unit), one per
-    stress period at its end. The obs CSV holds a row per time step: each
+    stress period at its end. The obs file holds a row per time step: each
     stamp takes the mean of the rates over the steps it closes, weighted by
     their length, and the stage and depth at its end. RATE quantities are divided by
     ``seconds_per_time_unit`` to reach m3/s; stage / depth stay in meters. A
@@ -242,14 +242,14 @@ def build_sfr_columns(
 
     The timeseries land as TIMESERIES_SCHEMA column arrays (one column entry per
     obs column x timestep), consumed by ``store.write_timeseries_columns``; a
-    chronicle-size obs CSV holds millions of points, so per-point record dicts
+    chronicle-size obs file holds millions of points, so per-point record dicts
     are too slow.
     """
     if not obs_path.is_file():
-        logger.debug("SFR obs CSV %s is missing; no per-reach series extracted", obs_path)
+        logger.debug("SFR obs file %s is missing; no per-reach series extracted", obs_path)
         return {}, []
 
-    header, rows = read_obs_csv(obs_path)
+    header, rows = read_obs(obs_path)
     if not rows:
         return {}, []
     col_index = {name: pos for pos, name in enumerate(header)}
@@ -367,10 +367,10 @@ def reach_flow_by_cell(
     spec = read_sfr_meta(output_dir / f"{model_name}.sfr.meta.json")
     if spec is None:
         return None
-    obs_path = output_dir / f"{model_name}.sfr.obs.csv"
+    obs_path = output_dir / spec.obs_file
     if not obs_path.is_file():
         return None
-    header, rows = read_obs_csv(obs_path)
+    header, rows = read_obs(obs_path)
     if not rows:
         return None
     col_index = {name: pos for pos, name in enumerate(header)}
@@ -443,10 +443,10 @@ def routed_outflow_series(
     if spec is None:
         spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
         return _lake_outlet_outflow(output_dir, model_name, times, spt, len(times))[0]
-    obs_path = output_dir / f"{model_name}.sfr.obs.csv"
+    obs_path = output_dir / spec.obs_file
     if not obs_path.is_file():
         return None
-    header, rows = read_obs_csv(obs_path)
+    header, rows = read_obs(obs_path)
     if not rows:
         return None
     col_index = {name: pos for pos, name in enumerate(header)}
@@ -499,10 +499,10 @@ def _lake_outlet_outflow(
     spec = read_lake_meta(output_dir / f"{model_name}.lak.meta.json")
     if spec is None:
         return None, 0
-    obs_path = output_dir / spec.obs_csv
+    obs_path = output_dir / spec.obs_file
     if not obs_path.is_file():
         return None, 0
-    header, rows = read_obs_csv(obs_path)
+    header, rows = read_obs(obs_path)
     if not rows:
         return None, 0
     col_index = {name: pos for pos, name in enumerate(header)}

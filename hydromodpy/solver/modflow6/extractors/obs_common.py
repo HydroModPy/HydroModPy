@@ -23,24 +23,39 @@ from hydromodpy.solver.modflow_common.period_steps import group_ends_by_stamp
 __all__ = [
     "obs_rows_on_stamps",
     "ordered_unique",
-    "read_obs_csv",
+    "read_obs",
     "rows_matrix",
     "timeseries_record",
     "verify_obs_time_alignment",
 ]
 
 
-def read_obs_csv(obs_path: Path) -> tuple[list[str], list[list[float]]]:
-    """Return the upper-cased header and float rows of an MF6 obs CSV."""
-    with obs_path.open("r", encoding="utf-8", newline="") as fh:
-        reader = csv.reader(fh)
-        header = [token.strip().upper() for token in next(reader)]
-        rows: list[list[float]] = []
-        for raw in reader:
-            if not raw:
-                continue
-            rows.append([float(value) for value in raw])
-    return header, rows
+def read_obs(obs_path: Path) -> tuple[list[str], list[list[float]]]:
+    """Return the upper-cased header and float rows of an MF6 obs output file.
+
+    HydroModPy writes the continuous observations in binary, at the full double
+    precision of the solver. The text form MODFLOW 6 writes when no ``BINARY``
+    is asked reads the same way: a binary file starts with ``cont``, the CSV
+    with its header. The first column is ``TIME`` in both.
+    """
+    with obs_path.open("rb") as fh:
+        binary = fh.read(4).lower() == b"cont"
+    if not binary:
+        with obs_path.open("r", encoding="utf-8", newline="") as fh:
+            reader = csv.reader(fh)
+            header = [token.strip().upper() for token in next(reader)]
+            rows: list[list[float]] = []
+            for raw in reader:
+                if not raw:
+                    continue
+                rows.append([float(value) for value in raw])
+        return header, rows
+    from flopy.utils import Mf6Obs
+
+    data = Mf6Obs(str(obs_path), isBinary=True).get_data()
+    names = list(data.dtype.names)
+    header = ["TIME", *(name.strip().upper() for name in names[1:])]
+    return header, [[float(row[name]) for name in names] for row in data]
 
 
 def rows_matrix(rows: Sequence[Sequence[float]], n_steps: int) -> np.ndarray:
@@ -68,7 +83,7 @@ def obs_rows_on_stamps(
     *,
     mean_positions: Iterable[int],
 ) -> list[list[float]]:
-    """Put the per-step rows of an MF6 obs CSV on the stamps of the run.
+    """Put the per-step rows of an MF6 obs file on the stamps of the run.
 
     MF6 writes an observation at every time step; the store keeps one value
     per stress period, stamped at its end. ``times`` are those stamps. Each
@@ -134,7 +149,7 @@ def verify_obs_time_alignment(
     """Guard the positional obs-CSV / totim alignment with the TIME column.
 
     The per-feature series are matched to the solver ``totim`` by row order; if
-    the obs CSV and the solver output ever drift, that would silently mis-stamp
+    the obs file and the solver output ever drift, that would silently mis-stamp
     every value. MF6 writes the observation time in the first ``time`` column, so
     we cross-check it against the expected ``totim`` and fail loudly on a
     mismatch.

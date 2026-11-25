@@ -943,7 +943,7 @@ def build_lakes(
                     parent_file=lak,
                 )
             # OBS6 for the per-lake output series, plus a JSON sidecar the
-            # extractor reads to re-key the obs CSV by (lake_id, totim).
+            # extractor reads to re-key the obs file by (lake_id, totim).
             if obs_continuous:
                 lak.obs.initialize(
                     filename=f"{model.model_output_name}.lak.obs",

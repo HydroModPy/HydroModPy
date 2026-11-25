@@ -104,7 +104,7 @@ def build_lake_obs_spec(
     type, id[, id2]), ...]}`` with 0-based integer ids (flopy increments them to
     MF6's 1-based convention). ``lake_obs_meta`` is the JSON-serializable sidecar
     mapping each observation name to its lake / quantity / connection so the
-    extractor can re-key the obs CSV by ``(lake_id, totim)`` and isolate the
+    extractor can re-key the obs file by ``(lake_id, totim)`` and isolate the
     VERTICAL exchange of the lake bed. A lake whose info carries ``wall_faces``
     (:func:`cutoff_wall_flow_faces`) has them listed under ``cutoff_walls``, read
     with the GWF budget ``gwf_budget_bin`` into ``cutoff_wall_flow``.
@@ -117,9 +117,9 @@ def build_lake_obs_spec(
     Returns empty structures when no lake is present.
     """
     if not lake_conn_info:
-        return {}, {"obs_csv": "", "budgetcsv": None, "budget_bin": None, "entries": []}
+        return {}, {"obs_file": "", "budgetcsv": None, "budget_bin": None, "entries": []}
 
-    obs_csv = f"{stem}.lak.obs.csv"
+    obs_file = f"{stem}.lak.obs.bin"
     obslist: list[tuple[Any, ...]] = []
     entries: list[dict[str, Any]] = []
 
@@ -171,9 +171,10 @@ def build_lake_obs_spec(
             obslist.append((mvr_name, "to-mvr", (outletno,)))
             entries.append({"obsname": mvr_name, "lake_id": lake_id, "quantity": "to_mvr"})
 
-    obs_continuous = {obs_csv: obslist}
+    # Binary: MODFLOW 6 garbles a CSV it writes under FORT_BUFFERED, a binary file never.
+    obs_continuous = {(obs_file, "binary"): obslist}
     lake_obs_meta = {
-        "obs_csv": obs_csv,
+        "obs_file": obs_file,
         "budgetcsv": f"{stem}.lak.budget.csv",
         "budget_bin": f"{stem}.lak.cbc",
         "entries": entries,

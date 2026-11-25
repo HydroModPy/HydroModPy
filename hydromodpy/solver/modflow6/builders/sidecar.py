@@ -11,7 +11,7 @@ def write_sidecar(model, suffix: str, payload: Mapping[str, object]) -> None:
     """Write ``{model_output_name}{suffix}`` next to the solver files, for the extractor.
 
     The sidecars travel with the model files, so the post-run extraction needs no
-    live flopy object. ``.lak.meta.json`` re-keys the LAK obs CSV by ``(lake_id,
+    live flopy object. ``.lak.meta.json`` re-keys the LAK obs file by ``(lake_id,
     totim)`` and isolates the under-dam leakage, ``.sfr.meta.json`` does the same
     for SFR, and ``.lake_abacus.json`` carries the bed-reconstruction comparison.
     """

@@ -1677,7 +1677,7 @@ def test_sidecar_without_links_refused() -> None:
     with pytest.raises(KeyError, match="downstream"):
         SfrObsSpec.from_mapping(
             {
-                "obs_csv": "m.sfr.obs.csv",
+                "obs_file": "m.sfr.obs.csv",
                 "network_id": "main",
                 "reaches": [REACH],
             }

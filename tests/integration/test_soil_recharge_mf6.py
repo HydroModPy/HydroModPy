@@ -220,10 +220,10 @@ def _build_and_run(ws: Path):
     rcha_payload = externalize_recharge_spd(
         rcha_spd, basename=_MODEL_NAME, shared_dir=None, package="rcha"
     )
-    for record in rcha_payload.values():
-        record["data"] = np.asarray(record["data"]).reshape(_NROW, _NCOL)
-    for record in evta_rate.values():
-        record["data"] = np.asarray(record["data"]).reshape(_NROW, _NCOL)
+    # A DIS grid takes its arrays in rows and columns. A uniform period is a constant.
+    for record in [*rcha_payload.values(), *evta_rate.values()]:
+        if isinstance(record, dict):
+            record["data"] = np.asarray(record["data"]).reshape(_NROW, _NCOL)
 
     exe = str(ensure_solver_binary("mf6"))
     ws.mkdir(parents=True, exist_ok=True)

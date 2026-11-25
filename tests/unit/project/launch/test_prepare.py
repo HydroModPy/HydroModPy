@@ -21,7 +21,13 @@ from hydromodpy.data.provenance.lockfile import read_lockfile_inputs
 from hydromodpy.data.provenance.sidecars import FORMER_CACHE_DATABASE, CacheIndex, scan
 from hydromodpy.project.launch.local import plan_project, run_plan
 from hydromodpy.project.launch.status import project_status
-from tests.unit.project.launch._launch_fakes import CASES, seen, write_behaviour, write_project
+from tests.unit.project.launch._launch_fakes import (
+    CASES,
+    events,
+    seen,
+    write_behaviour,
+    write_project,
+)
 
 
 @pytest.mark.allow_subprocess
@@ -122,3 +128,57 @@ def test_a_case_whose_prepare_failed_is_failed_and_leaves_no_scratch(
     assert {case.case_id for case in report.cases if case.status == "failed"} == {"alpha-base"}
     scratch = project / ".hmp" / "scratch"
     assert not scratch.exists() or not list(scratch.glob("alpha-base.p*"))
+
+
+_DESIGN = """
+[sites.design]
+method = "lhs"
+n = [3]
+seed = 7
+recipe = "base"
+
+[sites.design.parameters.K]
+path = "flow.param.K.field.value"
+bounds = [1e-6, 1e-4]
+sampling = "log_uniform"
+"""
+
+
+@pytest.mark.allow_subprocess
+def test_the_points_of_a_design_share_one_prepare_per_site(
+    tmp_path: Path, fake_worker: Path
+) -> None:
+    # The points differ by the drawn K alone, so they ask for the same data. The
+    # recipe k2e_5 differs from them by that key only, and shares it too.
+    project = write_project(tmp_path, sites_extra=_DESIGN)
+    plan_project(project)
+
+    report = run_plan(project, until="data")
+
+    started = [event["case_id"] for event in events(report.journal, "prepare_start")]
+    ended = {event["case_id"]: event for event in events(report.journal, "prepare_end")}
+    assert started == ["alpha-b1p0001", "beta-b1p0001"]
+    for site in ("alpha", "beta"):
+        cases = sorted(case for case in ended if case.startswith(f"{site}-"))
+        assert len(cases) == 4
+        assert all(ended[case]["status"] == "completed" for case in cases)
+        others = [case for case in cases if case != f"{site}-b1p0001"]
+        assert all(ended[case]["like"] == f"{site}-b1p0001" for case in others)
+    assert not [case for case in report.cases if case.status == "failed"]
+
+
+@pytest.mark.allow_subprocess
+def test_a_failed_shared_prepare_fails_every_point_that_shares_it(
+    tmp_path: Path, fake_worker: Path
+) -> None:
+    project = write_project(tmp_path, sites_extra=_DESIGN)
+    plan_project(project)
+    first = sorted(case.case_id for case in project_status(project).rows if "-b1p" in case.case_id)
+    write_behaviour(project, {first[0]: {"prepare": "fail"}})
+
+    run_plan(project, until="data")
+
+    status = {row.case_id: row.status for row in project_status(project).rows}
+    alpha_points = [case for case in status if case.startswith("alpha-b1p")]
+    assert alpha_points and all(status[case] == "failed" for case in alpha_points)
+    assert all(status[case] != "failed" for case in status if case.startswith("beta-b1p"))

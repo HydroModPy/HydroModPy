@@ -113,7 +113,7 @@ def _run_wall_model(ws: Path) -> tuple[float, float]:
 def test_wall_flow_per_layer(tmp_path: Path) -> None:
     totim, inflow = _run_wall_model(tmp_path)
     spec = LakeObsSpec(
-        obs_csv="m.lak.obs.csv", cutoff_walls={"res": [(1, 2)]}, gwf_budget_bin="m.cbc"
+        obs_file="m.lak.obs.csv", cutoff_walls={"res": [(1, 2)]}, gwf_budget_bin="m.cbc"
     )
     flow = read_cutoff_wall_flow(spec, tmp_path, times=[totim])
     layers = flow["res"]
@@ -131,7 +131,7 @@ def test_lake_records_carry_wall_flow(tmp_path: Path) -> None:
     totim, inflow = _run_wall_model(tmp_path)
     spec = LakeObsSpec.from_mapping(
         {
-            "obs_csv": "m.lak.obs.csv",
+            "obs_file": "m.lak.obs.csv",
             "entries": [{"obsname": "res_stage", "lake_id": "res", "quantity": "stage"}],
             "cutoff_walls": {"res": [[1, 2]]},
             "gwf_budget_bin": "m.cbc",

@@ -47,6 +47,14 @@ class Simulation:
         return True, None
 
 
+@pytest.fixture(autouse=True)
+def _solve_with_the_fake(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The fake simulation solves through its own run_simulation, not an executable."""
+    monkeypatch.setattr(
+        run_module, "run_simulation_with_progress", lambda sim, nper: sim.run_simulation()
+    )
+
+
 def two_cell_model(initial, regime: str) -> Modflow6:
     model = object.__new__(Modflow6)
     model.sim = Simulation()

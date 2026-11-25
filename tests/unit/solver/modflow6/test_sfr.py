@@ -714,7 +714,7 @@ def test_obs_spec_covers_each_reach_and_mover() -> None:
     model = fake_model({"net0": trace_payload(two_reach_trace(), outflow_to_lake=1)})
     network = resolve_sfr_networks(model, solver_mesh=strip_mesh())["net0"]
     obs_continuous, meta = build_sfr_obs_spec(stem="m", network=network, has_mover=True)
-    obslist = obs_continuous["m.sfr.obs.csv"]
+    obslist = obs_continuous[("m.sfr.obs.bin", "binary")]
     names = {entry[0] for entry in obslist}
     for reach in network.reaches:
         for quantity in ("stage", "depth", "downstream_flow", "ext_inflow", "ext_outflow"):
@@ -722,7 +722,7 @@ def test_obs_spec_covers_each_reach_and_mover() -> None:
         assert f"r{reach.ifno}_gw_exchange" in names
         assert f"r{reach.ifno}_to_mvr" in names
     assert meta["reach_count"] == len(network.reaches)
-    assert meta["obs_csv"] == "m.sfr.obs.csv"
+    assert meta["obs_file"] == "m.sfr.obs.bin"
     assert all(entry["network_id"] == "net0" for entry in meta["entries"])
     # 0-based integer ids only, flopy chokes on boundname obs ids.
     assert all(isinstance(entry[2], tuple) and isinstance(entry[2][0], int) for entry in obslist)
@@ -1202,7 +1202,7 @@ def test_observation_file_stem(output_name, model_name, stem) -> None:
     model.model_name = model_name
     networks = resolve_sfr_networks(model, solver_mesh=strip_mesh())
     args = build_sfr_package_args(model, networks=networks)
-    assert list(args["obs_continuous"]) == [f"{stem}.sfr.obs.csv"]
+    assert list(args["obs_continuous"]) == [(f"{stem}.sfr.obs.bin", "binary")]
 
 
 def test_sfr_time_series_file(tmp_path) -> None:

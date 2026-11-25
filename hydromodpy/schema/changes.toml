@@ -1185,3 +1185,17 @@ since = "2.0.1"
 effect = "numbers"
 quantities = ["heads@modflow6", "fluxes@modflow6", "metrics"]
 text = "On a mesh whose faces follow the lake shores but leave the ring open somewhere (an arm narrower than a cell, a wall that leaves the shore), a lake owns the cells its polygon covers for more than half of their area, each cell whole. It owned every cell the polygon touched, so a ring of land cells one cell wide joined the lake and had its top carved under the highest stage of the abacus. On a reservoir of 200.3 ha whose shore the faces cover at 99.45 %, the lake goes from 1 256 cells and 296.3 ha to 885 cells and 201.3 ha, and the cells it leaves keep their terrain and get their drain back. A mesh that closes every shore, and a mesh without lake faces, do not change."
+
+[[recipe]]
+id = "uniform_recharge_written_as_constant"
+since = "2.0.2"
+effect = "numbers"
+quantities = ["heads@modflow6", "fluxes@modflow6", "metrics"]
+text = "A recharge or soil ETP period with the same rate on every cell, such as the recharge of one station spread over the catchment, is written to MODFLOW 6 as one CONSTANT line with 16 significant digits. A chronicle of 64 periods or more wrote it in one binary file per period, read at full precision, so its rates move by at most 2 units in the last place: 4.4e-16 in relative terms, on 3 288 of 12 418 daily rates. A daily run of 34 years on 28 545 cells writes 2.4 MB of input in 25 s instead of 2.7 GB in 84 s. A shorter chronicle and a rate that varies over the cells do not change."
+
+[[recipe]]
+id = "lake_and_sfr_observations_read_in_binary"
+since = "2.0.2"
+effect = "numbers"
+quantities = ["fluxes@modflow6", "metrics"]
+text = "The observations of the LAK and SFR packages of MODFLOW 6 are written in binary and read at the double precision of the solver. They were written as CSV text with 10 significant digits, so a lake stage, a lake flow or a reach flow moves by at most 5e-10 in relative terms. The files are lake.lak.obs.bin and model.sfr.obs.bin instead of .csv. The CSV form came out garbled once MODFLOW runs with FORT_BUFFERED."

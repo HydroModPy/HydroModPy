@@ -309,7 +309,13 @@ def set_console_mode(mode: str) -> None:
     _manager.set_console_mode(mode)
 
 
-def _fmt_duration(seconds: float) -> str:
+def live_enabled() -> bool:
+    """Whether this process may draw a live display on the terminal now."""
+    return _manager.render_enabled()
+
+
+def format_duration(seconds: float) -> str:
+    """Return a duration as people read it: 4.2s, 3m 05s, 2h 07m."""
     if seconds < 60:
         return f"{seconds:.1f}s"
     minutes, secs = divmod(int(seconds), 60)
@@ -412,7 +418,7 @@ def phase(description: str) -> Generator[TaskHandle, None, None]:
         _manager.release(handle, state="failed")
         if rendering:
             console.print(
-                f"[red]✗[/red] {description} [dim]({_fmt_duration(time.perf_counter() - t0)})[/dim]"
+                f"[red]✗[/red] {description} [dim]({format_duration(time.perf_counter() - t0)})[/dim]"
             )
         logger.debug(
             "phase failed: %s (%.1fs), %d deferred line(s) dropped",
@@ -425,7 +431,7 @@ def phase(description: str) -> Generator[TaskHandle, None, None]:
     dt = time.perf_counter() - t0
     _manager.release(handle)
     if rendering:
-        console.print(f"[green]✓[/green] {description} [dim]({_fmt_duration(dt)})[/dim]")
+        console.print(f"[green]✓[/green] {description} [dim]({format_duration(dt)})[/dim]")
     logger.debug("phase done: %s (%.1fs)", description, dt)
     _run_deferred(deferred)
 
@@ -576,7 +582,9 @@ __all__ = [
     "after_phase",
     "at_end",
     "console",
+    "format_duration",
     "held_to_end",
+    "live_enabled",
     "make_console_handler",
     "phase",
     "set_console_mode",

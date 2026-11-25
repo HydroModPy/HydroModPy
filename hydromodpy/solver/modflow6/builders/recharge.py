@@ -405,7 +405,7 @@ def build_soil_evta_payload(
     lake_cell_ids: Iterable[int],
     drain_active: bool,
     shared_dir: str | None,
-) -> tuple[dict[int, np.ndarray] | dict[int, dict], np.ndarray, float] | None:
+) -> tuple[dict[int, np.ndarray | float | dict], np.ndarray, float] | None:
     """Build the EVTA payload for the ETP the soil reservoir leaves unmet.
 
     Vectorized over cells and periods: the list builder's double loop
@@ -621,14 +621,20 @@ def externalize_recharge_spd(
     basename: str,
     shared_dir: str | os.PathLike[str] | None = None,
     package: Literal["rcha", "evta"] = "rcha",
-) -> dict[int, np.ndarray] | dict[int, dict]:
+) -> dict[int, np.ndarray | float | dict]:
     """Route long transient recharge or soil-ETP stacks to external binary files.
 
+    A period with the same rate on every cell, the recharge of one station
+    spread over the catchment, is one ``CONSTANT`` line: no array and no file.
+    FloPy writes it with the 16 significant digits of every float of the run.
+    Measured on 12 418 daily periods of 28 545 cells: 25 s and 2.4 MB of
+    input, against 84 s and 2.7 GB in 12 418 binary files.
+
     FloPy formats INTERNAL arrays value by value, which dominates
-    ``write_simulation`` on multi-thousand-period chronicles. External binary
-    files are written through numpy and read natively by MF6 via
-    ``OPEN/CLOSE <file> (BINARY)``. Short records stay internal so small
-    models keep human-readable input files.
+    ``write_simulation`` on multi-thousand-period chronicles. The other
+    periods of a long record go to external binary files written through
+    numpy and read natively by MF6 via ``OPEN/CLOSE <file> (BINARY)``. Short
+    records stay internal so small models keep human-readable input files.
 
     ``shared_dir`` enables the CALIBRATION fast path: the recharge is invariant
     across trials (K / Sy / bedleak do not change it), so the per-period ``.bin``
@@ -640,19 +646,36 @@ def externalize_recharge_spd(
     (recharge, the default) keeps its files byte for byte, EVTA (the soil
     residual ETP) writes alongside it under the same digest scheme.
     """
-    if len(spd) < RECHARGE_BINARY_MIN_PERIODS:
-        return spd
-    if shared_dir is not None:
-        return _shared_recharge_spd(spd, Path(shared_dir), package=package)
-    return {
-        kper: {
-            "factor": 1.0,
-            "data": arr,
-            "filename": f"{basename}.{package}.{kper}.bin",
-            "binary": True,
+    constants = {kper: _uniform_rate(arr) for kper, arr in spd.items()}
+    if all(value is None for value in constants.values()):
+        arrays = spd
+    else:
+        arrays = {kper: arr for kper, arr in spd.items() if constants[kper] is None}
+    if len(arrays) < RECHARGE_BINARY_MIN_PERIODS:
+        files: dict[int, np.ndarray] | dict[int, dict] = arrays
+    elif shared_dir is not None:
+        files = _shared_recharge_spd(arrays, Path(shared_dir), package=package)
+    else:
+        files = {
+            kper: {
+                "factor": 1.0,
+                "data": arr,
+                "filename": f"{basename}.{package}.{kper}.bin",
+                "binary": True,
+            }
+            for kper, arr in arrays.items()
         }
-        for kper, arr in spd.items()
-    }
+    if arrays is spd:
+        return files
+    return {kper: files[kper] if value is None else value for kper, value in constants.items()}
+
+
+def _uniform_rate(arr: np.ndarray) -> float | None:
+    """Return the one rate of a period equal on every cell, else ``None``."""
+    flat = np.asarray(arr, dtype=float).reshape(-1)
+    if flat.size == 0 or not np.all(flat == flat[0]):
+        return None
+    return float(flat[0])
 
 
 def _recharge_digest(spd: dict[int, np.ndarray]) -> str:

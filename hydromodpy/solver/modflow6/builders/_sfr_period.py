@@ -214,13 +214,13 @@ def build_sfr_obs_spec(
 ) -> tuple[dict[str, list[tuple[Any, ...]]], dict[str, Any]]:
     """Return ``(obs_continuous, sfr_obs_meta)`` for the SFR package.
 
-    ``obs_continuous`` is the flopy ``continuous`` mapping ``{csv_file: [(name,
-    type, id), ...]}`` with 0-based integer reach ids. ``sfr_obs_meta`` is the
+    ``obs_continuous`` is the flopy ``continuous`` mapping ``{(file, "binary"):
+    [(name, type, id), ...]}`` with 0-based integer reach ids. ``sfr_obs_meta`` is the
     JSON-serializable sidecar mapping each observation name to its network /
-    reach / quantity so the extractor can re-key the obs CSV by
+    reach / quantity so the extractor can re-key the obs file by
     ``(reach_ifno, totim)``.
     """
-    obs_csv = f"{stem}.sfr.obs.csv"
+    obs_file = f"{stem}.sfr.obs.bin"
     obslist: list[tuple[Any, ...]] = []
     entries: list[dict[str, Any]] = []
 
@@ -245,9 +245,10 @@ def build_sfr_obs_spec(
             _add(f"r{record.ifno}_to_mvr", "to-mvr", record.ifno, "to_mvr")
             _add(f"r{record.ifno}_from_mvr", "from-mvr", record.ifno, "from_mvr")
 
-    obs_continuous = {obs_csv: obslist}
+    # Binary: MODFLOW 6 garbles a CSV it writes under FORT_BUFFERED, a binary file never.
+    obs_continuous = {(obs_file, "binary"): obslist}
     sfr_obs_meta = {
-        "obs_csv": obs_csv,
+        "obs_file": obs_file,
         "network_id": network.network_id,
         "reach_count": len(network.reaches),
         "entries": entries,

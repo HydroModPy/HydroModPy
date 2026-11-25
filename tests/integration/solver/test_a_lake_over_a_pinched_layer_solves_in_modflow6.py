@@ -24,7 +24,6 @@ row 44, the listing discrepancy bound).
 
 from __future__ import annotations
 
-import csv
 from types import SimpleNamespace
 
 import numpy as np
@@ -35,6 +34,7 @@ from hydromodpy.model.domain.layering import layer_stack
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args
 from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
+from hydromodpy.solver.modflow6.extractors.obs_common import read_obs
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.listing import percent_discrepancies
@@ -242,8 +242,8 @@ def _run(kind: str, ws) -> SimpleNamespace:
     if success:
         head = np.asarray(flopy.utils.HeadFile(str(ws / f"{STEM}.hds")).get_data(), dtype=float)
         result.head = head.reshape(mesh.nlay, N_CELLS)
-        with open(ws / f"{STEM}.lak.obs.csv", encoding="utf-8") as fh:
-            result.obs = {k: float(v) for k, v in list(csv.DictReader(fh))[-1].items()}
+        header, rows = read_obs(ws / f"{STEM}.lak.obs.bin")
+        result.obs = dict(zip(header, rows[-1], strict=True))
     return result
 
 

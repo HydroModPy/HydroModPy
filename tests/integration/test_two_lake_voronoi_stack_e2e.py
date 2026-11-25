@@ -11,7 +11,6 @@ an ``xfail(strict=True)`` named after the finding, never a wider tolerance.
 
 from __future__ import annotations
 
-import csv
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -34,6 +33,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     resolve_sfr_networks,
     sfr_drain_cells_to_drop,
 )
+from hydromodpy.solver.modflow6.extractors.obs_common import read_obs
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_common.listing import worst_percent_discrepancy
@@ -167,9 +167,9 @@ def _model(mesh: SolverMesh) -> SimpleNamespace:
     )
 
 
-def _read_csv_rows(path: Path) -> list[dict[str, float]]:
-    with open(path, encoding="utf-8") as fh:
-        return [{k.upper(): float(v) for k, v in row.items()} for row in csv.DictReader(fh)]
+def _read_obs_rows(path: Path) -> list[dict[str, float]]:
+    header, rows = read_obs(path)
+    return [dict(zip(header, row, strict=True)) for row in rows]
 
 
 @pytest.fixture(scope="module")
@@ -262,7 +262,7 @@ def stack(tmp_path_factory) -> SimpleNamespace:
         digits=10,
         print_input=False,
         continuous={
-            f"{_NAME}.lak.obs.csv": [
+            (f"{_NAME}.lak.obs.bin", "binary"): [
                 ("stageA", "STAGE", 1),
                 ("stageB", "STAGE", 2),
                 ("AtoB", "OUTLET", 1),
@@ -302,8 +302,8 @@ def stack(tmp_path_factory) -> SimpleNamespace:
         ws=ws, mesh=mesh, cells=cells, success=success, listing=listing,
         hfb_rows=hfb_rows, horizontal=horizontal, drainage_movers=drainage_movers,
         lake_movers=lake_movers, n_cells=int(mesh.n_cells),
-        lak=_read_csv_rows(ws / f"{_NAME}.lak.obs.csv"),
-        sfr=_read_csv_rows(ws / f"{_NAME}.sfr.obs.csv"),
+        lak=_read_obs_rows(ws / f"{_NAME}.lak.obs.bin"),
+        sfr=_read_obs_rows(ws / f"{_NAME}.sfr.obs.bin"),
     )  # fmt: skip
 
 

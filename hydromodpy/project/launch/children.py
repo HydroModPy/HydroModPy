@@ -27,9 +27,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.console.ndjson import ENV_VAR as PROGRESS_FILE_ENV
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.host import host_name
 from hydromodpy.project.launch.env import LAUNCHED_ENV, child_environment
-from hydromodpy.project.launch.journal import CASE_LOGS_DIRNAME
+from hydromodpy.project.launch.journal import CASE_LOGS_DIRNAME, PROGRESS_DIRNAME
 from hydromodpy.project.launch.status import CaseState, case_state
 from hydromodpy.results.outcome import Outcome, OutcomeError, WrittenBy, read_outcome, write_outcome
 from hydromodpy.results.plan_store import StoredPlan
@@ -40,6 +42,8 @@ from hydromodpy.results.session.descriptor import (
 )
 from hydromodpy.results.storage.json_io import readable
 from hydromodpy.workflow.dispatch import WorkflowName, workflow_of_sections
+
+logger = get_logger(__name__)
 
 LOG_TAIL_LINES = 20
 """Lines of a child log kept in the journal when the run log says nothing."""
@@ -141,6 +145,7 @@ class Child:
     phase: str
     process: subprocess.Popen[bytes]
     log_path: Path
+    progress_path: Path
 
 
 def start_child(
@@ -156,11 +161,16 @@ def start_child(
     logs = job_dir / CASE_LOGS_DIRNAME
     logs.mkdir(parents=True, exist_ok=True)
     log_path = logs / f"{case.case_id}.{phase}.log"
+    progress = job_dir / PROGRESS_DIRNAME
+    progress.mkdir(parents=True, exist_ok=True)
+    progress_path = progress / f"{case.case_id}.{phase}.ndjson"
     env = child_environment(
         os.environ if base_env is None else base_env,
         threads_per_case=threads_per_case,
     )
     env[LAUNCHED_ENV] = "local"
+    # The launcher shows where each case is from the progress events it writes.
+    env[PROGRESS_FILE_ENV] = str(progress_path)
     with log_path.open("ab") as log:
         process = subprocess.Popen(
             list(command),
@@ -170,7 +180,19 @@ def start_child(
             stdout=log,
             stderr=subprocess.STDOUT,
         )
-    return Child(case=case, phase=phase, process=process, log_path=log_path)
+    return Child(
+        case=case, phase=phase, process=process, log_path=log_path, progress_path=progress_path
+    )
+
+
+def drop_progress(child: Child) -> None:
+    """Remove the progress file of a reaped child: the journal keeps how it ended."""
+    try:
+        child.progress_path.unlink(missing_ok=True)
+    except OSError:
+        # Windows refuses to remove a file the board is reading at that instant.
+        # The file is a few kilobytes of display and never worth a failed launch.
+        logger.debug("progress file %s left in place", child.progress_path)
 
 
 def exit_of(returncode: int) -> tuple[int, int | None]:
@@ -287,6 +309,7 @@ __all__ = [
     "close_dead_child",
     "close_dead_session",
     "dead_worker_message",
+    "drop_progress",
     "exit_of",
     "log_tail",
     "planned_cases",

@@ -15,14 +15,16 @@ Every line carries ``event`` and ``at`` (UTC, ISO 8601). The launcher writes
 ``launch_start``, ``prepare_start`` / ``prepare_end`` per case,
 ``lockfile``, ``case_start`` / ``case_end`` per case, ``case_skipped`` and
 ``launch_end``. A ``case_end`` carries ``case_id``, ``status``,
-``exit_code``, ``signal``, ``rel_dir``, ``error`` and ``log_tail``.
+``exit_code``, ``signal``, ``rel_dir``, ``error`` and ``log_tail``. A
+``prepare_end`` with ``like`` has no ``prepare_start``: the case shared the
+prepare of the case ``like`` names.
 """
 
 from __future__ import annotations
 
 import json
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -37,6 +39,11 @@ CASES_FILENAME = "cases.txt"
 
 CASE_LOGS_DIRNAME = "logs"
 """Standard output of each child process, ``jobs/<stamp>-local/logs/<case>.log``."""
+
+PROGRESS_DIRNAME = "progress"
+"""Progress events of each running child, ``jobs/<stamp>-local/progress/<case>.<phase>.ndjson``.
+
+A file lives while its child runs and goes when the launcher reaps it."""
 
 FAILED_STATUSES = frozenset({"failed", "aborted", "stale"})
 """Statuses ``hmp project log --failed`` keeps."""
@@ -93,8 +100,11 @@ def _job_dir_of(project_root: Path, job: str | Path) -> Path:
 class Journal:
     """The append-only journal of one local launch."""
 
-    def __init__(self, job_dir: Path) -> None:
+    def __init__(
+        self, job_dir: Path, listener: Callable[[dict[str, Any]], None] | None = None
+    ) -> None:
         self._path = Path(job_dir) / JOURNAL_FILENAME
+        self._listener = listener
 
     @property
     def path(self) -> Path:
@@ -102,12 +112,14 @@ class Journal:
         return self._path
 
     def append(self, event: str, **fields: Any) -> dict[str, Any]:
-        """Append one event line, flushed to disk, and return it."""
+        """Append one event line, flushed to disk, hand it to the listener and return it."""
         line = {"event": event, "at": datetime.now(UTC).isoformat(), **fields}
         with self._path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(line, default=str) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
+        if self._listener is not None:
+            self._listener(line)
         return line
 
 

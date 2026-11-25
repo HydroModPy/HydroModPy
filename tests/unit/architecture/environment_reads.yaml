@@ -297,6 +297,16 @@ rows:
   kind: read
   class: diagnostic
   why: silences one mismatch warning, never a result
+- file: hydromodpy/solver/modflow_common/progress.py
+  variable: FORT_BUFFERED
+  kind: read
+  class: child
+  why: a buffer the user set for the Intel Fortran runtime is kept for the solver process
+- file: hydromodpy/solver/modflow_common/progress.py
+  variable: <whole>
+  kind: pass
+  class: child
+  why: the environment of the parent, with the Fortran output buffer, becomes the one of the mf6 process
 
 # The network clients of the tree, counted by the gate. The download client of
 # core/io/fetch.py is made per call with trust_env off, so that the netrc, the

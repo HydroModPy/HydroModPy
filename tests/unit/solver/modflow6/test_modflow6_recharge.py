@@ -258,7 +258,9 @@ def test_recharge_folder(case: str, model: SimpleNamespace, expected: str | None
 
 
 def recharge_stack(n_cells: int, n_periods: int) -> dict[int, np.ndarray]:
-    return {kper: np.full(n_cells, 1.0e-8 * (kper + 1)) for kper in range(n_periods)}
+    # A rate that varies over the cells, so every period needs its array.
+    spread = np.linspace(1.0, 2.0, n_cells)
+    return {kper: spread * 1.0e-8 * (kper + 1) for kper in range(n_periods)}
 
 
 def test_default_package_names_files_rcha() -> None:
@@ -665,3 +667,44 @@ def test_direct_recharge_forms(recharge, expected) -> None:
     bind_recharge_from_flow(model)
 
     assert model.recharge == expected
+
+
+# A period with one rate on every cell is one CONSTANT line.
+#
+# The recharge of one station spread over the catchment is the same on every
+# cell. Written as arrays, a 34-year daily chronicle took 12 418 binary files and
+# 2.7 GB per run; a CONSTANT line per period takes no file.
+
+
+def uniform_stack(n_cells: int, n_periods: int) -> dict[int, np.ndarray]:
+    return {kper: np.full(n_cells, 1.0e-8 * (kper + 1)) for kper in range(n_periods)}
+
+
+@pytest.mark.parametrize("n_periods", [3, RECHARGE_BINARY_MIN_PERIODS + 2])
+def test_uniform_periods_are_constants(n_periods: int) -> None:
+    payload = externalize_recharge_spd(uniform_stack(4, n_periods), basename="m")
+
+    assert payload == {kper: 1.0e-8 * (kper + 1) for kper in range(n_periods)}
+
+
+def test_uniform_periods_write_no_shared_file(tmp_path) -> None:
+    payload = externalize_recharge_spd(
+        uniform_stack(4, N_PERIODS), basename="m", shared_dir=tmp_path
+    )
+
+    assert all(isinstance(value, float) for value in payload.values())
+    assert not any(tmp_path.iterdir())
+
+
+def test_mixed_stack_keeps_arrays_for_the_periods_that_vary(tmp_path) -> None:
+    spd = recharge_stack(4, N_PERIODS)
+    spd[0] = np.full(4, 5.0e-9)
+    spd[0][1] = 0.0
+    spd[3] = np.full(4, 7.0e-9)
+
+    payload = externalize_recharge_spd(spd, basename="m", shared_dir=tmp_path)
+
+    assert payload[3] == 7.0e-9
+    assert set(payload) == set(range(N_PERIODS))
+    assert payload[0]["filename"].endswith(".0.bin")
+    assert len(list(tmp_path.iterdir())) == N_PERIODS - 1

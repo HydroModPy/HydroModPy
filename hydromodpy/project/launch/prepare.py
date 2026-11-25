@@ -22,6 +22,13 @@ The second case of a site starts once the first has ended, so it finds the
 files in the cache, or fetches only what its own recipe asks for. When
 every case is prepared the launcher writes ``hydromodpy.lock`` once, from
 the sidecars of ``data/``, and the workers then run ``--frozen`` against it.
+Cases whose files differ only by their name and the values ``[sites.design]``
+draws ask for the same data, so one of them is prepared and the others share
+its outcome, journaled as a ``prepare_end`` that names it in ``like``. The 300
+points of a plan on one catchment are prepared once instead of 300 times, which
+took 6 hours on a Windows server. A drawn key that changes what a case reads
+does not slip through: the worker runs ``--frozen`` and refuses a file the
+lockfile does not hold.
 The scratch folder a prepare child leaves behind
 (``.hmp/scratch/<case>.p<pid>/``, its preprocessing tree) is removed once
 the child is reaped.
@@ -29,18 +36,23 @@ the child is reaped.
 
 from __future__ import annotations
 
+import hashlib
 import shutil
 import time
+import tomllib
 from collections import deque
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
+from hydromodpy.core.io import canonical_json
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.scratch import scratch_root_for
 from hydromodpy.project.launch.children import (
     Child,
     PlannedCase,
+    drop_progress,
     exit_of,
     log_tail,
     prepare_command,
@@ -76,6 +88,29 @@ def _data_request_key(case: PlannedCase) -> str:
     return case.site if case.site is not None else case.case_id
 
 
+def data_request_key(case: PlannedCase, drawn: Sequence[str] = ()) -> str:
+    """Return the digest of the case file without its name and the keys in *drawn*.
+
+    Two cases with the same key ask the prepare phase for the same data.
+    """
+    document = tomllib.loads(case.path.read_text(encoding="utf-8"))
+    simulation = document.get("simulation")
+    if isinstance(simulation, dict):
+        simulation.pop("name", None)
+    for path in drawn:
+        _drop(document, path.split("."))
+    return hashlib.sha256(canonical_json.dumps(document).encode("utf-8")).hexdigest()
+
+
+def _drop(document: dict[str, Any], parts: list[str]) -> None:
+    """Remove the dotted key *parts* from *document*, when it is there."""
+    node: Any = document
+    for part in parts[:-1]:
+        node = node.get(part) if isinstance(node, dict) else None
+    if isinstance(node, dict):
+        node.pop(parts[-1], None)
+
+
 def _next_free(pending: deque[PlannedCase], busy: set[str]) -> PlannedCase | None:
     """Pop the first pending case whose data no running child is fetching."""
     for case in pending:
@@ -94,6 +129,7 @@ def prepare_cases(
     parallel: int,
     threads_per_case: int,
     environment_flags: Sequence[str] = (),
+    drawn: Sequence[str] = (),
 ) -> list[PreparedCase]:
     """Run the prepare phase of *cases*, *parallel* at a time.
 
@@ -102,8 +138,14 @@ def prepare_cases(
     ``environment_flags`` are the three Environment options the launcher
     received, carried on the command line of the prepare child too, so the
     prepare and the solve of one case play under the same Environment.
+    The cases of one :func:`data_request_key` (``drawn`` are the keys of
+    ``[sites.design]``) are prepared once, by the first of them in the plan.
     """
-    pending = deque(cases)
+    groups: dict[str, list[PlannedCase]] = {}
+    for case in cases:
+        groups.setdefault(data_request_key(case, drawn), []).append(case)
+    sharing = {group[0].case_id: group[1:] for group in groups.values()}
+    pending = deque(group[0] for group in groups.values())
     running: list[Child] = []
     done: list[PreparedCase] = []
     try:
@@ -113,20 +155,25 @@ def prepare_cases(
                 case = _next_free(pending, busy)
                 if case is None:
                     break
-                journal.append("prepare_start", case_id=case.case_id)
-                running.append(
-                    start_child(
-                        job_dir,
-                        case,
-                        prepare_command(case, environment_flags=environment_flags),
-                        phase="prepare",
-                        threads_per_case=threads_per_case,
-                    )
+                child = start_child(
+                    job_dir,
+                    case,
+                    prepare_command(case, environment_flags=environment_flags),
+                    phase="prepare",
+                    threads_per_case=threads_per_case,
                 )
+                journal.append(
+                    "prepare_start", case_id=case.case_id, progress=str(child.progress_path)
+                )
+                running.append(child)
             reaped = [child for child in running if child.process.poll() is not None]
             for child in reaped:
                 running.remove(child)
-                done.append(_close(project_root, child, journal=journal))
+                prepared = _close(project_root, child, journal=journal)
+                done.append(prepared)
+                done.extend(
+                    _share(prepared, case, journal=journal) for case in sharing[child.case.case_id]
+                )
             if not reaped:
                 time.sleep(POLL_INTERVAL_S)
     except BaseException:
@@ -154,6 +201,7 @@ def _close(project_root: Path, child: Child, *, journal: Journal) -> PreparedCas
     assert returncode is not None
     exit_code, signal = exit_of(returncode)
     _drop_child_scratch(project_root, child)
+    drop_progress(child)
     ok = exit_code == 0
     journal.append(
         "prepare_end",
@@ -172,6 +220,25 @@ def _close(project_root: Path, child: Child, *, journal: Journal) -> PreparedCas
     )
 
 
+def _share(prepared: PreparedCase, case: PlannedCase, *, journal: Journal) -> PreparedCase:
+    """Give *case* the outcome of the prepare it shares, and journal it."""
+    journal.append(
+        "prepare_end",
+        case_id=case.case_id,
+        status="completed" if prepared.ok else "failed",
+        exit_code=prepared.exit_code,
+        signal=prepared.signal,
+        like=prepared.case_id,
+        log_tail=[],
+    )
+    return PreparedCase(
+        case_id=case.case_id,
+        ok=prepared.ok,
+        exit_code=prepared.exit_code,
+        signal=prepared.signal,
+    )
+
+
 def write_lockfile_once(project_root: Path, data_dir: Path, journal: Journal) -> Path | None:
     """Write ``hydromodpy.lock`` from the sidecars of ``data_dir`` and journal it."""
     from hydromodpy.project.launch.lockfile import write_project_lockfile
@@ -184,6 +251,7 @@ def write_lockfile_once(project_root: Path, data_dir: Path, journal: Journal) ->
 __all__ = [
     "POLL_INTERVAL_S",
     "PreparedCase",
+    "data_request_key",
     "prepare_cases",
     "workspace_data_dir",
     "write_lockfile_once",

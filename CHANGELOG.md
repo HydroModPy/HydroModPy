@@ -18,9 +18,27 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
+### Added
+
+- `hmp run` on a `[sites]` project shows the launch while it runs. On a terminal it draws a bar over the cases with the time left, and one line per running case with the step it is on and, while MODFLOW solves, its stress periods. Without a terminal it prints one line per finished case with the counts and the time left. Each case writes its progress events to `jobs/<stamp>-local/progress/` while it runs.
+
+### Changed
+
+- MODFLOW 6 runs with `FORT_BUFFERED=TRUE` in the environment of its process, so the Intel Fortran release binary buffers what it writes. On a Windows server a daily model of 28 545 cells went from 6.7 s to 0.38 s per simulated day alone, and from 11.5 s to 0.37 s eight at a time. The head and budget files are the same byte for byte. The observations of lakes and SFR reaches are now written in binary, `<model>.lak.obs.bin` and `<model>.sfr.obs.bin`, because the buffer garbles the CSV MODFLOW 6 writes. A model that still writes an observation CSV runs without the buffer, and a `FORT_BUFFERED` the user set is kept.
+- The prepare phase of a `[sites]` launch runs once for the cases whose files differ only by their name and the values `[sites.design]` draws. A plan of 300 points on one catchment is prepared once instead of 300 times, which took 6 hours on that server. The other cases share its outcome, journaled as a `prepare_end` that names it in `like`.
+- A recharge period with the same rate on every cell is one `CONSTANT` line of the MODFLOW 6 input. A daily run of 34 years no longer writes 12 418 binary files and 2.7 GB of recharge per run.
+- The MODFLOW progress bar moves by a thousandth of the run at least, so a long chronicle writes 1 000 progress events instead of one per stress period.
+
 ### Fixed
 
 - A `[sites]` project with one site accepts a site key written in the project file itself, such as the path of a station folder, so a plan on one catchment needs no `site_overrides/` file. With several sites the key is still refused, since every catchment would read the same value.
+
+### Numbers
+
+<!-- numbers:begin -->
+- A recharge or soil ETP period with the same rate on every cell, such as the recharge of one station spread over the catchment, is written to MODFLOW 6 as one CONSTANT line with 16 significant digits. A chronicle of 64 periods or more wrote it in one binary file per period, read at full precision, so its rates move by at most 2 units in the last place: 4.4e-16 in relative terms, on 3 288 of 12 418 daily rates. A daily run of 34 years on 28 545 cells writes 2.4 MB of input in 25 s instead of 2.7 GB in 84 s. A shorter chronicle and a rate that varies over the cells do not change.
+- The observations of the LAK and SFR packages of MODFLOW 6 are written in binary and read at the double precision of the solver. They were written as CSV text with 10 significant digits, so a lake stage, a lake flow or a reach flow moves by at most 5e-10 in relative terms. The files are lake.lak.obs.bin and model.sfr.obs.bin instead of .csv. The CSV form came out garbled once MODFLOW runs with FORT_BUFFERED.
+<!-- numbers:end -->
 
 ## [v2.0.1] - 2026-11-25
 

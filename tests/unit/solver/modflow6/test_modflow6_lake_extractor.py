@@ -68,7 +68,7 @@ def test_lake_extractor_states_not_scaled_rates_to_m3_s(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     spec, obs_continuous = _single_lake_spec()
-    obs_path = tmp_path / spec.obs_csv
+    obs_path = tmp_path / spec.obs_file
     # The applied flux is what gets published. It is deliberately NOT the sum of the
     # lak obs below (-0.0035), so a regression back to summing the obs fails here.
     applied = -0.006
@@ -145,7 +145,7 @@ def test_lake_extractor_drops_exchange_when_budget_is_missing(
     # the obs, so it must be absent and said out loud, never silently substituted.
     spec, obs_continuous = _single_lake_spec()
     assert spec.budget_bin == "m.lak.cbc"
-    obs_path = tmp_path / spec.obs_csv
+    obs_path = tmp_path / spec.obs_file
     _write_obs_csv(
         obs_path,
         obs_continuous,
@@ -184,7 +184,7 @@ def test_lake_extractor_treats_dnodata_sentinel_as_zero(tmp_path: Path) -> None:
     # to another lake (it has no external outflow). The extractor must read that as 0,
     # not sum the sentinel into a poisoned budget term.
     spec, obs_continuous = _single_lake_spec()
-    obs_path = tmp_path / spec.obs_csv
+    obs_path = tmp_path / spec.obs_file
     _write_obs_csv(
         obs_path,
         obs_continuous,
@@ -224,7 +224,7 @@ def test_lake_extractor_keys_each_lake_and_timestep(tmp_path: Path) -> None:
     lines = [",".join(header)]
     for row in rows:
         lines.append(",".join(str(row.get(name, 0.0)) for name in header))
-    obs_path = tmp_path / spec.obs_csv
+    obs_path = tmp_path / spec.obs_file
     obs_path.write_text("\n".join(lines) + "\n")
 
     timeseries, _ = build_lake_records(
@@ -254,7 +254,7 @@ def test_outlet_inflow_is_observed_and_outlet_is_positive_outflow(tmp_path: Path
     names = {o[0] for o in next(iter(obs_continuous.values()))}
     assert {"up_outlet_inflow", "down_outlet_inflow"} <= names
     spec = LakeObsSpec.from_mapping(meta)
-    obs_path = tmp_path / spec.obs_csv
+    obs_path = tmp_path / spec.obs_file
     _write_obs_csv(
         obs_path,
         obs_continuous,
@@ -275,7 +275,7 @@ def test_the_lake_storage_term_is_stored_as_lake_storage(tmp_path: Path) -> None
     spec, obs_continuous = _single_lake_spec()
     obsnames = {obs[0].upper(): obs[1] for obs in next(iter(obs_continuous.values()))}
     assert obsnames["LAC0_LAKE_STORAGE"] == "storage"
-    obs_path = tmp_path / spec.obs_csv
+    obs_path = tmp_path / spec.obs_file
     _write_obs_csv(
         obs_path,
         obs_continuous,
@@ -296,7 +296,7 @@ def test_a_sidecar_that_names_the_old_storage_quantity_is_refused(tmp_path: Path
     # Read again, it would be stored unscaled under the aquifer budget field name.
     spec, obs_continuous = _single_lake_spec()
     meta = {
-        "obs_csv": spec.obs_csv,
+        "obs_file": spec.obs_file,
         "entries": [
             {
                 "obsname": entry.obsname,
@@ -308,7 +308,7 @@ def test_a_sidecar_that_names_the_old_storage_quantity_is_refused(tmp_path: Path
         ],
     }
     old_spec = LakeObsSpec.from_mapping(meta)
-    obs_path = tmp_path / spec.obs_csv
+    obs_path = tmp_path / spec.obs_file
     _write_obs_csv(obs_path, obs_continuous, {"LAC0_STAGE": 90.0})
 
     with pytest.raises(DataContractViolation, match="'lake_storage'"):
@@ -357,4 +357,4 @@ def test_no_lake_gives_no_observations() -> None:
     obs_continuous, meta = build_lake_obs_spec(stem="m", lake_conn_info=[], outlets=[])
 
     assert obs_continuous == {}
-    assert meta == {"obs_csv": "", "budgetcsv": None, "budget_bin": None, "entries": []}
+    assert meta == {"obs_file": "", "budgetcsv": None, "budget_bin": None, "entries": []}

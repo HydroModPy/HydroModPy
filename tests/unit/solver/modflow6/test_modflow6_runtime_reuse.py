@@ -50,6 +50,14 @@ class _FakeSimulation:
         return True, None
 
 
+@pytest.fixture(autouse=True)
+def _solve_with_the_fake(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The fake simulation solves through its own run_simulation, not an executable."""
+    monkeypatch.setattr(
+        run_module, "run_simulation_with_progress", lambda sim, nper: sim.run_simulation()
+    )
+
+
 def _model(folder: Path) -> Modflow6:
     folder.mkdir(parents=True, exist_ok=True)
     model = object.__new__(Modflow6)

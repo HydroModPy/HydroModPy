@@ -124,7 +124,7 @@ def test_shared_recharge_matches_per_trial_and_runs(tmp_path: Path) -> None:
 def test_short_recharge_stays_internal(tmp_path: Path) -> None:
     # Below the binary threshold the stack stays in-memory on both paths, and the
     # shared dir is not even created.
-    small = {k: np.full(_NCPL, 1e-4) for k in range(10)}
+    small = {k: np.linspace(1e-4, 2e-4, _NCPL) for k in range(10)}
     shared = tmp_path / "_shared_recharge"
     assert externalize_recharge_spd(small, basename="m") is small
     assert externalize_recharge_spd(small, basename="m", shared_dir=str(shared)) is small

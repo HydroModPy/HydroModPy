@@ -28,7 +28,7 @@ _STAMP = 86400.0
 def _spec(quantity: str) -> SfrObsSpec:
     return SfrObsSpec.from_mapping(
         {
-            "obs_csv": "m.sfr.obs.csv",
+            "obs_file": "m.sfr.obs.csv",
             "network_id": "net0",
             "reach_count": 1,
             "entries": [
@@ -131,7 +131,7 @@ def _write_run(tmp_path: Path, csv: str, cells: dict[int, int | None]) -> Path:
         for ifno in cells
     ]
     payload = {
-        "obs_csv": "m.sfr.obs.csv",
+        "obs_file": "m.sfr.obs.csv",
         "network_id": "net0",
         "reach_count": len(cells),
         "entries": entries,

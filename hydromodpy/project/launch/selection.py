@@ -58,6 +58,19 @@ LAUNCHABLE_BY_DEFAULT = frozenset({"planned", "partial", "failed", "aborted"})
 
 def sites_run_config(project_root: Path) -> SitesRunConfig:
     """Return ``[sites.run]`` of the project, read from ``project.toml`` and its chain."""
+    return _sites_config(project_root).run
+
+
+def drawn_paths(project_root: Path) -> tuple[str, ...]:
+    """Return the dotted keys ``[sites.design]`` draws a value for, none without a design."""
+    design = _sites_config(project_root).design
+    if design is None:
+        return ()
+    return tuple(str(decl.resolve_target()) for decl in design.parameters.values())
+
+
+def _sites_config(project_root: Path) -> SitesConfig:
+    """Return ``[sites]`` of the project, read from ``project.toml`` and its chain."""
     from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
@@ -70,7 +83,7 @@ def sites_run_config(project_root: Path) -> SitesRunConfig:
     section = document.get("sites")
     if not isinstance(section, Mapping):
         raise ConfigError(f"{project_root}/{PROJECT_MARKER_FILENAME} declares no [sites]")
-    return SitesConfig.model_validate(section).run
+    return SitesConfig.model_validate(section)
 
 
 def _matches(case: PlannedCase, state: CaseState, tokens: Sequence[str]) -> bool:
@@ -251,6 +264,7 @@ def worker_flags(
 __all__ = [
     "LAUNCHABLE_BY_DEFAULT",
     "UNFINISHED_STATES",
+    "drawn_paths",
     "effective_parallel",
     "effective_prepare_parallel",
     "select_cases",

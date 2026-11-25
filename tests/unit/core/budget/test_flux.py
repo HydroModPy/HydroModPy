@@ -384,7 +384,7 @@ def _from_sfr(signed, *, tmp_path, **_):
     # gains it, so the value is already in the sign of the aquifer. The aquifer loses what the reach gains.
     spec = SfrObsSpec.from_mapping(
         {
-            "obs_csv": "s.csv",
+            "obs_file": "s.csv",
             "network_id": "n",
             "reach_count": 1,
             "entries": [
@@ -402,7 +402,7 @@ def _from_lake(signed, *, tmp_path, monkeypatch, **_):
     # The lake exchange is positive when the lake gains water, which the aquifer loses.
     spec = LakeObsSpec.from_mapping(
         {
-            "obs_csv": "l.csv",
+            "obs_file": "l.csv",
             "entries": [{"obsname": "l_stage", "lake_id": "l", "quantity": "stage"}],
         }
     )

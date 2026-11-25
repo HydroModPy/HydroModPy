@@ -92,6 +92,18 @@ def test_callback_is_monotonic_and_clamped_to_nper() -> None:
     assert handle.completed == [2, 2]
 
 
+def test_a_long_chronicle_moves_the_bar_a_thousandth_at_a_time() -> None:
+    # A daily run of 34 years writes 1 000 progress events, not 12 418, and still
+    # ends on its last period.
+    handle = _RecordingHandle()
+    callback = make_solving_line_callback(handle, nper=12418)
+    for period in range(1, 12419):
+        callback(f"    Solving:  Stress period: {period:5d}    Time step:     1")
+    assert len(handle.completed) <= 1000
+    assert handle.completed[0] == 13
+    assert handle.completed[-1] == 12418
+
+
 def test_callback_forwards_noise_to_debug_log(log_records) -> None:
     handle = _RecordingHandle()
     callback = make_solving_line_callback(handle, nper=2)

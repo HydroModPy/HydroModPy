@@ -21,6 +21,7 @@ import pytest
 
 from hydromodpy.solver.modflow6.builders.solver_options import output_control_records
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
+from hydromodpy.solver.modflow6.extractors.obs_common import read_obs
 from hydromodpy.solver.modflow_common import calibration_extractors as cal
 from hydromodpy.solver.modflow_common.period_steps import (
     group_ends_by_stamp,
@@ -649,8 +650,8 @@ def test_mf6_lake_period_mean_and_end_stage(tmp_path: Path) -> None:
     Modflow6OutputAdapter().extract(solved_run(workspace), store, keep_all)
     series = pd.DataFrame(store.timeseries)
 
-    obs = pd.read_csv(workspace / "lake.lak.obs.csv")
-    obs.columns = [name.upper() for name in obs.columns]
+    header, rows = read_obs(workspace / "lake.lak.obs.bin")
+    obs = pd.DataFrame(rows, columns=header)
     stamps = (4 * DAY_S, 8 * DAY_S)
     ends = obs["TIME"].to_numpy()
     lengths = np.diff(np.concatenate([[0.0], ends]))
@@ -689,7 +690,7 @@ def test_mf6_stream_period_mean_and_end_stage(
 
     spec = SfrObsSpec.from_mapping(
         {
-            "obs_csv": "m.sfr.obs.csv",
+            "obs_file": "m.sfr.obs.csv",
             "network_id": "net0",
             "reach_count": 1,
             "entries": [

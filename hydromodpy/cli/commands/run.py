@@ -930,6 +930,7 @@ def _launch_sites_project(config_path: Path, *, args: argparse.Namespace, enviro
     the same Environment from them.
     """
     from hydromodpy.cli.environment import environment_flags_of
+    from hydromodpy.cli.launch_board import LaunchBoard
     from hydromodpy.core.exceptions import HydroModPyError
     from hydromodpy.core.workspace.resolve import find_data_workspace
     from hydromodpy.project.environment import Environment
@@ -956,17 +957,19 @@ def _launch_sites_project(config_path: Path, *, args: argparse.Namespace, enviro
             env=os.environ,
             force=force,
         )
-        report = run_plan(
-            root,
-            parallel=getattr(args, "parallel", None),
-            only=tuple(getattr(args, "only", []) or ()),
-            site=getattr(args, "site", None),
-            until=getattr(args, "until_step", None),
-            fresh=bool(getattr(args, "fresh", False)),
-            force=force,
-            resume=resume is not None,
-            environment_flags=environment_flags_of(args),
-        )
+        with LaunchBoard(live=getattr(args, "format", "table") == "table") as board:
+            report = run_plan(
+                root,
+                parallel=getattr(args, "parallel", None),
+                only=tuple(getattr(args, "only", []) or ()),
+                site=getattr(args, "site", None),
+                until=getattr(args, "until_step", None),
+                fresh=bool(getattr(args, "fresh", False)),
+                force=force,
+                resume=resume is not None,
+                environment_flags=environment_flags_of(args),
+                on_event=board,
+            )
     except KeyboardInterrupt:
         print("Launch aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)

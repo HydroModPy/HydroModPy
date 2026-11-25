@@ -150,9 +150,9 @@ def test_log_hint(live_console):
 
 
 def test_fmt_duration():
-    assert core_progress._fmt_duration(3.21) == "3.2s"
-    assert core_progress._fmt_duration(75) == "1m 15s"
-    assert core_progress._fmt_duration(3700) == "1h 01m"
+    assert core_progress.format_duration(3.21) == "3.2s"
+    assert core_progress.format_duration(75) == "1m 15s"
+    assert core_progress.format_duration(3700) == "1h 01m"
 
 
 def test_suppressed_zone(live_console):

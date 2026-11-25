@@ -36,7 +36,7 @@ def entry(reach: int, quantity: str) -> dict:
 
 
 SPEC_PAYLOAD = {
-    "obs_csv": "m.sfr.obs.csv",
+    "obs_file": "m.sfr.obs.csv",
     "network_id": "net0",
     "reach_count": 2,
     "entries": [
@@ -88,7 +88,7 @@ def write_obs_run(
     """Write the SFR and optional LAK sidecars and obs CSVs of a tiny run."""
     if network:
         sfr_meta = {
-            "obs_csv": "m.sfr.obs.csv",
+            "obs_file": "m.sfr.obs.csv",
             "network_id": "n",
             "reach_count": 1,
             "entries": [
@@ -102,7 +102,7 @@ def write_obs_run(
     if lake_out is None:
         return
     lak_meta = {
-        "obs_csv": "m.lak.obs.csv",
+        "obs_file": "m.lak.obs.csv",
         "entries": [{"obsname": "L1_EXT_1", "lake_id": "l1", "quantity": "ext_outflow"}],
     }
     (root / "m.lak.meta.json").write_text(json.dumps(lak_meta), encoding="utf-8")
@@ -200,7 +200,7 @@ def test_no_network_nor_lake_has_no_routed_series(tmp_path: Path) -> None:
 # station already carries the flow to compare.
 
 FLOW_PAYLOAD = {
-    "obs_csv": "m.sfr.obs.csv",
+    "obs_file": "m.sfr.obs.csv",
     "network_id": "net0",
     "reach_count": 3,
     "entries": [

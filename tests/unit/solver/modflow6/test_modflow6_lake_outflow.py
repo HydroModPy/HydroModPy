@@ -10,7 +10,6 @@ mvrtype, value] where id1 is the outlet number and id2 the receiver lake index.
 
 from __future__ import annotations
 
-import csv
 import logging
 import math
 from pathlib import Path
@@ -31,6 +30,7 @@ from hydromodpy.solver.modflow6.builders.lake_outflow import (
     resolve_downstream_spillway_reaches,
 )
 from hydromodpy.solver.modflow6.builders.mvr import build_mvr_period_records, mover_package_count
+from hydromodpy.solver.modflow6.extractors.obs_common import read_obs
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
@@ -524,15 +524,9 @@ def two_lake_mvr_sim(tmp_path, *, exe: str):
 
 
 def last_obs_row(path) -> dict[str, float]:
-    with open(path, encoding="utf-8", newline="") as handle:
-        reader = csv.reader(handle)
-        header = [h.strip().upper() for h in next(reader)]
-        last = None
-        for row in reader:
-            if row:
-                last = row
-    assert last is not None, "LAK obs CSV has no data rows"
-    return {name: float(value) for name, value in zip(header, last, strict=True)}
+    header, rows = read_obs(path)
+    assert rows, "the LAK obs file has no data rows"
+    return dict(zip(header, rows[-1], strict=True))
 
 
 @pytest.mark.mf6
@@ -549,7 +543,7 @@ def test_mvr_cascade_runs_and_extracts_mover_obs(tmp_path) -> None:
     ok, _ = sim.run_simulation(silent=True)
 
     assert ok, "the 2-lake MVR cascade did not converge"
-    obs = last_obs_row(Path(tmp_path) / "lac_test.lak.obs.csv")
+    obs = last_obs_row(Path(tmp_path) / "lac_test.lak.obs.bin")
     to_mvr = obs["LAC0_TO_MVR_0"]  # keyed by the provider outlet
     from_mvr = obs["LAC1_FROM_MVR"]  # keyed by the receiver lake
     assert math.isfinite(to_mvr) and math.isfinite(from_mvr)

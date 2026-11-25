@@ -7,7 +7,7 @@ the spatially-resolved per-aquifer-cell seepage and is handled by
 ``_extract_budget`` (Zarr ``budget/lak``); this module only handles the per-lake
 scalars.
 
-The lake-aquifer exchange is the one quantity NOT taken from the obs CSV. The
+The lake-aquifer exchange is the one quantity NOT taken from the obs file. The
 per-connection ``lak`` observation is not the flux MF6 applied: the two agree on a
 connection with a wetted area and diverge on one whose reported ``FLOW-AREA`` is
 zero, so their sum inflates the exchange as a lake draws down. The ``GWF`` record
@@ -44,7 +44,7 @@ from hydromodpy.solver.modflow6.extractors.face_flow import grid_connections
 from hydromodpy.solver.modflow6.extractors.obs_common import (
     obs_rows_on_stamps,
     ordered_unique,
-    read_obs_csv,
+    read_obs,
     timeseries_record,
     verify_obs_time_alignment,
 )
@@ -73,7 +73,7 @@ __all__ = [
 ]
 
 # Lake scalar states stored in native units (no time scaling). These are the
-# quantities a calibration can target directly from the LAK obs CSV.
+# quantities a calibration can target directly from the LAK obs file.
 _STATE_QUANTITIES = frozenset({"stage", "volume", "surface_area"})
 
 # Lake quantities reported as a volumetric/areal RATE (length^N / time-unit) that
@@ -144,7 +144,7 @@ def lake_station_id(lake_id: str) -> str:
 class LakeObsEntry:
     """One LAK observation: which obs column maps to which lake quantity.
 
-    ``obsname`` is the column header in the LAK obs CSV (MF6 upper-cases it).
+    ``obsname`` is the column header in the LAK obs file (MF6 upper-cases it).
     ``quantity`` is the HMP-side series name (e.g. ``stage``, ``gwf_exchange``).
     ``iconn`` is the 0-based per-lake connection index for per-connection ``lak``
     observations, else ``None``. ``under_dam`` flags a VERTICAL connection of the
@@ -162,7 +162,7 @@ class LakeObsEntry:
 class LakeObsSpec:
     """Build-time description of the LAK outputs, persisted as a JSON sidecar.
 
-    ``obs_csv`` is a filename relative to the solver output directory.
+    ``obs_file`` is a filename relative to the solver output directory.
     ``entries`` maps every obs column to its lake / quantity. ``budget_bin`` names
     the LAK package binary budget, whose ``GWF`` record carries the lake-aquifer
     flux MF6 actually applied, connection by connection; ``budgetcsv`` names the
@@ -173,7 +173,7 @@ class LakeObsSpec:
     the GWF budget whose ``FLOW-JA-FACE`` carries the flow across them.
     """
 
-    obs_csv: str
+    obs_file: str
     entries: list[LakeObsEntry] = field(default_factory=list)
     budgetcsv: str | None = None
     budget_bin: str | None = None
@@ -201,7 +201,7 @@ class LakeObsSpec:
             for lake_id, faces in (payload.get("cutoff_walls") or {}).items()
         }
         return cls(
-            obs_csv=str(payload["obs_csv"]),
+            obs_file=str(payload["obs_file"]),
             entries=entries,
             budgetcsv=None if raw_budget is None else str(raw_budget),
             budget_bin=None if raw_bin is None else str(raw_bin),
@@ -283,13 +283,13 @@ def extract_lake_series(
     quantity: str = "stage",
     time_index: pd.DatetimeIndex | None = None,
 ) -> pd.Series:
-    """Return one lake's simulated scalar series read from the LAK obs CSV.
+    """Return one lake's simulated scalar series read from the LAK obs file.
 
     Reads ``{model_name}.lak.meta.json`` to locate the obs column for
-    ``(lake_id, quantity)`` and pulls that column out of ``{model_name}.lak.obs.csv``.
+    ``(lake_id, quantity)`` and pulls that column out of ``{model_name}.lak.obs.bin``.
     ``quantity`` defaults to ``"stage"`` (water level, m); ``volume`` (m3) and
     ``surface_area`` (m2) are also accepted. States are returned in native units,
-    never time-scaled, one per stress period at its end: the obs CSV holds a row
+    never time-scaled, one per stress period at its end: the obs file holds a row
     per time step, put on ``times``, the ``totim`` of the saved heads, one per
     stress period at its end. The series carries
     ``time_index`` when its length matches, else a positional index. Used by the
@@ -321,8 +321,8 @@ def extract_lake_series(
             f"Known lakes: {known}."
         )
 
-    obs_path = output_dir / spec.obs_csv
-    header, rows = read_obs_csv(obs_path)
+    obs_path = output_dir / spec.obs_file
+    header, rows = read_obs(obs_path)
     col_index = {name: pos for pos, name in enumerate(header)}
     rows = _lake_rows_on_stamps(spec, rows, times, col_index)
     pos = col_index.get(entry.obsname.upper())
@@ -343,17 +343,17 @@ def build_lake_records(
     seconds_per_time_unit: float,
     calendar_times: Sequence[Any] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Parse the LAK obs CSV into ``(timeseries_records, budget_records)``.
+    """Parse the LAK obs file into ``(timeseries_records, budget_records)``.
 
     ``times`` are the solver output ``totim`` values (TDIS time unit), one per
-    stress period at its end. The obs CSV and the LAK binary budget hold one
+    stress period at its end. The obs file and the LAK binary budget hold one
     entry per time step: each stamp takes the mean of the rates over the steps
     it closes, weighted by their length, and the states at its end. RATE
     quantities are divided by
     ``seconds_per_time_unit`` to reach m3/s; stage / volume / surface-area stay in
     their native units. The lake-aquifer exchange (``gwf_exchange``) and the
     vertical lake-bed balance (``lake_bed_vertical_exchange``) come from the applied flux in the LAK
-    binary budget (see :func:`read_applied_exchange`), not from the obs CSV, and
+    binary budget (see :func:`read_applied_exchange`), not from the obs file, and
     read negative when the lake loses water to the aquifer. A budget row mirrors
     the exchange total per lake so the water-balance tables carry the flux.
 
@@ -375,10 +375,10 @@ def build_lake_records(
             "files of the run again."
         )
     if not obs_path.is_file():
-        logger.debug("LAK obs CSV %s is missing; no per-lake series extracted", obs_path)
+        logger.debug("LAK obs file %s is missing; no per-lake series extracted", obs_path)
         return [], []
 
-    header, rows = read_obs_csv(obs_path)
+    header, rows = read_obs(obs_path)
     if not rows:
         return [], []
     col_index = {name: pos for pos, name in enumerate(header)}
@@ -577,7 +577,7 @@ def read_applied_exchange(
         logger.warning(
             "The LAK obs sidecar does not name the package binary budget, so the "
             "lake-aquifer exchange series (gwf_exchange, lake_bed_vertical_exchange, lak_gwf) is "
-            "not extracted. It cannot be rebuilt from the obs CSV: the per-connection lak "
+            "not extracted. It cannot be rebuilt from the obs file: the per-connection lak "
             "obs is not the applied flux. Re-run the model to get the exchange back."
         )
         return {}
@@ -586,7 +586,7 @@ def read_applied_exchange(
         logger.warning(
             "LAK binary budget %s is missing; the lake-aquifer exchange series "
             "(gwf_exchange, lake_bed_vertical_exchange, lak_gwf) is not extracted. It cannot be "
-            "rebuilt from the obs CSV: the per-connection lak obs is not the applied flux.",
+            "rebuilt from the obs file: the per-connection lak obs is not the applied flux.",
             budget_path.name,
         )
         return {}
