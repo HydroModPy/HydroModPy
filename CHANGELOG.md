@@ -28,6 +28,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The prepare phase of a `[sites]` launch runs once for the cases whose files differ only by their name and the values `[sites.design]` draws. A plan of 300 points on one catchment is prepared once instead of 300 times, which took 6 hours on that server. The other cases share its outcome, journaled as a `prepare_end` that names it in `like`.
 - A recharge period with the same rate on every cell is one `CONSTANT` line of the MODFLOW 6 input. A daily run of 34 years no longer writes 12 418 binary files and 2.7 GB of recharge per run.
 - The MODFLOW progress bar moves by a thousandth of the run at least, so a long chronicle writes 1 000 progress events instead of one per stress period.
+- The period edges of an hourly or daily window are built in one call instead of one by one. A daily window of 34 years takes 7 ms instead of 87 ms, the edges stay the same, and the dry run of a 300 point plan went from 55 s to 34 s.
 
 ### Fixed
 

@@ -361,6 +361,14 @@ def _build_time_boundaries(window: ResolvedSimulationTimeWindow) -> list[pd.Time
     # Each edge is start + k steps, as chain_windows writes it: adding one month to the
     # previous edge turned 31 January into 28 February, then 28 March.
     boundaries = [start]
+    if window.step_unit in ("hour", "day"):
+        # A fixed step: the edges come in one call. A daily window of 34 years
+        # has 12 418 of them, which the loop below built one by one.
+        step = _time_step_offset(step_value=window.step_value, step_unit=window.step_unit)
+        count = -(-(end_exclusive - start) // step)
+        # Durations, as the loop adds them: across a change to summer time a day
+        # stays 24 hours, where pd.date_range would count calendar days.
+        boundaries = [start, *(start + pd.Index(range(1, count + 1)) * step)]
     while boundaries[-1] < end_exclusive:
         offset = _time_step_offset(
             step_value=len(boundaries) * window.step_value, step_unit=window.step_unit

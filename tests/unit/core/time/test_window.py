@@ -170,6 +170,39 @@ def test_monthly_period_lengths():
     assert grid.period_ends_exclusive[-1] == pd.Timestamp("2021-01-01")
 
 
+@pytest.mark.parametrize(
+    ("start", "end", "value", "unit", "count", "step"),
+    [
+        ("1992-01-01", "2025-12-31", 1, "day", 12420, pd.Timedelta(days=1)),
+        ("2020-03-01 06:00", "2020-03-31 05:00", 1, "hour", 721, pd.Timedelta(hours=1)),
+        ("2020-01-01", "2020-12-31", 2, "day", 184, pd.Timedelta(days=2)),
+    ],
+)
+def test_a_fixed_step_adds_whole_steps_to_the_start(start, end, value, unit, count, step):
+    window = _window(start, end, value, unit)
+    edges = build_simulation_time_boundaries(window)
+    assert len(edges) == count
+    assert edges[0] is window.start
+    assert all(edge == window.start + k * step for k, edge in enumerate(edges))
+
+
+def test_a_day_stays_24_hours_across_summer_time():
+    # 29 March 2020 lasts 23 hours in Paris: 24-hour steps miss the local midnight.
+    start = pd.Timestamp("2020-03-20", tz="Europe/Paris")
+    window = dataclasses.replace(
+        _window("2020-03-20", "2020-04-05", 1, "day"),
+        start=start,
+        end=pd.Timestamp("2020-04-05", tz="Europe/Paris"),
+    )
+    with pytest.raises(ValueError, match="not aligned"):
+        build_simulation_time_boundaries(window)
+
+
+def test_a_misaligned_fixed_step_refused():
+    with pytest.raises(ValueError, match="not aligned"):
+        build_simulation_time_boundaries(_window("2020-01-01", "2020-12-30", 2, "day"))
+
+
 def test_reversed_window_refused():
     with pytest.raises(ValueError, match="greater than or equal"):
         build_simulation_time_boundaries(_window("2020-02-01", "2020-01-01", 1, "day"))
