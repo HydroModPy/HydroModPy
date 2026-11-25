@@ -459,6 +459,20 @@ def test_literal_site_key_refused(tmp_path: Path) -> None:
     )
 
 
+def test_literal_site_key_accepted_on_one_site(tmp_path: Path) -> None:
+    project = write_sites_project(
+        tmp_path, extra=MASKED_CROSSINGS, sites_extra='include = ["nancon"]\n'
+    )
+
+    draft = expand_plan(project, project / "project.toml")
+
+    assert not draft.errors, group_issues(draft.errors)
+    assert {case.site for case in draft.cases} == {"nancon"}
+    assert lookup(_case(draft, "nancon-base").document, "data.crossings.mask_path") == (
+        "inputs/mask.shp"
+    )
+
+
 def test_outlet_in_base_is_literal(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     project_toml = project / "project.toml"

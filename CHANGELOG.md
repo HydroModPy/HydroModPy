@@ -18,6 +18,10 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
+### Fixed
+
+- A `[sites]` project with one site accepts a site key written in the project file itself, such as the path of a station folder, so a plan on one catchment needs no `site_overrides/` file. With several sites the key is still refused, since every catchment would read the same value.
+
 ## [v2.0.1] - 2026-11-25
 
 ### Added

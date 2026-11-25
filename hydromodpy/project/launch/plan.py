@@ -658,7 +658,16 @@ def expand_plan(
             case_id = _case_id(site, recipe, taken, errors)
             if case_id is None:
                 continue
-            case = _case(site, recipe, case_id, root, (cli, envp), site_table, errors)
+            case = _case(
+                site,
+                recipe,
+                case_id,
+                root,
+                (cli, envp),
+                site_table,
+                errors,
+                one_site=len(sites) == 1,
+            )
             if case is not None:
                 cases.append(case)
     warnings = (*(design.warnings if design else ()), *_near_outlets(sites, near))
@@ -1182,6 +1191,8 @@ def _case(
     layers: tuple[Mapping[str, Any], Mapping[str, Any]],
     site_table: Table,
     errors: list[PlanIssue],
+    *,
+    one_site: bool = False,
 ) -> DraftCase | None:
     from hydromodpy.workflow.solution_key import planned_solution_key
 
@@ -1237,7 +1248,9 @@ def _case(
             recipe.file.name,
             f"export.{DELIVER_TO_KEY}",
         )
-    literal = _literal_site_keys(doc, _leaves(payload) | _leaves(site.override))
+    # A literal shared by every site runs each catchment on the first one's
+    # outlet or files. A plan of one site has no other catchment to mislead.
+    literal = [] if one_site else _literal_site_keys(doc, _leaves(payload) | _leaves(site.override))
     if literal:
         return refuse(
             f"site scoped key(s) hold a literal value shared by every site: "
