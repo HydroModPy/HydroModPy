@@ -509,7 +509,7 @@ depends_on = "{depends}"
             id="bounds_the_wrong_way_round",
         ),
         pytest.param(
-            "@GRID\n[calibration.parameters.Sy]\nbounds = [1e-4, 0.8]\n"
+            "@GRID\n[calibration.parameters.Sy]\nbounds = [1e-4, 1.2]\n"
             'path = "flow.param.Sy.field.value"\nunits = "-"',
             ["Sy"],
             id="a_bound_outside_the_physical_range",
@@ -932,10 +932,10 @@ def test_scale_bounds_as_values_refused() -> None:
 
 def test_scaled_product_meets_the_ceiling() -> None:
     (parameter,) = _scaled_space("scale").parameters
-    cfg = SimpleNamespace(flow=SimpleNamespace(sy=0.3))
+    cfg = SimpleNamespace(flow=SimpleNamespace(sy=0.6))
 
     apply_parameter_to_config(cfg, parameter, 1.5)
-    assert cfg.flow.sy == pytest.approx(0.45)
+    assert cfg.flow.sy == pytest.approx(0.9)
     with pytest.raises(ValueError, match="candidate"):
         apply_parameter_to_config(cfg, parameter, 2.0)
 

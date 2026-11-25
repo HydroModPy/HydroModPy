@@ -135,8 +135,8 @@ def scaled(path, mode="scale"):
 APPLY_REFUSALS = [
     pytest.param(
         SyConfig(0.1),
-        CalibParameter(name="Sy", lower=1e-4, upper=0.9, path=SY_PATH, units="-"),
-        0.9,
+        CalibParameter(name="Sy", lower=1e-4, upper=1.5, path=SY_PATH, units="-"),
+        1.5,
         "Sy",
         id="replaced value past the ceiling",
     ),

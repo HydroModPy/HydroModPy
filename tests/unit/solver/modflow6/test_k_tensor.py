@@ -153,7 +153,7 @@ def test_override_turns_xt3d_on(properties, match) -> None:
 @pytest.mark.parametrize(
     ("properties", "match"),
     [({"K": 1e3}, r"hydraulic conductivity \(id='K'\) in the runtime override, one value for every cell, value 1000.0 outside"),
-     ({"K": 1e-5, "Sy": [0.1, 0.8, 0.1, 0.1]}, r"specific yield \(id='Sy'\) in the runtime override, every layer, by cell: 1 of 4 .* index 1: 0.8"),
+     ({"K": 1e-5, "Sy": [0.1, 1.2, 0.1, 0.1]}, r"specific yield \(id='Sy'\) in the runtime override, every layer, by cell: 1 of 4 .* index 1: 1.2"),
      ({"K": 1e-5, "Ss": [1e-5] * 6 + [0.0, 1e-5]}, r"specific storage \(id='Ss'\) in the runtime override, layer 2 of 2, by cell: 1 of 4 .* index 2: 0.0"),
      ({"K": 1e-5, "angle2": 120.0}, r"\(id='angle2'\) in the runtime override")],
     ids=["k-everywhere", "sy-in-one-cell", "ss-in-one-cell-of-layer-2", "angle-past-the-vertical"],

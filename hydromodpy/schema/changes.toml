@@ -1199,3 +1199,17 @@ since = "2.0.2"
 effect = "numbers"
 quantities = ["fluxes@modflow6", "metrics"]
 text = "The observations of the LAK and SFR packages of MODFLOW 6 are written in binary and read at the double precision of the solver. They were written as CSV text with 10 significant digits, so a lake stage, a lake flow or a reach flow moves by at most 5e-10 in relative terms. The files are lake.lak.obs.bin and model.sfr.obs.bin instead of .csv. The CSV form came out garbled once MODFLOW runs with FORT_BUFFERED."
+
+[[recipe]]
+id = "specific_yield_ceiling_at_one"
+since = "2.0.2"
+effect = "refusal"
+quantities = []
+text = "A specific yield is accepted up to 1, in a field and in the bounds of a calibration. The ceiling was 0.5, so a calibration that searched Sy up to 0.8, as some v1 scripts did, was refused when the file was read. The floor stays at 1e-4. A value that was accepted reads as before."
+
+[[recipe]]
+id = "specific_yield_floor_at_1e_6"
+since = "2.0.2"
+effect = "refusal"
+quantities = []
+text = "A specific yield is accepted down to 1e-6, in a field and in the bounds of a calibration. The floor was 1e-4, so a search could not go below 0.01 per cent, while a sparsely fractured bedrock drains some 1e-5. A value that was accepted reads as before."

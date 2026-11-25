@@ -107,8 +107,13 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
     # a log-space search walks, and log(0) is not a number.
     "ss": PhysicalBound("1/m", 1e-12, 1e-3, "specific storage"),
     "specific_storage": PhysicalBound("1/m", 1e-12, 1e-3, "specific storage"),
-    "sy": PhysicalBound("-", 1e-4, 0.5, "specific yield"),
-    "specific_yield": PhysicalBound("-", 1e-4, 0.5, "specific yield"),
+    # Sy is a share of the cell volume, so 1 is the only hard ceiling. A value
+    # above the porosity of real rocks is still a fair trial in a calibration
+    # that lumps a thin weathered layer or a surface store into one cell. The
+    # floor sits under the drainable porosity of a sparsely fractured bedrock,
+    # some 1e-5, and stays above zero because a log-space search walks it.
+    "sy": PhysicalBound("-", 1e-6, 1.0, "specific yield"),
+    "specific_yield": PhysicalBound("-", 1e-6, 1.0, "specific yield"),
     # ---- Porosity -------------------------------------------------------
     "n": PhysicalBound("-", 1e-3, 0.6, "porosity"),
     "n_eff": PhysicalBound("-", 1e-3, 0.6, "effective porosity"),
